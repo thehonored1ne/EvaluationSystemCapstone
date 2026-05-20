@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Student extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'student_number',
+        'first_name',
+        'last_name',
+        'middle_name',
+        'program_id',
+        'year_level',
+        'section',
+        'status',
+    ];
+
+    /**
+     * Get the user account associated with the student.
+     */
+    public function user()
+    {
+        return $this->hasOne(User::class);
+    }
+
+    /**
+     * Get the academic program the student is enrolled in.
+     */
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
+    }
+
+    /**
+     * Get the classes the student is enrolled in.
+     */
+    public function classes()
+    {
+        return $this->belongsToMany(AcademicClass::class, 'class_student', 'student_id', 'class_id');
+    }
+
+    /**
+     * Get the student's full name.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return $this->middle_name
+            ? "{$this->first_name} {$this->middle_name} {$this->last_name}"
+            : "{$this->first_name} {$this->last_name}";
+    }
+}
