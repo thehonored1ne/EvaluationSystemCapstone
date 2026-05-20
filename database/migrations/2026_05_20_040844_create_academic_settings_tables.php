@@ -27,6 +27,8 @@ return new class extends Migration
             $table->decimal('student_max_points', 5, 2)->default(90.00);
             $table->decimal('peer_max_points', 5, 2)->default(50.00);
             $table->decimal('self_max_points', 5, 2)->default(10.00);
+            $table->timestamp('evaluation_starts_at')->nullable();
+            $table->timestamp('evaluation_ends_at')->nullable();
             $table->timestamps();
         });
 
