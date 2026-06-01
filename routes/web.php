@@ -62,6 +62,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/staff/dashboard', 'staff.dashboard')
         ->middleware('role:staff')
         ->name('staff.dashboard');
+
+    // Unified Sidebar Features
+    Volt::route('/manage-evaluations', 'manage-evaluations')
+        ->middleware('role:admin|dean|program head')
+        ->name('manage-evaluations');
+
+    Volt::route('/evaluation-results', 'evaluation-results')
+        ->middleware('role:admin|dean')
+        ->name('evaluation-results');
+
+    Volt::route('/analytics', 'analytics')
+        ->middleware('role:admin')
+        ->name('analytics');
+
+    Volt::route('/reports', 'reports')
+        ->middleware('role:admin|dean|program head')
+        ->name('reports');
+
+    Volt::route('/notifications', 'notifications')
+        ->name('notifications');
 });
 
 Route::middleware(['auth'])->group(function () {

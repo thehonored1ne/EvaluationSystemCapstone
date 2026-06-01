@@ -33,6 +33,7 @@ class DemoDataSeeder extends Seeder
         if ($deanEmployee) {
             $ccs->dean_id = $deanEmployee->id;
             $ccs->save();
+            $deanEmployee->update(['department_id' => $ccs->id]);
         }
 
         // 2. Create 4 Programs (BSCS, BSIT, BSED, BEED)
@@ -89,8 +90,10 @@ class DemoDataSeeder extends Seeder
                     'last_name' => $lastName,
                     'role' => 'program head',
                     'status' => 'active',
+                    'department_id' => $data['program']->department_id,
                 ]
             );
+            $employee->update(['department_id' => $data['program']->department_id]);
             $programHeadEmployees[] = $employee;
 
             $email = strtolower($data['code']) . '.head@example.com';
@@ -119,6 +122,7 @@ class DemoDataSeeder extends Seeder
             $firstName = fake()->firstName();
             $lastName = fake()->lastName();
 
+            $deptId = ($i <= 9) ? $ccs->id : $coed->id;
             $employee = Employee::firstOrCreate(
                 ['employee_number' => $empNumber],
                 [
@@ -126,8 +130,10 @@ class DemoDataSeeder extends Seeder
                     'last_name' => $lastName,
                     'role' => 'faculty',
                     'status' => 'active',
+                    'department_id' => $deptId,
                 ]
             );
+            $employee->update(['department_id' => $deptId]);
             $facultyEmployees[] = $employee;
 
             $user = User::firstOrCreate(

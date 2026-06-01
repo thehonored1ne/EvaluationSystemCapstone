@@ -31,15 +31,16 @@ return new class extends Migration
 
         Schema::create('evaluations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
-            $table->foreignId('student_id')->constrained('students')->onDelete('cascade');
+            $table->foreignId('evaluator_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('evaluatee_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('semester_id')->constrained('semesters')->onDelete('cascade');
-            $table->decimal('rating_average', 3, 2)->default(0.00);
+            $table->foreignId('class_id')->nullable()->constrained('classes')->onDelete('cascade');
+            $table->string('evaluation_type'); // 'student', 'peer', 'self'
+            $table->decimal('rating_average', 5, 2)->default(0.00);
             $table->text('comments')->nullable();
             $table->timestamps();
 
-            // Enforce that a student can only evaluate a specific class once
-            $table->unique(['class_id', 'student_id']);
+            $table->unique(['semester_id', 'evaluator_id', 'evaluatee_id', 'class_id'], 'evaluations_unique_submission');
         });
 
         Schema::create('evaluation_answers', function (Blueprint $table) {
