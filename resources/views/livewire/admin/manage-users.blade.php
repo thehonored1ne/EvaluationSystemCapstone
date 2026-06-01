@@ -26,6 +26,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     // Employee fields
     public string $employee_number = '';
     public string $employee_role = 'faculty';
+    public string $department_id = '';
 
     public string $search = '';
     public string $filterRole = '';
@@ -46,7 +47,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset([
             'email', 'password', 'userType', 'editingUser',
             'student_number', 'first_name', 'last_name', 'program_id', 'year_level', 'section',
-            'employee_number', 'employee_role'
+            'employee_number', 'employee_role', 'department_id'
         ]);
         $this->userType = 'student';
         $this->employee_role = 'faculty';
@@ -83,6 +84,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'users' => $query->orderBy('id')->paginate(10),
             'roles' => \Spatie\Permission\Models\Role::all(),
             'programs' => \App\Models\Program::orderBy('name')->get(),
+            'departments' => \App\Models\Department::orderBy('name')->get(),
         ];
     }
 
@@ -125,6 +127,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'employee_role' => 'required|in:admin,dean,program head,faculty,staff',
+                'department_id' => 'nullable|exists:departments,id',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8',
             ]);
@@ -135,6 +138,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'last_name' => $this->last_name,
                 'role' => $this->employee_role,
                 'status' => 'active',
+                'department_id' => $this->department_id ?: null,
             ]);
 
             $user = User::create([
@@ -151,7 +155,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset([
             'email', 'password', 'userType', 'showModal',
             'student_number', 'first_name', 'last_name', 'program_id', 'year_level', 'section',
-            'employee_number', 'employee_role'
+            'employee_number', 'employee_role', 'department_id'
         ]);
     }
 
@@ -175,6 +179,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->first_name = $user->employee->first_name ?? '';
             $this->last_name = $user->employee->last_name ?? '';
             $this->employee_role = $user->employee->role ?? 'faculty';
+            $this->department_id = $user->employee->department_id ?? '';
         }
         $this->showModal = true;
     }
@@ -212,6 +217,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'employee_role' => 'required|in:admin,dean,program head,faculty,staff',
+                'department_id' => 'nullable|exists:departments,id',
                 'email' => 'required|email|unique:users,email,' . $this->editingUser->id,
                 'password' => 'nullable|min:8',
             ]);
@@ -221,6 +227,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'first_name' => $this->first_name,
                 'last_name' => $this->last_name,
                 'role' => $this->employee_role,
+                'department_id' => $this->department_id ?: null,
             ]);
 
             $this->editingUser->update([
@@ -240,7 +247,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset([
             'email', 'password', 'userType', 'showModal', 'editingUser',
             'student_number', 'first_name', 'last_name', 'program_id', 'year_level', 'section',
-            'employee_number', 'employee_role'
+            'employee_number', 'employee_role', 'department_id'
         ]);
     }
 
@@ -391,6 +398,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                         <flux:select.option value="dean">Dean</flux:select.option>
                         <flux:select.option value="staff">Staff</flux:select.option>
                         <flux:select.option value="admin">System Administrator</flux:select.option>
+                    </flux:select>
+
+                    <flux:select wire:model="department_id" label="Department / College">
+                        <flux:select.option value="">Select Department (Optional)</flux:select.option>
+                        @foreach($departments as $dept)
+                            <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                        @endforeach
                     </flux:select>
                 @endif
 

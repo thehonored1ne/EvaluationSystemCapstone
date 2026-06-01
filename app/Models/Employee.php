@@ -16,6 +16,7 @@ class Employee extends Model
         'middle_name',
         'role',
         'status',
+        'department_id',
     ];
 
     /**
@@ -32,6 +33,14 @@ class Employee extends Model
     public function classes()
     {
         return $this->hasMany(AcademicClass::class, 'teacher_id');
+    }
+
+    /**
+     * Get the department this employee belongs to.
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /**

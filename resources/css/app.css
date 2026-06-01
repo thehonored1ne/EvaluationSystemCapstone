@@ -64,3 +64,42 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+    20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+
+[data-flux-toast-dialog][data-variant="danger"] {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+[data-flux-toast-dialog][data-variant="danger"] > div {
+    background-color: #fef2f2 !important;
+    border-color: #f87171 !important;
+    color: #991b1b !important;
+}
+
+[data-flux-toast-dialog][data-variant="danger"] div {
+    color: #991b1b !important;
+}
+
+[data-flux-toast-dialog][data-variant="danger"] ui-close button {
+    color: #991b1b !important;
+}
+
+.dark [data-flux-toast-dialog][data-variant="danger"] > div {
+    background-color: #450a0a !important;
+    border-color: #991b1b !important;
+    color: #fca5a5 !important;
+}
+
+.dark [data-flux-toast-dialog][data-variant="danger"] div {
+    color: #fca5a5 !important;
+}
+
+.dark [data-flux-toast-dialog][data-variant="danger"] ui-close button {
+    color: #fca5a5 !important;
+}
+

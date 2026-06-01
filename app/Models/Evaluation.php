@@ -10,9 +10,11 @@ class Evaluation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'class_id',
-        'student_id',
+        'evaluator_id',
+        'evaluatee_id',
         'semester_id',
+        'class_id',
+        'evaluation_type',
         'rating_average',
         'comments',
     ];
@@ -22,19 +24,27 @@ class Evaluation extends Model
     ];
 
     /**
+     * Get the evaluator (User) who submitted this evaluation.
+     */
+    public function evaluator()
+    {
+        return $this->belongsTo(User::class, 'evaluator_id');
+    }
+
+    /**
+     * Get the evaluatee (User) who was evaluated.
+     */
+    public function evaluatee()
+    {
+        return $this->belongsTo(User::class, 'evaluatee_id');
+    }
+
+    /**
      * Get the class being evaluated.
      */
     public function class()
     {
         return $this->belongsTo(AcademicClass::class, 'class_id');
-    }
-
-    /**
-     * Get the student who filled out this evaluation.
-     */
-    public function student()
-    {
-        return $this->belongsTo(Student::class);
     }
 
     /**
@@ -51,5 +61,52 @@ class Evaluation extends Model
     public function answers()
     {
         return $this->hasMany(EvaluationAnswer::class);
+    }
+
+    /**
+     * Get the current status of an evaluation (completed, processing, or pending).
+     */
+    public static function getStatus(int $evaluatorId, int $evaluateeId, int $semesterId, ?int $classId = null, string $type = 'student'): string
+    {
+        // 1. Check database
+        $exists = self::where([
+            'evaluator_id' => $evaluatorId,
+            'evaluatee_id' => $evaluateeId,
+            'semester_id' => $semesterId,
+            'class_id' => $classId,
+            'evaluation_type' => $type,
+        ])->exists();
+
+        if ($exists) {
+            return 'completed';
+        }
+
+        // 2. Check database queue jobs
+        try {
+            $pending = \Illuminate\Support\Facades\DB::table('jobs')
+                ->where('queue', 'default')
+                ->where(function ($query) use ($evaluatorId, $evaluateeId, $semesterId, $classId, $type) {
+                    $query->where('payload', 'like', '%ProcessEvaluationSubmission%')
+                        ->where('payload', 'like', '%evaluatorId%i:' . $evaluatorId . ';%')
+                        ->where('payload', 'like', '%evaluateeId%i:' . $evaluateeId . ';%')
+                        ->where('payload', 'like', '%semesterId%i:' . $semesterId . ';%')
+                        ->where('payload', 'like', '%evaluationType%s:' . strlen($type) . ':%' . $type . '%');
+
+                    if (is_null($classId)) {
+                        $query->where('payload', 'like', '%classId%N;%');
+                    } else {
+                        $query->where('payload', 'like', '%classId%i:' . $classId . ';%');
+                    }
+                })
+                ->exists();
+
+            if ($pending) {
+                return 'processing';
+            }
+        } catch (\Throwable $e) {
+            // Gracefully ignore if jobs table does not exist
+        }
+
+        return 'pending';
     }
 }

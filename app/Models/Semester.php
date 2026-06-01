@@ -17,6 +17,8 @@ class Semester extends Model
         'student_max_points',
         'peer_max_points',
         'self_max_points',
+        'evaluation_starts_at',
+        'evaluation_ends_at',
     ];
 
     protected $casts = [
@@ -25,7 +27,36 @@ class Semester extends Model
         'student_max_points' => 'float',
         'peer_max_points' => 'float',
         'self_max_points' => 'float',
+        'evaluation_starts_at' => 'datetime',
+        'evaluation_ends_at' => 'datetime',
     ];
+
+    /**
+     * Determine if evaluations are currently open based on status and start/end dates.
+     */
+    public function getEvaluationStatusAttribute(): string
+    {
+        if (!$this->is_evaluation_open) {
+            return 'locked';
+        }
+
+        $now = now();
+
+        if ($this->evaluation_starts_at && $now->lt($this->evaluation_starts_at)) {
+            return 'scheduled';
+        }
+
+        if ($this->evaluation_ends_at && $now->gt($this->evaluation_ends_at)) {
+            return 'expired';
+        }
+
+        return 'active';
+    }
+
+    public function isEvaluationWindowActive(): bool
+    {
+        return $this->evaluation_status === 'active';
+    }
 
     /**
      * Get the academic year this semester belongs to.

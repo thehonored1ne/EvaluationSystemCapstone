@@ -12,58 +12,65 @@
             </a>
 
             <flux:navlist variant="outline">
-                <flux:navlist.group heading="Overview" class="grid">
-                    @php
-                        $dashboardRoute = match(true) {
-                            auth()->user()->hasRole('admin') => 'admin.dashboard',
-                            auth()->user()->hasRole('dean') => 'dean.dashboard',
-                            auth()->user()->hasRole('program head') => 'program-head.dashboard',
-                            auth()->user()->hasRole('faculty') => 'faculty.dashboard',
-                            auth()->user()->hasRole('student') => 'student.dashboard',
-                            auth()->user()->hasRole('staff') => 'staff.dashboard',
-                            default => 'dashboard',
-                        };
-                    @endphp
-                    <flux:navlist.item icon="home" :href="route($dashboardRoute)" :current="request()->routeIs($dashboardRoute)" wire:navigate>Dashboard</flux:navlist.item>
-                </flux:navlist.group>
+                @php
+                    $user = auth()->user();
+                    $dashboardRoute = match(true) {
+                        $user->hasRole('admin') => 'admin.dashboard',
+                        $user->hasRole('dean') => 'dean.dashboard',
+                        $user->hasRole('program head') => 'program-head.dashboard',
+                        $user->hasRole('faculty') => 'faculty.dashboard',
+                        $user->hasRole('student') => 'student.dashboard',
+                        $user->hasRole('staff') => 'staff.dashboard',
+                        default => 'dashboard',
+                    };
+                @endphp
 
-                @hasrole('admin')
-                <flux:navlist.group heading="Management" class="grid">
-                    <flux:navlist.item icon="user" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>Manage Users</flux:navlist.item>
-                    <flux:navlist.item icon="cog-6-tooth" :href="route('admin.evaluation-settings')" :current="request()->routeIs('admin.evaluation-settings')" wire:navigate>Evaluation Settings</flux:navlist.item>
-                </flux:navlist.group>
-                @endhasrole
+                <!-- Dashboard (Admin, Dean, Program Head) -->
+                @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                    <flux:navlist.group heading="Overview" class="grid">
+                        <flux:navlist.item icon="home" :href="route($dashboardRoute)" :current="request()->routeIs($dashboardRoute)" wire:navigate>Dashboard</flux:navlist.item>
+                    </flux:navlist.group>
+                @endif
 
-                @hasanyrole('admin|dean|program head|faculty')
+                <!-- Management (Admin only) -->
+                @if($user->hasRole('admin'))
+                    <flux:navlist.group heading="Management" class="grid">
+                        <flux:navlist.item icon="user" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>Manage Users</flux:navlist.item>
+                        <flux:navlist.item icon="cog-6-tooth" :href="route('admin.evaluation-settings')" :current="request()->routeIs('admin.evaluation-settings')" wire:navigate>Evaluation Settings</flux:navlist.item>
+                    </flux:navlist.group>
+                @endif
+
+                <!-- Evaluations (All roles) -->
                 <flux:navlist.group heading="Evaluations" class="grid">
-                    @hasanyrole('admin|dean|program head')
-                        <flux:navlist.item icon="clipboard-document-check" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Manage Evaluations</flux:navlist.item>
-                    @endhasanyrole
-                    @hasrole('admin')
+                    @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                        <flux:navlist.item icon="clipboard-document-check" :href="route('manage-evaluations')" :current="request()->routeIs('manage-evaluations')" wire:navigate>Manage Evaluations</flux:navlist.item>
+                    @else
+                        <flux:navlist.item icon="clipboard-document-check" :href="route($dashboardRoute)" :current="request()->routeIs($dashboardRoute)" wire:navigate>Manage Evaluations</flux:navlist.item>
+                    @endif
+
+                    @if($user->hasRole('admin'))
                         <flux:navlist.item icon="clipboard-document-list" :href="route('admin.questions')" :current="request()->routeIs('admin.questions')" wire:navigate>Manage Questions</flux:navlist.item>
-                    @endhasrole
-                    <flux:navlist.item icon="check-badge" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Evaluation Results</flux:navlist.item>
+                    @endif
+
+                    @if($user->hasAnyRole(['admin', 'dean']))
+                        <flux:navlist.item icon="check-badge" :href="route('evaluation-results')" :current="request()->routeIs('evaluation-results')" wire:navigate>Evaluation Results</flux:navlist.item>
+                    @endif
                 </flux:navlist.group>
-                @endhasanyrole
 
-                @hasrole('student')
-                <flux:navlist.group heading="Evaluations" class="grid">
-                    <flux:navlist.item icon="pencil-square" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Professor Evaluation</flux:navlist.item>
-                </flux:navlist.group>
-                @endhasrole
+                <!-- Analytics & Reports (Admin, Dean, Program Head) -->
+                @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                    <flux:navlist.group heading="Analytics & Reports" class="grid">
+                        @if($user->hasRole('admin'))
+                            <flux:navlist.item icon="chart-bar" :href="route('analytics')" :current="request()->routeIs('analytics')" wire:navigate>Analytics</flux:navlist.item>
+                        @endif
+                        
+                        <flux:navlist.item icon="document-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>Reports</flux:navlist.item>
+                    </flux:navlist.group>
+                @endif
 
-
-                @hasanyrole('admin|dean|program head')
-                <flux:navlist.group heading="Analytics & Reports" class="grid">
-                        <flux:navlist.item icon="chart-bar" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Analytics</flux:navlist.item>
-                    
-                    <flux:navlist.item icon="document-chart-bar" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Reports</flux:navlist.item>
-                    
-                </flux:navlist.group>
-                @endhasanyrole
-
+                <!-- System (All roles) -->
                 <flux:navlist.group heading="System" class="grid">
-                    <flux:navlist.item icon="bell" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Notifications</flux:navlist.item>
+                    <flux:navlist.item icon="bell" :href="route('notifications')" :current="request()->routeIs('notifications')" wire:navigate>Notifications</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 
@@ -167,6 +174,7 @@
 
         {{ $slot }}
 
+        <flux:toast />
         @fluxScripts
     </body>
 </html>

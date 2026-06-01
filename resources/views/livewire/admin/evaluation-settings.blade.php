@@ -30,6 +30,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $peerMaxTarget = '50';
     public string $selfMaxTarget = '10';
 
+    // Evaluation window schedule
+    public string $startsAt = '';
+    public string $endsAt = '';
+
     public function mount()
     {
         $this->loadPoints();
@@ -47,6 +51,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->studentMaxTarget = (string)(float)$activeSem->student_max_points;
             $this->peerMaxTarget = (string)(float)$activeSem->peer_max_points;
             $this->selfMaxTarget = (string)(float)$activeSem->self_max_points;
+            $this->startsAt = $activeSem->evaluation_starts_at ? $activeSem->evaluation_starts_at->format('Y-m-d\TH:i') : '';
+            $this->endsAt = $activeSem->evaluation_ends_at ? $activeSem->evaluation_ends_at->format('Y-m-d\TH:i') : '';
         }
     }
 
@@ -113,7 +119,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         session()->flash('status', "Semester '{$semester->name}' ({$year->name}) is now active.");
     }
 
-    // Toggle evaluation status
+    // Toggle evaluation status manually
     public function toggleEvaluation()
     {
         $activeSem = $this->activeSemester;
@@ -124,8 +130,29 @@ new #[Layout('components.layouts.app')] class extends Component {
         $activeSem->is_evaluation_open = !$activeSem->is_evaluation_open;
         $activeSem->save();
 
-        $status = $activeSem->is_evaluation_open ? 'opened' : 'closed';
-        session()->flash('status', "Evaluations for {$activeSem->name} have been {$status}.");
+        $status = $activeSem->is_evaluation_open ? 'unlocked' : 'locked';
+        session()->flash('status', "Manual override: Evaluations have been {$status}.");
+    }
+
+    // Save evaluation starts_at and ends_at schedule
+    public function saveSchedule()
+    {
+        $this->validate([
+            'startsAt' => 'nullable|date',
+            'endsAt' => 'nullable|date|after_or_equal:startsAt',
+        ]);
+
+        $activeSem = $this->activeSemester;
+        if (!$activeSem) {
+            return;
+        }
+
+        $activeSem->update([
+            'evaluation_starts_at' => $this->startsAt ? \Illuminate\Support\Carbon::parse($this->startsAt) : null,
+            'evaluation_ends_at' => $this->endsAt ? \Illuminate\Support\Carbon::parse($this->endsAt) : null,
+        ]);
+
+        session()->flash('status', "Evaluation schedule dates updated successfully.");
     }
 
     // Create Academic Year
@@ -303,16 +330,27 @@ new #[Layout('components.layouts.app')] class extends Component {
                     </h2>
                     
                     @if($this->activeSemester)
-                        <flux:badge variant="{{ $this->activeSemester->is_evaluation_open ? 'success' : 'danger' }}" size="md">
-                            {{ $this->activeSemester->is_evaluation_open ? 'Evaluations Open' : 'Evaluations Closed' }}
-                        </flux:badge>
+                        @php
+                            $status = $this->activeSemester->evaluation_status;
+                        @endphp
+                        
+                        @if($status === 'locked')
+                            <flux:badge variant="danger" size="md">Manual locked</flux:badge>
+                        @elseif($status === 'scheduled')
+                            <flux:badge variant="warning" size="md">Scheduled (Not started)</flux:badge>
+                        @elseif($status === 'expired')
+                            <flux:badge variant="danger" size="md">Time expired</flux:badge>
+                        @elseif($status === 'active')
+                            <flux:badge variant="success" size="md">Open & Active</flux:badge>
+                        @endif
                     @else
                         <flux:badge variant="neutral" size="md">No Active Period</flux:badge>
                     @endif
                 </div>
 
                 @if($this->activeSemester)
-                    <div class="space-y-4">
+                    <div class="space-y-6">
+                        <!-- Period Info -->
                         <div class="grid grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-lg">
                             <div>
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400 block font-medium">Academic Year</span>
@@ -324,18 +362,59 @@ new #[Layout('components.layouts.app')] class extends Component {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-2">
+                        <!-- Schedule Setting Section -->
+                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-1.5">
+                                <flux:icon icon="clock" class="size-4 text-zinc-400" />
+                                Configure Evaluation Window
+                            </h3>
+
+                            <form wire:submit="saveSchedule" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <flux:input 
+                                            type="datetime-local" 
+                                            wire:model="startsAt" 
+                                            label="Start Time & Date" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <flux:input 
+                                            type="datetime-local" 
+                                            wire:model="endsAt" 
+                                            label="End Time & Date" 
+                                        />
+                                    </div>
+                                </div>
+                                @error('endsAt')
+                                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                                @enderror
+
+                                <div class="flex justify-end pt-1">
+                                    <flux:button type="submit" variant="outline" size="sm" icon="calendar">
+                                        Save Schedule Window
+                                    </flux:button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Manual Lock / Unlock Toggle -->
+                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                    {{ $this->activeSemester->is_evaluation_open ? 'Evaluation window is active' : 'Evaluation window is locked' }}
+                                    Manual System Lock override
                                 </p>
                                 <p class="text-xs text-zinc-500">
-                                    {{ $this->activeSemester->is_evaluation_open ? 'Students can now submit ratings for their professors.' : 'Students cannot evaluate their professors at this time.' }}
+                                    Disabling this locks the evaluation system immediately, ignoring any scheduled start/end windows.
                                 </p>
                             </div>
                             
-                            <flux:button variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" wire:click="toggleEvaluation">
-                                {{ $this->activeSemester->is_evaluation_open ? 'Close Window' : 'Open Window' }}
+                            <flux:button 
+                                variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
+                                wire:click="toggleEvaluation"
+                                size="sm"
+                            >
+                                {{ $this->activeSemester->is_evaluation_open ? 'Disable System' : 'Enable System' }}
                             </flux:button>
                         </div>
                     </div>
@@ -596,7 +675,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             @if($sem->is_active)
                                                 <flux:badge variant="info" size="sm">Active</flux:badge>
                                             @endif
-                                            @if($sem->is_evaluation_open)
+                                            @php
+                                                $semStatus = $sem->evaluation_status;
+                                            @endphp
+                                            @if($semStatus === 'active')
                                                 <flux:badge variant="success" size="sm">Open</flux:badge>
                                             @endif
                                         </div>
