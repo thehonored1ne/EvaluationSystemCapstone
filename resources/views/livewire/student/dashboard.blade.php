@@ -21,12 +21,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsEvaluationOpenProperty()
     {
         $sem = $this->activeSemester;
-        if (!$sem) return false;
-        if ($sem->is_evaluation_open) return true;
-        if ($sem->evaluation_starts_at && $sem->evaluation_ends_at) {
-            return now()->between($sem->evaluation_starts_at, $sem->evaluation_ends_at);
-        }
-        return false;
+        return $sem ? $sem->isEvaluationWindowActive() : false;
     }
 
     public function getEnrolledClassesProperty()

@@ -40,13 +40,17 @@ class Semester extends Model
             return 'locked';
         }
 
+        if (!$this->evaluation_starts_at || !$this->evaluation_ends_at) {
+            return 'locked';
+        }
+
         $now = now();
 
-        if ($this->evaluation_starts_at && $now->lt($this->evaluation_starts_at)) {
+        if ($now->lt($this->evaluation_starts_at)) {
             return 'scheduled';
         }
 
-        if ($this->evaluation_ends_at && $now->gt($this->evaluation_ends_at)) {
+        if ($now->gt($this->evaluation_ends_at)) {
             return 'expired';
         }
 

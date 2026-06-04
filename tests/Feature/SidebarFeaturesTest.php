@@ -19,8 +19,10 @@ beforeEach(function () {
     // Create roles
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'dean']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'program head']);
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
     \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'staff']);
 
     // Create academic context
     $this->ay = AcademicYear::create(['name' => '2025-2026', 'is_active' => true]);
@@ -29,6 +31,8 @@ beforeEach(function () {
         'name' => '1st Semester',
         'is_active' => true,
         'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
     ]);
 
     // Create Department
@@ -42,6 +46,11 @@ beforeEach(function () {
     $this->deanEmp = Employee::create(['employee_number' => 'D-01', 'first_name' => 'Dean', 'last_name' => 'CCS', 'role' => 'dean', 'status' => 'active', 'department_id' => $this->ccs->id]);
     $this->deanUser = User::create(['name' => 'Dean', 'email' => 'dean@example.com', 'employee_id' => $this->deanEmp->id, 'password' => 'password']);
     $this->deanUser->assignRole('dean');
+
+    // Program Head user
+    $this->phEmp = Employee::create(['employee_number' => 'PH-01', 'first_name' => 'PH', 'last_name' => 'CCS', 'role' => 'program head', 'status' => 'active', 'department_id' => $this->ccs->id]);
+    $this->phUser = User::create(['name' => 'Program Head', 'email' => 'ph@example.com', 'employee_id' => $this->phEmp->id, 'password' => 'password']);
+    $this->phUser->assignRole('program head');
 
     // Faculty user
     $this->facEmp = Employee::create(['employee_number' => 'F-01', 'first_name' => 'Fac', 'last_name' => 'CCS', 'role' => 'faculty', 'status' => 'active', 'department_id' => $this->ccs->id]);
@@ -116,3 +125,54 @@ test('manage evaluations lists completion rates correctly', function () {
     $response->assertSee('BSCS-1A');
     $response->assertSee('1 / 1'); // Evaluated / Enrolled
 });
+
+test('sidebar renders correct evaluator submenus depending on user role', function () {
+    // 1. Student
+    $this->actingAs($this->studUser);
+    $response = $this->get('/notifications'); // any page showing layout/sidebar
+    $response->assertSee('My Evaluations');
+    $response->assertSee('Evaluate Professors');
+    $response->assertDontSee('Self Evaluation');
+    $response->assertDontSee('Peer Evaluation');
+    $response->assertDontSee('Overview');
+
+    // 2. Faculty
+    $this->actingAs($this->facUser);
+    $response = $this->get('/notifications');
+    $response->assertSee('My Evaluations');
+    $response->assertSee('Self Evaluation');
+    $response->assertSee('Peer Evaluation');
+    $response->assertSee('Supervisor Evaluation');
+    $response->assertDontSee('Overview');
+
+    // 3. Staff (create a staff user for test)
+    $staffEmp = Employee::create(['employee_number' => 'S-99', 'first_name' => 'St', 'last_name' => 'Ff', 'role' => 'staff', 'status' => 'active']);
+    $staffUser = User::create(['name' => 'Staff Test', 'email' => 'staff.test@example.com', 'employee_id' => $staffEmp->id, 'password' => 'password']);
+    $staffUser->assignRole('staff');
+
+    $this->actingAs($staffUser);
+    $response = $this->get('/notifications');
+    $response->assertSee('My Evaluations');
+    $response->assertSee('Self Evaluation');
+    $response->assertSee('Supervisor Evaluation');
+    $response->assertDontSee('Peer Evaluation');
+    $response->assertDontSee('Overview');
+
+    // 4. Dean
+    $this->actingAs($this->deanUser);
+    $response = $this->get('/notifications');
+    $response->assertSee('My Evaluations');
+    $response->assertSee('Self Evaluation');
+    $response->assertSee('Program Head Evaluations');
+    $response->assertDontSee('Overview');
+
+    // 5. Program Head
+    $this->actingAs($this->phUser);
+    $response = $this->get('/notifications');
+    $response->assertSee('My Evaluations');
+    $response->assertSee('Self Evaluation');
+    $response->assertSee('Supervisor Evaluation');
+    $response->assertSee('Faculty Evaluations');
+    $response->assertDontSee('Overview');
+});
+

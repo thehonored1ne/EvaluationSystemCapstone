@@ -9,14 +9,21 @@ use Livewire\Volt\Component;
 new class extends Component {
     public string $name = '';
     public string $email = '';
+    public string $employee_number = '';
+    public bool $isAdmin = false;
 
     /**
      * Mount the component.
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->email = Auth::user()->email;
+        $user = Auth::user();
+        $this->name = $user->name;
+        $this->email = $user->email;
+        $this->isAdmin = $user->hasRole('admin');
+        if ($this->isAdmin && $user->employee) {
+            $this->employee_number = $user->employee->employee_number ?? '';
+        }
     }
 
     /**
@@ -26,9 +33,8 @@ new class extends Component {
     {
         $user = Auth::user();
 
-        $validated = $this->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
-
             'email' => [
                 'required',
                 'string',
@@ -37,15 +43,45 @@ new class extends Component {
                 'max:255',
                 Rule::unique(User::class)->ignore($user->id)
             ],
-        ]);
+        ];
 
-        $user->fill($validated);
+        if ($this->isAdmin) {
+            $rules['employee_number'] = [
+                'required',
+                'string',
+                Rule::unique('employees', 'employee_number')->ignore($user->employee_id)
+            ];
+        }
+
+        $validated = $this->validate($rules);
+
+        $user->name = $this->name;
+        $user->email = $this->email;
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
 
         $user->save();
+
+        if ($this->isAdmin) {
+            if ($user->employee) {
+                $user->employee->update([
+                    'employee_number' => $this->employee_number,
+                    'department_id' => null,
+                ]);
+            } else {
+                $employee = \App\Models\Employee::create([
+                    'employee_number' => $this->employee_number,
+                    'first_name' => 'System',
+                    'last_name' => 'Admin',
+                    'role' => 'admin',
+                    'status' => 'active',
+                    'department_id' => null,
+                ]);
+                $user->update(['employee_id' => $employee->id]);
+            }
+        }
 
         $this->dispatch('profile-updated', name: $user->name);
     }
@@ -100,6 +136,10 @@ new class extends Component {
                     </div>
                 @endif
             </div>
+
+            @if ($isAdmin)
+                <flux:input wire:model="employee_number" label="{{ __('Employee Number') }}" type="text" required />
+            @endif
 
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">

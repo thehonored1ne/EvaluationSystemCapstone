@@ -23,10 +23,21 @@
                         $user->hasRole('staff') => 'staff.dashboard',
                         default => 'dashboard',
                     };
+
+                    $unreadNotificationsCount = 0;
+                    if ($user) {
+                        $notifications = $user->getNotifications();
+                        $lastViewed = $user->notifications_last_viewed_at;
+                        foreach ($notifications as $notif) {
+                            if (!$lastViewed || $notif->created_at->gt($lastViewed)) {
+                                $unreadNotificationsCount++;
+                            }
+                        }
+                    }
                 @endphp
 
-                <!-- Dashboard (Admin, Dean, Program Head) -->
-                @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                <!-- Dashboard (Admin only) -->
+                @if($user->hasRole('admin'))
                     <flux:navlist.group heading="Overview" class="grid">
                         <flux:navlist.item icon="home" :href="route($dashboardRoute)" :current="request()->routeIs($dashboardRoute)" wire:navigate>Dashboard</flux:navlist.item>
                     </flux:navlist.group>
@@ -35,7 +46,30 @@
                 <!-- Management (Admin only) -->
                 @if($user->hasRole('admin'))
                     <flux:navlist.group heading="Management" class="grid">
-                        <flux:navlist.item icon="user" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>Manage Users</flux:navlist.item>
+                        <div x-data="{ open: {{ request()->routeIs('admin.deans', 'admin.program-heads', 'admin.faculty', 'admin.students', 'admin.staff') ? 'true' : 'false' }} }" class="w-full">
+                            <flux:navlist.item 
+                                icon="users" 
+                                as="button"
+                                @click.prevent="open = !open" 
+                                :current="request()->routeIs('admin.deans', 'admin.program-heads', 'admin.faculty', 'admin.students', 'admin.staff')"
+                                class="cursor-pointer w-full text-left"
+                            >
+                                <div class="flex justify-between items-center w-full">
+                                    <span>Manage Users</span>
+                                    <flux:icon icon="chevron-down" class="size-4 shrink-0 transition-transform duration-200" ::class="open ? 'rotate-180' : ''" />
+                                </div>
+                            </flux:navlist.item>
+
+                            <div x-show="open" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
+                                <flux:navlist.item :href="route('admin.deans')" :current="request()->routeIs('admin.deans')" wire:navigate class="text-xs">Deans</flux:navlist.item>
+                                <flux:navlist.item :href="route('admin.program-heads')" :current="request()->routeIs('admin.program-heads')" wire:navigate class="text-xs">Program Heads</flux:navlist.item>
+                                <flux:navlist.item :href="route('admin.faculty')" :current="request()->routeIs('admin.faculty')" wire:navigate class="text-xs">Faculty / Professors</flux:navlist.item>
+                                <flux:navlist.item :href="route('admin.students')" :current="request()->routeIs('admin.students')" wire:navigate class="text-xs">Students</flux:navlist.item>
+                                <flux:navlist.item :href="route('admin.staff')" :current="request()->routeIs('admin.staff')" wire:navigate class="text-xs">Staff</flux:navlist.item>
+                            </div>
+                        </div>
+                        <flux:navlist.item icon="book-open" :href="route('admin.subjects')" :current="request()->routeIs('admin.subjects')" wire:navigate>Manage Subjects</flux:navlist.item>
+                        <flux:navlist.item icon="academic-cap" :href="route('admin.classes')" :current="request()->routeIs('admin.classes')" wire:navigate>Manage Classes</flux:navlist.item>
                         <flux:navlist.item icon="cog-6-tooth" :href="route('admin.evaluation-settings')" :current="request()->routeIs('admin.evaluation-settings')" wire:navigate>Evaluation Settings</flux:navlist.item>
                     </flux:navlist.group>
                 @endif
@@ -44,8 +78,51 @@
                 <flux:navlist.group heading="Evaluations" class="grid">
                     @if($user->hasAnyRole(['admin', 'dean', 'program head']))
                         <flux:navlist.item icon="clipboard-document-check" :href="route('manage-evaluations')" :current="request()->routeIs('manage-evaluations')" wire:navigate>Manage Evaluations</flux:navlist.item>
-                    @else
-                        <flux:navlist.item icon="clipboard-document-check" :href="route($dashboardRoute)" :current="request()->routeIs($dashboardRoute)" wire:navigate>Manage Evaluations</flux:navlist.item>
+                    @endif
+
+                    @if(!$user->hasRole('admin'))
+                        <div x-data="{ open: {{ request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'program-head.dashboard') ? 'true' : 'false' }} }" class="w-full">
+                            <flux:navlist.item 
+                                icon="clipboard-document-check" 
+                                as="button"
+                                @click.prevent="open = !open" 
+                                :current="request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'program-head.dashboard')"
+                                class="cursor-pointer w-full text-left"
+                            >
+                                <div class="flex justify-between items-center w-full">
+                                    <span>My Evaluations</span>
+                                    <flux:icon icon="chevron-down" class="size-4 shrink-0 transition-transform duration-200" ::class="open ? 'rotate-180' : ''" />
+                                </div>
+                            </flux:navlist.item>
+
+                            <div x-show="open" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
+                                @if($user->hasRole('dean'))
+                                    <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs">Self Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'program-heads'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'program-heads'" wire:navigate class="text-xs">Program Head Evaluations</flux:navlist.item>
+                                @endif
+
+                                @if($user->hasRole('program head'))
+                                    <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs">Self Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'supervisor'" wire:navigate class="text-xs">Supervisor Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'faculty'" wire:navigate class="text-xs">Faculty Evaluations</flux:navlist.item>
+                                @endif
+
+                                @if($user->hasRole('student'))
+                                    <flux:navlist.item :href="route('student.dashboard')" :current="request()->routeIs('student.dashboard')" wire:navigate class="text-xs">Evaluate Professors</flux:navlist.item>
+                                @endif
+
+                                @if($user->hasRole('faculty'))
+                                    <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'self'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs">Self Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'peer'" wire:navigate class="text-xs">Peer Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'supervisor'" wire:navigate class="text-xs">Supervisor Evaluation</flux:navlist.item>
+                                @endif
+
+                                @if($user->hasRole('staff'))
+                                    <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'self'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs">Self Evaluation</flux:navlist.item>
+                                    <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'supervisor'" wire:navigate class="text-xs">Supervisor Evaluation</flux:navlist.item>
+                                @endif
+                            </div>
+                        </div>
                     @endif
 
                     @if($user->hasRole('admin'))
@@ -70,7 +147,12 @@
 
                 <!-- System (All roles) -->
                 <flux:navlist.group heading="System" class="grid">
-                    <flux:navlist.item icon="bell" :href="route('notifications')" :current="request()->routeIs('notifications')" wire:navigate>Notifications</flux:navlist.item>
+                    <flux:navlist.item icon="bell" :href="route('notifications')" :current="request()->routeIs('notifications')" wire:navigate>
+                        Notifications
+                        @if(isset($unreadNotificationsCount) && $unreadNotificationsCount > 0)
+                            <flux:badge size="sm" color="amber" class="ml-auto flex items-center justify-center font-bold">{{ $unreadNotificationsCount }}</flux:badge>
+                        @endif
+                    </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

@@ -174,7 +174,7 @@ new class extends Component {
             return;
         }
 
-        if (!$activeSem->is_evaluation_open) {
+        if (!$activeSem->isEvaluationWindowActive()) {
             session()->flash('error', 'Evaluations are currently closed.');
             return;
         }

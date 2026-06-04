@@ -25,6 +25,8 @@ beforeEach(function () {
         'name' => '1st Semester',
         'is_active' => true,
         'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
     ]);
 
     // Create Departments

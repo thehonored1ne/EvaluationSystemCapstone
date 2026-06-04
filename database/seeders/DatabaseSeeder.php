@@ -176,7 +176,7 @@ class DatabaseSeeder extends Seeder
             [
                 'first_name' => 'System',
                 'last_name' => 'Admin',
-                'role' => 'staff',
+                'role' => 'admin',
                 'status' => 'active',
             ]
         );

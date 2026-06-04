@@ -26,9 +26,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.dashboard');
 
-    Volt::route('/admin/users', 'admin.manage-users')
+    Route::redirect('/admin/users', '/admin/deans')->name('admin.users');
+
+    Volt::route('/admin/deans', 'admin.manage-deans')
         ->middleware('role:admin')
-        ->name('admin.users');
+        ->name('admin.deans');
+
+    Volt::route('/admin/program-heads', 'admin.manage-program-heads')
+        ->middleware('role:admin')
+        ->name('admin.program-heads');
+
+    Volt::route('/admin/faculty', 'admin.manage-faculty')
+        ->middleware('role:admin')
+        ->name('admin.faculty');
+
+    Volt::route('/admin/students', 'admin.manage-students')
+        ->middleware('role:admin')
+        ->name('admin.students');
+
+    Volt::route('/admin/staff', 'admin.manage-staff')
+        ->middleware('role:admin')
+        ->name('admin.staff');
 
     Volt::route('/admin/evaluation-settings', 'admin.evaluation-settings')
         ->middleware('role:admin')
@@ -37,6 +55,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/admin/questions', 'admin.manage-questions')
         ->middleware('role:admin')
         ->name('admin.questions');
+
+    Volt::route('/admin/subjects', 'admin.manage-subjects')
+        ->middleware('role:admin')
+        ->name('admin.subjects');
+
+    Volt::route('/admin/classes', 'admin.manage-classes')
+        ->middleware('role:admin')
+        ->name('admin.classes');
 
     // Dean Dashboard
     Volt::route('/dean/dashboard', 'dean.dashboard')

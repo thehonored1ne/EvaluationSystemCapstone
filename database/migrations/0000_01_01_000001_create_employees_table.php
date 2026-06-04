@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('middle_name')->nullable();
-            $table->enum('role', ['dean', 'program head', 'faculty', 'staff']);
+            $table->enum('role', ['admin', 'dean', 'program head', 'faculty', 'staff']);
             $table->string('status')->default('active');
             $table->timestamps();
         });

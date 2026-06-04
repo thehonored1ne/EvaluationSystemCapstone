@@ -4,9 +4,31 @@ use Livewire\Volt\Component;
 use App\Models\AcademicYear;
 use App\Models\Semester;
 use App\Models\EvaluationCriterion;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Program;
 use Livewire\Attributes\Layout;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    // Program CRUD
+    public bool $showProgModal = false;
+    public bool $showDeleteProgModal = false;
+    public string $progId = '';
+    public string $progCode = '';
+    public string $progName = '';
+    public string $progDeptId = '';
+    public string $progHeadId = '';
+    public ?string $deletingProgId = null;
+
+    // Department CRUD
+    public bool $showDeptModal = false;
+    public bool $showDeleteDeptModal = false;
+    public string $deptId = '';
+    public string $deptCode = '';
+    public string $deptName = '';
+    public string $deptDeanId = '';
+    public ?string $deletingDeptId = null;
+
     // Academic Year creation
     public string $newYearName = '';
     public bool $showYearModal = false;
@@ -34,6 +56,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $startsAt = '';
     public string $endsAt = '';
 
+    // Schedule modals
+    public bool $showOverwriteModal = false;
+    public bool $showRemoveScheduleModal = false;
+
     public function mount()
     {
         $this->loadPoints();
@@ -59,6 +85,190 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getAcademicYearsProperty()
     {
         return AcademicYear::with('semesters')->orderBy('name', 'desc')->get();
+    }
+
+    public function getDepartmentsProperty()
+    {
+        return Department::with('dean')->orderBy('name')->get();
+    }
+
+    public function getDeansProperty()
+    {
+        return Employee::where('role', 'dean')->orderBy('last_name')->get();
+    }
+
+    public function getProgramsProperty()
+    {
+        return Program::with(['department', 'programHead'])->orderBy('name')->get();
+    }
+
+    public function getProgramHeadsProperty()
+    {
+        return Employee::where('role', 'program head')->orderBy('last_name')->get();
+    }
+
+    // Open department modal
+    public function openDeptModal($id = null)
+    {
+        $this->resetErrorBag();
+        if ($id) {
+            $dept = Department::findOrFail($id);
+            $this->deptId = (string)$dept->id;
+            $this->deptCode = $dept->code;
+            $this->deptName = $dept->name;
+            $this->deptDeanId = (string)$dept->dean_id;
+        } else {
+            $this->deptId = '';
+            $this->deptCode = '';
+            $this->deptName = '';
+            $this->deptDeanId = '';
+        }
+        $this->showDeptModal = true;
+    }
+
+    // Save department (create or update)
+    public function saveDept()
+    {
+        $rules = [
+            'deptCode' => 'required|string|max:50|unique:departments,code,' . $this->deptId,
+            'deptName' => 'required|string|max:255',
+            'deptDeanId' => 'nullable|exists:employees,id',
+        ];
+
+        $this->validate($rules);
+
+        $data = [
+            'code' => $this->deptCode,
+            'name' => $this->deptName,
+            'dean_id' => $this->deptDeanId ?: null,
+        ];
+
+        if ($this->deptId) {
+            $dept = Department::findOrFail($this->deptId);
+            $dept->update($data);
+            
+            // Sync dean employee department if assigned
+            if ($dept->dean_id) {
+                Employee::where('id', $dept->dean_id)->update(['department_id' => $dept->id]);
+            }
+            
+            session()->flash('status', "Department '{$dept->name}' updated successfully.");
+        } else {
+            $dept = Department::create($data);
+            
+            // Sync dean employee department if assigned
+            if ($dept->dean_id) {
+                Employee::where('id', $dept->dean_id)->update(['department_id' => $dept->id]);
+            }
+            
+            session()->flash('status', "Department '{$dept->name}' created successfully.");
+        }
+
+        $this->showDeptModal = false;
+    }
+
+    // Confirm Delete
+    public function confirmDeleteDept($id)
+    {
+        $this->deletingDeptId = (string)$id;
+        $this->showDeleteDeptModal = true;
+    }
+
+    // Delete Department
+    public function deleteDept()
+    {
+        if ($this->deletingDeptId) {
+            $dept = Department::findOrFail($this->deletingDeptId);
+            $name = $dept->name;
+            $dept->delete();
+            session()->flash('status', "Department '{$name}' deleted successfully.");
+        }
+        $this->deletingDeptId = null;
+        $this->showDeleteDeptModal = false;
+    }
+
+    // Open program modal
+    public function openProgModal($id = null)
+    {
+        $this->resetErrorBag();
+        if ($id) {
+            $prog = Program::findOrFail($id);
+            $this->progId = (string)$prog->id;
+            $this->progCode = $prog->code;
+            $this->progName = $prog->name;
+            $this->progDeptId = (string)$prog->department_id;
+            $this->progHeadId = (string)$prog->program_head_id;
+        } else {
+            $this->progId = '';
+            $this->progCode = '';
+            $this->progName = '';
+            $this->progDeptId = '';
+            $this->progHeadId = '';
+        }
+        $this->showProgModal = true;
+    }
+
+    // Save program (create or update)
+    public function saveProg()
+    {
+        $rules = [
+            'progCode' => 'required|string|max:50|unique:programs,code,' . $this->progId,
+            'progName' => 'required|string|max:255',
+            'progDeptId' => 'required|exists:departments,id',
+            'progHeadId' => 'nullable|exists:employees,id',
+        ];
+
+        $this->validate($rules);
+
+        $data = [
+            'code' => $this->progCode,
+            'name' => $this->progName,
+            'department_id' => $this->progDeptId,
+            'program_head_id' => $this->progHeadId ?: null,
+        ];
+
+        if ($this->progId) {
+            $prog = Program::findOrFail($this->progId);
+            $prog->update($data);
+            
+            // Sync program head employee department if assigned
+            if ($prog->program_head_id) {
+                Employee::where('id', $prog->program_head_id)->update(['department_id' => $prog->department_id]);
+            }
+            
+            session()->flash('status', "Program '{$prog->name}' updated successfully.");
+        } else {
+            $prog = Program::create($data);
+            
+            // Sync program head employee department if assigned
+            if ($prog->program_head_id) {
+                Employee::where('id', $prog->program_head_id)->update(['department_id' => $prog->department_id]);
+            }
+            
+            session()->flash('status', "Program '{$prog->name}' created successfully.");
+        }
+
+        $this->showProgModal = false;
+    }
+
+    // Confirm Delete
+    public function confirmDeleteProg($id)
+    {
+        $this->deletingProgId = (string)$id;
+        $this->showDeleteProgModal = true;
+    }
+
+    // Delete Program
+    public function deleteProg()
+    {
+        if ($this->deletingProgId) {
+            $prog = Program::findOrFail($this->deletingProgId);
+            $name = $prog->name;
+            $prog->delete();
+            session()->flash('status', "Program '{$name}' deleted successfully.");
+        }
+        $this->deletingProgId = null;
+        $this->showDeleteProgModal = false;
     }
 
     public function getActiveSemesterProperty()
@@ -124,17 +334,44 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $activeSem = $this->activeSemester;
         if (!$activeSem) {
+            session()->flash('status', "No active semester configured.");
             return;
+        }
+
+        // If currently closed, validate before opening
+        if (!$activeSem->is_evaluation_open) {
+            $this->resetErrorBag();
+
+            // 1. Check if schedule window is set in the database
+            if (!$activeSem->evaluation_starts_at || !$activeSem->evaluation_ends_at) {
+                $this->addError('evaluation_toggle', "Cannot open evaluations: Please configure and save the evaluation window schedule dates first.");
+                return;
+            }
+
+            // 2. Check if criteria points are balanced
+            $totals = $this->categoryTotals;
+            $studentTarget = is_numeric($this->studentMaxTarget) ? (float)$this->studentMaxTarget : 0.0;
+            $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
+            $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
+
+            $isStudentBalanced = abs($totals['student'] - $studentTarget) < 0.001;
+            $isPeerBalanced = abs($totals['peer'] - $peerTarget) < 0.001;
+            $isSelfBalanced = abs($totals['self'] - $selfTarget) < 0.001;
+
+            if (!$isStudentBalanced || !$isPeerBalanced || !$isSelfBalanced) {
+                $this->addError('evaluation_toggle', "Cannot open evaluations: One or more evaluation categories are not balanced. Check your Evaluation Criteria Points configuration below.");
+                return;
+            }
         }
 
         $activeSem->is_evaluation_open = !$activeSem->is_evaluation_open;
         $activeSem->save();
 
-        $status = $activeSem->is_evaluation_open ? 'unlocked' : 'locked';
-        session()->flash('status', "Manual override: Evaluations have been {$status}.");
+        $status = $activeSem->is_evaluation_open ? 'opened' : 'closed';
+        session()->flash('status', "Evaluations have been successfully {$status}.");
     }
 
-    // Save evaluation starts_at and ends_at schedule
+    // Save evaluation schedule — intercept if one already exists
     public function saveSchedule()
     {
         $this->validate([
@@ -147,12 +384,69 @@ new #[Layout('components.layouts.app')] class extends Component {
             return;
         }
 
+        // If there is already a saved schedule, ask for confirmation before overwriting
+        if ($activeSem->evaluation_starts_at || $activeSem->evaluation_ends_at) {
+            $this->showOverwriteModal = true;
+            return;
+        }
+
+        $this->commitSaveSchedule($activeSem);
+    }
+
+    // Called when admin confirms overwrite from the modal
+    public function confirmSaveSchedule()
+    {
+        $this->showOverwriteModal = false;
+
+        $this->validate([
+            'startsAt' => 'nullable|date',
+            'endsAt' => 'nullable|date|after_or_equal:startsAt',
+        ]);
+
+        $activeSem = $this->activeSemester;
+        if (!$activeSem) {
+            return;
+        }
+
+        $this->commitSaveSchedule($activeSem);
+    }
+
+    // Internal: persist dates to DB
+    private function commitSaveSchedule(Semester $activeSem): void
+    {
         $activeSem->update([
             'evaluation_starts_at' => $this->startsAt ? \Illuminate\Support\Carbon::parse($this->startsAt) : null,
             'evaluation_ends_at' => $this->endsAt ? \Illuminate\Support\Carbon::parse($this->endsAt) : null,
         ]);
 
         session()->flash('status', "Evaluation schedule dates updated successfully.");
+    }
+
+    // Open the remove schedule confirmation modal
+    public function confirmRemoveSchedule()
+    {
+        $this->showRemoveScheduleModal = true;
+    }
+
+    // Clear / remove the saved schedule from DB
+    public function clearSchedule()
+    {
+        $this->showRemoveScheduleModal = false;
+
+        $activeSem = $this->activeSemester;
+        if (!$activeSem) {
+            return;
+        }
+
+        $activeSem->update([
+            'evaluation_starts_at' => null,
+            'evaluation_ends_at'   => null,
+        ]);
+
+        $this->startsAt = '';
+        $this->endsAt   = '';
+
+        session()->flash('status', "Evaluation schedule has been cleared.");
     }
 
     // Create Academic Year
@@ -335,11 +629,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                         @endphp
                         
                         @if($status === 'locked')
-                            <flux:badge variant="danger" size="md">Manual locked</flux:badge>
+                            <flux:badge variant="danger" size="md">Closed (Locked)</flux:badge>
                         @elseif($status === 'scheduled')
                             <flux:badge variant="warning" size="md">Scheduled (Not started)</flux:badge>
                         @elseif($status === 'expired')
-                            <flux:badge variant="danger" size="md">Time expired</flux:badge>
+                            <flux:badge variant="danger" size="md">Expired (Closed)</flux:badge>
                         @elseif($status === 'active')
                             <flux:badge variant="success" size="md">Open & Active</flux:badge>
                         @endif
@@ -369,53 +663,141 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 Configure Evaluation Window
                             </h3>
 
-                            <form wire:submit="saveSchedule" class="space-y-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <flux:input 
-                                            type="datetime-local" 
-                                            wire:model="startsAt" 
-                                            label="Start Time & Date" 
-                                        />
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                                <!-- Left: Input form -->
+                                <form wire:submit="saveSchedule" class="space-y-4">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <flux:input
+                                                type="datetime-local"
+                                                wire:model="startsAt"
+                                                label="Start Time & Date"
+                                            />
+                                        </div>
+                                        <div>
+                                            <flux:input
+                                                type="datetime-local"
+                                                wire:model="endsAt"
+                                                label="End Time & Date"
+                                            />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <flux:input 
-                                            type="datetime-local" 
-                                            wire:model="endsAt" 
-                                            label="End Time & Date" 
-                                        />
-                                    </div>
-                                </div>
-                                @error('endsAt')
-                                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                                @enderror
+                                    @error('endsAt')
+                                        <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                                    @enderror
 
-                                <div class="flex justify-end pt-1">
-                                    <flux:button type="submit" variant="outline" size="sm" icon="calendar">
-                                        Save Schedule Window
-                                    </flux:button>
-                                </div>
-                            </form>
+                                    <div class="flex justify-end pt-1">
+                                        <flux:button type="submit" variant="outline" size="sm" icon="calendar">
+                                            Save Schedule Window
+                                        </flux:button>
+                                    </div>
+                                </form>
+
+                                <!-- Right: Current saved schedule display -->
+                                @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
+                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
+                                                <flux:icon icon="calendar-days" class="size-4" />
+                                                Current Saved Schedule
+                                            </span>
+                                            <button
+                                                type="button"
+                                                wire:click="confirmRemoveSchedule"
+                                                class="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors"
+                                            >
+                                                <flux:icon icon="trash" class="size-3.5" />
+                                                Remove
+                                            </button>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <div class="flex items-start gap-2">
+                                                <span class="mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-1.5"></span>
+                                                <div>
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Opens</p>
+                                                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                                                        {{ $this->activeSemester->evaluation_starts_at
+                                                            ? $this->activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A')
+                                                            : '—' }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-start gap-2">
+                                                <span class="mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-rose-500 mt-1.5"></span>
+                                                <div>
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Closes</p>
+                                                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                                                        {{ $this->activeSemester->evaluation_ends_at
+                                                            ? $this->activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A')
+                                                            : '—' }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        @php
+                                            $status = $this->activeSemester->evaluation_status;
+                                        @endphp
+                                        <div class="pt-1">
+                                            @if($status === 'active')
+                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 rounded-full px-2.5 py-0.5">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    Active Now
+                                                </span>
+                                            @elseif($status === 'scheduled')
+                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/40 rounded-full px-2.5 py-0.5">
+                                                    <flux:icon icon="clock" class="size-3" />
+                                                    Scheduled
+                                                </span>
+                                            @elseif($status === 'expired')
+                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-full px-2.5 py-0.5">
+                                                    <flux:icon icon="x-circle" class="size-3" />
+                                                    Expired
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 rounded-full px-2.5 py-0.5">
+                                                    <flux:icon icon="lock-closed" class="size-3" />
+                                                    Locked
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30 p-4 flex flex-col items-center justify-center text-center gap-2 min-h-[120px]">
+                                        <flux:icon icon="calendar" class="size-7 text-zinc-300 dark:text-zinc-600" />
+                                        <p class="text-xs text-zinc-400 dark:text-zinc-500 font-medium">No schedule set yet.</p>
+                                        <p class="text-xs text-zinc-400 dark:text-zinc-500">Set a start and end date, then click Save.</p>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
 
                         <!-- Manual Lock / Unlock Toggle -->
-                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                    Manual System Lock override
-                                </p>
-                                <p class="text-xs text-zinc-500">
-                                    Disabling this locks the evaluation system immediately, ignoring any scheduled start/end windows.
-                                </p>
+                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                        Manual Evaluation Control
+                                    </p>
+                                    <p class="text-xs text-zinc-500">
+                                        Opening this allows evaluations to be active during the scheduled start and end window.
+                                    </p>
+                                </div>
+                                
+                                <flux:button 
+                                    variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
+                                    wire:click="toggleEvaluation"
+                                    size="sm"
+                                >
+                                    {{ $this->activeSemester->is_evaluation_open ? 'Close Evaluation' : 'Open Evaluation' }}
+                                </flux:button>
                             </div>
-                            
-                            <flux:button 
-                                variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
-                                wire:click="toggleEvaluation"
-                                size="sm"
-                            >
-                                {{ $this->activeSemester->is_evaluation_open ? 'Disable System' : 'Enable System' }}
-                            </flux:button>
+                            @error('evaluation_toggle')
+                                <div class="mt-3 p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 rounded-lg border border-rose-100 dark:border-rose-900 text-xs font-semibold">
+                                    {{ $message }}
+                                </div>
+                            @enderror
                         </div>
                     </div>
                 @else
@@ -699,6 +1081,97 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @endforelse
                 </div>
             </div>
+
+            <!-- Departments Card -->
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <flux:icon icon="academic-cap" class="size-5 text-indigo-500" />
+                        Manage Departments
+                    </h2>
+                    <flux:button size="sm" variant="outline" icon="plus" wire:click="openDeptModal()">Add Dept</flux:button>
+                </div>
+
+                <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                    @forelse($this->departments as $dept)
+                        <div class="p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg flex items-center justify-between hover:border-zinc-200 transition duration-150">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">{{ $dept->code }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-250">{{ $dept->name }}</span>
+                                </div>
+                                <div class="text-xs text-zinc-500 mt-1">
+                                    Dean: <span class="font-medium text-zinc-750 dark:text-zinc-300">{{ $dept->dean ? $dept->dean->full_name : 'Not assigned' }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <flux:button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    icon="pencil" 
+                                    wire:click="openDeptModal({{ $dept->id }})"
+                                    class="text-zinc-650 dark:text-zinc-400"
+                                />
+                                <flux:button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    icon="trash" 
+                                    wire:click="confirmDeleteDept({{ $dept->id }})"
+                                    class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                />
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-6 text-zinc-400 text-sm">No departments created.</div>
+                    @endforelse
+                </div>
+            </div>
+
+            <!-- Programs Card -->
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <flux:icon icon="book-open" class="size-5 text-indigo-500" />
+                        Manage Programs
+                    </h2>
+                    <flux:button size="sm" variant="outline" icon="plus" wire:click="openProgModal()">Add Prog</flux:button>
+                </div>
+
+                <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                    @forelse($this->programs as $prog)
+                        <div class="p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg flex items-center justify-between hover:border-zinc-200 transition duration-150">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">{{ $prog->code }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-250">{{ $prog->name }}</span>
+                                </div>
+                                <div class="text-xs text-zinc-500 mt-1">
+                                    Dept: <span class="font-medium text-zinc-700 dark:text-zinc-300 mr-2">{{ $prog->department?->code ?: 'None' }}</span>
+                                    Head: <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $prog->programHead ? $prog->programHead->full_name : 'Not assigned' }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <flux:button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    icon="pencil" 
+                                    wire:click="openProgModal({{ $prog->id }})"
+                                    class="text-zinc-650 dark:text-zinc-400"
+                                />
+                                <flux:button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    icon="trash" 
+                                    wire:click="confirmDeleteProg({{ $prog->id }})"
+                                    class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                />
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-6 text-zinc-400 text-sm">No programs created.</div>
+                    @endforelse
+                </div>
+            </div>
         </div>
     </div>
 
@@ -793,6 +1266,236 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <flux:button size="sm" variant="primary" type="submit">Create</flux:button>
                 </div>
             </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- Create/Edit Department Modal -->
+    @if($showDeptModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
+            <flux:heading size="lg" class="mb-4">{{ $deptId ? 'Edit Department' : 'Create Department' }}</flux:heading>
+            
+            <form wire:submit="saveDept" class="space-y-4">
+                <flux:input 
+                    wire:model="deptCode" 
+                    label="Department Code" 
+                    placeholder="e.g. CCS" 
+                    required 
+                />
+                @error('deptCode')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <flux:input 
+                    wire:model="deptName" 
+                    label="Department Name" 
+                    placeholder="e.g. College of Computer Studies" 
+                    required 
+                />
+                @error('deptName')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <flux:select wire:model="deptDeanId" label="Dean / Head (Optional)">
+                    <flux:select.option value="">Select Dean</flux:select.option>
+                    @foreach($this->deans as $dean)
+                        <flux:select.option value="{{ $dean->id }}">{{ $dean->full_name }} ({{ $dean->employee_number }})</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @error('deptDeanId')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button size="sm" wire:click="$set('showDeptModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" variant="primary" type="submit">{{ $deptId ? 'Save Changes' : 'Create' }}</flux:button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- Delete Department Confirmation Modal -->
+    @if($showDeleteDeptModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
+            <flux:heading size="lg" class="mb-4">Delete Department</flux:heading>
+            
+            <div class="space-y-4">
+                <p class="text-sm text-zinc-650 dark:text-zinc-400">
+                    Are you sure you want to delete this department? This action cannot be undone and will cascade to remove associated programs and unlink assigned staff/deans.
+                </p>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button size="sm" wire:click="$set('showDeleteDeptModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" variant="danger" wire:click="deleteDept">Delete</flux:button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Create/Edit Program Modal -->
+    @if($showProgModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
+            <flux:heading size="lg" class="mb-4">{{ $progId ? 'Edit Program' : 'Create Program' }}</flux:heading>
+            
+            <form wire:submit="saveProg" class="space-y-4">
+                <flux:input 
+                    wire:model="progCode" 
+                    label="Program Code" 
+                    placeholder="e.g. BSCS" 
+                    required 
+                />
+                @error('progCode')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <flux:input 
+                    wire:model="progName" 
+                    label="Program Name" 
+                    placeholder="e.g. BS Computer Science" 
+                    required 
+                />
+                @error('progName')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <flux:select wire:model="progDeptId" label="Department / College" required>
+                    <flux:select.option value="">Select Department</flux:select.option>
+                    @foreach($this->departments as $dept)
+                        <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @error('progDeptId')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <flux:select wire:model="progHeadId" label="Program Head / Lead (Optional)">
+                    <flux:select.option value="">Select Program Head</flux:select.option>
+                    @foreach($this->programHeads as $head)
+                        <flux:select.option value="{{ $head->id }}">{{ $head->full_name }} ({{ $head->employee_number }})</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @error('progHeadId')
+                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                @enderror
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button size="sm" wire:click="$set('showProgModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" variant="primary" type="submit">{{ $progId ? 'Save Changes' : 'Create' }}</flux:button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- Delete Program Confirmation Modal -->
+    @if($showDeleteProgModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
+            <flux:heading size="lg" class="mb-4">Delete Program</flux:heading>
+            
+            <div class="space-y-4">
+                <p class="text-sm text-zinc-650 dark:text-zinc-400">
+                    Are you sure you want to delete this program? This action cannot be undone and will cascade to affect student program links.
+                </p>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button size="sm" wire:click="$set('showDeleteProgModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" variant="danger" wire:click="deleteProg">Delete</flux:button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Overwrite Schedule Confirmation Modal -->
+    @if($showOverwriteModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-sm mx-4 p-6 space-y-5">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                    <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Overwrite Existing Schedule?</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                        There is already a saved evaluation schedule. Saving now will
+                        <span class="font-semibold text-amber-600 dark:text-amber-400">overwrite</span>
+                        the current schedule with your new dates.
+                    </p>
+                </div>
+            </div>
+
+            @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
+                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-xs space-y-1.5">
+                    <p class="text-zinc-500 font-semibold mb-1">Being replaced:</p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">Start:</span>
+                        {{ $this->activeSemester->evaluation_starts_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">End:</span>
+                        {{ $this->activeSemester->evaluation_ends_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-2 pt-1">
+                <flux:button size="sm" wire:click="$set('showOverwriteModal', false)">
+                    Cancel
+                </flux:button>
+                <flux:button size="sm" variant="danger" wire:click="confirmSaveSchedule">
+                    Yes, Overwrite
+                </flux:button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Remove Schedule Confirmation Modal -->
+    @if($showRemoveScheduleModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-sm mx-4 p-6 space-y-5">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
+                    <flux:icon icon="trash" class="size-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Remove Schedule?</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                        This will permanently clear the saved evaluation window. The
+                        <span class="font-semibold text-rose-600 dark:text-rose-400">Open Evaluation</span>
+                        button will also stop working until a new schedule is set.
+                    </p>
+                </div>
+            </div>
+
+            @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
+                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-xs space-y-1.5">
+                    <p class="text-zinc-500 font-semibold mb-1">Schedule to be removed:</p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">Start:</span>
+                        {{ $this->activeSemester->evaluation_starts_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">End:</span>
+                        {{ $this->activeSemester->evaluation_ends_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-2 pt-1">
+                <flux:button size="sm" wire:click="$set('showRemoveScheduleModal', false)">
+                    Cancel
+                </flux:button>
+                <flux:button size="sm" variant="danger" wire:click="clearSchedule">
+                    Yes, Remove
+                </flux:button>
+            </div>
         </div>
     </div>
     @endif
