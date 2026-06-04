@@ -3,12 +3,16 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use App\Models\Semester;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\Evaluation;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    #[Url]
+    public string $tab = 'self';
+
     public ?int $selectedEvaluateeUserId = null;
     public string $selectedEvaluationType = 'peer'; // 'self', 'peer' (uses peer criteria for ph)
     public bool $showForm = false;
@@ -21,12 +25,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsEvaluationOpenProperty()
     {
         $sem = $this->activeSemester;
-        if (!$sem) return false;
-        if ($sem->is_evaluation_open) return true;
-        if ($sem->evaluation_starts_at && $sem->evaluation_ends_at) {
-            return now()->between($sem->evaluation_starts_at, $sem->evaluation_ends_at);
-        }
-        return false;
+        return $sem ? $sem->isEvaluationWindowActive() : false;
     }
 
     public function getEmployeeProperty()
@@ -144,104 +143,108 @@ new #[Layout('components.layouts.app')] class extends Component {
     @elseif($this->employee?->department_id)
         <div class="grid grid-cols-1 gap-8">
             <!-- 1. Self Evaluation -->
-            <flux:card class="p-6">
-                <flux:heading size="lg" class="mb-4">Self Evaluation</flux:heading>
-                <div class="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800">
-                    <div>
-                        <div class="font-bold text-zinc-800 dark:text-zinc-200">My Self Evaluation</div>
-                        <p class="text-xs text-zinc-500 mt-0.5">Required once per semester (Max points: {{ (float)($this->activeSemester?->self_max_points ?? 10) }} pts)</p>
+            @if($tab === 'self')
+                <flux:card class="p-6">
+                    <flux:heading size="lg" class="mb-4">Self Evaluation</flux:heading>
+                    <div class="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800">
+                        <div>
+                            <div class="font-bold text-zinc-800 dark:text-zinc-200">My Self Evaluation</div>
+                            <p class="text-xs text-zinc-500 mt-0.5">Required once per semester (Max points: {{ (float)($this->activeSemester?->self_max_points ?? 10) }} pts)</p>
+                        </div>
+                        <div>
+                            @php $status = $this->getEvaluationStatus(auth()->id(), 'self'); @endphp
+                            @if($status === 'completed')
+                                <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                    <flux:icon icon="check-circle" class="size-4" />
+                                    Completed
+                                </span>
+                            @elseif($status === 'processing')
+                                <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
+                                    <flux:icon icon="arrow-path" class="size-4 animate-spin" />
+                                    Your evaluation is being processed. Thank you!
+                                </span>
+                            @elseif(!$this->isEvaluationOpen)
+                                <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
+                                    <flux:icon icon="clock" class="size-4" />
+                                    Closed
+                                </span>
+                            @else
+                                <flux:button size="sm" variant="primary" wire:click="selectTarget({{ auth()->id() }}, 'self')">
+                                    Begin Self Eval
+                                </flux:button>
+                            @endif
+                        </div>
                     </div>
-                    <div>
-                        @php $status = $this->getEvaluationStatus(auth()->id(), 'self'); @endphp
-                        @if($status === 'completed')
-                            <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                                <flux:icon icon="check-circle" class="size-4" />
-                                Completed
-                            </span>
-                        @elseif($status === 'processing')
-                            <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
-                                <flux:icon icon="arrow-path" class="size-4 animate-spin" />
-                                Your evaluation is being processed. Thank you!
-                            </span>
-                        @elseif(!$this->isEvaluationOpen)
-                            <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
-                                <flux:icon icon="clock" class="size-4" />
-                                Closed
-                            </span>
-                        @else
-                            <flux:button size="sm" variant="primary" wire:click="selectTarget({{ auth()->id() }}, 'self')">
-                                Begin Self Eval
-                            </flux:button>
-                        @endif
-                    </div>
-                </div>
-            </flux:card>
+                </flux:card>
+            @endif
 
             <!-- 2. Program Head (Supervisor) Evaluation -->
-            <flux:card class="p-6">
-                <flux:heading size="lg" class="mb-4">Supervisor Evaluation (Program Heads in my Department)</flux:heading>
-                @if($this->programHeads->isEmpty())
-                    <div class="text-center py-6 text-zinc-500">No Program Heads registered in your department.</div>
-                @else
-                    <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
-                                <tr>
-                                    <th class="px-6 py-3.5">Name</th>
-                                    <th class="px-6 py-3.5">ID</th>
-                                    <th class="px-6 py-3.5">Status</th>
-                                    <th class="px-6 py-3.5 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
-                                @foreach($this->programHeads as $head)
-                                    @if($head->user)
-                                        @php $status = $this->getEvaluationStatus($head->user->id, 'peer'); @endphp
-                                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                                            <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $head->full_name }}</td>
-                                            <td class="px-6 py-4 text-zinc-500">{{ $head->employee_number }}</td>
-                                            <td class="px-6 py-4">
-                                                @if($status === 'completed')
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                                                        <flux:icon icon="check-circle" class="size-4" />
-                                                        Completed
-                                                    </span>
-                                                @elseif($status === 'processing')
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
-                                                        <flux:icon icon="arrow-path" class="size-4 animate-spin" />
-                                                        Processing...
-                                                    </span>
-                                                @elseif(!$this->isEvaluationOpen)
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
-                                                        Closed
-                                                    </span>
-                                                @else
-                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                                                        Pending
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td class="px-6 py-4 text-right">
-                                                @if($status === 'completed')
-                                                    <span class="text-xs text-zinc-400 font-semibold">Done</span>
-                                                @elseif($status === 'processing')
-                                                    <span class="text-xs text-zinc-400 font-semibold">Processing</span>
-                                                @elseif(!$this->isEvaluationOpen)
-                                                    <span class="text-xs text-zinc-400">Unavailable</span>
-                                                @else
-                                                    <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'peer')">
-                                                        Evaluate
-                                                    </flux:button>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endif
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-            </flux:card>
+            @if($tab === 'supervisor')
+                <flux:card class="p-6">
+                    <flux:heading size="lg" class="mb-4">Supervisor Evaluation (Program Heads in my Department)</flux:heading>
+                    @if($this->programHeads->isEmpty())
+                        <div class="text-center py-6 text-zinc-500">No Program Heads registered in your department.</div>
+                    @else
+                        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+                                    <tr>
+                                        <th class="px-6 py-3.5">Name</th>
+                                        <th class="px-6 py-3.5">ID</th>
+                                        <th class="px-6 py-3.5">Status</th>
+                                        <th class="px-6 py-3.5 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
+                                    @foreach($this->programHeads as $head)
+                                        @if($head->user)
+                                            @php $status = $this->getEvaluationStatus($head->user->id, 'peer'); @endphp
+                                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                                                <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $head->full_name }}</td>
+                                                <td class="px-6 py-4 text-zinc-500">{{ $head->employee_number }}</td>
+                                                <td class="px-6 py-4">
+                                                    @if($status === 'completed')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                                            <flux:icon icon="check-circle" class="size-4" />
+                                                            Completed
+                                                        </span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
+                                                            <flux:icon icon="arrow-path" class="size-4 animate-spin" />
+                                                            Processing...
+                                                        </span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
+                                                            Closed
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                                            Pending
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    @if($status === 'completed')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Done</span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Processing</span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="text-xs text-zinc-400">Unavailable</span>
+                                                    @else
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'peer')">
+                                                            Evaluate
+                                                        </flux:button>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </flux:card>
+            @endif
         </div>
     @endif
 </div>

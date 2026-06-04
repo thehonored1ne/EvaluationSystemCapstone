@@ -8,6 +8,7 @@ use App\Models\Program;
 use App\Models\AcademicYear;
 use App\Models\Semester;
 use App\Models\Evaluation;
+use App\Models\EvaluationCriterion;
 use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Jobs\ProcessEvaluationSubmission;
@@ -18,6 +19,14 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // Create roles
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'dean']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'program head']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'staff']);
+
     // Set queue to database configuration
     config(['queue.default' => 'database']);
 
@@ -28,6 +37,8 @@ beforeEach(function () {
         'name' => '1st Semester',
         'is_active' => true,
         'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
     ]);
 
     // Create Department
@@ -285,3 +296,117 @@ test('Staff dashboard blocks selectTarget when evaluation is processing in queue
 
     expect($component->get('showForm'))->toBeFalse();
 });
+
+test('admin cannot manually open evaluations if start and end dates are null/missing', function () {
+    // Make sure we have an admin user
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    // Make sure evaluation dates are null
+    $this->semester->update([
+        'is_evaluation_open' => false,
+        'evaluation_starts_at' => null,
+        'evaluation_ends_at' => null,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('toggleEvaluation')
+        ->assertHasErrors(['evaluation_toggle']);
+
+    expect($this->semester->fresh()->is_evaluation_open)->toBeFalse();
+});
+
+test('admin cannot manually open evaluations if criteria points are unbalanced', function () {
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    // Set dates but no criteria, so total is 0 while targets are 90/50/10 (unbalanced)
+    $this->semester->update([
+        'is_evaluation_open' => false,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
+        'student_max_points' => 90,
+        'peer_max_points' => 50,
+        'self_max_points' => 10,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('toggleEvaluation')
+        ->assertHasErrors(['evaluation_toggle']);
+
+    expect($this->semester->fresh()->is_evaluation_open)->toBeFalse();
+});
+
+test('admin can manually open evaluations if dates are set and criteria points are balanced', function () {
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    // Create balanced criteria
+    EvaluationCriterion::create([
+        'evaluation_type' => 'student',
+        'name' => 'Teaching Quality',
+        'max_points' => 90,
+        'order' => 1
+    ]);
+    EvaluationCriterion::create([
+        'evaluation_type' => 'peer',
+        'name' => 'Peer Review',
+        'max_points' => 50,
+        'order' => 1
+    ]);
+    EvaluationCriterion::create([
+        'evaluation_type' => 'self',
+        'name' => 'Self Review',
+        'max_points' => 10,
+        'order' => 1
+    ]);
+
+    $this->semester->update([
+        'is_evaluation_open' => false,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
+        'student_max_points' => 90,
+        'peer_max_points' => 50,
+        'self_max_points' => 10,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('toggleEvaluation')
+        ->assertHasNoErrors();
+
+    expect($this->semester->fresh()->is_evaluation_open)->toBeTrue();
+});
+
+test('evaluations are closed if start time is in the future even if open toggle is true', function () {
+    $this->semester->update([
+        'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->addDay(), // tomorrow
+        'evaluation_ends_at' => now()->addDays(2),
+    ]);
+
+    expect($this->semester->isEvaluationWindowActive())->toBeFalse();
+
+    // Verify student dashboard reports evaluations closed
+    Livewire::actingAs($this->studentUser)
+        ->test('student.dashboard')
+        ->assertSee('Evaluations Closed');
+});
+
+test('evaluations are closed if end time has passed even if open toggle is true', function () {
+    $this->semester->update([
+        'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->subDays(2),
+        'evaluation_ends_at' => now()->subDay(), // yesterday
+    ]);
+
+    expect($this->semester->isEvaluationWindowActive())->toBeFalse();
+
+    // Verify student dashboard reports evaluations closed
+    Livewire::actingAs($this->studentUser)
+        ->test('student.dashboard')
+        ->assertSee('Evaluations Closed');
+});
+

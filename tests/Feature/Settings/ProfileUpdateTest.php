@@ -73,3 +73,27 @@ test('correct password must be provided to delete account', function () {
 
     expect($user->fresh())->not->toBeNull();
 });
+
+test('admin user can update their employee number in profile', function () {
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user);
+
+    $response = Volt::test('settings.profile')
+        ->set('name', 'Admin User')
+        ->set('email', 'admin@example.com')
+        ->set('employee_number', 'ADMIN-TEST-99')
+        ->call('updateProfileInformation');
+
+    $response->assertHasNoErrors();
+
+    $user->refresh();
+    expect($user->name)->toEqual('Admin User');
+    expect($user->email)->toEqual('admin@example.com');
+    expect($user->employee)->not->toBeNull();
+    expect($user->employee->employee_number)->toEqual('ADMIN-TEST-99');
+    expect($user->employee->role)->toEqual('admin');
+    expect($user->employee->department_id)->toBeNull();
+});
