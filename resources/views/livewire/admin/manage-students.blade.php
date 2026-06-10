@@ -16,6 +16,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $password = '';
     public bool $showModal = false;
     public ?User $editingUser = null;
+    public bool $showDeleteModal = false;
+    public ?User $deletingUser = null;
 
     // Student specific
     public string $student_number = '';
@@ -26,15 +28,19 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $section = '';
 
     public string $selectedDepartmentId = '';
+    public string $selectedProgramId = '';
+    public string $selectedYearLevel = '';
     public string $search = '';
 
     public function updatedSelectedDepartmentId() { $this->resetPage(); }
+    public function updatedSelectedProgramId() { $this->resetPage(); }
+    public function updatedSelectedYearLevel() { $this->resetPage(); }
 
     public function updatedSearch() { $this->resetPage(); }
 
     public function clearFilters()
     {
-        $this->reset(['search', 'selectedDepartmentId']);
+        $this->reset(['search', 'selectedDepartmentId', 'selectedProgramId', 'selectedYearLevel']);
         $this->resetPage();
     }
 
@@ -51,9 +57,32 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $query = User::query()->whereHas('student');
 
-        if ($this->selectedDepartmentId) {
+        if ($this->selectedDepartmentId === 'none') {
+            $query->whereHas('student', function ($q) {
+                $q->whereNull('program_id')
+                  ->orWhereHas('program', function ($pq) {
+                      $pq->whereNull('department_id');
+                  });
+            });
+        } elseif ($this->selectedDepartmentId) {
             $query->whereHas('student.program', function ($q) {
                 $q->where('department_id', $this->selectedDepartmentId);
+            });
+        }
+
+        if ($this->selectedProgramId === 'none') {
+            $query->whereHas('student', function ($q) {
+                $q->whereNull('program_id');
+            });
+        } elseif ($this->selectedProgramId) {
+            $query->whereHas('student', function ($q) {
+                $q->where('program_id', $this->selectedProgramId);
+            });
+        }
+
+        if ($this->selectedYearLevel) {
+            $query->whereHas('student', function ($q) {
+                $q->where('year_level', $this->selectedYearLevel);
             });
         }
 
@@ -182,6 +211,34 @@ new #[Layout('components.layouts.app')] class extends Component {
             variant: 'success'
         );
     }
+
+    public function confirmDelete(User $user)
+    {
+        $this->deletingUser = $user;
+        $this->showDeleteModal = true;
+    }
+
+    public function deleteUser()
+    {
+        if (!$this->deletingUser) return;
+
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            $student = $this->deletingUser->student;
+            $this->deletingUser->delete();
+            if ($student) {
+                $student->delete();
+            }
+        });
+
+        $this->showDeleteModal = false;
+        $this->deletingUser = null;
+
+        \Flux::toast(
+            heading: 'Student Deleted',
+            text: 'The student account has been successfully deleted.',
+            variant: 'success'
+        );
+    }
 }; ?>
 
 <div class="w-full flex flex-col gap-6">
@@ -198,9 +255,30 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="w-full md:w-64">
             <flux:select wire:model.live="selectedDepartmentId" placeholder="Filter by Department">
                 <flux:select.option value="">All Departments</flux:select.option>
+                <flux:select.option value="none">None</flux:select.option>
                 @foreach($departments as $dept)
                     <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
                 @endforeach
+            </flux:select>
+        </div>
+
+        <div class="w-full md:w-64">
+            <flux:select wire:model.live="selectedProgramId" placeholder="Filter by Program">
+                <flux:select.option value="">All Programs</flux:select.option>
+                <flux:select.option value="none">None</flux:select.option>
+                @foreach($programs as $prog)
+                    <flux:select.option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </div>
+
+        <div class="w-full md:w-48">
+            <flux:select wire:model.live="selectedYearLevel" placeholder="Filter by Year Level">
+                <flux:select.option value="">All Year Levels</flux:select.option>
+                <flux:select.option value="1">1st Year</flux:select.option>
+                <flux:select.option value="2">2nd Year</flux:select.option>
+                <flux:select.option value="3">3rd Year</flux:select.option>
+                <flux:select.option value="4">4th Year</flux:select.option>
             </flux:select>
         </div>
         
@@ -243,6 +321,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </flux:button>
                                 <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $user->id }})">
                                     {{ $user->is_active ? 'Disable' : 'Enable' }}
+                                </flux:button>
+                                <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $user->id }})">
+                                    Delete
                                 </flux:button>
                             </div>
                         </td>
@@ -308,5 +389,52 @@ new #[Layout('components.layouts.app')] class extends Component {
             </form>
         </div>
     </div>
+    @endif
+
+    <!-- Delete Confirmation Modal -->
+    @if($showDeleteModal && $deletingUser)
+    <x-confirmation-modal 
+        title="Delete Student Account" 
+        on-confirm="deleteUser" 
+        on-cancel="$set('showDeleteModal', false)"
+    >
+        Are you sure you want to delete this student account? This action cannot be undone and will remove all login access.
+
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->name }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Student ID</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->student?->student_number ?: 'None' }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Email Address</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->email }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program & Section</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                        {{ $deletingUser->student?->program?->code ?: 'None' }}
+                        @if($deletingUser->student?->section)
+                            - {{ $deletingUser->student->section }}
+                        @endif
+                    </span>
+                </div>
+            </div>
+        </x-slot:details>
+
+        @if(\App\Models\Evaluation::where('evaluator_id', $deletingUser->id)->orWhere('evaluatee_id', $deletingUser->id)->exists())
+            <x-slot:warning>
+                Deleting this student will permanently delete all evaluations they submitted or received.
+            </x-slot:warning>
+        @elseif($deletingUser->student?->classes()->exists())
+            <x-slot:warning>
+                This student is enrolled in {{ $deletingUser->student->classes()->count() }} class(es). Deleting this student will remove them from these classes.
+            </x-slot:warning>
+        @endif
+    </x-confirmation-modal>
     @endif
 </div>
