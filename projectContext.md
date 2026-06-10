@@ -324,3 +324,31 @@ File: `resources/views/livewire/admin/evaluation-settings.blade.php`
   ```
 - Ran `php artisan config:clear` to flush the cached config.
 - **Result:** `now()` and all `Carbon` comparisons now run in Philippine Standard Time (UTC+8), matching what the admin types into the date/time inputs. Setting start time to "now" correctly activates the evaluation window immediately.
+
+---
+
+# Summary of Work Done – June 10, 2026
+
+## 1. Custom Searchable Dropdowns for Long Lists
+- Created a custom reusable Alpine.js-based component `<x-searchable-select>` in [searchable-select.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/searchable-select.blade.php) to replace Flux UI's `variant="listbox"` (which is only available in Flux Pro and threw runtime exceptions).
+- Features in-memory client-side options filtering as the user types, automatic reset back to the selected label when clicking away, and support for both deferred and live (`:live="true"`) synchronization modes with Livewire state.
+- Replaced the select dropdowns in the following views:
+  - **Reports Professor Selector** ([reports.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)): Enabled `:live="true"` to trigger reports generation instantly upon professor selection.
+  - **Subject & Professor Selectors in Class Management** ([manage-classes.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php)): Prepend default placeholders ("Select Subject", "Select Professor") via PHP's `array_merge` and maps models to expected option arrays.
+  - **Program Selector in Student Management** ([manage-students.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-students.blade.php)).
+
+## 2. Reusable Confirmation Modal Component
+- Created a custom reusable `<x-confirmation-modal>` component in [confirmation-modal.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/confirmation-modal.blade.php) styled to match the app's premium aesthetics (utilizing backdrop blur, rounded-2xl layouts, HSL colors, responsive design, and animations).
+- Supports displaying custom details for the item being deleted inside a `details` slot, and shows warning/constraint messages inside a `warning` slot.
+- Integrated the confirmation modal across all admin destructive deletion actions:
+  - **Manage Subjects**: Renders Subject Code, Name, and Units. Validates/disables the delete button if dependent classes exist.
+  - **Manage Classes**: Renders Subject, Section, Professor name, and Schedule/Room details.
+  - **Manage Questions**: Modified Volt script block to load the full `EvaluationQuestion` model on confirm, rendering target type, category, and question prompt text.
+  - **Evaluation Settings (Departments & Programs)**: Modified script blocks to load full `Department` and `Program` model instances. Shows details like codes, names, and assigned head/dean.
+  - **Evaluation Settings (Criteria/Parts)**: Added a new confirmation modal before deleting evaluation criteria parts (which previously deleted instantly when clicked) displaying target type, part category name, and max points.
+  - **Evaluation Settings (Remove Schedule)**: Replaced the legacy Remove Schedule confirmation modal with the new `<x-confirmation-modal>` component displaying the start and end dates inside the details slot.
+
+## 3. Sidebar Notifications Badge & Persistent Unread Bug Fix
+- **Root Cause:** Dynamic notifications generated for general announcements (e.g. "Evaluations are Closed") used the semester's future end date (`$sem->evaluation_ends_at`) as their `created_at` timestamp. Because this timestamp was in the future, it was always greater than the admin's `notifications_last_viewed_at` timestamp (which is set to `now()` when viewed), causing the unread notifications count to stay above 0 permanently.
+- **Fix:** Refactored the `getNotifications()` method in the `User` model ([User.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php)) to cap all dynamic notification `created_at` timestamps at the current time (`now()`). Capping dates to the present/past ensures notifications display accurate human-readable relative times (e.g., "1 minute ago" instead of "in 1 day") and allows read-badges to clear and remain cleared correctly.
+- All automated feature and integration tests pass successfully.

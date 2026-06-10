@@ -115,6 +115,19 @@ class User extends Authenticatable // implements MustVerifyEmail
             return $notifications;
         }
 
+        // Capped timestamps to ensure notifications are never dated in the future
+        $now = now();
+        
+        $notificationTime = $sem->evaluation_starts_at ?? $sem->updated_at;
+        if ($notificationTime && $notificationTime->gt($now)) {
+            $notificationTime = $sem->updated_at->gt($now) ? $now : $sem->updated_at;
+        }
+
+        $closedNotificationTime = $sem->evaluation_ends_at ?? $sem->updated_at;
+        if ($closedNotificationTime && $closedNotificationTime->gt($now)) {
+            $closedNotificationTime = $sem->updated_at->gt($now) ? $now : $sem->updated_at;
+        }
+
         // Check if evaluations are open
         $isEvaluationOpen = $sem->isEvaluationWindowActive();
 
@@ -128,7 +141,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'type' => 'info',
                 'title' => 'Evaluations are Open',
                 'description' => "The evaluation period for {$sem->academicYear->name} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
-                'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                'created_at' => $notificationTime,
             ];
         } else {
             $timeInfo = '';
@@ -139,7 +152,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'type' => 'warning',
                 'title' => 'Evaluations are Closed',
                 'description' => "Evaluations for {$sem->academicYear->name} - {$sem->name} are currently locked/closed{$timeInfo}.",
-                'created_at' => $sem->evaluation_ends_at ?? $sem->updated_at,
+                'created_at' => $closedNotificationTime,
             ];
         }
 
@@ -172,7 +185,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Pending Professor Evaluations',
                     'description' => "You have {$pendingCount} pending professor evaluation(s) to fill out. Please go to Manage Evaluations.",
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
         } elseif ($this->hasRole('faculty') && $this->employee) {
@@ -191,7 +204,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'You have not submitted your self-evaluation report for this semester yet.',
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
 
@@ -215,7 +228,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                         'type' => 'reminder',
                         'title' => 'Pending Peer Evaluations',
                         'description' => "You have {$peerPending} peer evaluation(s) remaining for faculty members in your department.",
-                        'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                        'created_at' => $notificationTime,
                     ];
                 }
             }
@@ -235,7 +248,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please fill out your self-evaluation form for this semester.',
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
 
@@ -258,7 +271,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                         'type' => 'reminder',
                         'title' => 'Pending Subordinate Evaluations',
                         'description' => "You have {$facPending} subordinate faculty evaluation(s) remaining in your department.",
-                        'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                        'created_at' => $notificationTime,
                     ];
                 }
             }
@@ -276,7 +289,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please submit your dean self-evaluation form.',
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
 
@@ -294,7 +307,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Pending Program Head Evaluations',
                     'description' => "You have {$phPending} Program Head evaluation(s) remaining to fill out.",
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
         } elseif ($this->hasRole('staff') && $this->employee) {
@@ -313,7 +326,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please submit your staff self-evaluation report.',
-                    'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                    'created_at' => $notificationTime,
                 ];
             }
 
@@ -336,7 +349,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                         'type' => 'reminder',
                         'title' => 'Pending Supervisor Evaluations',
                         'description' => "You have {$headPending} supervisor Program Head evaluation(s) remaining.",
-                        'created_at' => $sem->evaluation_starts_at ?? $sem->updated_at,
+                        'created_at' => $notificationTime,
                     ];
                 }
             }

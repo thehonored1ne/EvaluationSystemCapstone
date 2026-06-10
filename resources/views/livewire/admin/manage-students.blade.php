@@ -282,12 +282,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <flux:select wire:model="program_id" label="Program" required>
-                        <flux:select.option value="">Select Program</flux:select.option>
-                        @foreach($programs as $program)
-                            <flux:select.option value="{{ $program->id }}">{{ $program->code }} - {{ $program->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
+                    <x-searchable-select 
+                        name="program_id" 
+                        label="Program" 
+                        placeholder="Select Program" 
+                        required 
+                        :options="array_merge([['value' => '', 'label' => 'Select Program']], $programs->map(fn($p) => ['value' => (string)$p->id, 'label' => $p->code . ' - ' . $p->name])->toArray())" 
+                    />
 
                     <flux:select wire:model="year_level" label="Year Level" required>
                         <flux:select.option value="">Select Year</flux:select.option>

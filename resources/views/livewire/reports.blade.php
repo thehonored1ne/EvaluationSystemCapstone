@@ -121,11 +121,12 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto shrink-0">
             <div class="w-full md:w-64">
-                <flux:select wire:model.live="selectedTeacherId" placeholder="Select Professor">
-                    @foreach($this->teachers as $t)
-                        <flux:select.option value="{{ $t->id }}">{{ $t->full_name }} ({{ $t->employee_number }})</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <x-searchable-select 
+                    name="selectedTeacherId" 
+                    placeholder="Select Professor" 
+                    :live="true" 
+                    :options="$this->teachers->map(fn($t) => ['value' => (string)$t->id, 'label' => $t->full_name . ' (' . $t->employee_number . ')'])->toArray()" 
+                />
             </div>
 
             <div class="w-full md:w-48">

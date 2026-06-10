@@ -228,25 +228,37 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Delete Confirmation Modal -->
-    @if($showDeleteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl w-full max-w-md border border-zinc-200 dark:border-zinc-700">
-            <flux:heading size="lg" class="mb-2">Delete Subject</flux:heading>
-            
-            <p class="text-sm text-gray-600 dark:text-zinc-400 mb-6">
-                Are you sure you want to delete <span class="font-semibold text-gray-900 dark:text-zinc-100">{{ $deletingSubject?->code }} - {{ $deletingSubject?->name }}</span>? This action cannot be undone.
-                @if($deletingSubject?->classes()->exists())
-                    <br><span class="text-red-500 font-medium mt-2 block">Warning: This subject is currently referenced by {{ $deletingSubject->classes()->count() }} class(es). You cannot delete it until those classes are deleted or re-assigned.</span>
-                @endif
-            </p>
+    @if($showDeleteModal && $deletingSubject)
+    <x-confirmation-modal 
+        title="Delete Subject" 
+        on-confirm="deleteSubject" 
+        on-cancel="$set('showDeleteModal', false)" 
+        :disabled="$deletingSubject->classes()->exists()"
+    >
+        Are you sure you want to delete this subject? This action cannot be undone.
 
-            <div class="flex justify-end gap-2">
-                <flux:button wire:click="$set('showDeleteModal', false)">Cancel</flux:button>
-                <flux:button variant="danger" wire:click="deleteSubject" :disabled="$deletingSubject?->classes()->exists()">
-                    Delete
-                </flux:button>
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Subject Code</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->code }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Units</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->units }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Subject Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->name }}</span>
+                </div>
             </div>
-        </div>
-    </div>
+        </x-slot:details>
+
+        @if($deletingSubject->classes()->exists())
+            <x-slot:warning>
+                This subject is currently referenced by {{ $deletingSubject->classes()->count() }} class(es). You cannot delete it until those classes are deleted or re-assigned.
+            </x-slot:warning>
+        @endif
+    </x-confirmation-modal>
     @endif
 </div>
