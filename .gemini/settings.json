@@ -1,0 +1,20 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "C:/Users/USER/.config/herd/bin/php.exe",
+            "args": [
+                "artisan",
+                "boost:mcp"
+            ]
+        },
+        "herd": {
+            "command": "C:/Users/USER/.config/herd/bin/php.exe",
+            "args": [
+                "C:/Users/USER/.config/herd/bin/herd-mcp.phar"
+            ],
+            "env": {
+                "SITE_PATH": "C:\\Users\\USER\\Herd\\evaluationsystem"
+            }
+        }
+    }
+}
