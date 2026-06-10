@@ -5,14 +5,19 @@
 
 - [x] create a reusable confirmation modal. for every destructive action like delete. make sure this modal also show the item details that is being deleted. also make sure it uses the same style as my app.
 
-- shouldnt be able to remove a schedule if the evaluation still active
+- [x] in manage users. add a delete button in action column on users(deans, program heads, faculty professor, student, staff). make sure that our reusable confirmation modal goes first before deleting.
+
+- Preventing schedule removal when evaluations are open.
+
+- [x] add a none option in department filter, so if theres a column with a value of none, i can look for them faster. also in manage students, add a program and year level filter
 
 - reports should be a summary report for the evaluation results(results depends on role)
 
+- impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** the laravel will call the python via api call. create a plan on how we will do this. 
+
 - update semester
 
-- evaluation type check
-- Types of Evaluation:
+- Evaluation type check configurations (Peer, Upward, Downward, Self):
     Type                   Who Evaluates                  Who Gets Evaluated
     Peer Evaluation        Same level/rank                Same level/rank
     Upward Evaluation      Subordinate                    Superior
