@@ -483,3 +483,29 @@ test('program CRUD inside evaluation settings works correctly', function () {
     $component->assertHasNoErrors();
     $this->assertDatabaseMissing('programs', ['id' => $prog->id]);
 });
+
+test('admin notifications badge disappears when navigating to notifications page', function () {
+    // Authenticate as Admin
+    $this->actingAs($this->adminUser);
+
+    // Initial last viewed is null, should show badge if notifications exist
+    expect($this->adminUser->notifications_last_viewed_at)->toBeNull();
+    expect(count($this->adminUser->getNotifications()))->toBeGreaterThan(0);
+
+    // Visit notifications page
+    $response = $this->get('/notifications');
+    $response->assertStatus(200);
+
+    // Check that notifications_last_viewed_at has been updated
+    $this->adminUser->refresh();
+    expect($this->adminUser->notifications_last_viewed_at)->not->toBeNull();
+
+    // The rendered notifications page should NOT contain the badge count in the sidebar
+    // Since notifications are read, count is 0, so the amber badge should not be present
+    $response->assertDontSee('color="amber"');
+
+    // Visit admin dashboard, it should also NOT show the badge
+    $dashboardResponse = $this->get('/admin/dashboard');
+    $dashboardResponse->assertStatus(200);
+    $dashboardResponse->assertDontSee('color="amber"');
+});

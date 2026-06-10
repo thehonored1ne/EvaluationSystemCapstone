@@ -389,19 +389,21 @@ new #[Layout('components.layouts.app')] class extends Component {
             <flux:heading size="lg" class="mb-4">{{ $editingClass ? 'Edit Class' : 'Create Class' }}</flux:heading>
             
             <form wire:submit="{{ $editingClass ? 'updateClass' : 'createClass' }}" class="flex flex-col gap-4">
-                <flux:select wire:model="subject_id" label="Subject" required>
-                    <flux:select.option value="">Select Subject</flux:select.option>
-                    @foreach($subjectsList as $subj)
-                        <flux:select.option value="{{ $subj->id }}">{{ $subj->code }} - {{ $subj->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <x-searchable-select 
+                    name="subject_id" 
+                    label="Subject" 
+                    placeholder="Select Subject" 
+                    required 
+                    :options="array_merge([['value' => '', 'label' => 'Select Subject']], $subjectsList->map(fn($subj) => ['value' => (string)$subj->id, 'label' => $subj->code . ' - ' . $subj->name])->toArray())" 
+                />
 
-                <flux:select wire:model="teacher_id" label="Professor" required>
-                    <flux:select.option value="">Select Professor</flux:select.option>
-                    @foreach($teachersList as $t)
-                        <flux:select.option value="{{ $t->id }}">{{ $t->employee_number }} - {{ $t->full_name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <x-searchable-select 
+                    name="teacher_id" 
+                    label="Professor" 
+                    placeholder="Select Professor" 
+                    required 
+                    :options="array_merge([['value' => '', 'label' => 'Select Professor']], $teachersList->map(fn($t) => ['value' => (string)$t->id, 'label' => $t->employee_number . ' - ' . $t->full_name])->toArray())" 
+                />
 
                 <flux:select wire:model="semester_id" label="Semester" required>
                     <flux:select.option value="">Select Semester</flux:select.option>
@@ -427,26 +429,45 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Delete Confirmation Modal -->
-    @if($showDeleteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl w-full max-w-md border border-zinc-200 dark:border-zinc-700">
-            <flux:heading size="lg" class="mb-2">Delete Class</flux:heading>
-            
-            <p class="text-sm text-gray-600 dark:text-zinc-400 mb-6">
-                Are you sure you want to delete the class <span class="font-semibold text-gray-900 dark:text-zinc-100">{{ $deletingClass?->subject->code }} ({{ $deletingClass?->section }})</span>? This action cannot be undone.
-                @if($deletingClass?->evaluations()->exists())
-                    <br><span class="text-red-500 font-medium mt-2 block">Warning: This class already has submitted evaluations. You cannot delete it until those evaluations are removed.</span>
-                @endif
-            </p>
+    @if($showDeleteModal && $deletingClass)
+    <x-confirmation-modal 
+        title="Delete Class" 
+        on-confirm="deleteClass" 
+        on-cancel="$set('showDeleteModal', false)" 
+        :disabled="$deletingClass->evaluations()->exists()"
+    >
+        Are you sure you want to delete this academic class? This action cannot be undone.
 
-            <div class="flex justify-end gap-2">
-                <flux:button wire:click="$set('showDeleteModal', false)">Cancel</flux:button>
-                <flux:button variant="danger" wire:click="deleteClass" :disabled="$deletingClass?->evaluations()->exists()">
-                    Delete
-                </flux:button>
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Subject</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingClass->subject->code }} - {{ $deletingClass->subject->name }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Section</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingClass->section }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Professor</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingClass->teacher->full_name }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Schedule & Room</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                        {{ $deletingClass->schedule ?: 'N/A' }} 
+                        @if($deletingClass->room) ({{ $deletingClass->room }}) @endif
+                    </span>
+                </div>
             </div>
-        </div>
-    </div>
+        </x-slot:details>
+
+        @if($deletingClass->evaluations()->exists())
+            <x-slot:warning>
+                This class already has submitted evaluations. You cannot delete it until those evaluations are removed.
+            </x-slot:warning>
+        @endif
+    </x-confirmation-modal>
     @endif
 
     <!-- Student Enrollment Modal -->

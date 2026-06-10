@@ -7,7 +7,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function mount()
     {
         if (auth()->check()) {
-            auth()->user()->update(['notifications_last_viewed_at' => now()]);
+            $user = auth()->user();
+            $user->update(['notifications_last_viewed_at' => now()]);
+            $user->refresh();
         }
     }
 
