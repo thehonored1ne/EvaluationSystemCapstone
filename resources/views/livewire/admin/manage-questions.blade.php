@@ -19,7 +19,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     // Modals
     public bool $showFormModal = false;
     public bool $showDeleteModal = false;
-    public ?int $questionIdToDelete = null;
+    public ?EvaluationQuestion $deletingQuestion = null;
 
     public function getCriteriaProperty()
     {
@@ -141,15 +141,15 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function confirmDelete($id)
     {
-        $this->questionIdToDelete = $id;
+        $this->deletingQuestion = EvaluationQuestion::with('criterion')->findOrFail($id);
         $this->showDeleteModal = true;
     }
 
     public function deleteQuestion()
     {
-        if ($this->questionIdToDelete) {
-            EvaluationQuestion::destroy($this->questionIdToDelete);
-            $this->questionIdToDelete = null;
+        if ($this->deletingQuestion) {
+            $this->deletingQuestion->delete();
+            $this->deletingQuestion = null;
             $this->showDeleteModal = false;
             session()->flash('status', "Question deleted successfully.");
         }
@@ -333,17 +333,30 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Delete Confirmation Modal -->
-    @if($showDeleteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-2 text-rose-600 dark:text-rose-400">Delete Question</flux:heading>
-            <p class="text-sm text-zinc-500 mb-6">Are you sure you want to delete this question? This action cannot be undone and will remove any history associated with this specific question.</p>
-            
-            <div class="flex justify-end gap-2">
-                <flux:button size="sm" wire:click="$set('showDeleteModal', false)">Cancel</flux:button>
-                <flux:button size="sm" variant="danger" wire:click="deleteQuestion">Delete</flux:button>
+    @if($showDeleteModal && $deletingQuestion)
+    <x-confirmation-modal 
+        title="Delete Question" 
+        on-confirm="deleteQuestion" 
+        on-cancel="$set('showDeleteModal', false)" 
+    >
+        Are you sure you want to delete this evaluation question? This action cannot be undone and will remove any history associated with this specific question.
+
+        <x-slot:details>
+            <div class="flex flex-col gap-3 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Target Type</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150 capitalize">{{ $deletingQuestion->criterion->evaluation_type }} Evaluation</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Part Category (Order Q#{{ $deletingQuestion->order }})</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">Part {{ $deletingQuestion->criterion->order }}: {{ $deletingQuestion->criterion->name }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Question Prompt</span>
+                    <p class="font-bold text-zinc-900 dark:text-zinc-150 leading-relaxed mt-1">{{ $deletingQuestion->question_text }}</p>
+                </div>
             </div>
-        </div>
-    </div>
+        </x-slot:details>
+    </x-confirmation-modal>
     @endif
 </div>

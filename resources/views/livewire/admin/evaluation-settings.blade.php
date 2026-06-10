@@ -18,7 +18,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $progName = '';
     public string $progDeptId = '';
     public string $progHeadId = '';
-    public ?string $deletingProgId = null;
+    public ?Program $deletingProg = null;
 
     // Department CRUD
     public bool $showDeptModal = false;
@@ -27,7 +27,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $deptCode = '';
     public string $deptName = '';
     public string $deptDeanId = '';
-    public ?string $deletingDeptId = null;
+    public ?Department $deletingDept = null;
+
+    // Criterion Delete
+    public bool $showDeleteCriterionModal = false;
+    public ?EvaluationCriterion $deletingCriterion = null;
 
     // Academic Year creation
     public string $newYearName = '';
@@ -170,20 +174,19 @@ new #[Layout('components.layouts.app')] class extends Component {
     // Confirm Delete
     public function confirmDeleteDept($id)
     {
-        $this->deletingDeptId = (string)$id;
+        $this->deletingDept = Department::with('dean')->findOrFail($id);
         $this->showDeleteDeptModal = true;
     }
 
     // Delete Department
     public function deleteDept()
     {
-        if ($this->deletingDeptId) {
-            $dept = Department::findOrFail($this->deletingDeptId);
-            $name = $dept->name;
-            $dept->delete();
+        if ($this->deletingDept) {
+            $name = $this->deletingDept->name;
+            $this->deletingDept->delete();
+            $this->deletingDept = null;
             session()->flash('status', "Department '{$name}' deleted successfully.");
         }
-        $this->deletingDeptId = null;
         $this->showDeleteDeptModal = false;
     }
 
@@ -251,23 +254,22 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->showProgModal = false;
     }
 
-    // Confirm Delete
+    // Confirm Delete Program
     public function confirmDeleteProg($id)
     {
-        $this->deletingProgId = (string)$id;
+        $this->deletingProg = Program::with(['department', 'programHead'])->findOrFail($id);
         $this->showDeleteProgModal = true;
     }
 
     // Delete Program
     public function deleteProg()
     {
-        if ($this->deletingProgId) {
-            $prog = Program::findOrFail($this->deletingProgId);
-            $name = $prog->name;
-            $prog->delete();
+        if ($this->deletingProg) {
+            $name = $this->deletingProg->name;
+            $this->deletingProg->delete();
+            $this->deletingProg = null;
             session()->flash('status', "Program '{$name}' deleted successfully.");
         }
-        $this->deletingProgId = null;
         $this->showDeleteProgModal = false;
     }
 
@@ -541,14 +543,24 @@ new #[Layout('components.layouts.app')] class extends Component {
         session()->flash('status', "Evaluation criterion created successfully.");
     }
 
-    // Delete Evaluation Criterion
-    public function deleteCriterion($id)
+    // Confirm Delete Criterion
+    public function confirmDeleteCriterion($id)
     {
-        $criterion = EvaluationCriterion::findOrFail($id);
-        $criterion->delete();
+        $this->deletingCriterion = EvaluationCriterion::findOrFail($id);
+        $this->showDeleteCriterionModal = true;
+    }
 
-        $this->loadPoints();
-        session()->flash('status', "Evaluation criterion deleted successfully.");
+    // Delete Evaluation Criterion
+    public function deleteCriterion()
+    {
+        if ($this->deletingCriterion) {
+            $name = $this->deletingCriterion->name;
+            $this->deletingCriterion->delete();
+            $this->deletingCriterion = null;
+            $this->showDeleteCriterionModal = false;
+            $this->loadPoints();
+            session()->flash('status', "Evaluation criterion '{$name}' deleted successfully.");
+        }
     }
 
     // Save criteria points and targets
@@ -893,7 +905,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             size="sm" 
                                             variant="ghost" 
                                             icon="trash" 
-                                            wire:click="deleteCriterion({{ $criterion->id }})"
+                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
                                             class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                                         />
                                     </div>
@@ -938,7 +950,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             size="sm" 
                                             variant="ghost" 
                                             icon="trash" 
-                                            wire:click="deleteCriterion({{ $criterion->id }})"
+                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
                                             class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                                         />
                                     </div>
@@ -983,7 +995,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             size="sm" 
                                             variant="ghost" 
                                             icon="trash" 
-                                            wire:click="deleteCriterion({{ $criterion->id }})"
+                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
                                             class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                                         />
                                     </div>
@@ -1317,23 +1329,31 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Delete Department Confirmation Modal -->
-    @if($showDeleteDeptModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">Delete Department</flux:heading>
-            
-            <div class="space-y-4">
-                <p class="text-sm text-zinc-650 dark:text-zinc-400">
-                    Are you sure you want to delete this department? This action cannot be undone and will cascade to remove associated programs and unlink assigned staff/deans.
-                </p>
+    @if($showDeleteDeptModal && $deletingDept)
+    <x-confirmation-modal 
+        title="Delete Department" 
+        on-confirm="deleteDept" 
+        on-cancel="$set('showDeleteDeptModal', false)" 
+    >
+        Are you sure you want to delete this department? This action cannot be undone and will cascade to remove associated programs and unlink assigned staff/deans.
 
-                <div class="flex justify-end gap-2 mt-6">
-                    <flux:button size="sm" wire:click="$set('showDeleteDeptModal', false)">Cancel</flux:button>
-                    <flux:button size="sm" variant="danger" wire:click="deleteDept">Delete</flux:button>
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Code</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->code }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Dean / Head</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->dean ? $deletingDept->dean->full_name : 'Not assigned' }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->name }}</span>
                 </div>
             </div>
-        </div>
-    </div>
+        </x-slot:details>
+    </x-confirmation-modal>
     @endif
 
     <!-- Create/Edit Program Modal -->
@@ -1393,23 +1413,63 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Delete Program Confirmation Modal -->
-    @if($showDeleteProgModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">Delete Program</flux:heading>
-            
-            <div class="space-y-4">
-                <p class="text-sm text-zinc-650 dark:text-zinc-400">
-                    Are you sure you want to delete this program? This action cannot be undone and will cascade to affect student program links.
-                </p>
+    @if($showDeleteProgModal && $deletingProg)
+    <x-confirmation-modal 
+        title="Delete Program" 
+        on-confirm="deleteProg" 
+        on-cancel="$set('showDeleteProgModal', false)" 
+    >
+        Are you sure you want to delete this program? This action cannot be undone and will cascade to affect student program links.
 
-                <div class="flex justify-end gap-2 mt-6">
-                    <flux:button size="sm" wire:click="$set('showDeleteProgModal', false)">Cancel</flux:button>
-                    <flux:button size="sm" variant="danger" wire:click="deleteProg">Delete</flux:button>
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Code</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->code }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Head</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->programHead ? $deletingProg->programHead->full_name : 'Not assigned' }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->name }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->department?->code }} - {{ $deletingProg->department?->name }}</span>
                 </div>
             </div>
-        </div>
-    </div>
+        </x-slot:details>
+    </x-confirmation-modal>
+    @endif
+
+    <!-- Delete Criterion Confirmation Modal -->
+    @if($showDeleteCriterionModal && $deletingCriterion)
+    <x-confirmation-modal 
+        title="Delete Evaluation Part/Criterion" 
+        on-confirm="deleteCriterion" 
+        on-cancel="$set('showDeleteCriterionModal', false)" 
+    >
+        Are you sure you want to delete this evaluation criterion? This action cannot be undone and will remove all questions under this category.
+
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Target Type</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150 capitalize">{{ $deletingCriterion->evaluation_type }} Evaluation</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Max Points Allocation</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingCriterion->max_points }} pts</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Part Category Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">Part {{ $deletingCriterion->order }}: {{ $deletingCriterion->name }}</span>
+                </div>
+            </div>
+        </x-slot:details>
+    </x-confirmation-modal>
     @endif
 
     <!-- Overwrite Schedule Confirmation Modal -->
@@ -1457,46 +1517,33 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endif
 
     <!-- Remove Schedule Confirmation Modal -->
-    @if($showRemoveScheduleModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-sm mx-4 p-6 space-y-5">
-            <div class="flex items-start gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
-                    <flux:icon icon="trash" class="size-5 text-rose-600 dark:text-rose-400" />
-                </div>
-                <div>
-                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Remove Schedule?</h3>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                        This will permanently clear the saved evaluation window. The
-                        <span class="font-semibold text-rose-600 dark:text-rose-400">Open Evaluation</span>
-                        button will also stop working until a new schedule is set.
-                    </p>
-                </div>
-            </div>
+    @if($showRemoveScheduleModal && $this->activeSemester)
+    <x-confirmation-modal 
+        title="Remove Schedule" 
+        on-confirm="clearSchedule" 
+        on-cancel="$set('showRemoveScheduleModal', false)" 
+        confirm-text="Yes, Remove"
+    >
+        This will permanently clear the saved evaluation window. The <span class="font-semibold text-rose-600 dark:text-rose-400 font-semibold">Open Evaluation</span> button will also stop working until a new schedule is set.
 
-            @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
-                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-xs space-y-1.5">
-                    <p class="text-zinc-500 font-semibold mb-1">Schedule to be removed:</p>
-                    <p class="text-zinc-700 dark:text-zinc-300">
-                        <span class="font-semibold">Start:</span>
-                        {{ $this->activeSemester->evaluation_starts_at?->format('M d, Y h:i A') ?? '—' }}
-                    </p>
-                    <p class="text-zinc-700 dark:text-zinc-300">
-                        <span class="font-semibold">End:</span>
-                        {{ $this->activeSemester->evaluation_ends_at?->format('M d, Y h:i A') ?? '—' }}
-                    </p>
+        @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
+            <x-slot:details>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Start Date & Time</span>
+                        <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                            {{ $this->activeSemester->evaluation_starts_at ? $this->activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : '—' }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">End Date & Time</span>
+                        <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                            {{ $this->activeSemester->evaluation_ends_at ? $this->activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : '—' }}
+                        </span>
+                    </div>
                 </div>
-            @endif
-
-            <div class="flex justify-end gap-2 pt-1">
-                <flux:button size="sm" wire:click="$set('showRemoveScheduleModal', false)">
-                    Cancel
-                </flux:button>
-                <flux:button size="sm" variant="danger" wire:click="clearSchedule">
-                    Yes, Remove
-                </flux:button>
-            </div>
-        </div>
-    </div>
+            </x-slot:details>
+        @endif
+    </x-confirmation-modal>
     @endif
 </div>

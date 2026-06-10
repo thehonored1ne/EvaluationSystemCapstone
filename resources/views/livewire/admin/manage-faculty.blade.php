@@ -15,6 +15,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $password = '';
     public bool $showModal = false;
     public ?User $editingUser = null;
+    public bool $showDeleteModal = false;
+    public ?User $deletingUser = null;
 
     // Employee specific
     public string $employee_number = '';
@@ -50,7 +52,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             $q->where('role', 'faculty');
         });
 
-        if ($this->selectedDepartmentId) {
+        if ($this->selectedDepartmentId === 'none') {
+            $query->whereHas('employee', function ($q) {
+                $q->whereNull('department_id');
+            });
+        } elseif ($this->selectedDepartmentId) {
             $query->whereHas('employee', function ($q) {
                 $q->where('department_id', $this->selectedDepartmentId);
             });
@@ -170,6 +176,34 @@ new #[Layout('components.layouts.app')] class extends Component {
             variant: 'success'
         );
     }
+
+    public function confirmDelete(User $user)
+    {
+        $this->deletingUser = $user;
+        $this->showDeleteModal = true;
+    }
+
+    public function deleteUser()
+    {
+        if (!$this->deletingUser) return;
+
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            $employee = $this->deletingUser->employee;
+            $this->deletingUser->delete();
+            if ($employee) {
+                $employee->delete();
+            }
+        });
+
+        $this->showDeleteModal = false;
+        $this->deletingUser = null;
+
+        \Flux::toast(
+            heading: 'Faculty Deleted',
+            text: 'The faculty account has been successfully deleted.',
+            variant: 'success'
+        );
+    }
 }; ?>
 
 <div class="w-full flex flex-col gap-6">
@@ -186,6 +220,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="w-full md:w-64">
             <flux:select wire:model.live="selectedDepartmentId" placeholder="Filter by Department">
                 <flux:select.option value="">All Departments</flux:select.option>
+                <flux:select.option value="none">None</flux:select.option>
                 @foreach($departments as $dept)
                     <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
                 @endforeach
@@ -228,6 +263,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </flux:button>
                                 <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $user->id }})">
                                     {{ $user->is_active ? 'Disable' : 'Enable' }}
+                                </flux:button>
+                                <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $user->id }})">
+                                    Delete
                                 </flux:button>
                             </div>
                         </td>
@@ -279,5 +317,47 @@ new #[Layout('components.layouts.app')] class extends Component {
             </form>
         </div>
     </div>
+    @endif
+
+    <!-- Delete Confirmation Modal -->
+    @if($showDeleteModal && $deletingUser)
+    <x-confirmation-modal 
+        title="Delete Faculty Account" 
+        on-confirm="deleteUser" 
+        on-cancel="$set('showDeleteModal', false)"
+    >
+        Are you sure you want to delete this faculty account? This action cannot be undone and will remove all login access.
+
+        <x-slot:details>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->name }}</span>
+                </div>
+                <div>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Employee ID</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->employee?->employee_number ?: 'None' }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Email Address</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->email }}</span>
+                </div>
+                <div class="sm:col-span-2">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->employee?->department?->name ?: 'None' }}</span>
+                </div>
+            </div>
+        </x-slot:details>
+
+        @if(\App\Models\Evaluation::where('evaluator_id', $deletingUser->id)->orWhere('evaluatee_id', $deletingUser->id)->exists())
+            <x-slot:warning>
+                Deleting this professor will permanently delete all evaluations they submitted or received.
+            </x-slot:warning>
+        @elseif($deletingUser->employee?->classes()->exists())
+            <x-slot:warning>
+                This professor is currently assigned to teach {{ $deletingUser->employee->classes()->count() }} class(es). Deleting this user will delete these classes and their student enrollments.
+            </x-slot:warning>
+        @endif
+    </x-confirmation-modal>
     @endif
 </div>

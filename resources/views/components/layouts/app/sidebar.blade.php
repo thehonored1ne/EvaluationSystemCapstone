@@ -26,11 +26,15 @@
 
                     $unreadNotificationsCount = 0;
                     if ($user) {
-                        $notifications = $user->getNotifications();
-                        $lastViewed = $user->notifications_last_viewed_at;
-                        foreach ($notifications as $notif) {
-                            if (!$lastViewed || $notif->created_at->gt($lastViewed)) {
-                                $unreadNotificationsCount++;
+                        if (request()->routeIs('notifications')) {
+                            $unreadNotificationsCount = 0;
+                        } else {
+                            $notifications = $user->getNotifications();
+                            $lastViewed = $user->notifications_last_viewed_at;
+                            foreach ($notifications as $notif) {
+                                if (!$lastViewed || $notif->created_at->gt($lastViewed)) {
+                                    $unreadNotificationsCount++;
+                                }
                             }
                         }
                     }

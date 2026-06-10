@@ -483,3 +483,253 @@ test('program CRUD inside evaluation settings works correctly', function () {
     $component->assertHasNoErrors();
     $this->assertDatabaseMissing('programs', ['id' => $prog->id]);
 });
+
+test('admin notifications badge disappears when navigating to notifications page', function () {
+    // Authenticate as Admin
+    $this->actingAs($this->adminUser);
+
+    // Initial last viewed is null, should show badge if notifications exist
+    expect($this->adminUser->notifications_last_viewed_at)->toBeNull();
+    expect(count($this->adminUser->getNotifications()))->toBeGreaterThan(0);
+
+    // Visit notifications page
+    $response = $this->get('/notifications');
+    $response->assertStatus(200);
+
+    // Check that notifications_last_viewed_at has been updated
+    $this->adminUser->refresh();
+    expect($this->adminUser->notifications_last_viewed_at)->not->toBeNull();
+
+    // The rendered notifications page should NOT contain the badge count in the sidebar
+    // Since notifications are read, count is 0, so the amber badge should not be present
+    $response->assertDontSee('color="amber"');
+
+    // Visit admin dashboard, it should also NOT show the badge
+    $dashboardResponse = $this->get('/admin/dashboard');
+    $dashboardResponse->assertStatus(200);
+    $dashboardResponse->assertDontSee('color="amber"');
+});
+
+test('admin can delete dean, program head, faculty, staff, and student accounts', function () {
+    $this->actingAs($this->adminUser);
+
+    // 1. Delete Dean
+    $deanEmp = Employee::create([
+        'employee_number' => 'DEC-888',
+        'first_name' => 'Dean',
+        'last_name' => 'Test',
+        'role' => 'dean',
+        'status' => 'active'
+    ]);
+    $deanUser = User::create([
+        'name' => 'Dean Test',
+        'email' => 'dean.test@example.com',
+        'employee_id' => $deanEmp->id,
+        'password' => bcrypt('password'),
+        'is_active' => true,
+    ]);
+    $deanUser->assignRole('dean');
+
+    $component = Volt::test('admin.manage-deans')
+        ->call('confirmDelete', $deanUser)
+        ->call('deleteUser');
+
+    $component->assertHasNoErrors();
+    $this->assertDatabaseMissing('users', ['id' => $deanUser->id]);
+    $this->assertDatabaseMissing('employees', ['id' => $deanEmp->id]);
+
+    // 2. Delete Program Head
+    $phEmp = Employee::create([
+        'employee_number' => 'PH-888',
+        'first_name' => 'PH',
+        'last_name' => 'Test',
+        'role' => 'program head',
+        'status' => 'active'
+    ]);
+    $phUser = User::create([
+        'name' => 'PH Test',
+        'email' => 'ph.test@example.com',
+        'employee_id' => $phEmp->id,
+        'password' => bcrypt('password'),
+        'is_active' => true,
+    ]);
+    $phUser->assignRole('program head');
+
+    $component = Volt::test('admin.manage-program-heads')
+        ->call('confirmDelete', $phUser)
+        ->call('deleteUser');
+
+    $component->assertHasNoErrors();
+    $this->assertDatabaseMissing('users', ['id' => $phUser->id]);
+    $this->assertDatabaseMissing('employees', ['id' => $phEmp->id]);
+
+    // 3. Delete Faculty
+    $facultyEmp = Employee::create([
+        'employee_number' => 'FAC-888',
+        'first_name' => 'Faculty',
+        'last_name' => 'Test',
+        'role' => 'faculty',
+        'status' => 'active'
+    ]);
+    $facultyUser = User::create([
+        'name' => 'Faculty Test',
+        'email' => 'faculty.test@example.com',
+        'employee_id' => $facultyEmp->id,
+        'password' => bcrypt('password'),
+        'is_active' => true,
+    ]);
+    $facultyUser->assignRole('faculty');
+
+    $component = Volt::test('admin.manage-faculty')
+        ->call('confirmDelete', $facultyUser)
+        ->call('deleteUser');
+
+    $component->assertHasNoErrors();
+    $this->assertDatabaseMissing('users', ['id' => $facultyUser->id]);
+    $this->assertDatabaseMissing('employees', ['id' => $facultyEmp->id]);
+
+    // 4. Delete Staff
+    $staffEmp = Employee::create([
+        'employee_number' => 'STF-888',
+        'first_name' => 'Staff',
+        'last_name' => 'Test',
+        'role' => 'staff',
+        'status' => 'active'
+    ]);
+    $staffUser = User::create([
+        'name' => 'Staff Test',
+        'email' => 'staff.test@example.com',
+        'employee_id' => $staffEmp->id,
+        'password' => bcrypt('password'),
+        'is_active' => true,
+    ]);
+    $staffUser->assignRole('staff');
+
+    $component = Volt::test('admin.manage-staff')
+        ->call('confirmDelete', $staffUser)
+        ->call('deleteUser');
+
+    $component->assertHasNoErrors();
+    $this->assertDatabaseMissing('users', ['id' => $staffUser->id]);
+    $this->assertDatabaseMissing('employees', ['id' => $staffEmp->id]);
+
+    // 5. Delete Student
+    $studentData = Student::create([
+        'student_number' => 'STU-888',
+        'first_name' => 'Student',
+        'last_name' => 'Test',
+        'year_level' => 1
+    ]);
+    $studentUser = User::create([
+        'name' => 'Student Test',
+        'email' => 'student.test@example.com',
+        'student_id' => $studentData->id,
+        'password' => bcrypt('password'),
+        'is_active' => true,
+    ]);
+    $studentUser->assignRole('student');
+
+    $component = Volt::test('admin.manage-students')
+        ->call('confirmDelete', $studentUser)
+        ->call('deleteUser');
+
+    $component->assertHasNoErrors();
+    $this->assertDatabaseMissing('users', ['id' => $studentUser->id]);
+    $this->assertDatabaseMissing('students', ['id' => $studentData->id]);
+});
+
+test('filtering by department none and student program and year level works correctly', function () {
+    $this->actingAs($this->adminUser);
+
+    // Create a program in department
+    $dept = Department::create(['code' => 'TEST-DEPT', 'name' => 'Test Department']);
+    $program = \App\Models\Program::create(['code' => 'TEST-PROG', 'name' => 'Test Program', 'department_id' => $dept->id]);
+
+    // Create student 1: program = $program (department = $dept), year_level = 2
+    $studentEmp1 = Student::create([
+        'student_number' => 'STU-F1',
+        'first_name' => 'Filtered',
+        'last_name' => 'One',
+        'program_id' => $program->id,
+        'year_level' => 2
+    ]);
+    $studentUser1 = User::create([
+        'name' => 'Filtered One',
+        'email' => 'f1@example.com',
+        'student_id' => $studentEmp1->id,
+        'password' => 'password'
+    ]);
+    $studentUser1->assignRole('student');
+
+    // Create student 2: program = null (department = null), year_level = 3
+    $studentEmp2 = Student::create([
+        'student_number' => 'STU-F2',
+        'first_name' => 'Filtered',
+        'last_name' => 'Two',
+        'program_id' => null,
+        'year_level' => 3
+    ]);
+    $studentUser2 = User::create([
+        'name' => 'Filtered Two',
+        'email' => 'f2@example.com',
+        'student_id' => $studentEmp2->id,
+        'password' => 'password'
+    ]);
+    $studentUser2->assignRole('student');
+
+    // Test student filters
+    Volt::test('admin.manage-students')
+        // Filter by Department None
+        ->set('selectedDepartmentId', 'none')
+        ->assertViewHas('users', function ($paginator) use ($studentUser2) {
+            $ids = collect($paginator->items())->pluck('id');
+            return $ids->contains($studentUser2->id);
+        })
+        // Filter by Program
+        ->set('selectedDepartmentId', '')
+        ->set('selectedProgramId', $program->id)
+        ->assertViewHas('users', function ($paginator) use ($studentUser1, $studentUser2) {
+            $ids = collect($paginator->items())->pluck('id');
+            return $ids->contains($studentUser1->id) && !$ids->contains($studentUser2->id);
+        })
+        // Filter by Program None
+        ->set('selectedProgramId', 'none')
+        ->assertViewHas('users', function ($paginator) use ($studentUser2, $studentUser1) {
+            $ids = collect($paginator->items())->pluck('id');
+            return $ids->contains($studentUser2->id) && !$ids->contains($studentUser1->id);
+        })
+        // Filter by Year Level
+        ->set('selectedProgramId', '')
+        ->set('selectedYearLevel', 2)
+        ->assertViewHas('users', function ($paginator) use ($studentUser1, $studentUser2) {
+            $ids = collect($paginator->items())->pluck('id');
+            return $ids->contains($studentUser1->id) && !$ids->contains($studentUser2->id);
+        });
+
+    // Create a faculty with no department
+    $facultyEmpNone = Employee::create([
+        'employee_number' => 'FAC-NONE',
+        'first_name' => 'No',
+        'last_name' => 'Dept',
+        'role' => 'faculty',
+        'status' => 'active',
+        'department_id' => null
+    ]);
+    $facultyUserNone = User::create([
+        'name' => 'No Dept',
+        'email' => 'nodept@example.com',
+        'employee_id' => $facultyEmpNone->id,
+        'password' => 'password'
+    ]);
+    $facultyUserNone->assignRole('faculty');
+
+    // Test Faculty Department None filter
+    Volt::test('admin.manage-faculty')
+        ->set('selectedDepartmentId', 'none')
+        ->assertViewHas('users', function ($paginator) use ($facultyUserNone) {
+            $ids = collect($paginator->items())->pluck('id');
+            return $ids->contains($facultyUserNone->id) && !$ids->contains($this->facultyUser->id);
+        });
+});
+
+
