@@ -15,11 +15,15 @@
 
 - impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** the laravel will call the python via api call. create a plan on how we will do this. 
 
-- update semester
+- update semester to all user maybe add a button
 
-- Evaluation type check configurations (Peer, Upward, Downward, Self):
-    Type                   Who Evaluates                  Who Gets Evaluated
-    Peer Evaluation        Same level/rank                Same level/rank
-    Upward Evaluation      Subordinate                    Superior
-    Downward Evaluation    Superior                       Subordinate
-    Self Evaluation        Yourself                       Yourself
+- import data via excel feature
+
+- Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
+
+    | **Type**             | **Who Evaluates** | **Who Gets Evaluated** |
+    |----------------------|-------------------|------------------------|
+    | Peer Evaluation      | Same level/rank   | Same level/rank        |
+    | Upward Evaluation    | Subordinate       | Superior               |
+    | Downward Evaluation  | Superior          | Subordinate            |
+    | Self Evaluation      | Yourself          | Yourself               |
