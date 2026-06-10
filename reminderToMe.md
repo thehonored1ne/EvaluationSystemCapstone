@@ -3,3 +3,5 @@
 - dev is updated
 - main branch is behind
 - uat branch is behind
+- updated 3 branch
+- deleted 2 created branch
