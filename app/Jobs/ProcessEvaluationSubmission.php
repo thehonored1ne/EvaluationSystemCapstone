@@ -91,9 +91,14 @@ class ProcessEvaluationSubmission implements ShouldQueue
             // Perform AI sentiment analysis on comments if present
             if ($this->comments && trim($this->comments) !== '') {
                 try {
-                    $response = \Illuminate\Support\Facades\Http::timeout(5)->post('http://127.0.0.1:5001/analyze', [
-                        'comment' => $this->comments,
-                    ]);
+                    $apiUrl = config('services.ai.url') . '/analyze';
+                    $apiKey = config('services.ai.key');
+
+                    $response = \Illuminate\Support\Facades\Http::timeout(5)
+                        ->withHeaders(['X-API-KEY' => $apiKey])
+                        ->post($apiUrl, [
+                            'comment' => $this->comments,
+                        ]);
 
                     if ($response->successful()) {
                         $result = $response->json();

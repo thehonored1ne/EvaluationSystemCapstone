@@ -32,6 +32,7 @@ A role-based evaluation system with the following active portals:
 - **Evaluation Schedule Protection**: Prevented deleting or removing active evaluation schedules while the evaluation period is open.
 - **AI Sentiment Analysis Pipeline**: Built a Flask API service featuring VADER sentiment analysis (with Tagalog/Taglish custom lexicon) and a TF-IDF Decision Tree Classifier to auto-classify evaluation comments. Added model migrations, automated backfill commands, and a daily scheduled retraining task.
 - **AI Port Migration & IDE Environment setup**: Resolved Windows socket port binding conflict by moving the Flask API to port `5001` and configured workspace/python-level interpreter paths to resolve static analyzer import errors.
+- **Security Hardening**: Patched all 14 composer package vulnerabilities, implemented API Key protection (`X-API-KEY`) on the Flask API, moved Flask URLs to `.env` variables, and added rate limiting to guest password reset routes.
 
 ### June 10, 2026
 - **User Account Deletion**: Enabled transactional deletion for Deans, Program Heads, Faculty, Staff, and Students in admin views with cascading warning alerts.

@@ -95,6 +95,7 @@ test('ProcessEvaluationSubmission job calls Flask analyze API and records sentim
 
     Http::assertSent(function ($request) {
         return $request->url() === 'http://127.0.0.1:5001/analyze' &&
+               $request->hasHeader('X-API-KEY', config('services.ai.key')) &&
                $request['comment'] === 'Magaling magturo si sir.';
     });
 });

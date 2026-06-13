@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'ai' => [
+        'url' => env('AI_API_URL', 'http://127.0.0.1:5001'),
+        'key' => env('AI_API_KEY', 'default_secret_key_123'),
+    ],
+
 ];

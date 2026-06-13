@@ -39,9 +39,14 @@ class TrainAI extends Command
         $this->info("Sending " . count($comments) . " database comments to Flask API `/train` endpoint...");
 
         try {
-            $response = Http::timeout(60)->post('http://127.0.0.1:5001/train', [
-                'comments' => $comments,
-            ]);
+            $apiUrl = config('services.ai.url') . '/train';
+            $apiKey = config('services.ai.key');
+
+            $response = Http::timeout(60)
+                ->withHeaders(['X-API-KEY' => $apiKey])
+                ->post($apiUrl, [
+                    'comments' => $comments,
+                ]);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -55,7 +60,7 @@ class TrainAI extends Command
                 return 1;
             }
         } catch (\Throwable $e) {
-            $this->error("AI training failed: Could not connect to Flask API. Ensure the Flask server is running at http://127.0.0.1:5001.");
+            $this->error("AI training failed: Could not connect to Flask API at " . config('services.ai.url'));
             $this->error($e->getMessage());
             return 1;
         }
@@ -78,11 +83,16 @@ class TrainAI extends Command
         $bar->start();
 
         $successCount = 0;
+        $apiUrl = config('services.ai.url') . '/analyze';
+        $apiKey = config('services.ai.key');
+
         foreach ($unanalyzed as $evaluation) {
             try {
-                $response = Http::timeout(5)->post('http://127.0.0.1:5001/analyze', [
-                    'comment' => $evaluation->comments,
-                ]);
+                $response = Http::timeout(5)
+                    ->withHeaders(['X-API-KEY' => $apiKey])
+                    ->post($apiUrl, [
+                        'comment' => $evaluation->comments,
+                    ]);
 
                 if ($response->successful()) {
                     $res = $response->json();

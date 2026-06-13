@@ -16,6 +16,30 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer, VaderConstants
 
 app = Flask(__name__)
 
+# Manual dotenv loader to read root .env file without external package dependency
+def load_dotenv():
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, val = line.split('=', 1)
+                val = val.strip().strip('"').strip("'")
+                os.environ[key.strip()] = val
+
+load_dotenv()
+
+# API Key Authorization Middleware
+@app.before_request
+def check_api_key():
+    if request.path in ['/analyze', '/train']:
+        expected_key = os.environ.get("AI_API_KEY", "default_secret_key_123")
+        provided_key = request.headers.get("X-API-KEY")
+        if not provided_key or provided_key != expected_key:
+            return jsonify({"error": "Unauthorized. Invalid or missing X-API-KEY header."}), 401
+
 # Update VADER negations list with Tagalog negations
 VaderConstants.NEGATE.update({"hindi", "di", "wala", "huwag"})
 

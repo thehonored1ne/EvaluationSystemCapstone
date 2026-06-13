@@ -17,6 +17,10 @@
 
 - a button that can automatically update the current school year and semester.
 
+- use redis for queue jobs
+
+- impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
+
 - import data via excel feature
 
 - Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
