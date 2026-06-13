@@ -410,3 +410,50 @@ test('evaluations are closed if end time has passed even if open toggle is true'
         ->assertSee('Evaluations Closed');
 });
 
+test('admin cannot clear evaluation schedule if the evaluation is open', function () {
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    $this->semester->update([
+        'is_evaluation_open' => true,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('confirmRemoveSchedule')
+        ->assertSee('Cannot remove schedule: Please close the evaluation first.');
+
+    expect($this->semester->fresh()->evaluation_starts_at)->not->toBeNull();
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('clearSchedule')
+        ->assertSee('Cannot remove schedule: Please close the evaluation first.');
+
+    expect($this->semester->fresh()->evaluation_starts_at)->not->toBeNull();
+});
+
+test('admin can clear evaluation schedule if the evaluation is closed', function () {
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    $this->semester->update([
+        'is_evaluation_open' => false,
+        'evaluation_starts_at' => now()->subDay(),
+        'evaluation_ends_at' => now()->addDay(),
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('confirmRemoveSchedule')
+        ->assertDontSee('Cannot remove schedule: Please close the evaluation first.')
+        ->call('clearSchedule')
+        ->assertSee('Evaluation schedule has been cleared.');
+
+    expect($this->semester->fresh()->evaluation_starts_at)->toBeNull();
+    expect($this->semester->fresh()->evaluation_ends_at)->toBeNull();
+});
+
+

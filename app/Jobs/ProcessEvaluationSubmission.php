@@ -87,6 +87,29 @@ class ProcessEvaluationSubmission implements ShouldQueue
                     'rating' => $rating,
                 ]);
             }
+
+            // Perform AI sentiment analysis on comments if present
+            if ($this->comments && trim($this->comments) !== '') {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(5)->post('http://127.0.0.1:5001/analyze', [
+                        'comment' => $this->comments,
+                    ]);
+
+                    if ($response->successful()) {
+                        $result = $response->json();
+                        \App\Models\EvaluationSentiment::create([
+                            'evaluation_id' => $evaluation->id,
+                            'vader_score' => $result['vader_score'] ?? 0.0,
+                            'vader_label' => $result['vader_label'] ?? 'neutral',
+                            'dt_label' => $result['dt_label'] ?? 'neutral',
+                        ]);
+                    } else {
+                        \Illuminate\Support\Facades\Log::warning("AI Sentiment API failed with status " . $response->status() . " for evaluation " . $evaluation->id);
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("AI Sentiment API connection error for evaluation " . $evaluation->id . ": " . $e->getMessage());
+                }
+            }
         });
     }
 }

@@ -156,6 +156,15 @@ Individual question ratings for each submitted evaluation.
 - `created_at` / `updated_at` (DATETIME, Nullable)
 - *Unique Constraint*: `(evaluation_id, question_id)`
 
+### `evaluation_sentiments`
+AI sentiment analysis results associated with evaluation comments.
+- `id` (INT, PK, Auto Increment)
+- `evaluation_id` (INT, FK -> `evaluations.id`, Unique, Cascade Delete)
+- `vader_score` (DECIMAL) - *Polarity score from -1.0 to 1.0*
+- `vader_label` (VARCHAR) - *VADER rule-based label (positive, neutral, negative)*
+- `dt_label` (VARCHAR) - *Decision Tree classifier predicted label (positive, neutral, negative)*
+- `created_at` / `updated_at` (DATETIME, Nullable)
+
 ---
 
 ## 5. Security & Infrastructure (Built-in)

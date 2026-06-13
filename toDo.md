@@ -7,15 +7,15 @@
 
 - [x] in manage users. add a delete button in action column on users(deans, program heads, faculty professor, student, staff). make sure that our reusable confirmation modal goes first before deleting.
 
-- Preventing schedule removal when evaluations are open.
+- [x] in evaluation settings, it should prevent a the admin from removing the current saved schedules if the evaluation is still open. they should close the schedule first then they can remove it safely. after doing the fix make sure you update the md files thats connected to this fix.
 
 - [x] add a none option in department filter, so if theres a column with a value of none, i can look for them faster. also in manage students, add a program and year level filter
 
-- reports should be a summary report for the evaluation results(results depends on role)
+- In reports it should include a summary report of the evaluation results and that can be downloadable to pdf. the filter should be school year, semester. lets make this way for now. the summary should show 
 
-- impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** the laravel will call the python via api call. create a plan on how we will do this. 
+- [x] impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
 
-- update semester to all user maybe add a button
+- a button that can automatically update the current school year and semester.
 
 - import data via excel feature
 
