@@ -109,4 +109,12 @@ class Evaluation extends Model
 
         return 'pending';
     }
+
+    /**
+     * Get the sentiment analysis details associated with this evaluation.
+     */
+    public function sentiment()
+    {
+        return $this->hasOne(EvaluationSentiment::class);
+    }
 }
