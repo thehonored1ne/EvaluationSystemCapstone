@@ -1,0 +1,7 @@
+[tool.pyright]
+venvPath = "python"
+venv = "venv"
+extraPaths = [
+    "python/venv/Lib/site-packages",
+    "python"
+]

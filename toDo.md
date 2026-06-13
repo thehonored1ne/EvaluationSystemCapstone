@@ -13,7 +13,7 @@
 
 - In reports it should include a summary report of the evaluation results and that can be downloadable to pdf. the filter should be school year, semester. lets make this way for now. the summary should show 
 
-- impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
+- [x] impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
 
 - a button that can automatically update the current school year and semester.
 
