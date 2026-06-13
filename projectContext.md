@@ -18,7 +18,7 @@ A role-based evaluation system with the following active portals:
 ## Core System Features
 - **Evaluation Submission**: Idempotent queue-based submissions (runs on `sync` connection). Dashboard buttons are locked with "Processing" / "Completed" badges once submitted to prevent double-evaluation.
 - **Profanity Filter**: Real-time removal of curse words from evaluation comments with constructive toast warnings.
-- **Evaluation Windows**: Configurable schedules with conflict protection modals ("Overwrite" / "Remove") and Asia/Manila timezone alignment.
+- **Evaluation Windows**: Configurable schedules with conflict protection modals ("Overwrite" / "Remove"), schedule removal protection when evaluations are open, and Asia/Manila timezone alignment.
 - **Custom Searchable Selects**: Custom Alpine-based `<x-searchable-select>` replacing native listbox dropdowns.
 - **Reusable Confirmation Modals**: Standardized modal `<x-confirmation-modal>` with custom details and relationship cascade warnings before deletions.
 - **Notifications**: Automated sidebar badges that clear instantly upon visiting the notifications page.
@@ -26,6 +26,9 @@ A role-based evaluation system with the following active portals:
 ---
 
 ## Milestones & Summary of Work Done
+
+### June 13, 2026
+- **Evaluation Schedule Protection**: Prevented deleting or removing active evaluation schedules while the evaluation period is open.
 
 ### June 10, 2026
 - **User Account Deletion**: Enabled transactional deletion for Deans, Program Heads, Faculty, Staff, and Students in admin views with cascading warning alerts.

@@ -427,6 +427,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     // Open the remove schedule confirmation modal
     public function confirmRemoveSchedule()
     {
+        $activeSem = $this->activeSemester;
+        if ($activeSem && $activeSem->is_evaluation_open) {
+            session()->flash('status', "Cannot remove schedule: Please close the evaluation first.");
+            return;
+        }
         $this->showRemoveScheduleModal = true;
     }
 
@@ -437,6 +442,11 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $activeSem = $this->activeSemester;
         if (!$activeSem) {
+            return;
+        }
+
+        if ($activeSem->is_evaluation_open) {
+            session()->flash('status', "Cannot remove schedule: Please close the evaluation first.");
             return;
         }
 
@@ -713,14 +723,26 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                 <flux:icon icon="calendar-days" class="size-4" />
                                                 Current Saved Schedule
                                             </span>
-                                            <button
-                                                type="button"
-                                                wire:click="confirmRemoveSchedule"
-                                                class="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors"
-                                            >
-                                                <flux:icon icon="trash" class="size-3.5" />
-                                                Remove
-                                            </button>
+                                            @if($this->activeSemester->is_evaluation_open)
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    class="flex items-center gap-1 text-xs font-semibold text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
+                                                    title="Close evaluation first to remove schedule"
+                                                >
+                                                    <flux:icon icon="lock-closed" class="size-3.5" />
+                                                    Locked
+                                                </button>
+                                            @else
+                                                <button
+                                                    type="button"
+                                                    wire:click="confirmRemoveSchedule"
+                                                    class="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors"
+                                                >
+                                                    <flux:icon icon="trash" class="size-3.5" />
+                                                    Remove
+                                                </button>
+                                            @endif
                                         </div>
 
                                         <div class="space-y-2">
