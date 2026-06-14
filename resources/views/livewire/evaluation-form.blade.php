@@ -6,6 +6,7 @@ use App\Models\AcademicClass;
 use App\Models\EvaluationCriterion;
 use App\Models\Semester;
 use App\Jobs\ProcessEvaluationSubmission;
+use Illuminate\Support\Facades\RateLimiter;
 
 new class extends Component {
     public User $evaluatee;
@@ -14,6 +15,7 @@ new class extends Component {
 
     public array $ratings = []; // [question_id => rating]
     public string $comments = '';
+    public int $retryAfter = 0;
 
     // Configurable list of curse words to automatically mask/filter out
     protected array $curseWords = [
@@ -137,6 +139,10 @@ new class extends Component {
 
     public function mount()
     {
+        $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
+            $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
+        }
         $this->resetForm();
     }
 
@@ -179,6 +185,12 @@ new class extends Component {
             return;
         }
 
+        $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
+            $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
+            return;
+        }
+
         // Validate that all questions have a rating between 1 and 5
         $rules = [];
         $messages = [];
@@ -188,6 +200,9 @@ new class extends Component {
         }
 
         $this->validate($rules, $messages);
+
+        // Record the hit to the rate limiter on successful validation (3-minute cooldown)
+        RateLimiter::hit($rateLimitKey, 180);
 
         // Convert values to integers
         $sanitizedRatings = collect($this->ratings)->map(fn($val) => (int)$val)->toArray();
@@ -246,7 +261,16 @@ new class extends Component {
         </div>
     @endif
 
-    @if(session()->has('error'))
+    @if($retryAfter > 0)
+        <div x-data="{ seconds: @entangle('retryAfter') }" 
+             x-init="const interval = setInterval(() => { if (seconds > 0) { seconds--; } else { clearInterval(interval); $wire.set('retryAfter', 0); } }, 1000)"
+             class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3">
+            <flux:icon icon="clock" class="size-6 text-rose-600 animate-pulse" />
+            <div class="text-sm font-semibold">
+                Too many submission attempts. Please wait <span x-text="seconds" class="font-bold"></span> seconds before submitting again.
+            </div>
+        </div>
+    @elseif(session()->has('error'))
         <div class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3">
             <flux:icon icon="x-circle" class="size-6 text-rose-600" />
             <div class="text-sm font-semibold">{{ session('error') }}</div>
@@ -329,10 +353,10 @@ new class extends Component {
 
         <!-- Action buttons -->
         <div class="flex justify-end gap-3 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-            <flux:button variant="ghost" type="button" wire:click="resetForm">
+            <flux:button variant="ghost" type="button" wire:click="resetForm" :disabled="$retryAfter > 0">
                 Clear Form
             </flux:button>
-            <flux:button variant="primary" type="submit">
+            <flux:button variant="primary" type="submit" :disabled="$retryAfter > 0">
                 Submit Evaluation
             </flux:button>
         </div>

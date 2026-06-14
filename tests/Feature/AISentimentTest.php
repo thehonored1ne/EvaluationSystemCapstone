@@ -1,26 +1,29 @@
 <?php
 
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
-use App\Models\Department;
-use App\Models\AcademicYear;
-use App\Models\Semester;
-use App\Models\Evaluation;
-use App\Models\EvaluationSentiment;
-use App\Models\Subject;
-use App\Models\AcademicClass;
 use App\Jobs\ProcessEvaluationSubmission;
+use App\Models\AcademicClass;
+use App\Models\AcademicYear;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Evaluation;
+use App\Models\EvaluationCriterion;
+use App\Models\EvaluationQuestion;
+use App\Models\EvaluationSentiment;
+use App\Models\Semester;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Roles
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
+    Role::firstOrCreate(['name' => 'admin']);
+    Role::firstOrCreate(['name' => 'student']);
+    Role::firstOrCreate(['name' => 'faculty']);
 
     $this->ay = AcademicYear::create(['name' => '2025-2026', 'is_active' => true]);
     $this->semester = Semester::create([
@@ -32,7 +35,7 @@ beforeEach(function () {
 
     $this->student = Student::create(['student_number' => 'STU-1', 'first_name' => 'Student', 'last_name' => 'One']);
     $this->studentUser = User::create(['name' => 'Student One', 'email' => 'student@example.com', 'student_id' => $this->student->id, 'password' => 'password']);
-    
+
     $this->dept = Department::create(['code' => 'CCS', 'name' => 'Computer Studies']);
     $this->facEmp = Employee::create(['employee_number' => 'FAC-1', 'first_name' => 'John', 'last_name' => 'Doe', 'role' => 'faculty', 'department_id' => $this->dept->id]);
     $this->facUser = User::create(['name' => 'John Doe', 'email' => 'john@example.com', 'employee_id' => $this->facEmp->id, 'password' => 'password']);
@@ -45,14 +48,14 @@ beforeEach(function () {
         'section' => 'A',
     ]);
 
-    $this->criterion = \App\Models\EvaluationCriterion::create([
+    $this->criterion = EvaluationCriterion::create([
         'evaluation_type' => 'student',
         'name' => 'Teaching Quality',
         'max_points' => 90,
-        'order' => 1
+        'order' => 1,
     ]);
 
-    $this->question = \App\Models\EvaluationQuestion::create([
+    $this->question = EvaluationQuestion::create([
         'criterion_id' => $this->criterion->id,
         'question_text' => 'Does the teacher explain concepts clearly?',
         'order' => 1,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Evaluation extends Model
 {
@@ -83,19 +84,19 @@ class Evaluation extends Model
 
         // 2. Check database queue jobs
         try {
-            $pending = \Illuminate\Support\Facades\DB::table('jobs')
+            $pending = DB::table('jobs')
                 ->where('queue', 'default')
                 ->where(function ($query) use ($evaluatorId, $evaluateeId, $semesterId, $classId, $type) {
                     $query->where('payload', 'like', '%ProcessEvaluationSubmission%')
-                        ->where('payload', 'like', '%evaluatorId%i:' . $evaluatorId . ';%')
-                        ->where('payload', 'like', '%evaluateeId%i:' . $evaluateeId . ';%')
-                        ->where('payload', 'like', '%semesterId%i:' . $semesterId . ';%')
-                        ->where('payload', 'like', '%evaluationType%s:' . strlen($type) . ':%' . $type . '%');
+                        ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
+                        ->where('payload', 'like', '%evaluateeId%i:'.$evaluateeId.';%')
+                        ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
+                        ->where('payload', 'like', '%evaluationType%s:'.strlen($type).':%'.$type.'%');
 
                     if (is_null($classId)) {
                         $query->where('payload', 'like', '%classId%N;%');
                     } else {
-                        $query->where('payload', 'like', '%classId%i:' . $classId . ';%');
+                        $query->where('payload', 'like', '%classId%i:'.$classId.';%');
                     }
                 })
                 ->exists();

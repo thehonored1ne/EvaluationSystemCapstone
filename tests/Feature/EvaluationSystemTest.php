@@ -1,19 +1,18 @@
 <?php
 
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
-use App\Models\Department;
-use App\Models\Program;
+use App\Jobs\ProcessEvaluationSubmission;
 use App\Models\AcademicYear;
-use App\Models\Semester;
-use App\Models\EvaluationCriterion;
-use App\Models\EvaluationQuestion;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
-use App\Jobs\ProcessEvaluationSubmission;
+use App\Models\EvaluationCriterion;
+use App\Models\EvaluationQuestion;
+use App\Models\Program;
+use App\Models\Semester;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -40,13 +39,13 @@ beforeEach(function () {
     // Create Deans
     $this->deanEmp1 = Employee::create(['employee_number' => 'D-01', 'first_name' => 'Dean', 'last_name' => 'CCS', 'role' => 'dean', 'status' => 'active', 'department_id' => $this->ccs->id]);
     $this->deanUser1 = User::create(['name' => 'Dean CCS', 'email' => 'dean.ccs@example.com', 'employee_id' => $this->deanEmp1->id, 'password' => 'password']);
-    
+
     $this->ccs->update(['dean_id' => $this->deanEmp1->id]);
 
     // Create Program Heads
     $this->phEmp1 = Employee::create(['employee_number' => 'PH-01', 'first_name' => 'Head', 'last_name' => 'BSCS', 'role' => 'program head', 'status' => 'active', 'department_id' => $this->ccs->id]);
     $this->phUser1 = User::create(['name' => 'Head BSCS', 'email' => 'head.bscs@example.com', 'employee_id' => $this->phEmp1->id, 'password' => 'password']);
-    
+
     $this->bscs->update(['program_head_id' => $this->phEmp1->id]);
 
     $this->phEmp2 = Employee::create(['employee_number' => 'PH-02', 'first_name' => 'Head', 'last_name' => 'BSED', 'role' => 'program head', 'status' => 'active', 'department_id' => $this->coed->id]);
@@ -127,12 +126,12 @@ test('process evaluation submission job is idempotent and calculates rating aver
 test('evaluation form comment filters out curse words', function () {
     $this->actingAs($this->facUser1);
 
-    \Livewire\Livewire::test('evaluation-form', [
+    Livewire::test('evaluation-form', [
         'evaluatee' => $this->facUser2,
         'evaluationType' => 'peer',
     ])
-    ->set('comments', 'This is a gago and bbaliw class.')
-    ->assertSet('comments', 'This is a and b class.');
+        ->set('comments', 'This is a gago and bbaliw class.')
+        ->assertSet('comments', 'This is a and b class.');
 });
 
 test('faculty targeting logic finds peers in same department only', function () {

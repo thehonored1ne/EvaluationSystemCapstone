@@ -1,31 +1,32 @@
 <?php
 
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
-use App\Models\Department;
-use App\Models\Program;
+use App\Jobs\ProcessEvaluationSubmission;
+use App\Models\AcademicClass;
 use App\Models\AcademicYear;
-use App\Models\Semester;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
-use App\Models\AcademicClass;
+use App\Models\Program;
+use App\Models\Semester;
+use App\Models\Student;
 use App\Models\Subject;
-use App\Jobs\ProcessEvaluationSubmission;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Create roles
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'dean']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'program head']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'staff']);
+    Role::firstOrCreate(['name' => 'admin']);
+    Role::firstOrCreate(['name' => 'dean']);
+    Role::firstOrCreate(['name' => 'program head']);
+    Role::firstOrCreate(['name' => 'faculty']);
+    Role::firstOrCreate(['name' => 'student']);
+    Role::firstOrCreate(['name' => 'staff']);
 
     // Set queue to database configuration
     config(['queue.default' => 'database']);
@@ -111,8 +112,8 @@ test('Evaluation getStatus correctly retrieves processing status for database qu
                 $classId,
                 $type,
                 []
-            ))
-        ]
+            )),
+        ],
     ]);
 
     // Insert into database jobs table
@@ -152,8 +153,8 @@ test('Student dashboard blocks selectClass when evaluation is processing in queu
                 $classId,
                 $type,
                 []
-            ))
-        ]
+            )),
+        ],
     ]);
 
     DB::table('jobs')->insert([
@@ -194,8 +195,8 @@ test('Faculty dashboard blocks selectTarget when evaluation is processing in que
                 $classId,
                 $type,
                 []
-            ))
-        ]
+            )),
+        ],
     ]);
 
     DB::table('jobs')->insert([
@@ -235,8 +236,8 @@ test('Dean dashboard blocks selectTarget when evaluation is processing in queue'
                 $classId,
                 $type,
                 []
-            ))
-        ]
+            )),
+        ],
     ]);
 
     DB::table('jobs')->insert([
@@ -276,8 +277,8 @@ test('Staff dashboard blocks selectTarget when evaluation is processing in queue
                 $classId,
                 $type,
                 []
-            ))
-        ]
+            )),
+        ],
     ]);
 
     DB::table('jobs')->insert([
@@ -348,19 +349,19 @@ test('admin can manually open evaluations if dates are set and criteria points a
         'evaluation_type' => 'student',
         'name' => 'Teaching Quality',
         'max_points' => 90,
-        'order' => 1
+        'order' => 1,
     ]);
     EvaluationCriterion::create([
         'evaluation_type' => 'peer',
         'name' => 'Peer Review',
         'max_points' => 50,
-        'order' => 1
+        'order' => 1,
     ]);
     EvaluationCriterion::create([
         'evaluation_type' => 'self',
         'name' => 'Self Review',
         'max_points' => 10,
-        'order' => 1
+        'order' => 1,
     ]);
 
     $this->semester->update([
@@ -455,5 +456,3 @@ test('admin can clear evaluation schedule if the evaluation is closed', function
     expect($this->semester->fresh()->evaluation_starts_at)->toBeNull();
     expect($this->semester->fresh()->evaluation_ends_at)->toBeNull();
 });
-
-

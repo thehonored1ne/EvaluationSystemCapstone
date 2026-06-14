@@ -23,10 +23,14 @@ A role-based evaluation system with the following active portals:
 - **Custom Searchable Selects**: Custom Alpine-based `<x-searchable-select>` replacing native listbox dropdowns.
 - **Reusable Confirmation Modals**: Standardized modal `<x-confirmation-modal>` with custom details and relationship cascade warnings before deletions.
 - **Notifications**: Automated sidebar badges that clear instantly upon visiting the notifications page.
+- **Summary Reports**: Tabular summary reports of evaluation results filtered by semester/school year, downloadable as a print-optimized PDF, with strict role-based department filtering (Admin sees all; Dean/Program Head see department only).
 
 ---
 
 ## Milestones & Summary of Work Done
+
+### June 14, 2026
+- **Summary Evaluation Reports**: Added toggleable Individual/Summary tabs to the reports page, filtering by academic period, tabular details for all target faculty (including Student, Peer, Self averages, Total Submissions, and Overall ratings), print/PDF styles, and full Pest test coverage.
 
 ### June 13, 2026
 - **Evaluation Schedule Protection**: Prevented deleting or removing active evaluation schedules while the evaluation period is open.

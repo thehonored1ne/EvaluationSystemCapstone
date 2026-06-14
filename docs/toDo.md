@@ -11,7 +11,7 @@
 
 - [x] add a none option in department filter, so if theres a column with a value of none, i can look for them faster. also in manage students, add a program and year level filter
 
-- In reports it should include a summary report of the evaluation results and that can be downloadable to pdf. the filter should be school year, semester. lets make this way for now. the summary should show 
+- [x] In reports it should include a summary report of the evaluation results and that can be downloadable to pdf. the filter should be school year, semester. lets make this way for now. the summary should show employee number, professor name, department, evaluation type averages (student, peer, self), total submissions, and overall rating average.
 
 - [x] impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
 
@@ -19,7 +19,7 @@
 
 - use redis for queue jobs
 
-- impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
+- [x] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
 
 - import data via excel feature
 
@@ -31,3 +31,9 @@
     | Upward Evaluation    | Subordinate       | Superior               |
     | Downward Evaluation  | Superior          | Subordinate            |
     | Self Evaluation      | Yourself          | Yourself               |
+
+    Dean - can evaluate all program heads(downward), can evaluate self(self)
+    Program Head - can evaluate their subordinate(downward - faculty), can evaluate self(self), can evaluate superior(upward - dean)
+    Faculty - can evaluate their peers(faculty - faculty), can evaluate superior(upward - program head), can evaluate self(self)
+    Student - can evaluate their superior(upward - faculty)
+    Staff - can evaluate their superior(upward - program head), can evaluate self(self)

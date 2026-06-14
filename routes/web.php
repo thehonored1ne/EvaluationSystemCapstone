@@ -5,22 +5,34 @@ use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     return view('welcome');
-})->name('home');
+})->middleware('throttle:global')->name('home');
 
 Route::get('dashboard', function () {
     $user = auth()->user();
-    
-    if ($user->hasRole('admin')) return redirect()->route('admin.dashboard');
-    if ($user->hasRole('dean')) return redirect()->route('dean.dashboard');
-    if ($user->hasRole('program head')) return redirect()->route('program-head.dashboard');
-    if ($user->hasRole('faculty')) return redirect()->route('faculty.dashboard');
-    if ($user->hasRole('student')) return redirect()->route('student.dashboard');
-    if ($user->hasRole('staff')) return redirect()->route('staff.dashboard');
+
+    if ($user->hasRole('admin')) {
+        return redirect()->route('admin.dashboard');
+    }
+    if ($user->hasRole('dean')) {
+        return redirect()->route('dean.dashboard');
+    }
+    if ($user->hasRole('program head')) {
+        return redirect()->route('program-head.dashboard');
+    }
+    if ($user->hasRole('faculty')) {
+        return redirect()->route('faculty.dashboard');
+    }
+    if ($user->hasRole('student')) {
+        return redirect()->route('student.dashboard');
+    }
+    if ($user->hasRole('staff')) {
+        return redirect()->route('staff.dashboard');
+    }
 
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'throttle:global'])->name('dashboard');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
     // Admin Dashboard
     Volt::route('/admin/dashboard', 'admin.dashboard')
         ->middleware('role:admin')
@@ -110,7 +122,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notifications');
 });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'throttle:global'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');

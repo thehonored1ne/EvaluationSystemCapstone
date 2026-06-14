@@ -36,11 +36,11 @@ class Semester extends Model
      */
     public function getEvaluationStatusAttribute(): string
     {
-        if (!$this->is_evaluation_open) {
+        if (! $this->is_evaluation_open) {
             return 'locked';
         }
 
-        if (!$this->evaluation_starts_at || !$this->evaluation_ends_at) {
+        if (! $this->evaluation_starts_at || ! $this->evaluation_ends_at) {
             return 'locked';
         }
 

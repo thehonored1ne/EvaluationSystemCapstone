@@ -3,17 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
-
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable // implements MustVerifyEmail
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -76,7 +76,7 @@ class User extends Authenticatable // implements MustVerifyEmail
      */
     public function isStudent(): bool
     {
-        return !is_null($this->student_id);
+        return ! is_null($this->student_id);
     }
 
     /**
@@ -84,7 +84,7 @@ class User extends Authenticatable // implements MustVerifyEmail
      */
     public function isEmployee(): bool
     {
-        return !is_null($this->employee_id);
+        return ! is_null($this->employee_id);
     }
 
     /**
@@ -105,19 +105,20 @@ class User extends Authenticatable // implements MustVerifyEmail
     {
         $notifications = [];
         $sem = Semester::where('is_active', true)->first();
-        if (!$sem) {
+        if (! $sem) {
             $notifications[] = (object) [
                 'type' => 'warning',
                 'title' => 'No Active Semester',
                 'description' => 'There is no active academic semester configured. Evaluations are disabled.',
                 'created_at' => $this->created_at ?? now(),
             ];
+
             return $notifications;
         }
 
         // Capped timestamps to ensure notifications are never dated in the future
         $now = now();
-        
+
         $notificationTime = $sem->evaluation_starts_at ?? $sem->updated_at;
         if ($notificationTime && $notificationTime->gt($now)) {
             $notificationTime = $sem->updated_at->gt($now) ? $now : $sem->updated_at;
@@ -135,7 +136,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         if ($isEvaluationOpen) {
             $deadlineInfo = '';
             if ($sem->evaluation_ends_at) {
-                $deadlineInfo = ' until ' . $sem->evaluation_ends_at->format('F d, Y h:i A');
+                $deadlineInfo = ' until '.$sem->evaluation_ends_at->format('F d, Y h:i A');
             }
             $notifications[] = (object) [
                 'type' => 'info',
@@ -146,7 +147,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         } else {
             $timeInfo = '';
             if ($sem->evaluation_starts_at) {
-                $timeInfo = ' starts at ' . $sem->evaluation_starts_at->format('F d, Y h:i A');
+                $timeInfo = ' starts at '.$sem->evaluation_starts_at->format('F d, Y h:i A');
             }
             $notifications[] = (object) [
                 'type' => 'warning',
@@ -176,7 +177,9 @@ class User extends Authenticatable // implements MustVerifyEmail
                         'class_id' => $class->id,
                     ])->exists();
 
-                    if (!$evaluated) $pendingCount++;
+                    if (! $evaluated) {
+                        $pendingCount++;
+                    }
                 }
             }
 
@@ -190,7 +193,7 @@ class User extends Authenticatable // implements MustVerifyEmail
             }
         } elseif ($this->hasRole('faculty') && $this->employee) {
             $emp = $this->employee;
-            
+
             // Check self evaluation
             $selfEvaluated = Evaluation::where([
                 'semester_id' => $sem->id,
@@ -199,7 +202,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'evaluation_type' => 'self',
             ])->exists();
 
-            if (!$selfEvaluated && $isEvaluationOpen) {
+            if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
@@ -215,10 +218,10 @@ class User extends Authenticatable // implements MustVerifyEmail
                     ->where('id', '!=', $emp->id)
                     ->with('user')
                     ->get();
-                
+
                 $peerPending = 0;
                 foreach ($peers as $peer) {
-                    if ($peer->user && !Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
                         $peerPending++;
                     }
                 }
@@ -234,7 +237,7 @@ class User extends Authenticatable // implements MustVerifyEmail
             }
         } elseif ($this->hasRole('program head') && $this->employee) {
             $emp = $this->employee;
-            
+
             // Check self evaluation
             $selfEvaluated = Evaluation::where([
                 'semester_id' => $sem->id,
@@ -243,7 +246,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'evaluation_type' => 'self',
             ])->exists();
 
-            if (!$selfEvaluated && $isEvaluationOpen) {
+            if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
@@ -261,7 +264,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                 $facPending = 0;
                 foreach ($faculty as $member) {
-                    if ($member->user && !Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $member->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                    if ($member->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $member->user->id, 'evaluation_type' => 'peer'])->exists()) {
                         $facPending++;
                     }
                 }
@@ -284,7 +287,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'evaluation_type' => 'self',
             ])->exists();
 
-            if (!$selfEvaluated && $isEvaluationOpen) {
+            if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
@@ -297,7 +300,7 @@ class User extends Authenticatable // implements MustVerifyEmail
             $heads = Employee::where('role', 'program head')->with('user')->get();
             $phPending = 0;
             foreach ($heads as $head) {
-                if ($head->user && !Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
                     $phPending++;
                 }
             }
@@ -321,7 +324,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'evaluation_type' => 'self',
             ])->exists();
 
-            if (!$selfEvaluated && $isEvaluationOpen) {
+            if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
@@ -336,10 +339,10 @@ class User extends Authenticatable // implements MustVerifyEmail
                     ->where('department_id', $emp->department_id)
                     ->with('user')
                     ->get();
-                
+
                 $headPending = 0;
                 foreach ($heads as $head) {
-                    if ($head->user && !Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                    if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
                         $headPending++;
                     }
                 }

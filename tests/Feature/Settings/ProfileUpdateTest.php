@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Livewire\Volt\Volt;
+use Spatie\Permission\Models\Role;
 
 test('profile page is displayed', function () {
     $this->actingAs($user = User::factory()->create());
@@ -75,7 +76,7 @@ test('correct password must be provided to delete account', function () {
 });
 
 test('admin user can update their employee number in profile', function () {
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
+    Role::firstOrCreate(['name' => 'admin']);
     $user = User::factory()->create();
     $user->assignRole('admin');
 

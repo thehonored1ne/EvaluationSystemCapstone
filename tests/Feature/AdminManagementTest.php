@@ -1,26 +1,28 @@
 <?php
 
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
-use App\Models\Department;
-use App\Models\AcademicYear;
-use App\Models\Semester;
-use App\Models\Subject;
 use App\Models\AcademicClass;
+use App\Models\AcademicYear;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Program;
+use App\Models\Semester;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Create roles
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'dean']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'program head']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'staff']);
+    Role::firstOrCreate(['name' => 'admin']);
+    Role::firstOrCreate(['name' => 'dean']);
+    Role::firstOrCreate(['name' => 'program head']);
+    Role::firstOrCreate(['name' => 'faculty']);
+    Role::firstOrCreate(['name' => 'student']);
+    Role::firstOrCreate(['name' => 'staff']);
 
     // Admin user
     $this->adminUser = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'password']);
@@ -34,13 +36,13 @@ beforeEach(function () {
         'last_name' => 'Doe',
         'role' => 'faculty',
         'status' => 'active',
-        'department_id' => $this->dept->id
+        'department_id' => $this->dept->id,
     ]);
     $this->facultyUser = User::create([
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'employee_id' => $this->facultyEmp->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $this->facultyUser->assignRole('faculty');
 
@@ -49,13 +51,13 @@ beforeEach(function () {
         'student_number' => 'STU-01',
         'first_name' => 'Jane',
         'last_name' => 'Smith',
-        'year_level' => 3
+        'year_level' => 3,
     ]);
     $this->studentUser = User::create([
         'name' => 'Jane Smith',
         'email' => 'jane@example.com',
         'student_id' => $this->student->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $this->studentUser->assignRole('student');
 
@@ -64,7 +66,7 @@ beforeEach(function () {
         'student_number' => 'STU-02',
         'first_name' => 'Alice',
         'last_name' => 'Cooper',
-        'year_level' => 2
+        'year_level' => 2,
     ]);
 
     // Academic Semester context
@@ -172,7 +174,7 @@ test('class crud and student enrollment functions work', function () {
     $this->assertDatabaseHas('classes', [
         'subject_id' => $subject->id,
         'teacher_id' => $this->facultyEmp->id,
-        'section' => 'BSCS-3A'
+        'section' => 'BSCS-3A',
     ]);
 
     $class = AcademicClass::where('section', 'BSCS-3A')->first();
@@ -222,7 +224,7 @@ test('notifications count and auto read feature works', function () {
         'subject_id' => $subject->id,
         'semester_id' => $this->semester->id,
         'teacher_id' => $this->facultyEmp->id,
-        'section' => 'BSCS-3A'
+        'section' => 'BSCS-3A',
     ]);
     $class->students()->attach($this->student->id);
 
@@ -239,7 +241,7 @@ test('notifications count and auto read feature works', function () {
     // The unread notifications count should match the total list size
     $unreadCountBefore = 0;
     foreach ($notifications as $notif) {
-        if (!$this->studentUser->notifications_last_viewed_at || $notif->created_at->gt($this->studentUser->notifications_last_viewed_at)) {
+        if (! $this->studentUser->notifications_last_viewed_at || $notif->created_at->gt($this->studentUser->notifications_last_viewed_at)) {
             $unreadCountBefore++;
         }
     }
@@ -257,7 +259,7 @@ test('notifications count and auto read feature works', function () {
     $unreadCountAfter = 0;
     $updatedNotifications = $this->studentUser->getNotifications();
     foreach ($updatedNotifications as $notif) {
-        if (!$this->studentUser->notifications_last_viewed_at || $notif->created_at->gt($this->studentUser->notifications_last_viewed_at)) {
+        if (! $this->studentUser->notifications_last_viewed_at || $notif->created_at->gt($this->studentUser->notifications_last_viewed_at)) {
             $unreadCountAfter++;
         }
     }
@@ -269,7 +271,7 @@ test('dean and student role management pages CRUD functions correctly', function
 
     // 1. Create Dean
     $component = Volt::test('admin.manage-deans')
-        ->set('first_name' , 'Albert')
+        ->set('first_name', 'Albert')
         ->set('last_name', 'Einstein')
         ->set('email', 'albert@example.com')
         ->set('employee_number', 'DEC-999')
@@ -290,7 +292,7 @@ test('dean and student role management pages CRUD functions correctly', function
     expect($deanUser->refresh()->is_active)->toBeFalse();
 
     // 2. Create Student
-    $program = \App\Models\Program::create(['code' => 'BSCS', 'name' => 'Computer Science', 'department_id' => $this->dept->id]);
+    $program = Program::create(['code' => 'BSCS', 'name' => 'Computer Science', 'department_id' => $this->dept->id]);
     $studentComponent = Volt::test('admin.manage-students')
         ->set('first_name', 'Ada')
         ->set('last_name', 'Lovelace')
@@ -318,7 +320,7 @@ test('department CRUD inside evaluation settings works correctly', function () {
         'first_name' => 'Richard',
         'last_name' => 'Feynman',
         'role' => 'dean',
-        'status' => 'active'
+        'status' => 'active',
     ]);
 
     // 1. Create Department
@@ -369,7 +371,7 @@ test('filtering user management lists by department works correctly', function (
     $otherDept = Department::create(['code' => 'COE', 'name' => 'Engineering']);
 
     // Create a program in COE
-    $program = \App\Models\Program::create(['code' => 'BSEE', 'name' => 'Electrical Engineering', 'department_id' => $otherDept->id]);
+    $program = Program::create(['code' => 'BSEE', 'name' => 'Electrical Engineering', 'department_id' => $otherDept->id]);
 
     // Create a student in COE
     $studentEmp = Student::create([
@@ -377,13 +379,13 @@ test('filtering user management lists by department works correctly', function (
         'first_name' => 'Nikola',
         'last_name' => 'Tesla',
         'program_id' => $program->id,
-        'year_level' => 1
+        'year_level' => 1,
     ]);
     $studentUser = User::create([
         'name' => 'Nikola Tesla',
         'email' => 'tesla@example.com',
         'student_id' => $studentEmp->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $studentUser->assignRole('student');
 
@@ -392,6 +394,7 @@ test('filtering user management lists by department works correctly', function (
         ->set('selectedDepartmentId', $otherDept->id)
         ->assertViewHas('users', function ($paginator) use ($studentUser) {
             $items = $paginator->items();
+
             return count($items) === 1 && $items[0]->id === $studentUser->id;
         })
         ->set('selectedDepartmentId', '')
@@ -406,13 +409,13 @@ test('filtering user management lists by department works correctly', function (
         'last_name' => 'Edison',
         'role' => 'faculty',
         'status' => 'active',
-        'department_id' => $otherDept->id
+        'department_id' => $otherDept->id,
     ]);
     $facultyUser2 = User::create([
         'name' => 'Thomas Edison',
         'email' => 'edison@example.com',
         'employee_id' => $facultyEmp2->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $facultyUser2->assignRole('faculty');
 
@@ -421,6 +424,7 @@ test('filtering user management lists by department works correctly', function (
         ->set('selectedDepartmentId', $otherDept->id)
         ->assertViewHas('users', function ($paginator) use ($facultyUser2) {
             $items = $paginator->items();
+
             return count($items) === 1 && $items[0]->id === $facultyUser2->id;
         })
         ->set('selectedDepartmentId', '')
@@ -438,7 +442,7 @@ test('program CRUD inside evaluation settings works correctly', function () {
         'first_name' => 'Ada',
         'last_name' => 'Lovelace',
         'role' => 'program head',
-        'status' => 'active'
+        'status' => 'active',
     ]);
 
     // 1. Create Program
@@ -454,7 +458,7 @@ test('program CRUD inside evaluation settings works correctly', function () {
     $this->assertDatabaseHas('programs', ['code' => 'BSIT', 'name' => 'BS Information Technology', 'department_id' => $this->dept->id, 'program_head_id' => $headEmp->id]);
     expect($headEmp->refresh()->department_id)->not->toBeNull();
 
-    $prog = \App\Models\Program::where('code', 'BSIT')->first();
+    $prog = Program::where('code', 'BSIT')->first();
 
     // 2. Edit/Update Program
     $component = Volt::test('admin.evaluation-settings')
@@ -519,7 +523,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
         'first_name' => 'Dean',
         'last_name' => 'Test',
         'role' => 'dean',
-        'status' => 'active'
+        'status' => 'active',
     ]);
     $deanUser = User::create([
         'name' => 'Dean Test',
@@ -544,7 +548,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
         'first_name' => 'PH',
         'last_name' => 'Test',
         'role' => 'program head',
-        'status' => 'active'
+        'status' => 'active',
     ]);
     $phUser = User::create([
         'name' => 'PH Test',
@@ -569,7 +573,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
         'first_name' => 'Faculty',
         'last_name' => 'Test',
         'role' => 'faculty',
-        'status' => 'active'
+        'status' => 'active',
     ]);
     $facultyUser = User::create([
         'name' => 'Faculty Test',
@@ -594,7 +598,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
         'first_name' => 'Staff',
         'last_name' => 'Test',
         'role' => 'staff',
-        'status' => 'active'
+        'status' => 'active',
     ]);
     $staffUser = User::create([
         'name' => 'Staff Test',
@@ -618,7 +622,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
         'student_number' => 'STU-888',
         'first_name' => 'Student',
         'last_name' => 'Test',
-        'year_level' => 1
+        'year_level' => 1,
     ]);
     $studentUser = User::create([
         'name' => 'Student Test',
@@ -643,7 +647,7 @@ test('filtering by department none and student program and year level works corr
 
     // Create a program in department
     $dept = Department::create(['code' => 'TEST-DEPT', 'name' => 'Test Department']);
-    $program = \App\Models\Program::create(['code' => 'TEST-PROG', 'name' => 'Test Program', 'department_id' => $dept->id]);
+    $program = Program::create(['code' => 'TEST-PROG', 'name' => 'Test Program', 'department_id' => $dept->id]);
 
     // Create student 1: program = $program (department = $dept), year_level = 2
     $studentEmp1 = Student::create([
@@ -651,13 +655,13 @@ test('filtering by department none and student program and year level works corr
         'first_name' => 'Filtered',
         'last_name' => 'One',
         'program_id' => $program->id,
-        'year_level' => 2
+        'year_level' => 2,
     ]);
     $studentUser1 = User::create([
         'name' => 'Filtered One',
         'email' => 'f1@example.com',
         'student_id' => $studentEmp1->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $studentUser1->assignRole('student');
 
@@ -667,13 +671,13 @@ test('filtering by department none and student program and year level works corr
         'first_name' => 'Filtered',
         'last_name' => 'Two',
         'program_id' => null,
-        'year_level' => 3
+        'year_level' => 3,
     ]);
     $studentUser2 = User::create([
         'name' => 'Filtered Two',
         'email' => 'f2@example.com',
         'student_id' => $studentEmp2->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $studentUser2->assignRole('student');
 
@@ -683,6 +687,7 @@ test('filtering by department none and student program and year level works corr
         ->set('selectedDepartmentId', 'none')
         ->assertViewHas('users', function ($paginator) use ($studentUser2) {
             $ids = collect($paginator->items())->pluck('id');
+
             return $ids->contains($studentUser2->id);
         })
         // Filter by Program
@@ -690,20 +695,23 @@ test('filtering by department none and student program and year level works corr
         ->set('selectedProgramId', $program->id)
         ->assertViewHas('users', function ($paginator) use ($studentUser1, $studentUser2) {
             $ids = collect($paginator->items())->pluck('id');
-            return $ids->contains($studentUser1->id) && !$ids->contains($studentUser2->id);
+
+            return $ids->contains($studentUser1->id) && ! $ids->contains($studentUser2->id);
         })
         // Filter by Program None
         ->set('selectedProgramId', 'none')
         ->assertViewHas('users', function ($paginator) use ($studentUser2, $studentUser1) {
             $ids = collect($paginator->items())->pluck('id');
-            return $ids->contains($studentUser2->id) && !$ids->contains($studentUser1->id);
+
+            return $ids->contains($studentUser2->id) && ! $ids->contains($studentUser1->id);
         })
         // Filter by Year Level
         ->set('selectedProgramId', '')
         ->set('selectedYearLevel', 2)
         ->assertViewHas('users', function ($paginator) use ($studentUser1, $studentUser2) {
             $ids = collect($paginator->items())->pluck('id');
-            return $ids->contains($studentUser1->id) && !$ids->contains($studentUser2->id);
+
+            return $ids->contains($studentUser1->id) && ! $ids->contains($studentUser2->id);
         });
 
     // Create a faculty with no department
@@ -713,13 +721,13 @@ test('filtering by department none and student program and year level works corr
         'last_name' => 'Dept',
         'role' => 'faculty',
         'status' => 'active',
-        'department_id' => null
+        'department_id' => null,
     ]);
     $facultyUserNone = User::create([
         'name' => 'No Dept',
         'email' => 'nodept@example.com',
         'employee_id' => $facultyEmpNone->id,
-        'password' => 'password'
+        'password' => 'password',
     ]);
     $facultyUserNone->assignRole('faculty');
 
@@ -728,8 +736,7 @@ test('filtering by department none and student program and year level works corr
         ->set('selectedDepartmentId', 'none')
         ->assertViewHas('users', function ($paginator) use ($facultyUserNone) {
             $ids = collect($paginator->items())->pluck('id');
-            return $ids->contains($facultyUserNone->id) && !$ids->contains($this->facultyUser->id);
+
+            return $ids->contains($facultyUserNone->id) && ! $ids->contains($this->facultyUser->id);
         });
 });
-
-

@@ -2,15 +2,15 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Employee;
 use App\Models\AcademicYear;
-use App\Models\Semester;
+use App\Models\Employee;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationQuestion;
+use App\Models\Semester;
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class DatabaseSeeder extends Seeder
 {
@@ -60,7 +60,7 @@ class DatabaseSeeder extends Seeder
                     'The instructor explains complex topics clearly and understandably.',
                     'The instructor encourages class discussion and active participation.',
                     'The instructor uses relevant examples and teaching methods to facilitate learning.',
-                ]
+                ],
             ],
             [
                 'evaluation_type' => 'student',
@@ -72,7 +72,7 @@ class DatabaseSeeder extends Seeder
                     'The instructor treats students with respect and professionalism.',
                     'The instructor is accessible to students outside of class hours (consultation hours).',
                     'The instructor maintains order and a conducive learning environment in the classroom.',
-                ]
+                ],
             ],
             [
                 'evaluation_type' => 'student',
@@ -83,9 +83,9 @@ class DatabaseSeeder extends Seeder
                     'The instructor clearly outlines grading policies and evaluation metrics.',
                     'The instructor provides timely and constructive feedback on exams and projects.',
                     'The instructor conducts quizzes, tests, and tasks that are aligned with course objectives.',
-                ]
+                ],
             ],
-            
+
             // Peer Evaluation: 50 points total
             [
                 'evaluation_type' => 'peer',
@@ -96,7 +96,7 @@ class DatabaseSeeder extends Seeder
                     'The instructor demonstrates expertise in course planning and preparation.',
                     'The instructor delivers instruction using effective methodology aligned with course syllabi.',
                     'The instructor encourages academic standards and intellectual curiosity.',
-                ]
+                ],
             ],
             [
                 'evaluation_type' => 'peer',
@@ -106,7 +106,7 @@ class DatabaseSeeder extends Seeder
                 'questions' => [
                     'The instructor conforms to academic policies, duties, and consultation hours.',
                     'The instructor displays professionalism and mutual respect with colleagues and staff.',
-                ]
+                ],
             ],
             [
                 'evaluation_type' => 'peer',
@@ -115,7 +115,7 @@ class DatabaseSeeder extends Seeder
                 'max_points' => 10.00,
                 'questions' => [
                     'The instructor submits administrative and academic reports on time.',
-                ]
+                ],
             ],
             [
                 'evaluation_type' => 'peer',
@@ -124,7 +124,7 @@ class DatabaseSeeder extends Seeder
                 'max_points' => 10.00,
                 'questions' => [
                     'The instructor actively participates in extension services and community development.',
-                ]
+                ],
             ],
 
             // Self Evaluation: 10 points total
@@ -140,15 +140,15 @@ class DatabaseSeeder extends Seeder
                     'I manage class time productively and keep precise attendance and academic reports.',
                     'I explain grading procedures clearly and apply assessment criteria consistently.',
                     'I provide students with prompt feedback on their assessments.',
-                ]
-            ]
+                ],
+            ],
         ];
 
         foreach ($criteria as $cData) {
             $criterion = EvaluationCriterion::firstOrCreate(
                 [
                     'evaluation_type' => $cData['evaluation_type'],
-                    'name' => $cData['name']
+                    'name' => $cData['name'],
                 ],
                 [
                     'order' => $cData['order'],
@@ -190,7 +190,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        if (!$admin->hasRole('admin')) {
+        if (! $admin->hasRole('admin')) {
             $admin->assignRole('admin');
         }
 
@@ -214,7 +214,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        if (!$dean->hasRole('dean')) {
+        if (! $dean->hasRole('dean')) {
             $dean->assignRole('dean');
         }
 
