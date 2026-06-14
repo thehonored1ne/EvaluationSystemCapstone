@@ -15,13 +15,19 @@
 
 - [x] impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
 
-- a button that can automatically update the current school year and semester.
+- a button that can automatically update the current school year and semester for users (admin,dean, program head, faculty, student, staff).
 
-- use redis for queue jobs
+- a way to train more our ai pipeline for accuracy. for example the ai says the comment is negative, but it is positive. we should be able to correct the ai and retrain it, and the ai will be able to learn from it. we should test our ai with more test data so in the future we can test its accuracy by ground truth test or other testing methods. it should create a confusion matrix to check the accuracy of the ai.
+
+- use redis for queue jobs to improve performance.
 
 - [x] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
 
-- import data via excel feature
+- import data via excel feature (only admin can do this)
+
+- need to update the summary result more, lets make a report generation that can be exported to pdf with all the data in the evaluation. create a separate table to store the evaluation results that can be used for reporting purposes. should show individual result and summary result.
+
+- weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this.
 
 - Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
 

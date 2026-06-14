@@ -94,6 +94,17 @@ Report ALL findings, critical or minor, with:
   2. Implemented an API Key verification middleware (`check_api_key`) via a `before_request` hook checking for the `X-API-KEY` header.
   3. Generated a default secure `AI_API_KEY` inside `.env` and configured Laravel to transmit the header in both [ProcessEvaluationSubmission.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Jobs/ProcessEvaluationSubmission.php) and [TrainAI.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php).
 
+### Finding 3.2: Missing Rate Limiting on Authentication and Submissions
+* **Status**: **Resolved (Patched on June 14, 2026)**
+* **Location**:
+  * [routes/auth.php](file:///c:/Users/USER/Herd/evaluationsystem/routes/auth.php)
+  * [resources/views/livewire/evaluation-form.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)
+* **Risk**: Public authentication endpoints (login, forgot-password, reset-password) and the Livewire evaluation submission endpoint were vulnerable to request flood, brute-forcing, and resource starvation attacks.
+* **Fix Applied**:
+  1. Implemented a `global` rate limiter (100 requests/min) and an `auth` rate limiter (5 attempts/3 mins) inside [AppServiceProvider.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Providers/AppServiceProvider.php).
+  2. Applied the limiters to the respective route groups (`throttle:global` on web routes, `throttle:auth` on guest authentication routes).
+  3. Integrated server-side evaluation submission rate limiting (5 attempts/3 mins) inside the Livewire component and rendered a client-side Alpine.js reactive countdown timer to prevent raw HTTP 429 page crashes.
+
 ---
 
 ## 4. Configuration & Infrastructure
