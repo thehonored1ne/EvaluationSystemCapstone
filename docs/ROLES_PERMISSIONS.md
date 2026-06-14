@@ -7,7 +7,7 @@ This document maps user roles to their features, views, and target evaluation bo
 ## 1. System Roles
 * **Admin**: Complete system dashboard access, CRUD controls for users/departments/programs/schedules, evaluation questions, and global analytics.
 * **Dean**: Department-wide monitoring of evaluation participation rates, reports generation, and evaluator roles.
-* **Program Head**: Program-specific monitoring of classes, student enrollment, and faculty evaluations.
+* **Program Head**: Program-specific monitoring of classes, student enrollment, faculty evaluations, and reports generation.
 * **Faculty**: Accesses self-evaluations, peer evaluations, and supervisor evaluations.
 * **Student**: Accesses evaluations targeting teachers of classes they are currently enrolled in.
 * **Staff**: Accesses self-evaluations and supervisor evaluations.

@@ -12,6 +12,7 @@ use App\Models\EvaluationAnswer;
 new #[Layout('components.layouts.app')] class extends Component {
     public ?int $selectedTeacherId = null;
     public ?int $selectedSemesterId = null;
+    public string $activeTab = 'individual';
 
     public function mount()
     {
@@ -109,25 +110,90 @@ new #[Layout('components.layouts.app')] class extends Component {
             'comments' => $comments,
         ];
     }
+
+    public function getSummaryReportDataProperty()
+    {
+        if (!$this->selectedSemesterId) return collect();
+
+        $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
+        $teachers = $this->teachers;
+
+        return $teachers->map(function ($teacher) use ($semester) {
+            $userId = $teacher->user?->id;
+            
+            if (!$userId) {
+                return (object) [
+                    'teacher' => $teacher,
+                    'student_average' => 0.00,
+                    'peer_average' => 0.00,
+                    'self_average' => 0.00,
+                    'overall_average' => 0.00,
+                    'submissions_count' => 0,
+                ];
+            }
+
+            $evalsQuery = Evaluation::where('evaluatee_id', $userId)
+                ->where('semester_id', $semester->id);
+
+            $totalSubmissions = $evalsQuery->count();
+            $overallAverage = $totalSubmissions > 0 ? round($evalsQuery->avg('rating_average'), 2) : 0.00;
+
+            // Breakdown by type
+            $types = ['student', 'peer', 'self'];
+            $typeAverages = [];
+            foreach ($types as $type) {
+                $tQuery = clone $evalsQuery;
+                $tCount = $tQuery->where('evaluation_type', $type)->count();
+                $tQuery2 = clone $evalsQuery;
+                $tAvg = $tCount > 0 ? round($tQuery2->where('evaluation_type', $type)->avg('rating_average'), 2) : 0.00;
+                $typeAverages[$type] = $tAvg;
+            }
+
+            return (object) [
+                'teacher' => $teacher,
+                'student_average' => $typeAverages['student'],
+                'peer_average' => $typeAverages['peer'],
+                'self_average' => $typeAverages['self'],
+                'overall_average' => $overallAverage,
+                'submissions_count' => $totalSubmissions,
+            ];
+        })->sortByDesc('overall_average');
+    }
 }; ?>
 
 <div class="flex flex-col gap-8 w-full max-w-5xl mx-auto px-4 py-6">
+    <!-- Navigation Tabs (Hidden on Print) -->
+    <div class="flex border-b border-zinc-200 dark:border-zinc-800 print:hidden">
+        <button wire:click="$set('activeTab', 'individual')" class="px-5 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 {{ $activeTab === 'individual' ? 'border-indigo-650 text-indigo-650 dark:border-indigo-400 dark:text-indigo-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
+            Individual Report
+        </button>
+        <button wire:click="$set('activeTab', 'summary')" class="px-5 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 {{ $activeTab === 'summary' ? 'border-indigo-650 text-indigo-650 dark:border-indigo-400 dark:text-indigo-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
+            Summary Report
+        </button>
+    </div>
+
     <!-- Filters (Hidden on Print) -->
     <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm print:hidden">
         <div>
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Evaluation Reports</h1>
-            <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">Select a teacher and semester to generate and print a performance summary report.</p>
+            <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                {{ $activeTab === 'individual' ? 'Evaluation Reports' : 'Summary Evaluation Reports' }}
+            </h1>
+            <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
+                {{ $activeTab === 'individual' ? 'Select a teacher and semester to generate and print a performance summary report.' : 'Select a semester to generate and print a performance summary report for all professors.' }}
+            </p>
         </div>
 
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto shrink-0">
-            <div class="w-full md:w-64">
-                <x-searchable-select 
-                    name="selectedTeacherId" 
-                    placeholder="Select Professor" 
-                    :live="true" 
-                    :options="$this->teachers->map(fn($t) => ['value' => (string)$t->id, 'label' => $t->full_name . ' (' . $t->employee_number . ')'])->toArray()" 
-                />
-            </div>
+            @if($activeTab === 'individual')
+                <div class="w-full md:w-64">
+                    <x-searchable-select 
+                        name="selectedTeacherId" 
+                        placeholder="Select Professor" 
+                        :live="true" 
+                        :options="$this->teachers->map(fn($t) => ['value' => (string)$t->id, 'label' => $t->full_name . ' (' . $t->employee_number . ')'])->toArray()" 
+                    />
+                </div>
+            @endif
 
             <div class="w-full md:w-48">
                 <flux:select wire:model.live="selectedSemesterId" placeholder="Select Semester">
@@ -140,135 +206,256 @@ new #[Layout('components.layouts.app')] class extends Component {
     </div>
 
     <!-- Print Report Body -->
-    @if($this->reportData)
-        @php $data = $this->reportData; @endphp
-        
-        <!-- Print Button (Hidden on Print) -->
-        <div class="flex justify-end print:hidden">
-            <flux:button variant="primary" icon="printer" onclick="window.print()">
-                Print Report
-            </flux:button>
-        </div>
-
-        <!-- Printable Document -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
+    @if($activeTab === 'individual')
+        @if($this->reportData)
+            @php $data = $this->reportData; @endphp
             
-            <!-- Document Header -->
-            <div class="text-center border-b-2 border-zinc-850 pb-6 flex flex-col gap-2">
-                <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Performance Evaluation Report</h2>
-                <p class="text-sm font-semibold text-zinc-500 print:text-zinc-600">
-                    Academic Period: {{ $data->semester->academicYear->name }} - {{ $data->semester->name }}
-                </p>
+            <!-- Print Button (Hidden on Print) -->
+            <div class="flex justify-end print:hidden">
+                <flux:button variant="primary" icon="printer" onclick="window.print()">
+                    Print Report
+                </flux:button>
             </div>
 
-            <!-- Profile Details -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:text-black print:border-zinc-300">
-                <div class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Professor Name</span>
-                    <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">{{ $data->teacher->full_name }}</span>
+            <!-- Printable Document -->
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
+                
+                <!-- Document Header -->
+                <div class="text-center border-b-2 border-zinc-850 pb-6 flex flex-col gap-2">
+                    <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Performance Evaluation Report</h2>
+                    <p class="text-sm font-semibold text-zinc-500 print:text-zinc-600">
+                        Academic Period: {{ $data->semester->academicYear->name }} - {{ $data->semester->name }}
+                    </p>
                 </div>
-                <div class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Department / College</span>
-                    <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
-                        {{ $data->teacher->department->name ?? 'N/A' }} ({{ $data->teacher->department->code ?? 'N/A' }})
-                    </span>
-                </div>
-                <div class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee ID</span>
-                    <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ $data->teacher->employee_number }}</span>
-                </div>
-                <div class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee Designation</span>
-                    <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ ucfirst($data->teacher->role) }}</span>
-                </div>
-            </div>
 
-            <!-- Summary metrics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="border-2 border-indigo-600 dark:border-indigo-400 p-4 rounded-xl text-center bg-indigo-50/20">
-                    <div class="text-xs font-bold uppercase tracking-wider text-zinc-500">Overall Score</div>
-                    <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
-                        {{ number_format($data->overall_average, 2) }} <span class="text-xs font-normal">/ 5.0</span>
+                <!-- Profile Details -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:text-black print:border-zinc-300">
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Professor Name</span>
+                        <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">{{ $data->teacher->full_name }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Department / College</span>
+                        <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
+                            {{ $data->teacher->department->name ?? 'N/A' }} ({{ $data->teacher->department->code ?? 'N/A' }})
+                        </span>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee ID</span>
+                        <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ $data->teacher->employee_number }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee Designation</span>
+                        <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ ucfirst($data->teacher->role) }}</span>
                     </div>
                 </div>
 
-                @foreach(['student' => 'Students', 'peer' => 'Peers / Sup', 'self' => 'Self'] as $type => $label)
-                    <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl text-center">
-                        <div class="text-xs font-bold uppercase tracking-wider text-zinc-500">{{ $label }} Rating</div>
-                        <div class="text-xl font-bold text-zinc-850 dark:text-zinc-200 print:text-black mt-1">
-                            @if($data->type_averages[$type]->count > 0)
-                                {{ number_format($data->type_averages[$type]->average, 2) }}
-                                <span class="text-xs font-medium text-zinc-400 block mt-0.5">({{ $data->type_averages[$type]->count }} reports)</span>
-                            @else
-                                <span class="text-sm font-semibold text-zinc-400 block mt-0.5">N/A</span>
-                            @endif
+                <!-- Summary metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="border-2 border-indigo-600 dark:border-indigo-400 p-4 rounded-xl text-center bg-indigo-50/20">
+                        <div class="text-xs font-bold uppercase tracking-wider text-zinc-500">Overall Score</div>
+                        <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                            {{ number_format($data->overall_average, 2) }} <span class="text-xs font-normal">/ 5.0</span>
                         </div>
                     </div>
-                @endforeach
-            </div>
 
-            <!-- Criteria Performance Table -->
-            <div class="flex flex-col gap-3">
-                <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Evaluation Criteria Breakdown</h3>
-                <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 print:border-zinc-300">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800 print:bg-zinc-100 print:border-zinc-300">
-                            <tr>
-                                <th class="px-6 py-3">Criterion</th>
-                                <th class="px-6 py-3">Evaluation Type</th>
-                                <th class="px-6 py-3 text-right">Average Rating</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 print:divide-zinc-200">
-                            @foreach($data->criteria_breakdown as $c)
-                                <tr>
-                                    <td class="px-6 py-3.5 font-bold text-zinc-800 dark:text-zinc-200 print:text-black">{{ $c->name }}</td>
-                                    <td class="px-6 py-3.5 text-zinc-500">{{ $c->type }}</td>
-                                    <td class="px-6 py-3.5 text-right font-black text-zinc-850 dark:text-zinc-150 print:text-black">
-                                        {{ number_format($c->average, 2) }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Comments -->
-            <div class="flex flex-col gap-3">
-                <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Submitted Comments</h3>
-                @if(empty($data->comments))
-                    <p class="text-sm text-zinc-400 italic">No text comments submitted for this teacher.</p>
-                @else
-                    <div class="flex flex-col gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/10 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:border-zinc-300">
-                        @foreach($data->comments as $comment)
-                            <div class="text-sm text-zinc-700 dark:text-zinc-300 print:text-black p-2 border-b border-zinc-200 dark:border-zinc-800 last:border-none">
-                                - "{{ $comment }}"
+                    @foreach(['student' => 'Students', 'peer' => 'Peers / Sup', 'self' => 'Self'] as $type => $label)
+                        <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl text-center">
+                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500">{{ $label }} Rating</div>
+                            <div class="text-xl font-bold text-zinc-850 dark:text-zinc-200 print:text-black mt-1">
+                                @if($data->type_averages[$type]->count > 0)
+                                    {{ number_format($data->type_averages[$type]->average, 2) }}
+                                    <span class="text-xs font-medium text-zinc-400 block mt-0.5">({{ $data->type_averages[$type]->count }} reports)</span>
+                                @else
+                                    <span class="text-sm font-semibold text-zinc-400 block mt-0.5">N/A</span>
+                                @endif
                             </div>
-                        @endforeach
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Criteria Performance Table -->
+                <div class="flex flex-col gap-3">
+                    <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Evaluation Criteria Breakdown</h3>
+                    <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 print:border-zinc-300">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800 print:bg-zinc-100 print:border-zinc-300">
+                                <tr>
+                                    <th class="px-6 py-3">Criterion</th>
+                                    <th class="px-6 py-3">Evaluation Type</th>
+                                    <th class="px-6 py-3 text-right">Average Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 print:divide-zinc-200">
+                                @foreach($data->criteria_breakdown as $c)
+                                    <tr>
+                                        <td class="px-6 py-3.5 font-bold text-zinc-800 dark:text-zinc-200 print:text-black">{{ $c->name }}</td>
+                                        <td class="px-6 py-3.5 text-zinc-500">{{ $c->type }}</td>
+                                        <td class="px-6 py-3.5 text-right font-black text-zinc-850 dark:text-zinc-150 print:text-black">
+                                            {{ number_format($c->average, 2) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                @endif
+                </div>
+
+                <!-- Comments -->
+                <div class="flex flex-col gap-3">
+                    <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Submitted Comments</h3>
+                    @if(empty($data->comments))
+                        <p class="text-sm text-zinc-400 italic">No text comments submitted for this teacher.</p>
+                    @else
+                        <div class="flex flex-col gap-2 p-4 bg-zinc-50 dark:bg-zinc-800/10 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:border-zinc-300">
+                            @foreach($data->comments as $comment)
+                                <div class="text-sm text-zinc-700 dark:text-zinc-300 print:text-black p-2 border-b border-zinc-200 dark:border-zinc-800 last:border-none">
+                                    - "{{ $comment }}"
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Signature Lines (Visible on Print) -->
+                <div class="hidden print:flex justify-between mt-16 pt-8 border-t border-zinc-200 text-sm">
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="w-48 border-b border-zinc-900"></div>
+                        <span class="font-bold mt-1">Evaluated Professor Signature</span>
+                        <span class="text-xs text-zinc-500">Date Signed</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="w-48 border-b border-zinc-900"></div>
+                        <span class="font-bold mt-1">Dean / Department Head Signature</span>
+                        <span class="text-xs text-zinc-500">Date Signed</span>
+                    </div>
+                </div>
+
+            </div>
+        @else
+            <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
+                <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the report card.</p>
+            </div>
+        @endif
+    @endif
+
+    @if($activeTab === 'summary')
+        @if($selectedSemesterId && !$this->summaryReportData->isEmpty())
+            @php 
+                $semester = \App\Models\Semester::with('academicYear')->find($selectedSemesterId);
+                $summaryData = $this->summaryReportData;
+            @endphp
+            
+            <!-- Print Button (Hidden on Print) -->
+            <div class="flex justify-end print:hidden">
+                <flux:button variant="primary" icon="printer" onclick="window.print()">
+                    Print Summary Report
+                </flux:button>
             </div>
 
-            <!-- Signature Lines (Visible on Print) -->
-            <div class="hidden print:flex justify-between mt-16 pt-8 border-t border-zinc-200 text-sm">
-                <div class="flex flex-col items-center gap-1">
-                    <div class="w-48 border-b border-zinc-900"></div>
-                    <span class="font-bold mt-1">Evaluated Professor Signature</span>
-                    <span class="text-xs text-zinc-500">Date Signed</span>
+            <!-- Printable Document -->
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
+                
+                <!-- Document Header -->
+                <div class="text-center border-b-2 border-zinc-850 pb-6 flex flex-col gap-2">
+                    <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Evaluation Summary Report</h2>
+                    <p class="text-sm font-semibold text-zinc-500 print:text-zinc-600">
+                        Academic Period: {{ $semester->academicYear->name }} - {{ $semester->name }}
+                    </p>
                 </div>
-                <div class="flex flex-col items-center gap-1">
-                    <div class="w-48 border-b border-zinc-900"></div>
-                    <span class="font-bold mt-1">Dean / Department Head Signature</span>
-                    <span class="text-xs text-zinc-500">Date Signed</span>
-                </div>
-            </div>
 
-        </div>
-    @else
-        <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
-            <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-            <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the report card.</p>
-        </div>
+                <!-- Scope Details -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:text-black print:border-zinc-300">
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Report Scope</span>
+                        <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
+                            @if(auth()->user()->hasRole('admin'))
+                                All Departments / Institution-wide
+                            @else
+                                {{ auth()->user()->employee->department->name ?? 'Department-wide' }}
+                            @endif
+                        </span>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                        <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Total Faculty Members</span>
+                        <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
+                            {{ $summaryData->count() }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Summary Report Table -->
+                <div class="flex flex-col gap-3">
+                    <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Evaluation Summary Overview</h3>
+                    <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 print:border-zinc-300">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800 print:bg-zinc-100 print:border-zinc-300">
+                                <tr>
+                                    <th class="px-4 py-3">Employee ID</th>
+                                    <th class="px-4 py-3">Professor Name</th>
+                                    <th class="px-4 py-3">Department</th>
+                                    <th class="px-4 py-3 text-center">Student Avg</th>
+                                    <th class="px-4 py-3 text-center">Peer Avg</th>
+                                    <th class="px-4 py-3 text-center">Self Avg</th>
+                                    <th class="px-4 py-3 text-center">Total Submissions</th>
+                                    <th class="px-4 py-3 text-right">Overall Score</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900 print:divide-zinc-200">
+                                @foreach($summaryData as $row)
+                                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                                        <td class="px-4 py-3.5 text-zinc-700 dark:text-zinc-300 print:text-black font-mono text-xs">
+                                            {{ $row->teacher->employee_number }}
+                                        </td>
+                                        <td class="px-4 py-3.5 font-bold text-zinc-850 dark:text-zinc-200 print:text-black">
+                                            {{ $row->teacher->full_name }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-zinc-500 dark:text-zinc-400 print:text-black">
+                                            {{ $row->teacher->department->code ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-center font-medium text-zinc-700 dark:text-zinc-300 print:text-black">
+                                            {{ $row->submissions_count > 0 && $row->student_average > 0 ? number_format($row->student_average, 2) : 'N/A' }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-center font-medium text-zinc-700 dark:text-zinc-300 print:text-black">
+                                            {{ $row->submissions_count > 0 && $row->peer_average > 0 ? number_format($row->peer_average, 2) : 'N/A' }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-center font-medium text-zinc-700 dark:text-zinc-300 print:text-black">
+                                            {{ $row->submissions_count > 0 && $row->self_average > 0 ? number_format($row->self_average, 2) : 'N/A' }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-center font-semibold text-zinc-850 dark:text-zinc-200 print:text-black">
+                                            {{ $row->submissions_count }}
+                                        </td>
+                                        <td class="px-4 py-3.5 text-right font-black text-indigo-600 dark:text-indigo-400 print:text-black">
+                                            {{ $row->submissions_count > 0 ? number_format($row->overall_average, 2) : '0.00' }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Signature Lines (Visible on Print) -->
+                <div class="hidden print:flex justify-between mt-16 pt-8 border-t border-zinc-200 text-sm">
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="w-48 border-b border-zinc-900"></div>
+                        <span class="font-bold mt-1">Prepared By</span>
+                        <span class="text-xs text-zinc-500">Signature Over Printed Name</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="w-48 border-b border-zinc-900"></div>
+                        <span class="font-bold mt-1">Approved By</span>
+                        <span class="text-xs text-zinc-500">Dean / Administrator Signature</span>
+                    </div>
+                </div>
+
+            </div>
+        @else
+            <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
+                <p class="font-medium text-zinc-500">No evaluation data found for the selected semester.</p>
+            </div>
+        @endif
     @endif
 </div>

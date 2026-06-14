@@ -9,13 +9,25 @@ Route::get('/', function () {
 
 Route::get('dashboard', function () {
     $user = auth()->user();
-    
-    if ($user->hasRole('admin')) return redirect()->route('admin.dashboard');
-    if ($user->hasRole('dean')) return redirect()->route('dean.dashboard');
-    if ($user->hasRole('program head')) return redirect()->route('program-head.dashboard');
-    if ($user->hasRole('faculty')) return redirect()->route('faculty.dashboard');
-    if ($user->hasRole('student')) return redirect()->route('student.dashboard');
-    if ($user->hasRole('staff')) return redirect()->route('staff.dashboard');
+
+    if ($user->hasRole('admin')) {
+        return redirect()->route('admin.dashboard');
+    }
+    if ($user->hasRole('dean')) {
+        return redirect()->route('dean.dashboard');
+    }
+    if ($user->hasRole('program head')) {
+        return redirect()->route('program-head.dashboard');
+    }
+    if ($user->hasRole('faculty')) {
+        return redirect()->route('faculty.dashboard');
+    }
+    if ($user->hasRole('student')) {
+        return redirect()->route('student.dashboard');
+    }
+    if ($user->hasRole('staff')) {
+        return redirect()->route('staff.dashboard');
+    }
 
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

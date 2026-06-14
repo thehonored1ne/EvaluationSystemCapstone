@@ -1,10 +1,15 @@
 <?php
+
+use App\Models\User;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
+
 require __DIR__.'/vendor/autoload.php';
 $app = require_once __DIR__.'/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$kernel = $app->make(Kernel::class);
 
-$request = Illuminate\Http\Request::create('/admin/users', 'GET');
-$user = App\Models\User::first();
+$request = Request::create('/admin/users', 'GET');
+$user = User::first();
 if ($user) {
     auth()->login($user);
 }

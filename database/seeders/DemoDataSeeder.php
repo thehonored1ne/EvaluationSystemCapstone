@@ -2,15 +2,15 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
+use App\Models\AcademicClass;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Program;
 use App\Models\Semester;
+use App\Models\Student;
 use App\Models\Subject;
-use App\Models\AcademicClass;
+use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class DemoDataSeeder extends Seeder
@@ -79,7 +79,7 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($phData as $index => $data) {
-            $empNumber = 'PH-' . str_pad($index + 1, 4, '0', STR_PAD_LEFT);
+            $empNumber = 'PH-'.str_pad($index + 1, 4, '0', STR_PAD_LEFT);
             $firstName = explode(' ', $data['name'])[0];
             $lastName = explode(' ', $data['name'])[1];
 
@@ -96,7 +96,7 @@ class DemoDataSeeder extends Seeder
             $employee->update(['department_id' => $data['program']->department_id]);
             $programHeadEmployees[] = $employee;
 
-            $email = strtolower($data['code']) . '.head@example.com';
+            $email = strtolower($data['code']).'.head@example.com';
             $user = User::firstOrCreate(
                 ['email' => $email],
                 [
@@ -106,7 +106,7 @@ class DemoDataSeeder extends Seeder
                 ]
             );
 
-            if (!$user->hasRole('program head')) {
+            if (! $user->hasRole('program head')) {
                 $user->assignRole('program head');
             }
 
@@ -118,7 +118,7 @@ class DemoDataSeeder extends Seeder
         // 4. Create 20 Faculty professors
         $facultyEmployees = [];
         for ($i = 1; $i <= 20; $i++) {
-            $empNumber = 'FAC-' . str_pad($i, 4, '0', STR_PAD_LEFT);
+            $empNumber = 'FAC-'.str_pad($i, 4, '0', STR_PAD_LEFT);
             $firstName = fake()->firstName();
             $lastName = fake()->lastName();
 
@@ -137,7 +137,7 @@ class DemoDataSeeder extends Seeder
             $facultyEmployees[] = $employee;
 
             $user = User::firstOrCreate(
-                ['email' => strtolower($firstName . '.' . $lastName) . '@example.com'],
+                ['email' => strtolower($firstName.'.'.$lastName).'@example.com'],
                 [
                     'name' => "$firstName $lastName",
                     'employee_id' => $employee->id,
@@ -145,7 +145,7 @@ class DemoDataSeeder extends Seeder
                 ]
             );
 
-            if (!$user->hasRole('faculty')) {
+            if (! $user->hasRole('faculty')) {
                 $user->assignRole('faculty');
             }
         }
@@ -154,13 +154,13 @@ class DemoDataSeeder extends Seeder
         $students = [];
         $programsList = [$bscs, $bsit, $bsed, $beed];
         for ($i = 1; $i <= 40; $i++) {
-            $studNumber = 'STU-' . str_pad($i, 4, '0', STR_PAD_LEFT);
+            $studNumber = 'STU-'.str_pad($i, 4, '0', STR_PAD_LEFT);
             $firstName = fake()->firstName();
             $lastName = fake()->lastName();
             $program = $programsList[($i - 1) % 4]; // Distribute evenly across BSCS, BSIT, BSED, BEED
             $yearLevel = fake()->numberBetween(1, 4);
             $sectionSuffix = ($i % 2 === 0) ? 'A' : 'B';
-            $section = $program->code . '-' . $yearLevel . $sectionSuffix;
+            $section = $program->code.'-'.$yearLevel.$sectionSuffix;
 
             $student = Student::firstOrCreate(
                 ['student_number' => $studNumber],
@@ -176,7 +176,7 @@ class DemoDataSeeder extends Seeder
             $students[] = $student;
 
             $user = User::firstOrCreate(
-                ['email' => strtolower($firstName . '.' . $lastName) . '@example.com'],
+                ['email' => strtolower($firstName.'.'.$lastName).'@example.com'],
                 [
                     'name' => "$firstName $lastName",
                     'student_id' => $student->id,
@@ -184,7 +184,7 @@ class DemoDataSeeder extends Seeder
                 ]
             );
 
-            if (!$user->hasRole('student')) {
+            if (! $user->hasRole('student')) {
                 $user->assignRole('student');
             }
         }
@@ -269,7 +269,7 @@ class DemoDataSeeder extends Seeder
             // Enroll students into their program classes based on program and year level
             foreach ($students as $student) {
                 $progCode = $student->program->code;
-                
+
                 // Map program code and year level to appropriate sections
                 $targetSections = [];
                 if ($progCode === 'BSCS') {

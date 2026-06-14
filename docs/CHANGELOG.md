@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026-06-14]
+
+### Added
+- **Summary Evaluation Reports**: Implemented a Summary Evaluation Report view in the reports portal.
+  - Added toggleable navigation tabs ("Individual Report" and "Summary Report").
+  - Enforced role-based accessibility scopes (Admin gets institutional-wide results; Deans and Program Heads see results scoped only to their own department's faculty).
+  - Added tabular overview showing Employee ID, Professor Name, Department, Evaluation Type Rating Averages (Student, Peer, Self), Total Submissions, and Overall Score.
+  - Designed print-optimized CSS stylesheet layouts and integrated a "Print Summary Report" / "Download PDF" trigger using the browser's native `window.print()` engine.
+  - Developed a Pest feature test suite covering authorization, tab switching, department scopes, and average rating calculations.
+
+---
+
 ## [2026-06-13]
 
 ### Added

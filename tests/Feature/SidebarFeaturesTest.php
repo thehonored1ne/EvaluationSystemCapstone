@@ -1,28 +1,28 @@
 <?php
 
-use App\Models\User;
-use App\Models\Employee;
-use App\Models\Student;
-use App\Models\Department;
-use App\Models\Program;
+use App\Models\AcademicClass;
 use App\Models\AcademicYear;
-use App\Models\Semester;
-use App\Models\EvaluationCriterion;
-use App\Models\EvaluationQuestion;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Evaluation;
-use App\Models\EvaluationAnswer;
+use App\Models\Program;
+use App\Models\Semester;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Create roles
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'dean']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'program head']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'faculty']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'student']);
-    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'staff']);
+    Role::firstOrCreate(['name' => 'admin']);
+    Role::firstOrCreate(['name' => 'dean']);
+    Role::firstOrCreate(['name' => 'program head']);
+    Role::firstOrCreate(['name' => 'faculty']);
+    Role::firstOrCreate(['name' => 'student']);
+    Role::firstOrCreate(['name' => 'staff']);
 
     // Create academic context
     $this->ay = AcademicYear::create(['name' => '2025-2026', 'is_active' => true]);
@@ -98,14 +98,14 @@ test('manage evaluations lists completion rates correctly', function () {
     $this->actingAs($this->adminUser);
 
     // Create a subject and a class
-    $sub = \App\Models\Subject::create(['code' => 'CS101', 'name' => 'Computing', 'units' => 3]);
-    $class = \App\Models\AcademicClass::create([
+    $sub = Subject::create(['code' => 'CS101', 'name' => 'Computing', 'units' => 3]);
+    $class = AcademicClass::create([
         'subject_id' => $sub->id,
         'semester_id' => $this->semester->id,
         'teacher_id' => $this->facEmp->id,
         'section' => 'BSCS-1A',
     ]);
-    
+
     // Enroll student
     $class->students()->attach($this->stud->id);
 
@@ -175,4 +175,3 @@ test('sidebar renders correct evaluator submenus depending on user role', functi
     $response->assertSee('Faculty Evaluations');
     $response->assertDontSee('Overview');
 });
-
