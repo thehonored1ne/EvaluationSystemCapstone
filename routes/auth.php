@@ -7,14 +7,15 @@ use Livewire\Volt\Volt;
 
 Route::middleware('guest')->group(function () {
     Volt::route('login', 'auth.login')
+        ->middleware('throttle:auth')
         ->name('login');
 
     Volt::route('forgot-password', 'auth.forgot-password')
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:auth')
         ->name('password.request');
 
     Volt::route('reset-password/{token}', 'auth.reset-password')
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:auth')
         ->name('password.reset');
 });
 

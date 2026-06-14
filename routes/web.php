@@ -5,7 +5,7 @@ use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     return view('welcome');
-})->name('home');
+})->middleware('throttle:global')->name('home');
 
 Route::get('dashboard', function () {
     $user = auth()->user();
@@ -30,9 +30,9 @@ Route::get('dashboard', function () {
     }
 
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'throttle:global'])->name('dashboard');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
     // Admin Dashboard
     Volt::route('/admin/dashboard', 'admin.dashboard')
         ->middleware('role:admin')
@@ -122,7 +122,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notifications');
 });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'throttle:global'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');

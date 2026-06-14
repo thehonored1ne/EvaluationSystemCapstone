@@ -19,7 +19,7 @@
 
 - use redis for queue jobs
 
-- impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
+- [x] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
 
 - import data via excel feature
 
