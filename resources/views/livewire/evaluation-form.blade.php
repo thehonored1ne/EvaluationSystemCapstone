@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\RateLimiter;
 new class extends Component {
     public User $evaluatee;
     public ?AcademicClass $class = null;
-    public string $evaluationType = 'student'; // 'student', 'peer', 'self'
+    public string $evaluationType = 'upward_student'; // 'upward_student', 'upward_employee', 'downward', 'peer', 'self'
 
     public array $ratings = []; // [question_id => rating]
     public string $comments = '';
@@ -140,7 +140,7 @@ new class extends Component {
     public function mount()
     {
         $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
-        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 50)) {
             $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
         }
         $this->resetForm();
@@ -186,7 +186,7 @@ new class extends Component {
         }
 
         $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
-        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 50)) {
             $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
             return;
         }
@@ -201,8 +201,8 @@ new class extends Component {
 
         $this->validate($rules, $messages);
 
-        // Record the hit to the rate limiter on successful validation (3-minute cooldown)
-        RateLimiter::hit($rateLimitKey, 180);
+        // Record the hit to the rate limiter on successful validation (5-minute cooldown)
+        RateLimiter::hit($rateLimitKey, 300);
 
         // Convert values to integers
         $sanitizedRatings = collect($this->ratings)->map(fn($val) => (int)$val)->toArray();

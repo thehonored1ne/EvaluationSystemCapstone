@@ -32,6 +32,7 @@ A role-based evaluation system with the following active portals:
 ### June 16, 2026
 - **Admin Dashboard Upgrades**: Added top statistics cards, live schedule status trackers, Live AI Sentiment Lexicon analytics breakdown, department completion rates progress, anonymized recent submissions feed, and quick system shortcuts.
 - **UI Alignment Enhancements**: Left-aligned the Admin Dashboard header text, right-aligned the Active Period badge on all viewports, and stacked/expanded date picker inputs under Evaluation Settings.
+- **Admin Dashboard & Rate Limiting Refinements**: Corrected recent submission activity feed evaluator role mappings, resolved subject fallback labels for non-class evaluations, fixed department evaluation completion counts using `'upward_student'`, and relaxed evaluation submission rate limits to 50 attempts per 5 minutes to accommodate larger user sessions.
 
 ### June 14, 2026
 - **Summary Evaluation Reports**: Added toggleable Individual/Summary tabs to the reports page, filtering by academic period, tabular details for all target faculty (including Student, Peer, Self averages, Total Submissions, and Overall ratings), print/PDF styles, and full Pest test coverage.

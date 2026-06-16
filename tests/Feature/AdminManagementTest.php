@@ -4,12 +4,14 @@ use App\Models\AcademicClass;
 use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Evaluation;
 use App\Models\Program;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Volt\Volt;
 use Spatie\Permission\Models\Role;
 
@@ -738,5 +740,112 @@ test('filtering by department none and student program and year level works corr
             $ids = collect($paginator->items())->pluck('id');
 
             return $ids->contains($facultyUserNone->id) && ! $ids->contains($this->facultyUser->id);
+        });
+});
+
+test('admin dashboard recent submissions feed displays correct labels for non-class evaluations', function () {
+    $this->actingAs($this->adminUser);
+
+    // Create a program head user/employee to act as the evaluator
+    $phEmp = Employee::create([
+        'employee_number' => 'PH-123',
+        'first_name' => 'Program',
+        'last_name' => 'Head',
+        'role' => 'program head',
+        'status' => 'active',
+    ]);
+    $phUser = User::create([
+        'name' => 'Program Head',
+        'email' => 'ph.dashboard@example.com',
+        'employee_id' => $phEmp->id,
+        'password' => 'password',
+    ]);
+
+    // Create a subordinate faculty user/employee (evaluatee for downward)
+    $facultyEmp = Employee::create([
+        'employee_number' => 'FAC-123',
+        'first_name' => 'Faculty',
+        'last_name' => 'Subordinate',
+        'role' => 'faculty',
+        'status' => 'active',
+    ]);
+    $facultyUser = User::create([
+        'name' => 'Faculty Subordinate',
+        'email' => 'fac.dashboard@example.com',
+        'employee_id' => $facultyEmp->id,
+        'password' => 'password',
+    ]);
+
+    // Create a superior dean user/employee (evaluatee for upward_employee)
+    $deanEmp = Employee::create([
+        'employee_number' => 'DEAN-123',
+        'first_name' => 'Dean',
+        'last_name' => 'Superior',
+        'role' => 'dean',
+        'status' => 'active',
+    ]);
+    $deanUser = User::create([
+        'name' => 'Dean Superior',
+        'email' => 'dean.dashboard@example.com',
+        'employee_id' => $deanEmp->id,
+        'password' => 'password',
+    ]);
+
+    // 1. Self Evaluation
+    $eval1 = new Evaluation([
+        'evaluator_id' => $phUser->id,
+        'evaluatee_id' => $phUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 4.50,
+    ]);
+    $eval1->created_at = Carbon::now()->subMinutes(10);
+    $eval1->save();
+
+    // 2. Downward Evaluation (Supervisor evaluating Subordinate)
+    $eval2 = new Evaluation([
+        'evaluator_id' => $phUser->id,
+        'evaluatee_id' => $facultyUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'downward',
+        'rating_average' => 4.00,
+    ]);
+    $eval2->created_at = Carbon::now()->subMinutes(5);
+    $eval2->save();
+
+    // 3. Upward Employee Evaluation (Subordinate evaluating Superior)
+    $eval3 = new Evaluation([
+        'evaluator_id' => $phUser->id,
+        'evaluatee_id' => $deanUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'upward_employee',
+        'rating_average' => 4.80,
+    ]);
+    $eval3->created_at = Carbon::now();
+    $eval3->save();
+
+    // Test Volt component
+    Volt::test('admin.dashboard')
+        ->assertViewHas('recentSubmissions', function ($submissions) {
+            expect(count($submissions))->toBe(3);
+
+            // Submissions are latest first, so order should be: Upward Employee, Downward, Self
+
+            // 1. Upward Employee Evaluation:
+            expect($submissions[0]['evaluator'])->toBe('Subordinate');
+            expect($submissions[0]['target'])->toBe('Prof. Dean Superior');
+            expect($submissions[0]['subject'])->toBe('Upward Evaluation');
+
+            // 2. Downward Evaluation:
+            expect($submissions[1]['evaluator'])->toBe('Supervisor');
+            expect($submissions[1]['target'])->toBe('Prof. Faculty Subordinate');
+            expect($submissions[1]['subject'])->toBe('Downward Evaluation');
+
+            // 3. Self Evaluation:
+            expect($submissions[2]['evaluator'])->toBe('Self');
+            expect($submissions[2]['target'])->toBe('Prof. Program Head');
+            expect($submissions[2]['subject'])->toBe('Self Evaluation');
+
+            return true;
         });
 });

@@ -66,11 +66,70 @@ new #[Layout('components.layouts.app')] class extends Component {
             } else {
                 $evals = Evaluation::where('evaluatee_id', $userId)
                     ->where('semester_id', $semId);
+                
                 if ($this->selectedEvaluationType) {
                     $evals->where('evaluation_type', $this->selectedEvaluationType);
+                    $count = $evals->count();
+                    $avg = $count > 0 ? round($evals->avg('rating_average'), 2) : 0.00;
+                } else {
+                    $count = $evals->count();
+                    
+                    // Category-weighted score
+                    $semester = Semester::findOrFail($semId);
+                    $role = $teacher->role;
+                    if ($role === 'faculty') {
+                        $applicableCategories = [
+                            'upward_student' => (float)$semester->upward_student_max_points,
+                            'peer' => (float)$semester->peer_max_points,
+                            'downward' => (float)$semester->downward_max_points,
+                            'self' => (float)$semester->self_max_points,
+                        ];
+                    } elseif ($role === 'program head') {
+                        $applicableCategories = [
+                            'upward_employee' => (float)$semester->upward_employee_max_points,
+                            'downward' => (float)$semester->downward_max_points,
+                            'self' => (float)$semester->self_max_points,
+                        ];
+                    } elseif ($role === 'dean') {
+                        $applicableCategories = [
+                            'upward_employee' => (float)$semester->upward_employee_max_points,
+                            'self' => (float)$semester->self_max_points,
+                        ];
+                    } else {
+                        $applicableCategories = [];
+                    }
+
+                    $typeAverages = [];
+                    $totalSubmittedMaxPoints = 0.0;
+
+                    foreach ($applicableCategories as $type => $maxPoints) {
+                        $tQuery = clone $evals;
+                        $tCount = $tQuery->where('evaluation_type', $type)->count();
+                        $tQuery2 = clone $evals;
+                        $tAvg = $tCount > 0 ? round($tQuery2->where('evaluation_type', $type)->avg('rating_average'), 2) : 0.00;
+                        
+                        $typeAverages[$type] = (object) [
+                            'count' => $tCount,
+                            'average' => $tAvg,
+                        ];
+
+                        if ($tCount > 0) {
+                            $totalSubmittedMaxPoints += $maxPoints;
+                        }
+                    }
+
+                    $avg = 0.00;
+                    if ($totalSubmittedMaxPoints > 0) {
+                        foreach ($applicableCategories as $type => $maxPoints) {
+                            $info = $typeAverages[$type];
+                            if ($info->count > 0) {
+                                $weight = $maxPoints / $totalSubmittedMaxPoints;
+                                $avg += $info->average * $weight;
+                            }
+                        }
+                    }
+                    $avg = round($avg, 2);
                 }
-                $count = $evals->count();
-                $avg = $count > 0 ? round($evals->avg('rating_average'), 2) : 0.00;
             }
 
             return (object) [
@@ -95,6 +154,8 @@ new #[Layout('components.layouts.app')] class extends Component {
         $userId = $teacher->user?->id;
         if (!$userId) return null;
 
+        $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
+
         $evalsQuery = Evaluation::where('evaluatee_id', $userId)
             ->where('semester_id', $this->selectedSemesterId);
         if ($this->selectedEvaluationType) {
@@ -102,34 +163,123 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $totalSubmissions = $evalsQuery->count();
-        $overallAverage = $totalSubmissions > 0 ? round($evalsQuery->avg('rating_average'), 2) : 0.00;
 
-        // Breakdown by type
-        $types = ['student', 'peer', 'self'];
+        // Configure applicable categories based on teacher's role
+        $role = $teacher->role;
+        if ($role === 'faculty') {
+            $applicableCategories = [
+                'upward_student' => [
+                    'label' => 'Student',
+                    'max_points' => (float)$semester->upward_student_max_points,
+                ],
+                'peer' => [
+                    'label' => 'Peer',
+                    'max_points' => (float)$semester->peer_max_points,
+                ],
+                'downward' => [
+                    'label' => 'Superior',
+                    'max_points' => (float)$semester->downward_max_points,
+                ],
+                'self' => [
+                    'label' => 'Self',
+                    'max_points' => (float)$semester->self_max_points,
+                ],
+            ];
+        } elseif ($role === 'program head') {
+            $applicableCategories = [
+                'upward_employee' => [
+                    'label' => 'Subordinate',
+                    'max_points' => (float)$semester->upward_employee_max_points,
+                ],
+                'downward' => [
+                    'label' => 'Superior',
+                    'max_points' => (float)$semester->downward_max_points,
+                ],
+                'self' => [
+                    'label' => 'Self',
+                    'max_points' => (float)$semester->self_max_points,
+                ],
+            ];
+        } elseif ($role === 'dean') {
+            $applicableCategories = [
+                'upward_employee' => [
+                    'label' => 'Subordinate',
+                    'max_points' => (float)$semester->upward_employee_max_points,
+                ],
+                'self' => [
+                    'label' => 'Self',
+                    'max_points' => (float)$semester->self_max_points,
+                ],
+            ];
+        } else {
+            $applicableCategories = [];
+        }
+
+        // If filtered by type, narrow the categories down
+        if ($this->selectedEvaluationType) {
+            if (array_key_exists($this->selectedEvaluationType, $applicableCategories)) {
+                $applicableCategories = [
+                    $this->selectedEvaluationType => $applicableCategories[$this->selectedEvaluationType]
+                ];
+            } else {
+                $applicableCategories = [];
+            }
+        }
+
         $typeAverages = [];
-        foreach ($types as $type) {
+        $totalSubmittedMaxPoints = 0.0;
+
+        foreach ($applicableCategories as $type => $config) {
             $tQuery = clone $evalsQuery;
             $tCount = $tQuery->where('evaluation_type', $type)->count();
             $tQuery2 = clone $evalsQuery;
             $tAvg = $tCount > 0 ? round($tQuery2->where('evaluation_type', $type)->avg('rating_average'), 2) : 0.00;
-            $typeAverages[$type] = (object) ['count' => $tCount, 'average' => $tAvg];
+            
+            $typeAverages[$type] = (object) [
+                'label' => $config['label'],
+                'count' => $tCount,
+                'average' => $tAvg,
+                'max_points' => $config['max_points'],
+            ];
+
+            if ($tCount > 0) {
+                $totalSubmittedMaxPoints += $config['max_points'];
+            }
         }
+
+        // Calculate weighted average
+        $overallAverage = 0.00;
+        if ($totalSubmittedMaxPoints > 0) {
+            foreach ($typeAverages as $type => $info) {
+                if ($info->count > 0) {
+                    $weight = $info->max_points / $totalSubmittedMaxPoints;
+                    $overallAverage += $info->average * $weight;
+                }
+            }
+        }
+        $overallAverage = round($overallAverage, 2);
 
         // Breakdown by Criterion
         $evalIds = $evalsQuery->pluck('id')->toArray();
-        $criteria = EvaluationCriterion::orderBy('evaluation_type')->orderBy('order')->get()->map(function ($criterion) use ($evalIds) {
-            $answersAvg = EvaluationAnswer::whereIn('evaluation_id', $evalIds)
-                ->whereHas('question', function ($q) use ($criterion) {
-                    $q->where('criterion_id', $criterion->id);
-                })
-                ->avg('rating');
+        $criteria = EvaluationCriterion::whereIn('evaluation_type', array_keys($applicableCategories))
+            ->orderBy('evaluation_type')
+            ->orderBy('order')
+            ->get()
+            ->map(function ($criterion) use ($evalIds, $applicableCategories) {
+                $answersAvg = EvaluationAnswer::whereIn('evaluation_id', $evalIds)
+                    ->whereHas('question', function ($q) use ($criterion) {
+                        $q->where('criterion_id', $criterion->id);
+                    })
+                    ->avg('rating');
 
-            return (object) [
-                'name' => $criterion->name,
-                'type' => ucfirst($criterion->evaluation_type),
-                'average' => $answersAvg ? round($answersAvg, 2) : null,
-            ];
-        })->filter(fn($c) => !is_null($c->average));
+                $label = $applicableCategories[$criterion->evaluation_type]['label'] ?? ucfirst($criterion->evaluation_type);
+
+                return (object) [
+                    'name' => $criterion->name,
+                    'type' => $label,
+                    'average' => $answersAvg ? round($answersAvg, 2) : null,
+                ];
+            })->filter(fn($c) => !is_null($c->average));
 
         // Comments
         $comments = $evalsQuery->whereNotNull('comments')->pluck('comments')->toArray();
@@ -182,9 +332,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="w-full md:w-48">
                 <flux:select wire:model.live="selectedEvaluationType" placeholder="All Types">
                     <flux:select.option value="">All Types</flux:select.option>
-                    <flux:select.option value="student">Student Evaluation</flux:select.option>
-                    <flux:select.option value="peer">Peer Evaluation</flux:select.option>
-                    <flux:select.option value="self">Self Evaluation</flux:select.option>
+                    <flux:select.option value="upward_student">Student Upward</flux:select.option>
+                    <flux:select.option value="upward_employee">Employee Upward</flux:select.option>
+                    <flux:select.option value="downward">Downward</flux:select.option>
+                    <flux:select.option value="peer">Peer</flux:select.option>
+                    <flux:select.option value="self">Self</flux:select.option>
                 </flux:select>
             </div>
         </div>
@@ -274,7 +426,17 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <!-- Modal Body -->
                 <div class="p-6 flex flex-col gap-6">
                     <!-- KPI summaries -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    @php
+                        $numItems = count((array)$details->type_averages) + 1;
+                        $gridClass = match($numItems) {
+                            2 => 'grid-cols-1 sm:grid-cols-2',
+                            3 => 'grid-cols-1 sm:grid-cols-3',
+                            4 => 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4',
+                            5 => 'grid-cols-1 sm:grid-cols-3 md:grid-cols-5',
+                            default => 'grid-cols-1 sm:grid-cols-3',
+                        };
+                    @endphp
+                    <div class="grid {{ $gridClass }} gap-4">
                         <div class="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-950 p-4 rounded-xl text-center">
                             <div class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Overall Average</div>
                             <div class="text-2xl font-black text-indigo-700 dark:text-indigo-400 mt-1">
@@ -282,13 +444,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                             </div>
                         </div>
 
-                        @foreach(['student' => 'Students', 'peer' => 'Peers / Sup', 'self' => 'Self'] as $type => $label)
+                        @foreach($details->type_averages as $type => $info)
                             <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-150 dark:border-zinc-800 p-4 rounded-xl text-center">
-                                <div class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ $label }} Rating</div>
+                                <div class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{{ $info->label }} Rating</div>
                                 <div class="text-xl font-bold text-zinc-800 dark:text-zinc-200 mt-1">
-                                    @if(($details->type_averages[$type]->count ?? 0) > 0)
-                                        {{ number_format($details->type_averages[$type]->average, 2) }}
-                                        <span class="text-xs font-medium block text-zinc-400 mt-0.5">({{ $details->type_averages[$type]->count }} subs)</span>
+                                    @if(($info->count ?? 0) > 0)
+                                        {{ number_format($info->average, 2) }}
+                                        <span class="text-xs font-medium block text-zinc-400 mt-0.5">({{ $info->count }} {{ $info->count == 1 ? 'sub' : 'subs' }})</span>
                                     @else
                                         <span class="text-sm font-medium text-zinc-400">N/A</span>
                                     @endif

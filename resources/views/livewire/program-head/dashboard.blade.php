@@ -197,7 +197,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @elseif(!$this->dean->user)
                         <div class="text-zinc-500 py-4 text-center">No user account found for the Dean.</div>
                     @else
-                        @php $status = $this->getEvaluationStatus($this->dean->user->id, 'peer'); @endphp
+                        @php $status = $this->getEvaluationStatus($this->dean->user->id, 'upward_employee'); @endphp
                         <div class="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800">
                             <div>
                                 <div class="font-bold text-zinc-800 dark:text-zinc-200">{{ $this->dean->full_name }}</div>
@@ -219,7 +219,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         Closed
                                     </span>
                                 @else
-                                    <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $this->dean->user->id }}, 'peer')">
+                                    <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $this->dean->user->id }}, 'upward_employee')">
                                         Evaluate
                                     </flux:button>
                                 @endif
@@ -249,7 +249,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
                                     @foreach($this->faculty as $member)
                                         @if($member->user)
-                                            @php $status = $this->getEvaluationStatus($member->user->id, 'peer'); @endphp
+                                            @php $status = $this->getEvaluationStatus($member->user->id, 'downward'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $member->full_name }}</td>
                                                 <td class="px-6 py-4 text-zinc-500">{{ $member->employee_number }}</td>
@@ -282,7 +282,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @elseif(!$this->isEvaluationOpen)
                                                         <span class="text-xs text-zinc-400">Unavailable</span>
                                                     @else
-                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $member->user->id }}, 'peer')">
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $member->user->id }}, 'downward')">
                                                             Evaluate
                                                         </flux:button>
                                                     @endif

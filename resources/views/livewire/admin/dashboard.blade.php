@@ -38,7 +38,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 ->count();
 
             $submittedCount = Evaluation::where('semester_id', $activeSemId)
-                ->where('evaluation_type', 'student')
+                ->where('evaluation_type', 'upward_student')
                 ->count();
 
             if ($expectedCount > 0) {
@@ -118,7 +118,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     ->join('students', 'students.id', '=', 'users.student_id')
                     ->join('programs', 'programs.id', '=', 'students.program_id')
                     ->where('evaluations.semester_id', $activeSemId)
-                    ->where('evaluations.evaluation_type', 'student')
+                    ->where('evaluations.evaluation_type', 'upward_student')
                     ->where('programs.department_id', $dept->id)
                     ->count();
 
@@ -145,10 +145,10 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             foreach ($evals as $eval) {
                 $evaluatorLabel = match($eval->evaluation_type) {
-                    'student' => 'Student',
+                    'upward_student' => 'Student',
                     'peer' => 'Faculty Peer',
                     'self' => 'Self',
-                    'upward' => 'Subordinate',
+                    'upward_employee' => 'Subordinate',
                     'downward' => 'Supervisor',
                     default => 'User'
                 };
@@ -163,7 +163,14 @@ new #[Layout('components.layouts.app')] class extends Component {
                     'evaluator' => $evaluatorLabel,
                     'target' => $targetName,
                     'type' => ucfirst($eval->evaluation_type),
-                    'subject' => $eval->class?->subject?->code ?? 'Self Evaluation',
+                    'subject' => $eval->class?->subject?->code ?? match($eval->evaluation_type) {
+                        'self' => 'Self Evaluation',
+                        'peer' => 'Peer Evaluation',
+                        'downward' => 'Downward Evaluation',
+                        'upward_employee' => 'Upward Evaluation',
+                        'upward_student' => 'Student Upward Evaluation',
+                        default => 'Evaluation'
+                    },
                     'time' => $eval->created_at->diffForHumans(),
                 ];
             }

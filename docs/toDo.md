@@ -29,7 +29,7 @@
 
 - weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this.
 
-- Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
+- [x] Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
 
     | **Type**             | **Who Evaluates** | **Who Gets Evaluated** |
     |----------------------|-------------------|------------------------|
@@ -40,6 +40,6 @@
 
     Dean - can evaluate all program heads(downward), can evaluate self(self)
     Program Head - can evaluate their subordinate(downward - faculty), can evaluate self(self), can evaluate superior(upward - dean)
-    Faculty - can evaluate their peers(faculty - faculty), can evaluate superior(upward - program head), can evaluate self(self)
+    Faculty - can evaluate their peers(faculty - faculty), can evaluate superior(upward - program head on their department), can evaluate self(self)
     Student - can evaluate their superior(upward - faculty)
     Staff - can evaluate their superior(upward - program head), can evaluate self(self)

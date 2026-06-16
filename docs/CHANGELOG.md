@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - **Evaluation Settings Picker Layout**: Configured the start and end date-time input pickers under "Configure Evaluation Window" to stack vertically and expand on all screen sizes.
 - **Admin Dashboard Header Alignment**: Left-aligned the dashboard title and subheading description, and wrapped the Active Period badge in a full-width container to float to the far-right on both mobile and desktop screens.
+- **Admin Dashboard Evaluation Counts**: Switched completion statistics and department progress queries from checking the obsolete `'student'` evaluation type to `'upward_student'`.
+- **Recent Submissions Activity Feed Mappings**: Updated the anonymized activity feed evaluator labels to support the new evaluation types (`upward_student`, `upward_employee`).
+- **Recent Submissions Activity Feed Subject Fallback**: Fixed an issue where non-class-based evaluations (self, peer, downward, upward_employee) fell back to the hardcoded string `'Self Evaluation'` in the feed. They now display their correct evaluation type label dynamically.
+- **Evaluation Rate Limiting Adjustments**: Increased the submission rate limit threshold from 5 to 50 attempts per session to accommodate deans, program heads, and faculty completing multiple assignments, with an adjusted decay time of 300 seconds.
 
 ---
 

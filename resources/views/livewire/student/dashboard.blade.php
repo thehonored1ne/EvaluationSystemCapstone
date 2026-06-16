@@ -45,7 +45,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $sem = $this->activeSemester;
         if (!$sem) return 'closed';
 
-        return Evaluation::getStatus(auth()->id(), $teacherUserId, $sem->id, $classId, 'student');
+        return Evaluation::getStatus(auth()->id(), $teacherUserId, $sem->id, $classId, 'upward_student');
     }
 
     public function selectClass($classId, $teacherUserId)
@@ -123,8 +123,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             <livewire:evaluation-form 
                 :evaluatee="$selectedTeacherUser" 
                 :class="App\Models\AcademicClass::find($selectedClassId)" 
-                :evaluationType="'student'" 
-                :key="'eval-student-'.$selectedClassId" />
+                :evaluationType="'upward_student'" 
+                :key="'eval-upward_student-'.$selectedClassId" />
         </div>
     @else
         <div class="grid grid-cols-1 gap-6">
