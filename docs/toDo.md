@@ -17,7 +17,7 @@
 
 - a button that can automatically update the current school year and semester for users (admin,dean, program head, faculty, student, staff).
 
-- a way to train more our ai pipeline for accuracy. for example the ai says the comment is negative, but it is positive. we should be able to correct the ai and retrain it, and the ai will be able to learn from it. we should test our ai with more test data so in the future we can test its accuracy by ground truth test or other testing methods. it should create a confusion matrix to check the accuracy of the ai.
+- [x] a way to train more our ai pipeline for accuracy. for example the ai says the comment is negative, but it is positive. we should be able to correct the ai and retrain it, and the ai will be able to learn from it. we should test our ai with more test data so in the future we can test its accuracy by ground truth test or other testing methods. it should create a confusion matrix to check the accuracy of the ai.
 
 - use redis for queue jobs to improve performance.
 
@@ -25,9 +25,11 @@
 
 - import data via excel feature (only admin can do this)
 
+- ui issues in reports table
+
 - need to update the summary result more, lets make a report generation that can be exported to pdf with all the data in the evaluation. create a separate table to store the evaluation results that can be used for reporting purposes. should show individual result and summary result.
 
-- weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this.
+- weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this. still thinking how this applies
 
 - [x] Evaluation type check configurations update (Peer, Upward, Downward, Self), still need through planning:
 
