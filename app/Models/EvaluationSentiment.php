@@ -14,11 +14,20 @@ class EvaluationSentiment extends Model
         'vader_score',
         'vader_label',
         'dt_label',
+        'manual_label',
     ];
 
     protected $casts = [
         'vader_score' => 'float',
     ];
+
+    /**
+     * Get the active sentiment label, prioritizing manual overrides.
+     */
+    public function getActiveLabelAttribute(): string
+    {
+        return $this->manual_label ?? $this->dt_label;
+    }
 
     /**
      * Get the evaluation that owns the sentiment.

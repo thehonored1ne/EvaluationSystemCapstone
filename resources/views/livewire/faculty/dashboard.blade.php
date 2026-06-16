@@ -279,7 +279,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <tbody class="divide-y divide-zinc-250 dark:divide-zinc-855 bg-white dark:bg-zinc-900">
                                     @foreach($this->programHeads as $head)
                                         @if($head->user)
-                                            @php $status = $this->getEvaluationStatus($head->user->id, 'peer'); @endphp
+                                            @php $status = $this->getEvaluationStatus($head->user->id, 'upward_employee'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $head->full_name }}</td>
                                                 <td class="px-6 py-4 text-zinc-500">{{ $head->employee_number }}</td>
@@ -312,7 +312,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @elseif(!$this->isEvaluationOpen)
                                                         <span class="text-xs text-zinc-400">Unavailable</span>
                                                     @else
-                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'peer')">
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'upward_employee')">
                                                             Evaluate
                                                         </flux:button>
                                                     @endif

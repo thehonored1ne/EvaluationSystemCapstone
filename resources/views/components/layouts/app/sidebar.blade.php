@@ -143,6 +143,7 @@
                     <flux:navlist.group heading="Analytics & Reports" class="grid">
                         @if($user->hasRole('admin'))
                             <flux:navlist.item icon="chart-bar" :href="route('analytics')" :current="request()->routeIs('analytics')" wire:navigate>Analytics</flux:navlist.item>
+                            <flux:navlist.item icon="beaker" :href="route('admin.ai')" :current="request()->routeIs('admin.ai')" wire:navigate>AI Pipeline</flux:navlist.item>
                         @endif
                         
                         <flux:navlist.item icon="document-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>Reports</flux:navlist.item>

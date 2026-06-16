@@ -32,11 +32,19 @@ class TrainAI extends Command
 
         $evaluationsWithComments = Evaluation::whereNotNull('comments')
             ->where('comments', '!=', '')
+            ->with('sentiment')
             ->get();
 
-        $comments = $evaluationsWithComments->pluck('comments')->filter()->values()->toArray();
+        $samples = [];
+        foreach ($evaluationsWithComments as $eval) {
+            $samples[] = [
+                'comment' => $eval->comments,
+                'rating' => (float) $eval->rating_average,
+                'manual_label' => $eval->sentiment?->manual_label,
+            ];
+        }
 
-        $this->info('Sending '.count($comments).' database comments to Flask API `/train` endpoint...');
+        $this->info('Sending '.count($samples).' database comments to Flask API `/train` endpoint...');
 
         try {
             $apiUrl = config('services.ai.url').'/train';
@@ -45,7 +53,7 @@ class TrainAI extends Command
             $response = Http::timeout(60)
                 ->withHeaders(['X-API-KEY' => $apiKey])
                 ->post($apiUrl, [
-                    'comments' => $comments,
+                    'samples' => $samples,
                 ]);
 
             if ($response->successful()) {
@@ -54,6 +62,18 @@ class TrainAI extends Command
                 $this->line('Total samples trained: '.($result['samples_trained'] ?? 0));
                 $this->line('Database samples used: '.($result['db_samples'] ?? 0));
                 $this->line('Seed samples used: '.($result['seed_samples'] ?? 0));
+
+                // Save metrics
+                if (isset($result['metrics'])) {
+                    $metricsDir = storage_path('app');
+                    if (! is_dir($metricsDir)) {
+                        @mkdir($metricsDir, 0755, true);
+                    }
+                    @file_put_contents(
+                        $metricsDir.'/ai_metrics.json',
+                        json_encode($result['metrics'], JSON_PRETTY_PRINT)
+                    );
+                }
             } else {
                 $this->error('AI training failed: HTTP status '.$response->status());
                 $this->error($response->body());
@@ -95,6 +115,7 @@ class TrainAI extends Command
                     ->withHeaders(['X-API-KEY' => $apiKey])
                     ->post($apiUrl, [
                         'comment' => $evaluation->comments,
+                        'rating' => (float) $evaluation->rating_average,
                     ]);
 
                 if ($response->successful()) {

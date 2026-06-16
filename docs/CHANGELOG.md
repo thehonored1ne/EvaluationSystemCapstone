@@ -10,6 +10,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026-06-16]
+
+### Added
+- **Admin Dashboard Upgrades**: Implemented comprehensive administrative metrics and components:
+  - Top row statistics cards detailing total faculty profiles, regular student counts, active evaluation progress, and VADER average sentiment ratings.
+  - Active window tracking card with live timers and status badges.
+  - Live AI Sentiment Analysis card featuring VADER lexicon comment breakdowns (positive, neutral, and negative ratings).
+  - Department completion rates table mapping actual submissions against expected student evaluations.
+  - Anonymized timeline feed of the latest 5 evaluation submissions.
+  - Quick action panel shortcuts to settings, reports, questions, and accounts.
+- **AI Sentiment Correction & Retraining Pipeline**:
+  - Built a "Human-in-the-Loop" administration control panel under Volt component `admin.manage-ai` to manually override comment classification predictions (fully anonymized) and display validation metrics (Accuracy and Confusion Matrix).
+  - Refactored Flask API model training and predicting to combine text TF-IDF vector features with numerical rating averages for a multimodal Decision Tree classifier.
+  - Implemented an Agreement Gate (confidence filter) in Python Flask service to discard conflicting ratings during training when no manual override exists.
+  - Expanded and balanced the Excel training seed data in `python/ai_data.xlsx` (sheet `SeedData` to **410 unique comments** with a balanced ~33% split per class; sheet `Lexicon` to **424 words** including 60+ neutral terms and negative Taglish phrases).
+  - Achieved a **93.8% validation accuracy** with **0% polarity-swap errors** on the balanced dataset.
+
+### Fixed
+- **Evaluation Settings Picker Layout**: Configured the start and end date-time input pickers under "Configure Evaluation Window" to stack vertically and expand on all screen sizes.
+- **Admin Dashboard Header Alignment**: Left-aligned the dashboard title and subheading description, and wrapped the Active Period badge in a full-width container to float to the far-right on both mobile and desktop screens.
+- **Admin Dashboard Evaluation Counts**: Switched completion statistics and department progress queries from checking the obsolete `'student'` evaluation type to `'upward_student'`.
+- **Recent Submissions Activity Feed Mappings**: Updated the anonymized activity feed evaluator labels to support the new evaluation types (`upward_student`, `upward_employee`).
+- **Recent Submissions Activity Feed Subject Fallback**: Fixed an issue where non-class-based evaluations (self, peer, downward, upward_employee) fell back to the hardcoded string `'Self Evaluation'` in the feed. They now display their correct evaluation type label dynamically.
+- **Evaluation Rate Limiting Adjustments**: Increased the submission rate limit threshold from 5 to 50 attempts per session to accommodate deans, program heads, and faculty completing multiple assignments, with an adjusted decay time of 300 seconds.
+- **AI Pipeline Layout Squishing**: Refactored the dashboard grid container to use a robust Flexbox column layout with `min-w-0` to protect the feedback table from width collapse and cell overlapping.
+- **AI Pipeline Cell Semantics**: Wrapped the first table cell's contents inside a generic flex `div` wrapper instead of applying `flex` classes directly onto the `<td>` tag.
+- **AI Pipeline Comment Anonymity**: Removed the "Participants" column and cleaned up the controller queries to hide the identities of evaluators and targets.
+
+---
+
 ## [2026-06-14]
 
 ### Added

@@ -19,7 +19,7 @@ A role-based evaluation system with the following active portals:
 - **Evaluation Submission**: Idempotent queue-based submissions (runs on `sync` connection). Dashboard buttons are locked with "Processing" / "Completed" badges once submitted to prevent double-evaluation.
 - **Profanity Filter**: Real-time removal of curse words from evaluation comments with constructive toast warnings.
 - **Evaluation Windows**: Configurable schedules with conflict protection modals ("Overwrite" / "Remove"), schedule removal protection when evaluations are open, and Asia/Manila timezone alignment.
-- **AI Sentiment Pipeline**: Integrates Flask-based VADER sentiment analysis (with Tagalog/Taglish custom lexicon) and a Decision Tree Classifier to analyze evaluation comments.
+- **AI Sentiment Pipeline**: Integrates Flask-based VADER sentiment analysis (with Tagalog/Taglish custom lexicon) and a multimodal Decision Tree Classifier (combining text TF-IDF + rating values) to analyze evaluation comments, featuring a confidence Agreement Gate, daily scheduled retraining, and a Human-in-the-Loop sentiment override management dashboard (with validation accuracy, a Confusion Matrix, and fully anonymized data views).
 - **Custom Searchable Selects**: Custom Alpine-based `<x-searchable-select>` replacing native listbox dropdowns.
 - **Reusable Confirmation Modals**: Standardized modal `<x-confirmation-modal>` with custom details and relationship cascade warnings before deletions.
 - **Notifications**: Automated sidebar badges that clear instantly upon visiting the notifications page.
@@ -28,6 +28,12 @@ A role-based evaluation system with the following active portals:
 ---
 
 ## Milestones & Summary of Work Done
+
+### June 16, 2026
+- **Admin Dashboard Upgrades**: Added top statistics cards, live schedule status trackers, Live AI Sentiment Lexicon analytics breakdown, department completion rates progress, anonymized recent submissions feed, and quick system shortcuts.
+- **UI Alignment Enhancements**: Left-aligned the Admin Dashboard header text, right-aligned the Active Period badge on all viewports, and stacked/expanded date picker inputs under Evaluation Settings.
+- **Admin Dashboard & Rate Limiting Refinements**: Corrected recent submission activity feed evaluator role mappings, resolved subject fallback labels for non-class evaluations, fixed department evaluation completion counts using `'upward_student'`, and relaxed evaluation submission rate limits to 50 attempts per 5 minutes to accommodate larger user sessions.
+- **AI Sentiment Correction & Retraining Pipeline**: Built a Human-in-the-Loop admin panel to manually override comment sentiments anonymously (preserving evaluator/evaluatee anonymity), retrain the Decision Tree model on-demand, and display validation accuracy and a Confusion Matrix. Refactored the training model to use a multimodal text + rating feature extractor with an Agreement Gate (confidence filter). Expanded the lexicon to **424 words** (including 60+ neutral terms and Taglish negatives) and balanced the seed dataset to **410 comments** (~33% split per class), achieving a **93.8% validation accuracy** with **0% polarity swaps**.
 
 ### June 14, 2026
 - **Summary Evaluation Reports**: Added toggleable Individual/Summary tabs to the reports page, filtering by academic period, tabular details for all target faculty (including Student, Peer, Self averages, Total Submissions, and Overall ratings), print/PDF styles, and full Pest test coverage.

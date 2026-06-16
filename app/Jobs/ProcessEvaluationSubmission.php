@@ -107,6 +107,7 @@ class ProcessEvaluationSubmission implements ShouldQueue
                         ->withHeaders(['X-API-KEY' => $apiKey])
                         ->post($apiUrl, [
                             'comment' => $this->comments,
+                            'rating' => $ratingAverage,
                         ]);
 
                     if ($response->successful()) {

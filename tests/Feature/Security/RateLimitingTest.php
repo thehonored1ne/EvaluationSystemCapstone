@@ -47,7 +47,7 @@ class RateLimitingTest extends TestCase
         $response->assertStatus(429);
     }
 
-    public function test_evaluation_form_submission_is_throttled_after_5_attempts()
+    public function test_evaluation_form_submission_is_throttled_after_50_attempts()
     {
         $user = User::factory()->create();
         $evaluatee = User::factory()->create();
@@ -63,11 +63,15 @@ class RateLimitingTest extends TestCase
             'is_evaluation_open' => true,
             'evaluation_starts_at' => now()->subDay(),
             'evaluation_ends_at' => now()->addDay(),
-            'student_max_points' => 50,
+            'upward_student_max_points' => 50,
+            'upward_employee_max_points' => 0,
+            'downward_max_points' => 0,
+            'peer_max_points' => 0,
+            'self_max_points' => 0,
         ]);
 
         $criterion = EvaluationCriterion::create([
-            'evaluation_type' => 'student',
+            'evaluation_type' => 'upward_student',
             'name' => 'Teaching Delivery',
             'order' => 1,
             'max_points' => 50.00,
@@ -83,19 +87,19 @@ class RateLimitingTest extends TestCase
 
         $component = Livewire::test('evaluation-form', [
             'evaluatee' => $evaluatee,
-            'evaluationType' => 'student',
+            'evaluationType' => 'upward_student',
         ]);
 
-        // Call submit 5 times (successful submissions)
-        for ($i = 0; $i < 5; $i++) {
+        // Call submit 50 times (successful submissions)
+        for ($i = 0; $i < 50; $i++) {
             $component->set("ratings.{$q->id}", 5)
                 ->call('submit')
                 ->assertHasNoErrors()
                 ->assertSet('retryAfter', 0);
         }
 
-        // The 6th attempt should trigger rate limiting and set retryAfter to 180
-        $component->call('submit')
-            ->assertSet('retryAfter', 180);
+        // The 51st attempt should trigger rate limiting and set retryAfter to ~300
+        $component->call('submit');
+        $this->assertGreaterThanOrEqual(295, $component->get('retryAfter'));
     }
 }

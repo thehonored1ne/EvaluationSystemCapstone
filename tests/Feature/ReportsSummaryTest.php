@@ -29,7 +29,9 @@ beforeEach(function () {
         'is_evaluation_open' => true,
         'evaluation_starts_at' => now()->subDay(),
         'evaluation_ends_at' => now()->addDay(),
-        'student_max_points' => 5.0,
+        'upward_student_max_points' => 5.0,
+        'upward_employee_max_points' => 5.0,
+        'downward_max_points' => 5.0,
         'peer_max_points' => 5.0,
         'self_max_points' => 5.0,
     ]);
@@ -101,7 +103,7 @@ test('summary report calculates average scores correctly', function () {
         'semester_id' => $this->semester->id,
         'evaluator_id' => $this->adminUser->id,
         'evaluatee_id' => $this->facUserCCS->id,
-        'evaluation_type' => 'student',
+        'evaluation_type' => 'upward_student',
         'rating_average' => 4.50,
     ]);
 

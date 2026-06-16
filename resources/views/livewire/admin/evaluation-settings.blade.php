@@ -45,14 +45,16 @@ new #[Layout('components.layouts.app')] class extends Component {
     // Criteria creation
     public string $newCriterionName = '';
     public string $newCriterionMaxPoints = '0';
-    public string $newCriterionType = 'student';
+    public string $newCriterionType = 'upward_student';
     public bool $showCriterionModal = false;
 
     // Criteria points (array keyed by ID)
     public array $criteriaPoints = [];
 
     // Max targets config
-    public string $studentMaxTarget = '90';
+    public string $upwardStudentMaxTarget = '90';
+    public string $upwardEmployeeMaxTarget = '50';
+    public string $downwardMaxTarget = '50';
     public string $peerMaxTarget = '50';
     public string $selfMaxTarget = '10';
 
@@ -78,7 +80,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
-            $this->studentMaxTarget = (string)(float)$activeSem->student_max_points;
+            $this->upwardStudentMaxTarget = (string)(float)$activeSem->upward_student_max_points;
+            $this->upwardEmployeeMaxTarget = (string)(float)$activeSem->upward_employee_max_points;
+            $this->downwardMaxTarget = (string)(float)$activeSem->downward_max_points;
             $this->peerMaxTarget = (string)(float)$activeSem->peer_max_points;
             $this->selfMaxTarget = (string)(float)$activeSem->self_max_points;
             $this->startsAt = $activeSem->evaluation_starts_at ? $activeSem->evaluation_starts_at->format('Y-m-d\TH:i') : '';
@@ -290,11 +294,19 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getCategoryTotalsProperty()
     {
-        $totals = ['student' => 0.0, 'peer' => 0.0, 'self' => 0.0];
+        $totals = [
+            'upward_student' => 0.0,
+            'upward_employee' => 0.0,
+            'downward' => 0.0,
+            'peer' => 0.0,
+            'self' => 0.0
+        ];
         $criteria = EvaluationCriterion::all();
         foreach ($criteria as $criterion) {
             $val = $this->criteriaPoints[$criterion->id] ?? 0.0;
-            $totals[$criterion->evaluation_type] += is_numeric($val) ? (float)$val : 0.0;
+            if (isset($totals[$criterion->evaluation_type])) {
+                $totals[$criterion->evaluation_type] += is_numeric($val) ? (float)$val : 0.0;
+            }
         }
         return $totals;
     }
@@ -352,15 +364,19 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             // 2. Check if criteria points are balanced
             $totals = $this->categoryTotals;
-            $studentTarget = is_numeric($this->studentMaxTarget) ? (float)$this->studentMaxTarget : 0.0;
+            $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
+            $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
+            $downwardTarget = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
             $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
             $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
 
-            $isStudentBalanced = abs($totals['student'] - $studentTarget) < 0.001;
+            $isUpwardStudentBalanced = abs($totals['upward_student'] - $upwardStudentTarget) < 0.001;
+            $isUpwardEmployeeBalanced = abs($totals['upward_employee'] - $upwardEmployeeTarget) < 0.001;
+            $isDownwardBalanced = abs($totals['downward'] - $downwardTarget) < 0.001;
             $isPeerBalanced = abs($totals['peer'] - $peerTarget) < 0.001;
             $isSelfBalanced = abs($totals['self'] - $selfTarget) < 0.001;
 
-            if (!$isStudentBalanced || !$isPeerBalanced || !$isSelfBalanced) {
+            if (!$isUpwardStudentBalanced || !$isUpwardEmployeeBalanced || !$isDownwardBalanced || !$isPeerBalanced || !$isSelfBalanced) {
                 $this->addError('evaluation_toggle', "Cannot open evaluations: One or more evaluation categories are not balanced. Check your Evaluation Criteria Points configuration below.");
                 return;
             }
@@ -524,7 +540,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->validate([
             'newCriterionName' => 'required|string|max:255',
             'newCriterionMaxPoints' => 'required|numeric|min:0',
-            'newCriterionType' => 'required|in:student,peer,self',
+            'newCriterionType' => 'required|in:upward_student,upward_employee,downward,peer,self',
         ]);
 
         $exists = EvaluationCriterion::where('evaluation_type', $this->newCriterionType)
@@ -578,12 +594,24 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $totals = $this->categoryTotals;
 
-        $studentTarget = is_numeric($this->studentMaxTarget) ? (float)$this->studentMaxTarget : 0.0;
+        $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
+        $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
+        $downwardTarget = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
         $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
         $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
 
-        if (abs($totals['student'] - $studentTarget) > 0.001) {
-            $this->addError('points_student', "Student evaluation total points must equal exactly {$studentTarget} (Current: {$totals['student']}).");
+        if (abs($totals['upward_student'] - $upwardStudentTarget) > 0.001) {
+            $this->addError('points_upward_student', "Student Upward evaluation total points must equal exactly {$upwardStudentTarget} (Current: {$totals['upward_student']}).");
+            return;
+        }
+
+        if (abs($totals['upward_employee'] - $upwardEmployeeTarget) > 0.001) {
+            $this->addError('points_upward_employee', "Employee Upward evaluation total points must equal exactly {$upwardEmployeeTarget} (Current: {$totals['upward_employee']}).");
+            return;
+        }
+
+        if (abs($totals['downward'] - $downwardTarget) > 0.001) {
+            $this->addError('points_downward', "Downward evaluation total points must equal exactly {$downwardTarget} (Current: {$totals['downward']}).");
             return;
         }
 
@@ -600,7 +628,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
             $activeSem->update([
-                'student_max_points' => $studentTarget,
+                'upward_student_max_points' => $upwardStudentTarget,
+                'upward_employee_max_points' => $upwardEmployeeTarget,
+                'downward_max_points' => $downwardTarget,
                 'peer_max_points' => $peerTarget,
                 'self_max_points' => $selfTarget,
             ]);
@@ -688,21 +718,21 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                                 <!-- Left: Input form -->
                                 <form wire:submit="saveSchedule" class="space-y-4">
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <flux:input
-                                                type="datetime-local"
-                                                wire:model="startsAt"
-                                                label="Start Time & Date"
-                                            />
-                                        </div>
-                                        <div>
-                                            <flux:input
-                                                type="datetime-local"
-                                                wire:model="endsAt"
-                                                label="End Time & Date"
-                                            />
-                                        </div>
+                                    <div class="flex flex-col gap-4">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model="startsAt"
+                                            label="Start Time & Date"
+                                            class="w-full"
+                                            class:input="!rounded-lg"
+                                        />
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model="endsAt"
+                                            label="End Time & Date"
+                                            class="w-full"
+                                            class:input="!rounded-lg"
+                                        />
                                     </div>
                                     @error('endsAt')
                                         <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
@@ -717,7 +747,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                                 <!-- Right: Current saved schedule display -->
                                 @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
-                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-3">
+                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-4">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
                                                 <flux:icon icon="calendar-days" class="size-4" />
@@ -858,34 +888,52 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                 @php
                     $totals = $this->categoryTotals;
-                    $studentTarget = is_numeric($this->studentMaxTarget) ? (float)$this->studentMaxTarget : 0.0;
+                    $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
+                    $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
+                    $downwardTarget = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
                     $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
                     $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
 
-                    $isStudentBalanced = abs($totals['student'] - $studentTarget) < 0.001;
-                    $isPeerBalanced = abs($totals['peer'] - $peerTarget) < 0.001;
-                    $isSelfBalanced = abs($totals['self'] - $selfTarget) < 0.001;
-                    $allBalanced = $isStudentBalanced && $isPeerBalanced && $isSelfBalanced;
+                    $isUpwardStudentBalanced = abs(($totals['upward_student'] ?? 0.0) - $upwardStudentTarget) < 0.001;
+                    $isUpwardEmployeeBalanced = abs(($totals['upward_employee'] ?? 0.0) - $upwardEmployeeTarget) < 0.001;
+                    $isDownwardBalanced = abs(($totals['downward'] ?? 0.0) - $downwardTarget) < 0.001;
+                    $isPeerBalanced = abs(($totals['peer'] ?? 0.0) - $peerTarget) < 0.001;
+                    $isSelfBalanced = abs(($totals['self'] ?? 0.0) - $selfTarget) < 0.001;
+                    $allBalanced = $isUpwardStudentBalanced && $isUpwardEmployeeBalanced && $isDownwardBalanced && $isPeerBalanced && $isSelfBalanced;
                 @endphp
 
                 <!-- Adjust Target Points Panel -->
-                <div class="grid grid-cols-3 gap-4 bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800 mb-6">
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">Student Max Target</label>
+                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Student Upward Target</label>
                         <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="studentMaxTarget" min="0" class="font-bold text-sm" />
+                            <flux:input type="number" wire:model.live="upwardStudentMaxTarget" min="0" class="font-bold text-sm" />
                             <span class="text-xs text-zinc-400 font-semibold">pts</span>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">Peer Max Target</label>
+                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Employee Upward Target</label>
+                        <div class="flex items-center gap-1">
+                            <flux:input type="number" wire:model.live="upwardEmployeeMaxTarget" min="0" class="font-bold text-sm" />
+                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Downward Target</label>
+                        <div class="flex items-center gap-1">
+                            <flux:input type="number" wire:model.live="downwardMaxTarget" min="0" class="font-bold text-sm" />
+                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Peer Target</label>
                         <div class="flex items-center gap-1">
                             <flux:input type="number" wire:model.live="peerMaxTarget" min="0" class="font-bold text-sm" />
                             <span class="text-xs text-zinc-400 font-semibold">pts</span>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">Self Max Target</label>
+                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Self Target</label>
                         <div class="flex items-center gap-1">
                             <flux:input type="number" wire:model.live="selfMaxTarget" min="0" class="font-bold text-sm" />
                             <span class="text-xs text-zinc-400 font-semibold">pts</span>
@@ -894,20 +942,20 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
 
                 <form wire:submit="savePoints" class="space-y-8">
-                    <!-- Student Evaluation Points Category -->
+                    <!-- Student Upward Evaluation Points Category -->
                     <div class="space-y-3">
                         <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Student Evaluation</h3>
-                                <flux:badge variant="{{ $isStudentBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['student'] }} / {{ $studentTarget }} pts
+                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Student Upward Evaluation</h3>
+                                <flux:badge variant="{{ $isUpwardStudentBalanced ? 'success' : 'danger' }}" size="sm">
+                                    {{ $totals['upward_student'] ?? 0 }} / {{ $upwardStudentTarget }} pts
                                 </flux:badge>
                             </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('student')">Add Part</flux:button>
+                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_student')">Add Part</flux:button>
                         </div>
 
                         <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'student') as $criterion)
+                            @foreach($this->criteria->where('evaluation_type', 'upward_student') as $criterion)
                                 <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
                                     <div class="flex-1">
                                         <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
@@ -934,7 +982,97 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </div>
                             @endforeach
                         </div>
-                        @error('points_student')
+                        @error('points_upward_student')
+                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Employee Upward Evaluation Points Category -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Employee Upward Evaluation (PHs/Deans)</h3>
+                                <flux:badge variant="{{ $isUpwardEmployeeBalanced ? 'success' : 'danger' }}" size="sm">
+                                    {{ $totals['upward_employee'] ?? 0 }} / {{ $upwardEmployeeTarget }} pts
+                                </flux:badge>
+                            </div>
+                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_employee')">Add Part</flux:button>
+                        </div>
+
+                        <div class="space-y-3">
+                            @foreach($this->criteria->where('evaluation_type', 'upward_employee') as $criterion)
+                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
+                                    <div class="flex-1">
+                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
+                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-24 flex items-center gap-1">
+                                            <flux:input 
+                                                type="number" 
+                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                                min="0" 
+                                                class="text-right font-semibold"
+                                            />
+                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
+                                        </div>
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            icon="trash" 
+                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                        />
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('points_upward_employee')
+                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Downward Evaluation Points Category -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Downward Evaluation (Faculty/PHs)</h3>
+                                <flux:badge variant="{{ $isDownwardBalanced ? 'success' : 'danger' }}" size="sm">
+                                    {{ $totals['downward'] ?? 0 }} / {{ $downwardTarget }} pts
+                                </flux:badge>
+                            </div>
+                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('downward')">Add Part</flux:button>
+                        </div>
+
+                        <div class="space-y-3">
+                            @foreach($this->criteria->where('evaluation_type', 'downward') as $criterion)
+                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
+                                    <div class="flex-1">
+                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
+                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-24 flex items-center gap-1">
+                                            <flux:input 
+                                                type="number" 
+                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                                min="0" 
+                                                class="text-right font-semibold"
+                                            />
+                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
+                                        </div>
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            icon="trash" 
+                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                        />
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('points_downward')
                             <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
                         @enderror
                     </div>
@@ -943,9 +1081,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <div class="space-y-3">
                         <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation (Deans/PHs)</h3>
+                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation</h3>
                                 <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['peer'] }} / {{ $peerTarget }} pts
+                                    {{ $totals['peer'] ?? 0 }} / {{ $peerTarget }} pts
                                 </flux:badge>
                             </div>
                             <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('peer')">Add Part</flux:button>
@@ -990,7 +1128,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <div class="flex items-center gap-2">
                                 <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Self Evaluation</h3>
                                 <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['self'] }} / {{ $selfTarget }} pts
+                                    {{ $totals['self'] ?? 0 }} / {{ $selfTarget }} pts
                                 </flux:badge>
                             </div>
                             <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('self')">Add Part</flux:button>
@@ -1290,8 +1428,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                 />
 
                 <flux:select wire:model="newCriterionType" label="Evaluation Target Type" required>
-                    <flux:select.option value="student">Student Evaluation</flux:select.option>
-                    <flux:select.option value="peer">Peer Evaluation (Deans/PHs)</flux:select.option>
+                    <flux:select.option value="upward_student">Student Upward Evaluation</flux:select.option>
+                    <flux:select.option value="upward_employee">Employee Upward Evaluation (PHs/Deans)</flux:select.option>
+                    <flux:select.option value="downward">Downward Evaluation (Faculty/PHs)</flux:select.option>
+                    <flux:select.option value="peer">Peer Evaluation (Faculty)</flux:select.option>
                     <flux:select.option value="self">Self Evaluation</flux:select.option>
                 </flux:select>
 

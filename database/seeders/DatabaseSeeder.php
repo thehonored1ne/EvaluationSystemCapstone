@@ -49,9 +49,9 @@ class DatabaseSeeder extends Seeder
 
         // 3. Seed Evaluation Criteria and Questions
         $criteria = [
-            // Student Evaluation: 90 points total
+            // Student Upward Evaluation: 90 points total
             [
-                'evaluation_type' => 'student',
+                'evaluation_type' => 'upward_student',
                 'name' => 'Part 1: Instructional Delivery & Subject Expertise',
                 'order' => 1,
                 'max_points' => 36.00,
@@ -63,7 +63,7 @@ class DatabaseSeeder extends Seeder
                 ],
             ],
             [
-                'evaluation_type' => 'student',
+                'evaluation_type' => 'upward_student',
                 'name' => 'Part 2: Classroom Management & Professionalism',
                 'order' => 2,
                 'max_points' => 36.00,
@@ -75,7 +75,7 @@ class DatabaseSeeder extends Seeder
                 ],
             ],
             [
-                'evaluation_type' => 'student',
+                'evaluation_type' => 'upward_student',
                 'name' => 'Part 3: Assessment & Grading fairness',
                 'order' => 3,
                 'max_points' => 18.00,
@@ -83,6 +83,61 @@ class DatabaseSeeder extends Seeder
                     'The instructor clearly outlines grading policies and evaluation metrics.',
                     'The instructor provides timely and constructive feedback on exams and projects.',
                     'The instructor conducts quizzes, tests, and tasks that are aligned with course objectives.',
+                ],
+            ],
+
+            // Employee Upward Evaluation: 50 points total
+            [
+                'evaluation_type' => 'upward_employee',
+                'name' => 'Part 1: Leadership & Communication',
+                'order' => 1,
+                'max_points' => 20.00,
+                'questions' => [
+                    'The supervisor communicates goals and expectations clearly and effectively.',
+                    'The supervisor makes fair, consistent, and timely decisions.',
+                    'The supervisor listens to suggestions and concerns with professionalism.',
+                ],
+            ],
+            [
+                'evaluation_type' => 'upward_employee',
+                'name' => 'Part 2: Professional Support & Development',
+                'order' => 2,
+                'max_points' => 20.00,
+                'questions' => [
+                    'The supervisor supports department initiatives and resource needs.',
+                    'The supervisor provides constructive feedback and encourages growth.',
+                ],
+            ],
+            [
+                'evaluation_type' => 'upward_employee',
+                'name' => 'Part 3: Administrative Cooperation',
+                'order' => 3,
+                'max_points' => 10.00,
+                'questions' => [
+                    'The supervisor fosters collaboration and mutual respect within the unit.',
+                ],
+            ],
+
+            // Downward Evaluation: 50 points total
+            [
+                'evaluation_type' => 'downward',
+                'name' => 'Part 1: Performance & Competence',
+                'order' => 1,
+                'max_points' => 25.00,
+                'questions' => [
+                    'The subordinate demonstrates competence in executing their assigned tasks.',
+                    'The subordinate exhibits commitment to academic standards and student success.',
+                    'The subordinate collaborates constructively to achieve program goals.',
+                ],
+            ],
+            [
+                'evaluation_type' => 'downward',
+                'name' => 'Part 2: Professional Engagement & Compliance',
+                'order' => 2,
+                'max_points' => 25.00,
+                'questions' => [
+                    'The subordinate adheres to institutional policies and reporting timelines.',
+                    'The subordinate participates actively in official activities and committees.',
                 ],
             ],
 
@@ -145,7 +200,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($criteria as $cData) {
-            $criterion = EvaluationCriterion::firstOrCreate(
+            $criterion = EvaluationCriterion::updateOrCreate(
                 [
                     'evaluation_type' => $cData['evaluation_type'],
                     'name' => $cData['name'],
@@ -157,7 +212,7 @@ class DatabaseSeeder extends Seeder
             );
 
             foreach ($cData['questions'] as $index => $qText) {
-                EvaluationQuestion::firstOrCreate(
+                EvaluationQuestion::updateOrCreate(
                     [
                         'criterion_id' => $criterion->id,
                         'question_text' => $qText,

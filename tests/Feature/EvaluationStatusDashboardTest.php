@@ -138,7 +138,7 @@ test('Student dashboard blocks selectClass when evaluation is processing in queu
     $evaluateeId = $this->facUser1->id;
     $semesterId = $this->semester->id;
     $classId = $this->class->id;
-    $type = 'student';
+    $type = 'upward_student';
 
     // Set up queue job
     $payload = json_encode([
@@ -221,7 +221,7 @@ test('Dean dashboard blocks selectTarget when evaluation is processing in queue'
     $evaluateeId = $this->phUser->id; // Program head
     $semesterId = $this->semester->id;
     $classId = null;
-    $type = 'peer';
+    $type = 'downward';
 
     // Set up queue job
     $payload = json_encode([
@@ -262,7 +262,7 @@ test('Staff dashboard blocks selectTarget when evaluation is processing in queue
     $evaluateeId = $this->phUser->id; // Program head
     $semesterId = $this->semester->id;
     $classId = null;
-    $type = 'peer';
+    $type = 'upward_employee';
 
     // Set up queue job
     $payload = json_encode([
@@ -322,12 +322,14 @@ test('admin cannot manually open evaluations if criteria points are unbalanced',
     $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
     $admin->assignRole('admin');
 
-    // Set dates but no criteria, so total is 0 while targets are 90/50/10 (unbalanced)
+    // Set dates but no criteria, so total is 0 while targets are 90/50/50/50/10 (unbalanced)
     $this->semester->update([
         'is_evaluation_open' => false,
         'evaluation_starts_at' => now()->subDay(),
         'evaluation_ends_at' => now()->addDay(),
-        'student_max_points' => 90,
+        'upward_student_max_points' => 90,
+        'upward_employee_max_points' => 50,
+        'downward_max_points' => 50,
         'peer_max_points' => 50,
         'self_max_points' => 10,
     ]);
@@ -346,7 +348,7 @@ test('admin can manually open evaluations if dates are set and criteria points a
 
     // Create balanced criteria
     EvaluationCriterion::create([
-        'evaluation_type' => 'student',
+        'evaluation_type' => 'upward_student',
         'name' => 'Teaching Quality',
         'max_points' => 90,
         'order' => 1,
@@ -368,7 +370,9 @@ test('admin can manually open evaluations if dates are set and criteria points a
         'is_evaluation_open' => false,
         'evaluation_starts_at' => now()->subDay(),
         'evaluation_ends_at' => now()->addDay(),
-        'student_max_points' => 90,
+        'upward_student_max_points' => 90,
+        'upward_employee_max_points' => 0,
+        'downward_max_points' => 0,
         'peer_max_points' => 50,
         'self_max_points' => 10,
     ]);

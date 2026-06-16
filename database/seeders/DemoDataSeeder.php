@@ -150,6 +150,41 @@ class DemoDataSeeder extends Seeder
             }
         }
 
+        // 4.1. Create 2 Staff employees
+        $staffEmployees = [];
+        $staffNames = [
+            ['first' => 'CCS', 'last' => 'Staff', 'dept' => $ccs],
+            ['first' => 'COED', 'last' => 'Staff', 'dept' => $coed],
+        ];
+        foreach ($staffNames as $index => $sName) {
+            $empNumber = 'STF-'.str_pad($index + 1, 4, '0', STR_PAD_LEFT);
+            $employee = Employee::firstOrCreate(
+                ['employee_number' => $empNumber],
+                [
+                    'first_name' => $sName['first'],
+                    'last_name' => $sName['last'],
+                    'role' => 'staff',
+                    'status' => 'active',
+                    'department_id' => $sName['dept']->id,
+                ]
+            );
+            $employee->update(['department_id' => $sName['dept']->id]);
+            $staffEmployees[] = $employee;
+
+            $user = User::firstOrCreate(
+                ['email' => strtolower($sName['first'].'.'.$sName['last']).'@example.com'],
+                [
+                    'name' => "{$sName['first']} {$sName['last']}",
+                    'employee_id' => $employee->id,
+                    'password' => Hash::make('password'),
+                ]
+            );
+
+            if (! $user->hasRole('staff')) {
+                $user->assignRole('staff');
+            }
+        }
+
         // 5. Create 40 Students
         $students = [];
         $programsList = [$bscs, $bsit, $bsed, $beed];
