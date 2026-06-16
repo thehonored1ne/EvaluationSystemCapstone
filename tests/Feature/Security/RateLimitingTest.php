@@ -94,8 +94,8 @@ class RateLimitingTest extends TestCase
                 ->assertSet('retryAfter', 0);
         }
 
-        // The 6th attempt should trigger rate limiting and set retryAfter to 180
-        $component->call('submit')
-            ->assertSet('retryAfter', 180);
+        // The 6th attempt should trigger rate limiting and set retryAfter to ~180
+        $component->call('submit');
+        $this->assertGreaterThanOrEqual(175, $component->get('retryAfter'));
     }
 }

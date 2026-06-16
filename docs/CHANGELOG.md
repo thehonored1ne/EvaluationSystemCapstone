@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026-06-16]
+
+### Added
+- **Admin Dashboard Upgrades**: Implemented comprehensive administrative metrics and components:
+  - Top row statistics cards detailing total faculty profiles, regular student counts, active evaluation progress, and VADER average sentiment ratings.
+  - Active window tracking card with live timers and status badges.
+  - Live AI Sentiment Analysis card featuring VADER lexicon comment breakdowns (positive, neutral, and negative ratings).
+  - Department completion rates table mapping actual submissions against expected student evaluations.
+  - Anonymized timeline feed of the latest 5 evaluation submissions.
+  - Quick action panel shortcuts to settings, reports, questions, and accounts.
+
+### Fixed
+- **Evaluation Settings Picker Layout**: Configured the start and end date-time input pickers under "Configure Evaluation Window" to stack vertically and expand on all screen sizes.
+- **Admin Dashboard Header Alignment**: Left-aligned the dashboard title and subheading description, and wrapped the Active Period badge in a full-width container to float to the far-right on both mobile and desktop screens.
+
+---
+
 ## [2026-06-14]
 
 ### Added
