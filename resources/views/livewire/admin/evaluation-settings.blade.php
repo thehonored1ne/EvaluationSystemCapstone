@@ -688,21 +688,21 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                                 <!-- Left: Input form -->
                                 <form wire:submit="saveSchedule" class="space-y-4">
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <flux:input
-                                                type="datetime-local"
-                                                wire:model="startsAt"
-                                                label="Start Time & Date"
-                                            />
-                                        </div>
-                                        <div>
-                                            <flux:input
-                                                type="datetime-local"
-                                                wire:model="endsAt"
-                                                label="End Time & Date"
-                                            />
-                                        </div>
+                                    <div class="flex flex-col gap-4">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model="startsAt"
+                                            label="Start Time & Date"
+                                            class="w-full"
+                                            class:input="!rounded-lg"
+                                        />
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model="endsAt"
+                                            label="End Time & Date"
+                                            class="w-full"
+                                            class:input="!rounded-lg"
+                                        />
                                     </div>
                                     @error('endsAt')
                                         <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
@@ -717,7 +717,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                                 <!-- Right: Current saved schedule display -->
                                 @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
-                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-3">
+                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-4">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
                                                 <flux:icon icon="calendar-days" class="size-4" />
