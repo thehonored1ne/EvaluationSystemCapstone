@@ -20,6 +20,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    \Livewire\Livewire::withoutLazyLoading();
     // Create roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'dean']);

@@ -18,6 +18,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    \Livewire\Livewire::withoutLazyLoading();
     // Create roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'dean']);
@@ -825,6 +826,7 @@ test('admin dashboard recent submissions feed displays correct labels for non-cl
     $eval3->save();
 
     // Test Volt component
+    \Livewire\Livewire::withoutLazyLoading();
     Volt::test('admin.dashboard')
         ->assertViewHas('recentSubmissions', function ($submissions) {
             expect(count($submissions))->toBe(3);

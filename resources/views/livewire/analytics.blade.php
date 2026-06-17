@@ -1,14 +1,18 @@
 <?php
 
 use Livewire\Volt\Component;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\Evaluation;
 use App\Models\Department;
 use App\Models\User;
 use App\Models\EvaluationAnswer;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.analytics-skeleton');
+    }
     public ?int $selectedSemesterId = null;
 
     public function mount()

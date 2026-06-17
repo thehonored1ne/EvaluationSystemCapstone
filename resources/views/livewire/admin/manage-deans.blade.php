@@ -3,11 +3,16 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Department;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.generic-table-skeleton');
+    }
     use WithPagination;
 
     // Fields
@@ -230,59 +235,65 @@ new #[Layout('components.layouts.app')] class extends Component {
         <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
     </div>
     
-    <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-        <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
-            <thead class="bg-gray-50 dark:bg-zinc-800">
-                <tr>
-                    <th class="w-[30%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Name</th>
-                    <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Employee ID</th>
-                    <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Email Address</th>
-                    <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Department</th>
-                    <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Status</th>
-                    <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                @forelse ($users as $user)
-                    <tr wire:key="{{ $user->id }}">
-                        <td class="px-4 py-3 dark:text-zinc-300 font-medium">{{ $user->name }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs">{{ $user->employee?->employee_number }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 text-xs">{{ $user->email }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 font-semibold text-xs">
-                            {{ $user->employee?->department?->code ?: 'None' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
-                                {{ $user->is_active ? 'Active' : 'Disabled' }}
-                            </flux:badge>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <div class="flex justify-end gap-2">
-                                <flux:button size="sm" variant="ghost" wire:click="editUser({{ $user->id }})">
-                                    Edit
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $user->id }})">
-                                    {{ $user->is_active ? 'Disable' : 'Enable' }}
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $user->id }})">
-                                    Delete
-                                </flux:button>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
-                            No dean accounts found matching your criteria.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <div wire:loading wire:target="search, selectedDepartmentId, gotoPage, nextPage, previousPage" class="w-full">
+        <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
-    <div>
-        {{ $users->links() }}
+    <div wire:loading.remove wire:target="search, selectedDepartmentId, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+                <thead class="bg-gray-50 dark:bg-zinc-800">
+                    <tr>
+                        <th class="w-[30%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Name</th>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Employee ID</th>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Email Address</th>
+                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Department</th>
+                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Status</th>
+                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                    @forelse ($users as $user)
+                        <tr wire:key="{{ $user->id }}">
+                            <td class="px-4 py-3 dark:text-zinc-300 font-medium">{{ $user->name }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs">{{ $user->employee?->employee_number }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">{{ $user->email }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 font-semibold text-xs">
+                                {{ $user->employee?->department?->code ?: 'None' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
+                                    {{ $user->is_active ? 'Active' : 'Disabled' }}
+                                </flux:badge>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <flux:button size="sm" variant="ghost" wire:click="editUser({{ $user->id }})">
+                                        Edit
+                                    </flux:button>
+                                    <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $user->id }})">
+                                        {{ $user->is_active ? 'Disable' : 'Enable' }}
+                                    </flux:button>
+                                    <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $user->id }})">
+                                        Delete
+                                    </flux:button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
+                                No dean accounts found matching your criteria.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            {{ $users->links() }}
+        </div>
     </div>
 
     @if($showModal)

@@ -3,6 +3,7 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\Employee;
@@ -10,7 +11,12 @@ use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Department;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.generic-table-skeleton');
+    }
+
     use WithPagination;
 
     // Filter properties
@@ -316,70 +322,76 @@ new #[Layout('components.layouts.app')] class extends Component {
         <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
     </div>
     
-    <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-        <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
-            <thead class="bg-gray-50 dark:bg-zinc-800">
-                <tr>
-                    <th class="w-[18%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Subject</th>
-                    <th class="w-[18%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Professor</th>
-                    <th class="w-[8%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Section</th>
-                    <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Schedule & Room</th>
-                    <th class="w-[13%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Semester</th>
-                    <th class="w-[8%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Students</th>
-                    <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-left">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                @forelse ($classes as $class)
-                    <tr wire:key="{{ $class->id }}">
-                        <td class="px-4 py-3 dark:text-zinc-300">
-                            <span class="font-mono text-xs font-semibold block text-zinc-500">{{ $class->subject->code }}</span>
-                            <span class="font-medium text-sm block truncate" title="{{ $class->subject->name }}">{{ $class->subject->name }}</span>
-                        </td>
-                        <td class="px-4 py-3 dark:text-zinc-300">
-                            <span class="text-xs block text-zinc-500">{{ $class->teacher->employee_number }}</span>
-                            <span class="font-medium text-sm block truncate" title="{{ $class->teacher->full_name }}">{{ $class->teacher->full_name }}</span>
-                        </td>
-                        <td class="px-4 py-3 font-semibold text-xs font-mono dark:text-zinc-300">{{ $class->section }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 text-xs">
-                            <span class="block truncate" title="{{ $class->schedule }}">{{ $class->schedule ?: 'No Schedule' }}</span>
-                            <span class="block text-zinc-500 font-mono" title="{{ $class->room }}">{{ $class->room ?: 'No Room' }}</span>
-                        </td>
-                        <td class="px-4 py-3 dark:text-zinc-400 text-xs">
-                            {{ $class->semester->academicYear->name }} - {{ $class->semester->name }}
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            <flux:badge size="sm" color="{{ $class->students_count > 0 ? 'indigo' : 'zinc' }}">
-                                {{ $class->students_count }} Enrolled
-                            </flux:badge>
-                        </td>
-                        <td class="px-4 py-3 text-left">
-                            <div class="flex justify-start gap-2">
-                                <flux:button size="sm" variant="ghost" wire:click="manageStudents({{ $class->id }})" tooltip="Manage Enrollment">
-                                    View
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="editClass({{ $class->id }})">
-                                    Edit
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $class->id }})">
-                                    Delete
-                                </flux:button>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
-                            No academic classes found matching your criteria.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <div wire:loading wire:target="search, filterSemester, filterDepartment, gotoPage, nextPage, previousPage" class="w-full">
+        <x-skeleton type="table" :rows="5" :cols="7" />
     </div>
 
-    <div>
-        {{ $classes->links() }}
+    <div wire:loading.remove wire:target="search, filterSemester, filterDepartment, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+                <thead class="bg-gray-50 dark:bg-zinc-800">
+                    <tr>
+                        <th class="w-[18%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Subject</th>
+                        <th class="w-[18%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Professor</th>
+                        <th class="w-[8%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Section</th>
+                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Schedule & Room</th>
+                        <th class="w-[13%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Semester</th>
+                        <th class="w-[8%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Students</th>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                    @forelse ($classes as $class)
+                        <tr wire:key="{{ $class->id }}">
+                            <td class="px-4 py-3 dark:text-zinc-300">
+                                <span class="font-mono text-xs font-semibold block text-zinc-500">{{ $class->subject->code }}</span>
+                                <span class="font-medium text-sm block truncate" title="{{ $class->subject->name }}">{{ $class->subject->name }}</span>
+                            </td>
+                            <td class="px-4 py-3 dark:text-zinc-300">
+                                <span class="text-xs block text-zinc-500">{{ $class->teacher->employee_number }}</span>
+                                <span class="font-medium text-sm block truncate" title="{{ $class->teacher->full_name }}">{{ $class->teacher->full_name }}</span>
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-xs font-mono dark:text-zinc-300">{{ $class->section }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">
+                                <span class="block truncate" title="{{ $class->schedule }}">{{ $class->schedule ?: 'No Schedule' }}</span>
+                                <span class="block text-zinc-500 font-mono" title="{{ $class->room }}">{{ $class->room ?: 'No Room' }}</span>
+                            </td>
+                            <td class="px-4 py-3 dark:text-zinc-400 text-xs">
+                                {{ $class->semester->academicYear->name }} - {{ $class->semester->name }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <flux:badge size="sm" color="{{ $class->students_count > 0 ? 'indigo' : 'zinc' }}">
+                                    {{ $class->students_count }} Enrolled
+                                </flux:badge>
+                            </td>
+                            <td class="px-4 py-3 text-left">
+                                <div class="flex justify-start gap-2">
+                                    <flux:button size="sm" variant="ghost" wire:click="manageStudents({{ $class->id }})" tooltip="Manage Enrollment">
+                                        View
+                                    </flux:button>
+                                    <flux:button size="sm" variant="ghost" wire:click="editClass({{ $class->id }})">
+                                        Edit
+                                    </flux:button>
+                                    <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $class->id }})">
+                                        Delete
+                                    </flux:button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
+                                No academic classes found matching your criteria.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            {{ $classes->links() }}
+        </div>
     </div>
 
     <!-- Create/Edit Modal -->
