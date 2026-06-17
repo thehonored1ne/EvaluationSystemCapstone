@@ -67,7 +67,7 @@ class Evaluation extends Model
     /**
      * Get the current status of an evaluation (completed, processing, or pending).
      */
-    public static function getStatus(int $evaluatorId, int $evaluateeId, int $semesterId, ?int $classId = null, string $type = 'student'): string
+    public static function getStatus(int $evaluatorId, int $evaluateeId, int $semesterId, ?int $classId = null, string $type = 'upward_student'): string
     {
         // 1. Check database
         $exists = self::where([

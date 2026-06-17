@@ -115,7 +115,7 @@ test('manage evaluations lists completion rates correctly', function () {
         'evaluator_id' => $this->studUser->id,
         'evaluatee_id' => $this->facUser->id,
         'class_id' => $class->id,
-        'evaluation_type' => 'student',
+        'evaluation_type' => 'upward_student',
         'rating_average' => 4.00,
     ]);
 

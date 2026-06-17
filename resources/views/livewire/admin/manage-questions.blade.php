@@ -3,16 +3,17 @@
 use Livewire\Volt\Component;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationQuestion;
+use App\Models\Semester;
 use Livewire\Attributes\Layout;
 
 new #[Layout('components.layouts.app')] class extends Component {
     // Current Active Tab
-    public string $activeTab = 'student'; // 'student', 'peer', 'self'
+    public string $activeTab = 'upward_student'; // 'upward_student', 'upward_employee', 'downward', 'peer', 'self'
 
     // Question form state
     public string $questionText = '';
     public string $criterionId = '';
-    public string $evaluationType = 'student';
+    public string $evaluationType = 'upward_student';
     public string $order = '1';
     public ?int $editingQuestionId = null;
 
@@ -20,6 +21,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     public bool $showFormModal = false;
     public bool $showDeleteModal = false;
     public ?EvaluationQuestion $deletingQuestion = null;
+
+    public function getActiveSemesterProperty()
+    {
+        return Semester::where('is_active', true)->first();
+    }
 
     public function getCriteriaProperty()
     {
@@ -102,7 +108,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $this->validate([
             'criterionId' => 'required|exists:evaluation_criteria,id',
-            'evaluationType' => 'required|in:student,peer,self',
+            'evaluationType' => 'required|in:upward_student,upward_employee,downward,peer,self',
             'questionText' => 'required|string|max:500',
             'order' => 'required|integer|min:1',
         ]);
@@ -174,25 +180,46 @@ new #[Layout('components.layouts.app')] class extends Component {
         </div>
     @endif
 
+    @php
+        $sem = $this->activeSemester;
+        $studentTarget = $sem ? (float)$sem->upward_student_max_points : 90;
+        $employeeTarget = $sem ? (float)$sem->upward_employee_max_points : 50;
+        $downwardTarget = $sem ? (float)$sem->downward_max_points : 50;
+        $peerTarget = $sem ? (float)$sem->peer_max_points : 50;
+        $selfTarget = $sem ? (float)$sem->self_max_points : 10;
+    @endphp
+
     <!-- Tabs Selection -->
-    <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
+    <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-6 overflow-x-auto">
         <button 
-            wire:click="selectTab('student')" 
-            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 {{ $activeTab === 'student' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+            wire:click="selectTab('upward_student')" 
+            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 whitespace-nowrap {{ $activeTab === 'upward_student' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
         >
-            Student Evaluation (90 pts Target)
+            Student Upward ({{ $studentTarget }} pts Target)
+        </button>
+        <button 
+            wire:click="selectTab('upward_employee')" 
+            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 whitespace-nowrap {{ $activeTab === 'upward_employee' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+        >
+            Employee Upward ({{ $employeeTarget }} pts Target)
+        </button>
+        <button 
+            wire:click="selectTab('downward')" 
+            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 whitespace-nowrap {{ $activeTab === 'downward' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+        >
+            Downward ({{ $downwardTarget }} pts Target)
         </button>
         <button 
             wire:click="selectTab('peer')" 
-            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 {{ $activeTab === 'peer' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 whitespace-nowrap {{ $activeTab === 'peer' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
         >
-            Peer Evaluation (50 pts Target)
+            Peer ({{ $peerTarget }} pts Target)
         </button>
         <button 
             wire:click="selectTab('self')" 
-            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 {{ $activeTab === 'self' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+            class="pb-3 text-sm font-semibold transition-all border-b-2 px-1 whitespace-nowrap {{ $activeTab === 'self' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
         >
-            Self Evaluation (10 pts Target)
+            Self ({{ $selfTarget }} pts Target)
         </button>
     </div>
 
@@ -288,9 +315,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             
             <form wire:submit="saveQuestion" class="space-y-4">
                 <flux:select wire:model.live="evaluationType" label="Evaluation Target Type" required>
-                    <flux:select.option value="student">Student Evaluation</flux:select.option>
-                    <flux:select.option value="peer">Peer Evaluation (Deans/PHs)</flux:select.option>
-                    <flux:select.option value="self">Self Evaluation</flux:select.option>
+                    <flux:select.option value="upward_student">Student Upward</flux:select.option>
+                    <flux:select.option value="upward_employee">Employee Upward</flux:select.option>
+                    <flux:select.option value="downward">Downward</flux:select.option>
+                    <flux:select.option value="peer">Peer</flux:select.option>
+                    <flux:select.option value="self">Self</flux:select.option>
                 </flux:select>
 
                 <flux:select wire:model.live="criterionId" label="Part Category" required>
@@ -345,7 +374,16 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="flex flex-col gap-3 text-sm">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Target Type</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150 capitalize">{{ $deletingQuestion->criterion->evaluation_type }} Evaluation</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                        {{ match($deletingQuestion->criterion->evaluation_type) {
+                            'upward_student' => 'Student Upward',
+                            'upward_employee' => 'Employee Upward',
+                            'downward' => 'Downward',
+                            'peer' => 'Peer',
+                            'self' => 'Self',
+                            default => ucfirst($deletingQuestion->criterion->evaluation_type)
+                        } }} Evaluation
+                    </span>
                 </div>
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Part Category (Order Q#{{ $deletingQuestion->order }})</span>

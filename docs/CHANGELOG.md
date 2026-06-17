@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026-06-17]
+
+### Fixed
+- **Questionnaire Management Tab Alignment**: Updated the admin `manage-questions` Livewire component to support the five current evaluation types (`upward_student`, `upward_employee`, `downward`, `peer`, `self`) rather than the outdated `student`, `peer`, `self` types.
+- **Dynamic Question Rubrics Target Points**: Refactored the questionnaire tabs to load active semester target points configuration dynamically.
+- **Helper Defaults & Test Alignments**: Updated the default evaluation type in `Evaluation::getStatus()` to `upward_student` and updated corresponding feature test cases.
+
+### Changed
+- **System Font Family**: Replaced the default font family `Instrument Sans` with `Inter` across the entire application interface to align with modern web design guidelines.
+- **Welcome Page Redesign**: Overhauled the landing page (`welcome.blade.php`) to use the vibrant gradient background image with full cover constraints. The text and a clean containerless brand logo now float cleanly directly on top of a premium cinema background overlay, featuring elegant typography powered by the **Playfair Display** serif font face for the title, and a single centralized primary CTA action button ("Access Portal" / "Go to Dashboard") positioned with spacious vertical padding.
+
+---
+
 ## [2026-06-16]
 
 ### Added
