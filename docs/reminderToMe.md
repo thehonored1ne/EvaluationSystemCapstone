@@ -1,6 +1,7 @@
 ## 6/17/26
 - Aligned `manage-questions` admin component to use the updated evaluation types: `upward_student`, `upward_employee`, `downward`, `peer`, `self`.
 - Migrated global font to `Inter` and redesigned `welcome.blade.php` with a containerless floating layout, elegant `Playfair Display` serif header, and a full-cover gradient background.
+- Integrated a rolling vertical digit `<x-odometer>` component (YouTube sub-count style) into the Admin Dashboard stats and AI Sentiment Analysis sub-cards.
 
 ## 6/10/26
 - 2 branch created (addbutton/admin, fix/admin)

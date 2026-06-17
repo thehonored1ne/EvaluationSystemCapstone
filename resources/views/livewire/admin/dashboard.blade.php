@@ -237,7 +237,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Faculty</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1">{{ $facultyCount }}</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$facultyCount" /></span>
                 </div>
                 <flux:icon name="users" class="size-6 text-zinc-400 dark:text-zinc-500" />
             </div>
@@ -249,7 +249,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Students</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1">{{ $studentCount }}</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$studentCount" /></span>
                 </div>
                 <flux:icon name="academic-cap" class="size-6 text-zinc-400 dark:text-zinc-500" />
             </div>
@@ -261,7 +261,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Progress</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1">{{ $progressPercent }}%</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$progressPercent" suffix="%" /></span>
                 </div>
                 <flux:icon name="check-circle" class="size-6 text-zinc-400 dark:text-zinc-500" />
             </div>
@@ -279,7 +279,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Average Sentiment</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
-                        {{ $sentimentStats['average'] > 0 ? '+' : '' }}{{ $sentimentStats['average'] }}
+                        <x-odometer :value="$sentimentStats['average']" :decimals="2" :prefix="$sentimentStats['average'] > 0 ? '+' : ''" />
                     </span>
                 </div>
                 <flux:icon name="bolt" class="size-6 {{ $sentimentTextClass }}" />
@@ -423,17 +423,17 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <div class="grid grid-cols-3 gap-2">
                         <div class="bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/30 p-3 rounded-xl text-center">
                             <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Positive</span>
-                            <span class="text-xl font-bold text-emerald-700 dark:text-emerald-300 block mt-0.5">{{ $posCount }}</span>
+                            <span class="text-xl font-bold text-emerald-700 dark:text-emerald-300 block mt-0.5"><x-odometer :value="$posCount" /></span>
                             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $posPct }}%</span>
                         </div>
                         <div class="bg-zinc-50/50 dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-700 p-3 rounded-xl text-center">
                             <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Neutral</span>
-                            <span class="text-xl font-bold text-zinc-700 dark:text-zinc-300 block mt-0.5">{{ $neuCount }}</span>
+                            <span class="text-xl font-bold text-zinc-700 dark:text-zinc-300 block mt-0.5"><x-odometer :value="$neuCount" /></span>
                             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $neuPct }}%</span>
                         </div>
                         <div class="bg-rose-50/30 dark:bg-rose-950/10 border border-rose-100/50 dark:border-rose-900/30 p-3 rounded-xl text-center">
                             <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">Negative</span>
-                            <span class="text-xl font-bold text-rose-700 dark:text-rose-300 block mt-0.5">{{ $negCount }}</span>
+                            <span class="text-xl font-bold text-rose-700 dark:text-rose-300 block mt-0.5"><x-odometer :value="$negCount" /></span>
                             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $negPct }}%</span>
                         </div>
                     </div>

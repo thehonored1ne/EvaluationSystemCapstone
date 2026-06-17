@@ -32,6 +32,7 @@ A role-based evaluation system with the following active portals:
 ### June 17, 2026
 - **Questionnaire Management Alignment**: Updated the admin Questionnaire Management (`manage-questions`) page to support all five current evaluation types (`upward_student`, `upward_employee`, `downward`, `peer`, `self`). Refactored the UI tabs to dynamically load active semester target points configuration, and aligned the validation rules, delete confirmation labels, helper defaults, and feature tests to use the correct schema types.
 - **System Font & Welcome Page Redesign**: Migrated the default system font-family from `Instrument Sans` to `Inter` globally. Overhauled the central landing welcome page (`welcome.blade.php`) to use a vibrant abstract gradient cover background, a containerless floating layout, elegant serif typography via **Playfair Display**, a clean floating brand logo with drop shadows, and a centralized Access Portal CTA button.
+- **Odometer Count-Up Effect**: Integrated a custom rolling digit `<x-odometer>` Blade component with elastic mechanical bounce transitions (similar to YouTube's live subscriber counter) into the four Admin Dashboard stats cards and the three AI Sentiment Analysis distribution count cards.
 
 ### June 16, 2026
 - **Admin Dashboard Upgrades**: Added top statistics cards, live schedule status trackers, Live AI Sentiment Lexicon analytics breakdown, department completion rates progress, anonymized recent submissions feed, and quick system shortcuts.

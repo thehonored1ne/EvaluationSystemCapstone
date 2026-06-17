@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Dynamic Question Rubrics Target Points**: Refactored the questionnaire tabs to load active semester target points configuration dynamically.
 - **Helper Defaults & Test Alignments**: Updated the default evaluation type in `Evaluation::getStatus()` to `upward_student` and updated corresponding feature test cases.
 
+### Added
+- **Odometer Count-Up Effect**: Implemented a reusable `<x-odometer>` Blade component powered by Alpine.js and vertical CSS translates with a `cubic-bezier(0.34, 1.56, 0.64, 1)` elastic transition (similar to YouTube's live subscriber counter). Integrated the odometer into the Admin Dashboard stats cards (Faculty, Students, Progress, Sentiment score) and the positive, neutral, and negative comment counts in the AI Sentiment analysis panel.
+
 ### Changed
 - **System Font Family**: Replaced the default font family `Instrument Sans` with `Inter` across the entire application interface to align with modern web design guidelines.
 - **Welcome Page Redesign**: Overhauled the landing page (`welcome.blade.php`) to use the vibrant gradient background image with full cover constraints. The text and a clean containerless brand logo now float cleanly directly on top of a premium cinema background overlay, featuring elegant typography powered by the **Playfair Display** serif font face for the title, and a single centralized primary CTA action button ("Access Portal" / "Go to Dashboard") positioned with spacious vertical padding.
