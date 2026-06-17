@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Student;
@@ -13,7 +14,11 @@ use App\Models\EvaluationSentiment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.admin-dashboard-skeleton');
+    }
     public function with(): array
     {
         // 1. Fetch Active Semester & Year

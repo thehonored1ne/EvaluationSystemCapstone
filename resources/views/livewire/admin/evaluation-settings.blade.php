@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Volt\Component;
+use Livewire\Attributes\Lazy;
 use App\Models\AcademicYear;
 use App\Models\Semester;
 use App\Models\EvaluationCriterion;
@@ -9,7 +10,11 @@ use App\Models\Employee;
 use App\Models\Program;
 use Livewire\Attributes\Layout;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.evaluation-settings-skeleton');
+    }
     // Program CRUD
     public bool $showProgModal = false;
     public bool $showDeleteProgModal = false;

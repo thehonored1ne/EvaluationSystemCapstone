@@ -1,12 +1,17 @@
 <?php
 
 use Livewire\Volt\Component;
+use Livewire\Attributes\Lazy;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationQuestion;
 use App\Models\Semester;
 use Livewire\Attributes\Layout;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.generic-table-skeleton');
+    }
     // Current Active Tab
     public string $activeTab = 'upward_student'; // 'upward_student', 'upward_employee', 'downward', 'peer', 'self'
 

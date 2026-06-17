@@ -3,12 +3,17 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\Evaluation;
 use App\Models\EvaluationSentiment;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.manage-ai-skeleton');
+    }
     use WithPagination;
 
     public string $search = '';

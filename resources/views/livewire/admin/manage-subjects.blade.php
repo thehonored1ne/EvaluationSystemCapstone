@@ -3,9 +3,14 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\Subject;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.generic-table-skeleton');
+    }
     use WithPagination;
 
     public string $code = '';
@@ -155,54 +160,60 @@ new #[Layout('components.layouts.app')] class extends Component {
         <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
     </div>
     
-    <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-        <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
-            <thead class="bg-gray-50 dark:bg-zinc-800">
-                <tr>
-                    <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Code</th>
-                    <th class="w-[35%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Name</th>
-                    <th class="w-[25%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Description</th>
-                    <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Units</th>
-                    <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Classes</th>
-                    <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                @forelse ($subjects as $subject)
-                    <tr wire:key="{{ $subject->id }}">
-                        <td class="px-4 py-3 font-mono text-xs font-semibold dark:text-zinc-300">{{ $subject->code }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 font-medium">{{ $subject->name }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-400 text-xs truncate max-w-xs" title="{{ $subject->description }}">{{ $subject->description ?: 'No description' }}</td>
-                        <td class="px-4 py-3 dark:text-zinc-300 text-center">{{ $subject->units }}</td>
-                        <td class="px-4 py-3 text-center">
-                            <flux:badge size="sm" color="zinc">
-                                {{ $subject->classes_count }}
-                            </flux:badge>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <div class="flex justify-end gap-2">
-                                <flux:button size="sm" variant="ghost" wire:click="editSubject({{ $subject->id }})">
-                                    Edit
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $subject->id }})">
-                                    Delete
-                                </flux:button>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
-                            No subjects found matching your criteria.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <div wire:loading wire:target="search, gotoPage, nextPage, previousPage" class="w-full">
+        <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
-    <div>
-        {{ $subjects->links() }}
+    <div wire:loading.remove wire:target="search, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+                <thead class="bg-gray-50 dark:bg-zinc-800">
+                    <tr>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Code</th>
+                        <th class="w-[35%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Name</th>
+                        <th class="w-[25%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Description</th>
+                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Units</th>
+                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-center">Classes</th>
+                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                    @forelse ($subjects as $subject)
+                        <tr wire:key="{{ $subject->id }}">
+                            <td class="px-4 py-3 font-mono text-xs font-semibold dark:text-zinc-300">{{ $subject->code }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 font-medium">{{ $subject->name }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-400 text-xs truncate max-w-xs" title="{{ $subject->description }}">{{ $subject->description ?: 'No description' }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 text-center">{{ $subject->units }}</td>
+                            <td class="px-4 py-3 text-center">
+                                <flux:badge size="sm" color="zinc">
+                                    {{ $subject->classes_count }}
+                                </flux:badge>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <flux:button size="sm" variant="ghost" wire:click="editSubject({{ $subject->id }})">
+                                        Edit
+                                    </flux:button>
+                                    <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $subject->id }})">
+                                        Delete
+                                    </flux:button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
+                                No subjects found matching your criteria.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            {{ $subjects->links() }}
+        </div>
     </div>
 
     <!-- Create/Edit Modal -->

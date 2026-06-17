@@ -16,9 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Questionnaire Management Tab Alignment**: Updated the admin `manage-questions` Livewire component to support the five current evaluation types (`upward_student`, `upward_employee`, `downward`, `peer`, `self`) rather than the outdated `student`, `peer`, `self` types.
 - **Dynamic Question Rubrics Target Points**: Refactored the questionnaire tabs to load active semester target points configuration dynamically.
 - **Helper Defaults & Test Alignments**: Updated the default evaluation type in `Evaluation::getStatus()` to `upward_student` and updated corresponding feature test cases.
+- **Test Suite Lazy Loading Support**: Added `\Livewire\Livewire::withoutLazyLoading()` to `beforeEach` hooks in feature tests (`AdminManagementTest`, `ReportsSummaryTest`, `AISentimentCorrectionTest`, `EvaluationStatusDashboardTest`, and `SidebarFeaturesTest`) to disable lazy loading during automated assertions.
 
 ### Added
 - **Odometer Count-Up Effect**: Implemented a reusable `<x-odometer>` Blade component powered by Alpine.js and vertical CSS translates with a `cubic-bezier(0.34, 1.56, 0.64, 1)` elastic transition (similar to YouTube's live subscriber counter). Integrated the odometer into the Admin Dashboard stats cards (Faculty, Students, Progress, Sentiment score) and the positive, neutral, and negative comment counts in the AI Sentiment analysis panel.
+- **Lazy Loading & Shimmer Skeletons**: Integrated lazy loading (`#[Lazy]`) and hardware-accelerated shimmer skeleton loader views across all remaining admin-facing pages (Deans, Program Heads, Staff, Subjects, Classes, AI Sentiment, Questions, Settings, Evaluations, Results, and Analytics) for a consistent loading transition. Added inline table skeleton loaders during search/filter operations.
 
 ### Changed
 - **System Font Family**: Replaced the default font family `Instrument Sans` with `Inter` across the entire application interface to align with modern web design guidelines.

@@ -15,6 +15,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    \Livewire\Livewire::withoutLazyLoading();
     // Roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'faculty']);

@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\Employee;
 use App\Models\Department;
@@ -9,7 +10,12 @@ use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.reports-skeleton');
+    }
+
     public ?int $selectedTeacherId = null;
     public ?int $selectedSemesterId = null;
     public string $activeTab = 'individual';
@@ -330,8 +336,43 @@ new #[Layout('components.layouts.app')] class extends Component {
         </div>
     </div>
 
+    <!-- Loading Skeleton Placeholder -->
+    <div wire:loading wire:target="selectedTeacherId, selectedSemesterId, activeTab">
+        @if($activeTab === 'individual')
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 space-y-8 flex flex-col gap-8 print:border-none print:shadow-none">
+                <div class="text-center border-b-2 border-zinc-150 pb-6 flex flex-col items-center justify-center gap-2">
+                    <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-md w-72 shimmer"></div>
+                    <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 mt-1 shimmer"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800">
+                    <div class="space-y-2"><div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/3 shimmer"></div><div class="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 shimmer"></div></div>
+                    <div class="space-y-2"><div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/3 shimmer"></div><div class="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 shimmer"></div></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <x-skeleton type="card" />
+                    <x-skeleton type="card" />
+                    <x-skeleton type="card" />
+                    <x-skeleton type="card" />
+                </div>
+                <div class="space-y-4">
+                    <div class="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 shimmer"></div>
+                    <x-skeleton type="table" :rows="4" :cols="3" />
+                </div>
+            </div>
+        @else
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 space-y-8 flex flex-col gap-8 print:border-none print:shadow-none">
+                <div class="text-center border-b-2 border-zinc-150 pb-6 flex flex-col items-center justify-center gap-2">
+                    <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-md w-72 shimmer"></div>
+                    <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 mt-1 shimmer"></div>
+                </div>
+                <x-skeleton type="table" :rows="6" :cols="8" />
+            </div>
+        @endif
+    </div>
+
     <!-- Print Report Body -->
-    @if($activeTab === 'individual')
+    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab">
+        @if($activeTab === 'individual')
         @if($this->reportData)
             @php $data = $this->reportData; @endphp
             
@@ -600,4 +641,5 @@ new #[Layout('components.layouts.app')] class extends Component {
             </div>
         @endif
     @endif
+    </div>
 </div>

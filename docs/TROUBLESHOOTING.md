@@ -70,3 +70,28 @@ php artisan ai:train
   ```bash
   npm run build
   ```
+
+---
+
+## 4. Livewire Testing & Lazy Loading
+
+### Error: `assertSee()` or status checks failing on HTTP requests to Lazy components
+* **Cause**: In Livewire 3, when a component is marked as `#[Lazy]`, standard HTTP GET requests (like `$this->get('/route')`) will initially return the placeholder stub view instead of the actual fully-mounted component page. Assertions on data or text within the component will therefore fail.
+* **Solution**: Call `\Livewire\Livewire::withoutLazyLoading()` inside the `beforeEach` hook of your feature tests. This forces all lazy components to load synchronously during the test run:
+  ```php
+  beforeEach(function () {
+      \Livewire\Livewire::withoutLazyLoading();
+  });
+  ```
+
+---
+
+## 5. Windows OS Specific Issues
+
+### Error: `Permission denied` or view cache files locked during concurrent testing
+* **Cause**: On Windows systems, concurrent file access might temporarily lock compiled view files in `storage/framework/views`.
+* **Solution**: Clear the compiled views cache before running your tests:
+  ```powershell
+  php artisan view:clear
+  php artisan test
+  ```
