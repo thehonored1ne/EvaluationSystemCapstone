@@ -49,7 +49,7 @@ beforeEach(function () {
     ]);
 
     $this->criterion = EvaluationCriterion::create([
-        'evaluation_type' => 'student',
+        'evaluation_type' => 'upward_student',
         'name' => 'Teaching Quality',
         'max_points' => 90,
         'order' => 1,
@@ -78,7 +78,7 @@ test('ProcessEvaluationSubmission job calls Flask analyze API and records sentim
         $this->facUser->id,
         $this->semester->id,
         $this->class->id,
-        'student',
+        'upward_student',
         [$this->question->id => 5],
         'Magaling magturo si sir.'
     );
@@ -114,7 +114,7 @@ test('ProcessEvaluationSubmission job survives Flask API failure', function () {
         $this->facUser->id,
         $this->semester->id,
         $this->class->id,
-        'student',
+        'upward_student',
         [$this->question->id => 5],
         'Failure comment'
     );
@@ -138,7 +138,7 @@ test('ai:train command triggers training and backfills missing sentiments', func
         'evaluatee_id' => $this->facUser->id,
         'semester_id' => $this->semester->id,
         'class_id' => $this->class->id,
-        'evaluation_type' => 'student',
+        'evaluation_type' => 'upward_student',
         'rating_average' => 5.0,
         'comments' => 'Magaling magturo.',
     ]);
