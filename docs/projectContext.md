@@ -32,6 +32,7 @@ A role-based evaluation system with the following active portals:
 
 ### June 18, 2026
 - **Larastan & Spatie Laravel Activitylog Integration**: Configured Larastan (PHPStan) at level 5 with a baseline file to ensure clean static analysis runs. Published and configured Spatie Laravel Activitylog to audit changes to key models (`User`, `Evaluation`, `EvaluationQuestion`, `AcademicClass`, `Department`, `Program`) while ignoring sensitive parameters such as password updates. Added automated Pest feature tests to verify logging accuracy and password filtering.
+- **Welcome Page Issue Reporting Button**: Added a fixed glassmorphic "Report an Issue" button with a warning triangle icon in the bottom-right corner of the landing welcome page (`welcome.blade.php`). This button links directly to the external report submission website (`https://grc-reporting.vercel.app`) to streamline bug and user experience reporting.
 
 ### June 17, 2026
 - **Lazy Loading & Shimmer Skeletons**: Integrated lazy loading (`#[Lazy]`) and hardware-accelerated shimmer skeleton loader views across all remaining admin-facing pages (Deans, Program Heads, Staff, Subjects, Classes, AI Sentiment, Questions, Settings, Evaluations, Results, and Analytics) for a consistent loading transition. Added inline table skeleton loaders during search/filter operations.

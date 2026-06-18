@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Spatie Laravel Activitylog Integration**: Configured database auditing for core models. Automatically records actions (creating, updating, deleting) on `User`, `Evaluation`, `EvaluationQuestion`, `AcademicClass`, `Department`, and `Program` models.
 - **Sensitive Field Filtering**: Excluded `password` and `remember_token` from `User` model logs for security, and configured `dontLogIfAttributesChangedOnly()` to prevent empty activity log submissions during password updates.
 - **Activity Log Verification Tests**: Created the feature test suite `tests/Feature/ActivityLogTest.php` to verify model action logging, dirty attributes logging, and password exclusion.
+- **Welcome Page Issue Reporting Button**: Added a fixed glassmorphic "Report an Issue" button with a warning triangle icon to `welcome.blade.php`, linking to the external reporting site `https://grc-reporting.vercel.app` for quick bug submission.
 
 ---
 
