@@ -99,3 +99,31 @@ After starting the Python Flask server, run this command once to train the Decis
 ```bash
 php artisan ai:train
 ```
+
+---
+
+## Code Quality, Formatting & Static Analysis
+
+To ensure code quality, type safety, and formatting consistency, run the following commands:
+
+### Running Tests (Pest)
+Run the full PHP test suite:
+```bash
+./vendor/bin/pest
+```
+
+### Static Analysis (Larastan/PHPStan)
+Run PHPStan to analyze code types and logic:
+```bash
+./vendor/bin/phpstan analyse
+```
+
+### Code Formatting (Laravel Pint)
+Automatically fix styling and formatting issues (PSR-12 / Laravel standards):
+```bash
+./vendor/bin/pint
+```
+Or check formatting compliance without modifying files:
+```bash
+./vendor/bin/pint --test
+```

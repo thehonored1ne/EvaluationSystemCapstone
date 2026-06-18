@@ -9,13 +9,14 @@ use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 use Livewire\Volt\Volt;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    \Livewire\Livewire::withoutLazyLoading();
+    Livewire::withoutLazyLoading();
     // Roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'faculty']);

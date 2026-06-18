@@ -12,13 +12,14 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Livewire\Livewire;
 use Livewire\Volt\Volt;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    \Livewire\Livewire::withoutLazyLoading();
+    Livewire::withoutLazyLoading();
     // Create roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'dean']);
@@ -826,7 +827,7 @@ test('admin dashboard recent submissions feed displays correct labels for non-cl
     $eval3->save();
 
     // Test Volt component
-    \Livewire\Livewire::withoutLazyLoading();
+    Livewire::withoutLazyLoading();
     Volt::test('admin.dashboard')
         ->assertViewHas('recentSubmissions', function ($submissions) {
             expect(count($submissions))->toBe(3);

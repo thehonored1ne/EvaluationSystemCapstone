@@ -1,0 +1,61 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property App\\Models\\Evaluation\:\:\$sentiment\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/TrainAI.php
+
+		-
+			message: '#^Relation ''sentiment'' is not found in App\\Models\\Evaluation model\.$#'
+			identifier: larastan.relationExistence
+			count: 2
+			path: app/Console/Commands/TrainAI.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AcademicClass\:\:\$teacher\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Employee\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Semester\:\:\$academicYear\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$employee\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$student\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Relation ''students'' is not found in App\\Models\\AcademicClass model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Relation ''teacher'' is not found in App\\Models\\AcademicClass model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Relation ''user'' is not found in App\\Models\\Employee model\.$#'
+			identifier: larastan.relationExistence
+			count: 4
+			path: app/Models/User.php

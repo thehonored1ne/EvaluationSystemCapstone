@@ -30,6 +30,9 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### June 18, 2026
+- **Larastan & Spatie Laravel Activitylog Integration**: Configured Larastan (PHPStan) at level 5 with a baseline file to ensure clean static analysis runs. Published and configured Spatie Laravel Activitylog to audit changes to key models (`User`, `Evaluation`, `EvaluationQuestion`, `AcademicClass`, `Department`, `Program`) while ignoring sensitive parameters such as password updates. Added automated Pest feature tests to verify logging accuracy and password filtering.
+
 ### June 17, 2026
 - **Lazy Loading & Shimmer Skeletons**: Integrated lazy loading (`#[Lazy]`) and hardware-accelerated shimmer skeleton loader views across all remaining admin-facing pages (Deans, Program Heads, Staff, Subjects, Classes, AI Sentiment, Questions, Settings, Evaluations, Results, and Analytics) for a consistent loading transition. Added inline table skeleton loaders during search/filter operations.
 - **Questionnaire Management Alignment**: Updated the admin Questionnaire Management (`manage-questions`) page to support all five current evaluation types (`upward_student`, `upward_employee`, `downward`, `peer`, `self`). Refactored the UI tabs to dynamically load active semester target points configuration, and aligned the validation rules, delete confirmation labels, helper defaults, and feature tests to use the correct schema types.

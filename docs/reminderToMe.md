@@ -1,3 +1,11 @@
+## 6/18/26
+- **Larastan Analysis**: Run `./vendor/bin/phpstan analyse` to verify type safety.
+- **PHPStan Baseline Rebuild**: Run `./vendor/bin/phpstan analyse --generate-baseline` to update baseline filters.
+- **Pint Formatting**: Run `./vendor/bin/pint` to auto-format files.
+- **Activity Log Tinker Checks**:
+  * Get recent logs: `Spatie\Activitylog\Models\Activity::latest()->take(5)->get()`
+  * Get specific model logs (e.g. User): `App\Models\User::first()->activities`
+
 ## 6/17/26
 - Aligned `manage-questions` admin component to use the updated evaluation types: `upward_student`, `upward_employee`, `downward`, `peer`, `self`.
 - Migrated global font to `Inter` and redesigned `welcome.blade.php` with a containerless floating layout, elegant `Playfair Display` serif header, and a full-cover gradient background.

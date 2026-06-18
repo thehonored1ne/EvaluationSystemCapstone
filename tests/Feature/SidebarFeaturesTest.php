@@ -11,12 +11,13 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    \Livewire\Livewire::withoutLazyLoading();
+    Livewire::withoutLazyLoading();
     // Create roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'dean']);

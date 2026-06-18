@@ -169,10 +169,22 @@ AI sentiment analysis results associated with evaluation comments.
 
 ## 5. Security & Infrastructure (Built-in)
 
-### Spatie Role-Based Access Control
+### Spatie Role-Based Access Control & Auditing
 - `roles`: Defined roles (`admin`, `dean`, `program_head`, `faculty`, `student`, `staff`).
 - `permissions`: System permissions.
 - `model_has_roles` / `model_has_permissions` / `role_has_permissions`: Spatie mapping tables.
+- `activity_log`: Table created by Spatie Activitylog to record audited events:
+  - `id` (INT, PK, Auto Increment)
+  - `log_name` (VARCHAR, Nullable)
+  - `description` (TEXT)
+  - `subject_type` (VARCHAR, Nullable)
+  - `subject_id` (INT, Nullable)
+  - `causer_type` (VARCHAR, Nullable)
+  - `causer_id` (INT, Nullable)
+  - `properties` (TEXT/JSON, Nullable)
+  - `batch_uuid` (UUID, Nullable)
+  - `event` (VARCHAR, Nullable)
+  - `created_at` / `updated_at` (DATETIME, Nullable)
 
 ### Queue & Session Operations
 - `jobs`: For background processing.
