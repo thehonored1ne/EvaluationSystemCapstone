@@ -11,8 +11,11 @@ This file serves as the index for all project documentation. You can tag this fi
 * **[Workflow.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/Workflow.md)**: Development workflow details, branch structure, and commit guidelines.
 
 ## System Architecture & Specifications
+* **[MODULE_LIST.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/MODULE_LIST.md)**: Full inventory and architectural breakdown of all 10 system modules across the application.
 * **[projectContext.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/projectContext.md)**: Overview of portals, roles, core system features, and the detailed history of work completed.
 * **[DATABASE.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/DATABASE.md)**: SQLite database schema documentation, table fields, foreign keys, and indexes.
+* **[schema.sql](file:///c:/Users/USER/Herd/evaluationsystem/docs/schema.sql)**: Complete DDL SQL export formatted for DrawSQL diagram import.
+* **[data_dictionary.xlsx](file:///c:/Users/USER/Herd/evaluationsystem/docs/data_dictionary.xlsx)**: Complete Excel Data Dictionary containing individual worksheets for all 24 tables with field specifications and 3-5 sentence explanations.
 * **[API_CONTRACT.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/API_CONTRACT.md)**: Flask API endpoints contract, request payloads, response payloads, and timeout/fallback rules.
 * **[ROLES_PERMISSIONS.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/ROLES_PERMISSIONS.md)**: Detailed permission mappings for all user roles, route guards, and evaluation target matrix boundaries.
 * **[LoginAuth.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/LoginAuth.md)**: Authentication mechanisms and login credentials list for test accounts.
