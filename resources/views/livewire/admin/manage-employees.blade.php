@@ -593,7 +593,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <x-slot:warning>
                 Deleting this employee will permanently remove all associated evaluation records submitted by or for this employee.
             </x-slot:warning>
-        @elseif($deletingUser->employee?->departmentDean()->exists() || $deletingUser->employee?->programHead()->exists())
+        @elseif($deletingUser->employee?->managedDepartment()->exists() || $deletingUser->employee?->managedProgram()->exists())
             <x-slot:warning>
                 This employee is currently assigned as a Dean or Program Head. Deleting this employee will unassign them from their leadership role.
             </x-slot:warning>
