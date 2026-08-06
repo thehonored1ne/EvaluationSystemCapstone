@@ -27,7 +27,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $activeSemId = $activeSem ? $activeSem->id : null;
 
         // 2. Counts
-        $facultyCount = Employee::where('role', 'faculty')->where('status', 'active')->count();
+        $employeeCount = Employee::count();
         $studentCount = Student::where('status', 'regular')->count();
         $userCount = User::count();
 
@@ -37,17 +37,38 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $progressPercent = 0;
 
         if ($activeSemId) {
-            $expectedCount = DB::table('class_student')
+            // Expected Student Upward evaluations (enrollments in active semester classes)
+            $studentExpected = DB::table('class_student')
                 ->join('classes', 'classes.id', '=', 'class_student.class_id')
                 ->where('classes.semester_id', $activeSemId)
                 ->count();
 
-            $submittedCount = Evaluation::where('semester_id', $activeSemId)
-                ->where('evaluation_type', 'upward_student')
-                ->count();
+            // Expected Faculty Self evaluations (1 per active employee)
+            $employeeSelfExpected = Employee::where('status', 'active')->count();
+
+            // Expected Faculty Peer evaluations (peer count per department)
+            $facultyInDepts = Employee::where('role', 'faculty')
+                ->where('status', 'active')
+                ->whereNotNull('department_id')
+                ->get()
+                ->groupBy('department_id');
+
+            $peerExpected = 0;
+            foreach ($facultyInDepts as $deptFaculty) {
+                $count = $deptFaculty->count();
+                if ($count > 1) {
+                    $peerExpected += $count * ($count - 1);
+                }
+            }
+
+            // Total expected evaluations across all evaluation types
+            $expectedCount = $studentExpected + $employeeSelfExpected + $peerExpected;
+
+            // Total actual submitted evaluations in active semester
+            $submittedCount = Evaluation::where('semester_id', $activeSemId)->count();
 
             if ($expectedCount > 0) {
-                $progressPercent = round(($submittedCount / $expectedCount) * 100, 1);
+                $progressPercent = min(100.0, round(($submittedCount / $expectedCount) * 100, 1));
             }
         }
 
@@ -139,41 +160,90 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             }
         }
 
-        // 7. Recent Submissions Anonymized
+        // 7. Recent Submissions Anonymized Log
         $recentSubmissions = [];
         if ($activeSemId) {
             $evals = Evaluation::where('semester_id', $activeSemId)
-                ->with(['evaluatee.employee', 'class.subject'])
+                ->with(['evaluator.employee', 'evaluator.student', 'evaluatee.employee', 'evaluatee.student', 'class.subject'])
                 ->latest()
                 ->take(5)
                 ->get();
 
             foreach ($evals as $eval) {
-                $evaluatorLabel = match($eval->evaluation_type) {
-                    'upward_student' => 'Student',
-                    'peer' => 'Faculty Peer',
-                    'self' => 'Self',
-                    'upward_employee' => 'Subordinate',
-                    'downward' => 'Supervisor',
-                    default => 'User'
-                };
+                // Determine evaluator role title
+                $evaluatorRole = 'User';
+                if ($eval->evaluator?->student) {
+                    $evaluatorRole = 'Student';
+                } elseif ($eval->evaluator?->employee) {
+                    $role = strtolower($eval->evaluator->employee->role);
+                    $evaluatorRole = match($role) {
+                        'dean' => 'Dean',
+                        'program head' => 'Program Head',
+                        'faculty' => 'Professor',
+                        'staff' => 'Staff',
+                        default => 'Employee'
+                    };
+                }
 
-                $targetName = $eval->evaluatee?->name ?? 'System';
-                if ($eval->evaluatee?->employee) {
-                    $employee = $eval->evaluatee->employee;
-                    $targetName = "Prof. " . $employee->first_name . " " . $employee->last_name;
+                // Determine evaluatee role title
+                $evaluateeRole = 'User';
+                if ($eval->evaluatee?->student) {
+                    $evaluateeRole = 'Student';
+                } elseif ($eval->evaluatee?->employee) {
+                    $role = strtolower($eval->evaluatee->employee->role);
+                    $evaluateeRole = match($role) {
+                        'dean' => 'Dean',
+                        'program head' => 'Program Head',
+                        'faculty' => 'Professor',
+                        'staff' => 'Staff',
+                        default => 'Employee'
+                    };
+                }
+
+                $type = $eval->evaluation_type;
+
+                // Anonymized label & description rules
+                if ($type === 'self' || $eval->evaluator_id === $eval->evaluatee_id) {
+                    $label = 'Self Evaluation';
+                    $description = "{$evaluatorRole} evaluates Self";
+                } elseif ($evaluatorRole === 'Student') {
+                    $label = 'Student Evaluation';
+                    $description = 'Student evaluates Professor';
+                } elseif ($evaluatorRole === 'Dean' && $evaluateeRole === 'Program Head') {
+                    $label = 'Dean Evaluation';
+                    $description = 'Dean evaluates Program Head';
+                } elseif ($evaluatorRole === 'Program Head' && $evaluateeRole === 'Professor') {
+                    $label = 'Program Head Evaluation';
+                    $description = 'Program Head evaluates Professor';
+                } elseif ($evaluatorRole === 'Professor' && $evaluateeRole === 'Professor') {
+                    $label = 'Peer Evaluation';
+                    $description = 'Professor evaluates Professor';
+                } elseif ($type === 'upward_employee' || ($evaluatorRole === 'Program Head' && $evaluateeRole === 'Dean') || ($evaluatorRole === 'Professor' && $evaluateeRole === 'Program Head') || ($evaluatorRole === 'Staff' && in_array($evaluateeRole, ['Dean', 'Program Head']))) {
+                    $label = 'Supervisor Evaluation';
+                    $description = "{$evaluatorRole} evaluates {$evaluateeRole}";
+                } elseif ($evaluateeRole === 'Staff') {
+                    $label = 'Staff Evaluation';
+                    $description = "{$evaluatorRole} evaluates Staff";
+                } else {
+                    $label = match($type) {
+                        'upward_student' => 'Student Evaluation',
+                        'peer' => 'Peer Evaluation',
+                        'downward' => 'Downward Evaluation',
+                        'upward_employee' => 'Supervisor Evaluation',
+                        default => 'Evaluation'
+                    };
+                    $description = "{$evaluatorRole} evaluates {$evaluateeRole}";
                 }
 
                 $recentSubmissions[] = [
-                    'evaluator' => $evaluatorLabel,
-                    'target' => $targetName,
-                    'type' => ucfirst($eval->evaluation_type),
-                    'subject' => $eval->class?->subject?->code ?? match($eval->evaluation_type) {
+                    'label' => $label,
+                    'description' => $description,
+                    'subject' => $eval->class?->subject?->code ?? match($type) {
                         'self' => 'Self Evaluation',
                         'peer' => 'Peer Evaluation',
                         'downward' => 'Downward Evaluation',
-                        'upward_employee' => 'Upward Evaluation',
-                        'upward_student' => 'Student Upward Evaluation',
+                        'upward_employee' => 'Supervisor Evaluation',
+                        'upward_student' => 'Student Evaluation',
                         default => 'Evaluation'
                     },
                     'time' => $eval->created_at->diffForHumans(),
@@ -197,14 +267,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $sentimentLabel = 'Neutral';
         }
 
+        $pendingCount = max(0, $expectedCount - $submittedCount);
+
         return [
             'activeSemester' => $activeSem,
             'activeYear' => $activeYear,
-            'facultyCount' => $facultyCount,
+            'employeeCount' => $employeeCount,
             'studentCount' => $studentCount,
             'userCount' => $userCount,
             'expectedCount' => $expectedCount,
             'submittedCount' => $submittedCount,
+            'pendingCount' => $pendingCount,
             'progressPercent' => $progressPercent,
             'sentimentStats' => $sentimentStats,
             'scheduleStatus' => $scheduleStatus,
@@ -237,155 +310,161 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Top Row Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Faculty Count -->
-        <flux:card class="flex flex-col gap-2 p-6 shadow-xs hover:shadow-md transition-shadow duration-200">
+        <!-- Card 1: Total Employees -->
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Faculty</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$facultyCount" /></span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Employees</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$employeeCount" /></span>
                 </div>
-                <flux:icon name="users" class="size-6 text-zinc-400 dark:text-zinc-500" />
+                <flux:icon name="users" class="size-6 text-[#800000] dark:text-red-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Active teaching profiles</span>
-        </flux:card>
 
-        <!-- Student Count -->
-        <flux:card class="flex flex-col gap-2 p-6 shadow-xs hover:shadow-md transition-shadow duration-200">
+        </div>
+
+        <!-- Card 2: Total Students -->
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Students</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$studentCount" /></span>
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-zinc-400 dark:text-zinc-500" />
+                <flux:icon name="academic-cap" class="size-6 text-[#800000] dark:text-red-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Enrolled in active programs</span>
-        </flux:card>
 
-        <!-- Evaluation Progress -->
-        <flux:card class="flex flex-col gap-2 p-6 shadow-xs hover:shadow-md transition-shadow duration-200">
+        </div>
+
+        <!-- Card 3: Current Evaluation Progress -->
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Progress</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Current Evaluation Progress</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$progressPercent" suffix="%" /></span>
                 </div>
-                <flux:icon name="check-circle" class="size-6 text-zinc-400 dark:text-zinc-500" />
+                <flux:icon name="check-circle" class="size-6 text-[#800000] dark:text-red-400" />
             </div>
-            <div class="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 mt-2 overflow-hidden">
-                <div class="bg-emerald-500 dark:bg-emerald-400 h-2 rounded-full transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
+            <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 mt-3 overflow-hidden">
+                <div class="h-3 rounded-full transition-all duration-500" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important; background-color: #800000 !important;"></div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium block mt-1">
-                {{ $submittedCount }} / {{ $expectedCount }} student evaluations
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium block mt-2">
+                {{ $submittedCount }} of {{ $expectedCount }} expected evaluations submitted
             </span>
-        </flux:card>
+        </div>
 
-        <!-- Feedback Sentiment Score -->
-        <flux:card class="flex flex-col gap-2 p-6 shadow-xs hover:shadow-md transition-shadow duration-200">
+        <!-- Card 4: Pending Submissions -->
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Average Sentiment</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
-                        <x-odometer :value="$sentimentStats['average']" :decimals="2" :prefix="$sentimentStats['average'] > 0 ? '+' : ''" />
-                    </span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Pending Submissions</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$pendingCount" /></span>
                 </div>
-                <flux:icon name="bolt" class="size-6 {{ $sentimentTextClass }}" />
+                <flux:icon name="clock" class="size-6 text-[#800000] dark:text-red-400" />
             </div>
-            <div class="flex items-center gap-1.5 mt-2">
-                <flux:badge variant="{{ $sentimentBadgeVariant }}" size="sm">
-                    {{ $sentimentLabel }}
-                </flux:badge>
-                <span class="text-xs text-zinc-550 dark:text-zinc-400 font-medium">From {{ $sentimentStats['total'] }} analyzed reviews</span>
-            </div>
-        </flux:card>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Awaiting evaluator completion</span>
+        </div>
     </div>
 
-    <!-- Middle Row: Active Window and AI Breakdown -->
+    <!-- Middle Row: Simplified Status & Feedback Overview Cards -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Active Evaluation Window Summary Card -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs">
+        <!-- Simplified Card 1: Evaluation Period Status -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                    Active Evaluation Window
-                </h3>
-                @if($scheduleStatus === 'active')
-                    <flux:badge variant="success" size="md">Open & Active</flux:badge>
-                @elseif($scheduleStatus === 'scheduled')
-                    <flux:badge variant="warning" size="md">Scheduled</flux:badge>
-                @elseif($scheduleStatus === 'expired')
-                    <flux:badge variant="danger" size="md">Expired</flux:badge>
-                @elseif($scheduleStatus === 'locked')
-                    <flux:badge variant="danger" size="md">Closed (Locked)</flux:badge>
-                @else
-                    <flux:badge variant="neutral" size="md">Inactive</flux:badge>
-                @endif
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                        Evaluation Period Status
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Shows whether student & employee evaluation forms can be submitted right now.</p>
+                </div>
             </div>
 
             @if($activeSemester)
                 <div class="space-y-4 flex-1 flex flex-col justify-between">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/30 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                        <div>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 block font-medium">Evaluation Period</span>
-                            <span class="text-sm font-semibold text-zinc-800 dark:text-zinc-200 block mt-0.5">
-                                {{ $activeSemester->name }} (A.Y. {{ $activeYear->name }})
-                            </span>
+                    <!-- Big Easy-to-Read Status Box -->
+                    @if($scheduleStatus === 'active')
+                        <div class="bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500 p-4 rounded-xl flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="size-4 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+                                <div>
+                                    <p class="text-sm font-extrabold text-emerald-800 dark:text-emerald-300">EVALUATION IS OPEN</p>
+                                    <p class="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Evaluators can submit evaluation forms.</p>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 block font-medium">Current Status</span>
-                            <span class="text-sm font-bold text-zinc-800 dark:text-zinc-200 block mt-0.5 flex items-center gap-1.5">
+                    @else
+                        <div class="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 p-4 rounded-xl flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="size-4 rounded-full bg-amber-500 flex-shrink-0"></span>
+                                <div>
+                                    <p class="text-sm font-extrabold text-amber-800 dark:text-amber-300">EVALUATION IS CLOSED</p>
+                                    <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">No evaluation forms can be submitted right now.</p>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 space-y-3">
+                        <div class="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-700/50 pb-2">
+                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                                Current Scheduled Period
+                            </span>
+                            <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                                 @if($scheduleStatus === 'active')
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span class="text-emerald-700 dark:text-emerald-400 font-semibold">{{ $scheduleMessage }}</span>
+                                @elseif($scheduleStatus === 'scheduled')
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span class="text-amber-700 dark:text-amber-400 font-semibold">{{ $scheduleMessage }}</span>
+                                @elseif($scheduleStatus === 'expired')
+                                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                    <span class="text-rose-700 dark:text-rose-400 font-semibold">{{ $scheduleMessage }}</span>
                                 @else
-                                    <span class="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500"></span>
+                                    <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                                    <span class="text-zinc-600 dark:text-zinc-400 font-semibold">{{ $scheduleMessage }}</span>
                                 @endif
-                                {{ $scheduleMessage }}
                             </span>
                         </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="flex items-start gap-2.5">
-                            <span class="mt-1.5 flex-shrink-0 w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                             <div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Start Time & Date</p>
-                                <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100 mt-0.5">
-                                    {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : '—' }}
-                                </p>
+                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Evaluation Opens (Start)</span>
+                                <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
+                                    {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
+                                </span>
                             </div>
-                        </div>
-                        <div class="flex items-start gap-2.5">
-                            <span class="mt-1.5 flex-shrink-0 w-2 h-2 rounded-full bg-rose-500 dark:bg-rose-400"></span>
                             <div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">End Time & Date</p>
-                                <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100 mt-0.5">
-                                    {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : '—' }}
-                                </p>
+                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Evaluation Closes (End)</span>
+                                <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
+                                    {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
-                        <flux:button href="/admin/evaluation-settings" variant="outline" size="sm" icon="cog">
-                            Manage Schedule Settings
+                    <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <flux:button href="/admin/evaluation-settings" variant="primary" size="sm" icon="cog">
+                            Change Evaluation Schedule Dates
                         </flux:button>
                     </div>
                 </div>
             @else
                 <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
                     <flux:icon name="exclamation-circle" class="size-10 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No active academic period is set.</p>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No active academic period configured.</p>
                     <flux:button href="/admin/evaluation-settings" variant="primary" size="sm" class="mt-2">
-                        Configure Settings
+                        Set Active Period & Schedule
                     </flux:button>
                 </div>
             @endif
-        </flux:card>
+        </div>
 
-        <!-- Live AI Sentiment Analytics Card -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs">
+        <!-- Simplified Card 2: Overall Evaluation Feedback Overview -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border: 2px solid #800000 !important;">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                    AI Sentiment Analysis
-                </h3>
-                <flux:badge variant="info" size="md">VADER Lexicon</flux:badge>
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                        Overall Evaluation Feedback
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Simple summary of comments submitted across all evaluators.</p>
+                </div>
             </div>
 
             @if($sentimentStats['total'] > 0)
@@ -399,71 +478,65 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     $neuPct = round(($neuCount / $total) * 100, 1);
                     $negPct = round(($negCount / $total) * 100, 1);
                 @endphp
-                <div class="space-y-6 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1 font-semibold">
-                            <span>Comment Sentiment Distribution</span>
-                            <span>{{ $total }} comments analyzed</span>
+                <div class="space-y-4 flex-1 flex flex-col justify-between">
+                    <!-- Big Summary Box -->
+                    <div class="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Overall Sentiment</p>
+                            <p class="text-lg font-extrabold text-zinc-900 dark:text-zinc-100 mt-0.5">
+                                @if($posPct >= 50)
+                                    😊 Mostly Positive Feedback ({{ $posPct }}%)
+                                @elseif($negPct >= 40)
+                                    ⚠️ Needs Attention ({{ $negPct }}% Negative)
+                                @else
+                                    😐 Balanced Feedback Across Evaluators
+                                @endif
+                            </p>
                         </div>
-                        <!-- Stacked Progress Bar -->
-                        <div class="w-full h-5 rounded-full overflow-hidden flex bg-zinc-100 dark:bg-zinc-800">
-                            @if($posCount > 0)
-                                <div class="bg-emerald-500 dark:bg-emerald-400 h-full flex items-center justify-center text-[10px] text-white font-bold transition-all duration-500" style="width: {{ $posPct }}%" title="Positive: {{ $posPct }}%">
-                                    {{ $posPct >= 10 ? $posPct . '%' : '' }}
-                                </div>
-                            @endif
-                            @if($neuCount > 0)
-                                <div class="bg-zinc-400 h-full flex items-center justify-center text-[10px] text-white font-bold transition-all duration-500" style="width: {{ $neuPct }}%" title="Neutral: {{ $neuPct }}%">
-                                    {{ $neuPct >= 10 ? $neuPct . '%' : '' }}
-                                </div>
-                            @endif
-                            @if($negCount > 0)
-                                <div class="bg-rose-500 dark:bg-rose-400 h-full flex items-center justify-center text-[10px] text-white font-bold transition-all duration-500" style="width: {{ $negPct }}%" title="Negative: {{ $negPct }}%">
-                                    {{ $negPct >= 10 ? $negPct . '%' : '' }}
-                                </div>
-                            @endif
+                        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            {{ $total }} total reviews
+                        </span>
+                    </div>
+
+                    <!-- 3 Simple Stat Boxes -->
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Positive</span>
+                            <span class="text-2xl font-black text-emerald-800 dark:text-emerald-300 block mt-1">{{ $posCount }}</span>
+                            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{{ $posPct }}% of total</span>
+                        </div>
+                        <div class="bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-700 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider block">Neutral</span>
+                            <span class="text-2xl font-black text-zinc-800 dark:text-zinc-200 block mt-1">{{ $neuCount }}</span>
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $neuPct }}% of total</span>
+                        </div>
+                        <div class="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">Negative</span>
+                            <span class="text-2xl font-black text-rose-800 dark:text-rose-300 block mt-1">{{ $negCount }}</span>
+                            <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">{{ $negPct }}% of total</span>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/30 p-3 rounded-xl text-center">
-                            <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Positive</span>
-                            <span class="text-xl font-bold text-emerald-700 dark:text-emerald-300 block mt-0.5"><x-odometer :value="$posCount" /></span>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $posPct }}%</span>
-                        </div>
-                        <div class="bg-zinc-50/50 dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-700 p-3 rounded-xl text-center">
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Neutral</span>
-                            <span class="text-xl font-bold text-zinc-700 dark:text-zinc-300 block mt-0.5"><x-odometer :value="$neuCount" /></span>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $neuPct }}%</span>
-                        </div>
-                        <div class="bg-rose-50/30 dark:bg-rose-950/10 border border-rose-100/50 dark:border-rose-900/30 p-3 rounded-xl text-center">
-                            <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">Negative</span>
-                            <span class="text-xl font-bold text-rose-700 dark:text-rose-300 block mt-0.5"><x-odometer :value="$negCount" /></span>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $negPct }}%</span>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
+                    <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <flux:button href="/reports" variant="outline" size="sm" icon="chart-bar">
-                            Analyze Sentiment Reports
+                            View Detailed Feedback Reports
                         </flux:button>
                     </div>
                 </div>
             @else
                 <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
                     <flux:icon name="adjustments-horizontal" class="size-10 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No evaluation comments have been analyzed yet.</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs">AI sentiment ratings will compile automatically once students submit evaluations.</p>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No evaluation feedback comments available yet.</p>
                 </div>
             @endif
-        </flux:card>
+        </div>
     </div>
 
     <!-- Bottom Row: Department Stats & Recent Submissions -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         <!-- Department Completion rates -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-7">
+        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-7" style="border: 2px solid #800000 !important;">
             <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                 Department Participation Rates
             </h3>
@@ -508,37 +581,36 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             @endif
         </flux:card>
 
-        <!-- Recent submissions feed -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-5">
-            <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                Recent Submissions
-            </h3>
+        <!-- Recent Submissions Log -->
+        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-5" style="border: 2px solid #800000 !important;">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    Recent Submissions Log
+                </h3>
+   
+            </div>
 
             @if(count($recentSubmissions) > 0)
                 <div class="flow-root">
                     <ul class="-mb-8">
                         @foreach($recentSubmissions as $index => $sub)
                             <li>
-                                <div class="relative pb-8">
+                                <div class="relative pb-6">
                                     @if($index < count($recentSubmissions) - 1)
                                         <span class="absolute top-4 left-3 -ml-px h-full w-0.5 bg-zinc-200 dark:bg-zinc-800" aria-hidden="true"></span>
                                     @endif
                                     <div class="relative flex space-x-3">
                                         <div>
                                             <span class="h-6 w-6 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
-                                                <span class="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
+                                                <span class="h-2 w-2 rounded-full bg-[#800000]"></span>
                                             </span>
                                         </div>
                                         <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
-                                            <div class="text-xs text-zinc-550 dark:text-zinc-400">
-                                                <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ $sub['evaluator'] }}</span> 
-                                                evaluated 
-                                                <span class="font-semibold text-indigo-600 dark:text-indigo-400">{{ $sub['target'] }}</span>
-                                                <span class="text-[10px] bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-sm font-mono block mt-1.5 w-max">
-                                                    {{ $sub['subject'] }}
-                                                </span>
+                                            <div class="text-xs text-zinc-700 dark:text-zinc-300">
+                                                <span class="font-extrabold text-zinc-900 dark:text-zinc-100 block text-xs">{{ $sub['label'] }}</span>
+                                                <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-0.5">{{ $sub['description'] }}</span>
                                             </div>
-                                            <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-550 font-semibold pt-1">
+                                            <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
                                                 {{ $sub['time'] }}
                                             </div>
                                         </div>
@@ -562,7 +634,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:heading size="lg">Quick System Actions</flux:heading>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs">
+            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="cog" class="size-5" />
                 </div>
@@ -572,7 +644,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs">
+            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="chart-bar" class="size-5" />
                 </div>
@@ -582,7 +654,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs">
+            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="document-text" class="size-5" />
                 </div>
@@ -592,7 +664,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs">
+            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="user" class="size-5" />
                 </div>

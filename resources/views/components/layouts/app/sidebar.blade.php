@@ -7,8 +7,8 @@
         <flux:sidebar sticky stashable class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-            <a href="{{ route('dashboard') }}" class="mr-5 flex items-center space-x-2" wire:navigate>
-                <x-app-logo class="size-8" href="#"></x-app-logo>
+            <a href="{{ route('dashboard') }}" class="flex items-center px-2 py-1 mb-2" wire:navigate>
+                <x-app-logo></x-app-logo>
             </a>
 
             <flux:navlist variant="outline">
@@ -50,12 +50,12 @@
                 <!-- Management (Admin only) -->
                 @if($user->hasRole('admin'))
                     <flux:navlist.group heading="Management" class="grid">
-                        <div x-data="{ open: {{ request()->routeIs('admin.deans', 'admin.program-heads', 'admin.faculty', 'admin.students', 'admin.staff') ? 'true' : 'false' }} }" class="w-full">
+                        <div x-data="{ open: {{ request()->routeIs('admin.employees', 'admin.students') ? 'true' : 'false' }} }" class="w-full">
                             <flux:navlist.item 
                                 icon="users" 
                                 as="button"
                                 @click.prevent="open = !open" 
-                                :current="request()->routeIs('admin.deans', 'admin.program-heads', 'admin.faculty', 'admin.students', 'admin.staff')"
+                                :current="request()->routeIs('admin.employees', 'admin.students')"
                                 class="cursor-pointer w-full text-left"
                             >
                                 <div class="flex justify-between items-center w-full">
@@ -65,15 +65,12 @@
                             </flux:navlist.item>
 
                             <div x-show="open" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
-                                <flux:navlist.item :href="route('admin.deans')" :current="request()->routeIs('admin.deans')" wire:navigate class="text-xs">Deans</flux:navlist.item>
-                                <flux:navlist.item :href="route('admin.program-heads')" :current="request()->routeIs('admin.program-heads')" wire:navigate class="text-xs">Program Heads</flux:navlist.item>
-                                <flux:navlist.item :href="route('admin.faculty')" :current="request()->routeIs('admin.faculty')" wire:navigate class="text-xs">Faculty / Professors</flux:navlist.item>
+                                <flux:navlist.item :href="route('admin.employees')" :current="request()->routeIs('admin.employees')" wire:navigate class="text-xs">Employees</flux:navlist.item>
                                 <flux:navlist.item :href="route('admin.students')" :current="request()->routeIs('admin.students')" wire:navigate class="text-xs">Students</flux:navlist.item>
-                                <flux:navlist.item :href="route('admin.staff')" :current="request()->routeIs('admin.staff')" wire:navigate class="text-xs">Staff</flux:navlist.item>
                             </div>
                         </div>
-                        <flux:navlist.item icon="book-open" :href="route('admin.subjects')" :current="request()->routeIs('admin.subjects')" wire:navigate>Manage Subjects</flux:navlist.item>
-                        <flux:navlist.item icon="academic-cap" :href="route('admin.classes')" :current="request()->routeIs('admin.classes')" wire:navigate>Manage Classes</flux:navlist.item>
+                        <flux:navlist.item icon="book-open" :href="route('admin.subjects')" :current="request()->routeIs('admin.subjects')" wire:navigate>Subjects</flux:navlist.item>
+                        <flux:navlist.item icon="academic-cap" :href="route('admin.classes')" :current="request()->routeIs('admin.classes')" wire:navigate>Classes</flux:navlist.item>
                         <flux:navlist.item icon="cog-6-tooth" :href="route('admin.evaluation-settings')" :current="request()->routeIs('admin.evaluation-settings')" wire:navigate>Evaluation Settings</flux:navlist.item>
                     </flux:navlist.group>
                 @endif
@@ -81,7 +78,7 @@
                 <!-- Evaluations (All roles) -->
                 <flux:navlist.group heading="Evaluations" class="grid">
                     @if($user->hasAnyRole(['admin', 'dean', 'program head']))
-                        <flux:navlist.item icon="clipboard-document-check" :href="route('manage-evaluations')" :current="request()->routeIs('manage-evaluations')" wire:navigate>Manage Evaluations</flux:navlist.item>
+                        <flux:navlist.item icon="clipboard-document-check" :href="route('manage-evaluations')" :current="request()->routeIs('manage-evaluations')" wire:navigate>Completion Tracking</flux:navlist.item>
                     @endif
 
                     @if(!$user->hasRole('admin'))
@@ -130,11 +127,11 @@
                     @endif
 
                     @if($user->hasRole('admin'))
-                        <flux:navlist.item icon="clipboard-document-list" :href="route('admin.questions')" :current="request()->routeIs('admin.questions')" wire:navigate>Manage Questions</flux:navlist.item>
+                        <flux:navlist.item icon="clipboard-document-list" :href="route('admin.questions')" :current="request()->routeIs('admin.questions')" wire:navigate>Evaluation Questions</flux:navlist.item>
                     @endif
 
                     @if($user->hasAnyRole(['admin', 'dean']))
-                        <flux:navlist.item icon="check-badge" :href="route('evaluation-results')" :current="request()->routeIs('evaluation-results')" wire:navigate>Evaluation Results</flux:navlist.item>
+                        <flux:navlist.item icon="check-badge" :href="route('evaluation-results')" :current="request()->routeIs('evaluation-results')" wire:navigate>Results</flux:navlist.item>
                     @endif
                 </flux:navlist.group>
 

@@ -38,27 +38,21 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.dashboard');
 
-    Route::redirect('/admin/users', '/admin/deans')->name('admin.users');
+    Route::redirect('/admin/users', '/admin/employees')->name('admin.users');
 
-    Volt::route('/admin/deans', 'admin.manage-deans')
+    Volt::route('/admin/employees', 'admin.manage-employees')
         ->middleware('role:admin')
-        ->name('admin.deans');
-
-    Volt::route('/admin/program-heads', 'admin.manage-program-heads')
-        ->middleware('role:admin')
-        ->name('admin.program-heads');
-
-    Volt::route('/admin/faculty', 'admin.manage-faculty')
-        ->middleware('role:admin')
-        ->name('admin.faculty');
+        ->name('admin.employees');
 
     Volt::route('/admin/students', 'admin.manage-students')
         ->middleware('role:admin')
         ->name('admin.students');
 
-    Volt::route('/admin/staff', 'admin.manage-staff')
-        ->middleware('role:admin')
-        ->name('admin.staff');
+    // Legacy redirects for old user management routes
+    Route::redirect('/admin/deans', '/admin/employees?selectedRole=dean')->name('admin.deans');
+    Route::redirect('/admin/program-heads', '/admin/employees?selectedRole=program+head')->name('admin.program-heads');
+    Route::redirect('/admin/faculty', '/admin/employees?selectedRole=faculty')->name('admin.faculty');
+    Route::redirect('/admin/staff', '/admin/employees?selectedRole=staff')->name('admin.staff');
 
     Volt::route('/admin/evaluation-settings', 'admin.evaluation-settings')
         ->middleware('role:admin')

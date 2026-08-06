@@ -89,31 +89,22 @@ test('only admins can access subjects and classes and role management routes', f
     $this->actingAs($this->adminUser);
     $this->get('/admin/subjects')->assertStatus(200);
     $this->get('/admin/classes')->assertStatus(200);
-    $this->get('/admin/deans')->assertStatus(200);
-    $this->get('/admin/program-heads')->assertStatus(200);
-    $this->get('/admin/faculty')->assertStatus(200);
+    $this->get('/admin/employees')->assertStatus(200);
     $this->get('/admin/students')->assertStatus(200);
-    $this->get('/admin/staff')->assertStatus(200);
 
     // Faculty access denied
     $this->actingAs($this->facultyUser);
     $this->get('/admin/subjects')->assertStatus(403);
     $this->get('/admin/classes')->assertStatus(403);
-    $this->get('/admin/deans')->assertStatus(403);
-    $this->get('/admin/program-heads')->assertStatus(403);
-    $this->get('/admin/faculty')->assertStatus(403);
+    $this->get('/admin/employees')->assertStatus(403);
     $this->get('/admin/students')->assertStatus(403);
-    $this->get('/admin/staff')->assertStatus(403);
 
     // Student access denied
     $this->actingAs($this->studentUser);
     $this->get('/admin/subjects')->assertStatus(403);
     $this->get('/admin/classes')->assertStatus(403);
-    $this->get('/admin/deans')->assertStatus(403);
-    $this->get('/admin/program-heads')->assertStatus(403);
-    $this->get('/admin/faculty')->assertStatus(403);
+    $this->get('/admin/employees')->assertStatus(403);
     $this->get('/admin/students')->assertStatus(403);
-    $this->get('/admin/staff')->assertStatus(403);
 });
 
 test('subject crud works correctly with validations', function () {
@@ -274,13 +265,13 @@ test('dean and student role management pages CRUD functions correctly', function
     $this->actingAs($this->adminUser);
 
     // 1. Create Dean
-    $component = Volt::test('admin.manage-deans')
+    $component = Volt::test('admin.manage-employees')
         ->set('first_name', 'Albert')
         ->set('last_name', 'Einstein')
         ->set('email', 'albert@example.com')
         ->set('employee_number', 'DEC-999')
+        ->set('role', 'dean')
         ->set('department_id', $this->dept->id)
-        ->set('password', 'password')
         ->call('createUser');
 
     $component->assertHasNoErrors();
@@ -304,7 +295,6 @@ test('dean and student role management pages CRUD functions correctly', function
         ->set('student_number', 'STU-999')
         ->set('program_id', $program->id)
         ->set('year_level', 4)
-        ->set('password', 'password')
         ->call('createUser');
 
     $studentComponent->assertHasNoErrors();
@@ -393,15 +383,15 @@ test('filtering user management lists by department works correctly', function (
     ]);
     $studentUser->assignRole('student');
 
-    // Test Students department filter
+    // Test Students program filter
     Volt::test('admin.manage-students')
-        ->set('selectedDepartmentId', $otherDept->id)
+        ->set('selectedProgramId', $program->id)
         ->assertViewHas('users', function ($paginator) use ($studentUser) {
             $items = $paginator->items();
 
             return count($items) === 1 && $items[0]->id === $studentUser->id;
         })
-        ->set('selectedDepartmentId', '')
+        ->set('selectedProgramId', '')
         ->assertViewHas('users', function ($paginator) {
             return count($paginator->items()) > 1;
         });
@@ -424,7 +414,8 @@ test('filtering user management lists by department works correctly', function (
     $facultyUser2->assignRole('faculty');
 
     // Test Faculty department filter
-    Volt::test('admin.manage-faculty')
+    Volt::test('admin.manage-employees')
+        ->set('selectedRole', 'faculty')
         ->set('selectedDepartmentId', $otherDept->id)
         ->assertViewHas('users', function ($paginator) use ($facultyUser2) {
             $items = $paginator->items();
@@ -538,7 +529,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
     ]);
     $deanUser->assignRole('dean');
 
-    $component = Volt::test('admin.manage-deans')
+    $component = Volt::test('admin.manage-employees')
         ->call('confirmDelete', $deanUser)
         ->call('deleteUser');
 
@@ -563,7 +554,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
     ]);
     $phUser->assignRole('program head');
 
-    $component = Volt::test('admin.manage-program-heads')
+    $component = Volt::test('admin.manage-employees')
         ->call('confirmDelete', $phUser)
         ->call('deleteUser');
 
@@ -588,7 +579,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
     ]);
     $facultyUser->assignRole('faculty');
 
-    $component = Volt::test('admin.manage-faculty')
+    $component = Volt::test('admin.manage-employees')
         ->call('confirmDelete', $facultyUser)
         ->call('deleteUser');
 
@@ -613,7 +604,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
     ]);
     $staffUser->assignRole('staff');
 
-    $component = Volt::test('admin.manage-staff')
+    $component = Volt::test('admin.manage-employees')
         ->call('confirmDelete', $staffUser)
         ->call('deleteUser');
 
@@ -646,7 +637,7 @@ test('admin can delete dean, program head, faculty, staff, and student accounts'
     $this->assertDatabaseMissing('students', ['id' => $studentData->id]);
 });
 
-test('filtering by department none and student program and year level works correctly', function () {
+test('filtering by student program and year level works correctly', function () {
     $this->actingAs($this->adminUser);
 
     // Create a program in department
@@ -687,15 +678,7 @@ test('filtering by department none and student program and year level works corr
 
     // Test student filters
     Volt::test('admin.manage-students')
-        // Filter by Department None
-        ->set('selectedDepartmentId', 'none')
-        ->assertViewHas('users', function ($paginator) use ($studentUser2) {
-            $ids = collect($paginator->items())->pluck('id');
-
-            return $ids->contains($studentUser2->id);
-        })
         // Filter by Program
-        ->set('selectedDepartmentId', '')
         ->set('selectedProgramId', $program->id)
         ->assertViewHas('users', function ($paginator) use ($studentUser1, $studentUser2) {
             $ids = collect($paginator->items())->pluck('id');
@@ -736,7 +719,8 @@ test('filtering by department none and student program and year level works corr
     $facultyUserNone->assignRole('faculty');
 
     // Test Faculty Department None filter
-    Volt::test('admin.manage-faculty')
+    Volt::test('admin.manage-employees')
+        ->set('selectedRole', 'faculty')
         ->set('selectedDepartmentId', 'none')
         ->assertViewHas('users', function ($paginator) use ($facultyUserNone) {
             $ids = collect($paginator->items())->pluck('id');
@@ -835,19 +819,16 @@ test('admin dashboard recent submissions feed displays correct labels for non-cl
             // Submissions are latest first, so order should be: Upward Employee, Downward, Self
 
             // 1. Upward Employee Evaluation:
-            expect($submissions[0]['evaluator'])->toBe('Subordinate');
-            expect($submissions[0]['target'])->toBe('Prof. Dean Superior');
-            expect($submissions[0]['subject'])->toBe('Upward Evaluation');
+            expect($submissions[0]['label'])->toBe('Supervisor Evaluation');
+            expect($submissions[0]['description'])->toBe('Program Head evaluates Dean');
 
             // 2. Downward Evaluation:
-            expect($submissions[1]['evaluator'])->toBe('Supervisor');
-            expect($submissions[1]['target'])->toBe('Prof. Faculty Subordinate');
-            expect($submissions[1]['subject'])->toBe('Downward Evaluation');
+            expect($submissions[1]['label'])->toBe('Program Head Evaluation');
+            expect($submissions[1]['description'])->toBe('Program Head evaluates Professor');
 
             // 3. Self Evaluation:
-            expect($submissions[2]['evaluator'])->toBe('Self');
-            expect($submissions[2]['target'])->toBe('Prof. Program Head');
-            expect($submissions[2]['subject'])->toBe('Self Evaluation');
+            expect($submissions[2]['label'])->toBe('Self Evaluation');
+            expect($submissions[2]['description'])->toBe('Program Head evaluates Self');
 
             return true;
         });

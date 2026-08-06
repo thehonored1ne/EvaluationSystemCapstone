@@ -10,6 +10,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026-08-06]
+
+### Added
+- **Unified Employee & Student Portals**: Consolidated user management under `/admin/employees` and `/admin/students` with formatted full names (`Last Name, First Name Middle Name Suffix`).
+- **Suffix Database Column**: Added `suffix` column to `employees` and `students` tables via migration `2026_08_06_000000_add_suffix_to_employees_and_students_tables.php`.
+- **Admin Role Option**: Added `'admin'` role option in Employee management tabs, badges, forms, and validation.
+- **Self-Account & System Safeguards**: Protected active logged-in administrators (`auth()->id()`) from self-disabling or self-deleting with visual `YOU` badges, and added a safeguard preventing the deactivation or deletion of the last remaining active Administrator account.
+- **Pending Submissions Tracker**: Added live odometer counter for outstanding expected evaluations on the Admin Dashboard top statistics grid.
+- **Role-Based Anonymized Submission Feed**: Transformed the recent submissions activity stream into a clean, role-relationship timeline (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`) protecting evaluator and evaluatee identity.
+
+### Changed
+- **Branding & Sidebar Logo**: Replaced default SVG logo with official PNG asset `public/GRC-o-Evaluation-LOGO.png` across header components and sidebar navigation.
+- **Admin Dashboard Layout & Simplification**: Redesigned dashboard cards for senior administrative readability:
+  - Card 1: Total Employees (`Employee::count()`).
+  - Card 2: Total Students (`Student::count()`).
+  - Card 3: Current Evaluation Progress (accurate expected formula: student + self + peer evaluations).
+  - Card 4: Pending Submissions counter (`max(0, expected - submitted)`).
+  - Evaluation Period Status Card: Displays clear status banner (`EVALUATION IS OPEN`/`CLOSED`), explicit date-time labels (`Evaluation Opens (Start)` & `Evaluation Closes (End)`), real-time schedule status indicator (`🟢 Closes in 5 hours`), and specific action button (`⚙️ Change Evaluation Schedule Dates`).
+  - Overall Evaluation Feedback & Sentiment Card: Labeled across all evaluator groups (Students, Faculty, Deans, Program Heads, Staff).
+- **Dashboard Visual Design**: Standardized all cards on the Admin Dashboard with a full 4-side 2px dark red (`#800000`) border (`style="border: 2px solid #800000 !important;"`).
+
+---
+
 ## [2026-06-18]
 
 ### Added

@@ -14,6 +14,7 @@ class Student extends Model
         'first_name',
         'last_name',
         'middle_name',
+        'suffix',
         'program_id',
         'year_level',
         'section',
@@ -52,5 +53,14 @@ class Student extends Model
         return $this->middle_name
             ? "{$this->first_name} {$this->middle_name} {$this->last_name}"
             : "{$this->first_name} {$this->last_name}";
+    }
+
+    /**
+     * Get formatted full name: Last Name, First Name Middle Name Suffix
+     */
+    public function getFormattedNameAttribute(): string
+    {
+        $firstMiddleSuffix = trim(implode(' ', array_filter([$this->first_name, $this->middle_name, $this->suffix])));
+        return "{$this->last_name}, {$firstMiddleSuffix}";
     }
 }

@@ -23,13 +23,14 @@ Accounts used for system authentication.
 - `created_at` / `updated_at` (DATETIME, Nullable)
 
 ### `employees`
-Dean, Program Head, Faculty Professor, and Staff profiles.
+Dean, Program Head, Faculty Professor, Staff, and Admin profiles.
 - `id` (INT, PK, Auto Increment)
 - `employee_number` (VARCHAR, Unique)
 - `first_name` (VARCHAR)
 - `last_name` (VARCHAR)
 - `middle_name` (VARCHAR, Nullable)
-- `role` (VARCHAR) - *e.g., Dean, Program Head, Faculty, Staff*
+- `suffix` (VARCHAR, Nullable) - *e.g., Jr., Sr., III*
+- `role` (VARCHAR) - *e.g., Dean, Program Head, Faculty, Staff, Admin*
 - `status` (VARCHAR, Default: 'active')
 - `department_id` (INT, FK -> `departments.id`, Nullable, Set Null)
 - `created_at` / `updated_at` (DATETIME, Nullable)
@@ -41,6 +42,7 @@ Student profiles enrolled in the system.
 - `first_name` (VARCHAR)
 - `last_name` (VARCHAR)
 - `middle_name` (VARCHAR, Nullable)
+- `suffix` (VARCHAR, Nullable) - *e.g., Jr., Sr., III*
 - `program_id` (INT, FK -> `programs.id`, Nullable, Set Null)
 - `year_level` (INT, Nullable)
 - `section` (VARCHAR, Nullable)

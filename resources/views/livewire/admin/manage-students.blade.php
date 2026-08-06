@@ -7,7 +7,6 @@ use Livewire\Attributes\Lazy;
 use App\Models\User;
 use App\Models\Student;
 use App\Models\Program;
-use App\Models\Department;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function placeholder()
@@ -17,9 +16,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     use WithPagination;
 
-    // Fields
+    // Fields for Create/Edit Modal
     public string $email = '';
-    public string $password = '';
     public bool $showModal = false;
     public ?User $editingUser = null;
     public bool $showDeleteModal = false;
@@ -28,33 +26,35 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // Student specific
     public string $student_number = '';
     public string $first_name = '';
+    public string $middle_name = '';
     public string $last_name = '';
+    public string $suffix = '';
     public string $program_id = '';
     public string $year_level = '';
     public string $section = '';
 
-    public string $selectedDepartmentId = '';
+    // Filters
     public string $selectedProgramId = '';
     public string $selectedYearLevel = '';
     public string $search = '';
+    public string $sortDirection = 'asc'; // 'asc' (A-Z) or 'desc' (Z-A)
 
-    public function updatedSelectedDepartmentId() { $this->resetPage(); }
     public function updatedSelectedProgramId() { $this->resetPage(); }
     public function updatedSelectedYearLevel() { $this->resetPage(); }
-
+    public function updatedSortDirection() { $this->resetPage(); }
     public function updatedSearch() { $this->resetPage(); }
 
     public function clearFilters()
     {
-        $this->reset(['search', 'selectedDepartmentId', 'selectedProgramId', 'selectedYearLevel']);
+        $this->reset(['search', 'selectedProgramId', 'selectedYearLevel', 'sortDirection']);
         $this->resetPage();
     }
 
     public function prepareCreate()
     {
         $this->reset([
-            'email', 'password', 'editingUser',
-            'student_number', 'first_name', 'last_name', 'program_id', 'year_level', 'section'
+            'email', 'editingUser',
+            'student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'program_id', 'year_level', 'section'
         ]);
         $this->showModal = true;
     }
@@ -62,19 +62,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function with(): array
     {
         $query = User::query()->whereHas('student');
-
-        if ($this->selectedDepartmentId === 'none') {
-            $query->whereHas('student', function ($q) {
-                $q->whereNull('program_id')
-                  ->orWhereHas('program', function ($pq) {
-                      $pq->whereNull('department_id');
-                  });
-            });
-        } elseif ($this->selectedDepartmentId) {
-            $query->whereHas('student.program', function ($q) {
-                $q->where('department_id', $this->selectedDepartmentId);
-            });
-        }
 
         if ($this->selectedProgramId === 'none') {
             $query->whereHas('student', function ($q) {
@@ -98,15 +85,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                   ->orWhere('email', 'like', '%' . $this->search . '%')
                   ->orWhereHas('student', function ($sub) {
                       $sub->where('student_number', 'like', '%' . $this->search . '%')
+                          ->orWhere('first_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('last_name', 'like', '%' . $this->search . '%')
                           ->orWhere('section', 'like', '%' . $this->search . '%');
                   });
             });
         }
 
+        $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
+
         return [
-            'users' => $query->orderBy('id', 'desc')->paginate(10),
+            'users' => $query->orderBy('name', $orderDirection)->paginate(10),
             'programs' => Program::orderBy('name')->get(),
-            'departments' => Department::orderBy('name')->get(),
         ];
     }
 
@@ -115,18 +105,21 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->validate([
             'student_number' => 'required|string|unique:students,student_number',
             'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
+            'suffix' => 'nullable|string|max:255',
             'program_id' => 'required|exists:programs,id',
             'year_level' => 'required|integer|between:1,4',
             'section' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:8',
         ]);
 
         $student = Student::create([
             'student_number' => $this->student_number,
             'first_name' => $this->first_name,
+            'middle_name' => $this->middle_name ?: null,
             'last_name' => $this->last_name,
+            'suffix' => $this->suffix ?: null,
             'program_id' => $this->program_id,
             'year_level' => $this->year_level,
             'section' => $this->section ?: null,
@@ -134,10 +127,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         ]);
 
         $user = User::create([
-            'name' => $this->first_name . ' ' . $this->last_name,
+            'name' => $student->formatted_name,
             'email' => $this->email,
             'student_id' => $student->id,
-            'password' => bcrypt($this->password),
+            'password' => bcrypt('password'),
             'is_active' => true,
         ]);
 
@@ -155,11 +148,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         $this->editingUser = $user;
         $this->email = $user->email;
-        $this->password = '';
 
         $this->student_number = $user->student->student_number ?? '';
         $this->first_name = $user->student->first_name ?? '';
+        $this->middle_name = $user->student->middle_name ?? '';
         $this->last_name = $user->student->last_name ?? '';
+        $this->suffix = $user->student->suffix ?? '';
         $this->program_id = $user->student->program_id ?? '';
         $this->year_level = $user->student->year_level ?? '';
         $this->section = $user->student->section ?? '';
@@ -172,31 +166,30 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->validate([
             'student_number' => 'required|string|unique:students,student_number,' . $this->editingUser->student_id,
             'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
+            'suffix' => 'nullable|string|max:255',
             'program_id' => 'required|exists:programs,id',
             'year_level' => 'required|integer|between:1,4',
             'section' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $this->editingUser->id,
-            'password' => 'nullable|min:8',
         ]);
 
         $this->editingUser->student->update([
             'student_number' => $this->student_number,
             'first_name' => $this->first_name,
+            'middle_name' => $this->middle_name ?: null,
             'last_name' => $this->last_name,
+            'suffix' => $this->suffix ?: null,
             'program_id' => $this->program_id,
             'year_level' => $this->year_level,
             'section' => $this->section ?: null,
         ]);
 
         $this->editingUser->update([
-            'name' => $this->first_name . ' ' . $this->last_name,
+            'name' => $this->editingUser->student->fresh()->formatted_name,
             'email' => $this->email,
         ]);
-
-        if ($this->password) {
-            $this->editingUser->update(['password' => bcrypt($this->password)]);
-        }
 
         $this->showModal = false;
         \Flux::toast(
@@ -213,7 +206,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         \Flux::toast(
             heading: $user->is_active ? 'Account Enabled' : 'Account Disabled',
-            text: "The user account status has been updated.",
+            text: 'The student account status has been updated.',
             variant: 'success'
         );
     }
@@ -253,25 +246,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Create Student</flux:button>
     </div>
     
+    <!-- Filters Bar -->
     <div class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-gray-200 dark:border-zinc-700">
         <div class="flex-1 w-full min-w-[300px]">
-            <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or ID..." />
+            <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or student ID..." />
         </div>
         
         <div class="w-full md:w-64">
-            <flux:select wire:model.live="selectedDepartmentId" placeholder="Filter by Department">
-                <flux:select.option value="">All Departments</flux:select.option>
-                <flux:select.option value="none">None</flux:select.option>
-                @foreach($departments as $dept)
-                    <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-        </div>
-
-        <div class="w-full md:w-64">
             <flux:select wire:model.live="selectedProgramId" placeholder="Filter by Program">
                 <flux:select.option value="">All Programs</flux:select.option>
-                <flux:select.option value="none">None</flux:select.option>
+                <flux:select.option value="none">Unassigned (None)</flux:select.option>
                 @foreach($programs as $prog)
                     <flux:select.option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</flux:select.option>
                 @endforeach
@@ -288,55 +272,93 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </flux:select>
         </div>
         
-        <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
+        <div class="flex items-center gap-2">
+            <!-- Filter Icon Dropdown (A-Z / Z-A) -->
+            <flux:dropdown align="end">
+                <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
+                    {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
+                </flux:button>
+
+                <flux:menu>
+                    <flux:menu.item icon="bars-arrow-down" wire:click="$set('sortDirection', 'asc')" :current="$sortDirection === 'asc'">
+                        A to Z (A-Z)
+                    </flux:menu.item>
+                    <flux:menu.item icon="bars-arrow-up" wire:click="$set('sortDirection', 'desc')" :current="$sortDirection === 'desc'">
+                        Z to A (Z-A)
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
+
+            @if($search || $selectedProgramId || $selectedYearLevel || $sortDirection !== 'asc')
+                <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
+            @endif
+        </div>
     </div>
     
-    <div wire:loading wire:target="search, selectedDepartmentId, selectedProgramId, selectedYearLevel, gotoPage, nextPage, previousPage" class="w-full">
+    <div wire:loading wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full">
         <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
-    <div wire:loading.remove wire:target="search, selectedDepartmentId, selectedProgramId, selectedYearLevel, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+    <div wire:loading.remove wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
             <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800">
                     <tr>
-                        <th class="w-[30%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Name</th>
-                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Student ID</th>
-                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Email Address</th>
-                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Program & Section</th>
-                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Status</th>
-                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Actions</th>
+                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Student ID</th>
+                        <th class="w-[25%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Full Name</th>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Email</th>
+                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Programs</th>
+                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Account Status</th>
+                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($users as $user)
                         <tr wire:key="{{ $user->id }}">
-                            <td class="px-4 py-3 dark:text-zinc-300 font-medium">{{ $user->name }}</td>
-                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs">{{ $user->student?->student_number }}</td>
-                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">{{ $user->email }}</td>
+                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs font-semibold">
+                                {{ $user->student?->student_number }}
+                            </td>
+                            <td class="px-4 py-3 dark:text-zinc-300 font-medium">
+                                {{ $user->student?->formatted_name ?? $user->name }}
+                            </td>
                             <td class="px-4 py-3 dark:text-zinc-300 text-xs">
-                                <span class="font-semibold block">{{ $user->student?->program?->code ?: 'None' }}</span>
+                                {{ $user->email }}
+                            </td>
+                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">
+                                <span class="font-semibold block">{{ $user->student?->program?->code ?: 'Unassigned' }}</span>
                                 @if($user->student?->section)
                                     <span class="text-zinc-500 font-mono text-[10px]">{{ $user->student->section }}</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3">
-                                <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
-                                    {{ $user->is_active ? 'Active' : 'Disabled' }}
-                                </flux:badge>
+                                <button wire:click="toggleActive({{ $user->id }})" class="cursor-pointer">
+                                    <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
+                                        {{ $user->is_active ? 'Active' : 'Disabled' }}
+                                    </flux:badge>
+                                </button>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <div class="flex justify-end gap-2">
-                                    <flux:button size="sm" variant="ghost" wire:click="editUser({{ $user->id }})">
-                                        Edit
+                                <flux:dropdown align="end">
+                                    <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
+                                        Action
                                     </flux:button>
-                                    <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $user->id }})">
-                                        {{ $user->is_active ? 'Disable' : 'Enable' }}
-                                    </flux:button>
-                                    <flux:button size="sm" variant="ghost" class="text-red-500 hover:text-red-600 dark:hover:text-red-400" wire:click="confirmDelete({{ $user->id }})">
-                                        Delete
-                                    </flux:button>
-                                </div>
+
+                                    <flux:menu>
+                                        <flux:menu.item icon="pencil-square" wire:click="editUser({{ $user->id }})">
+                                            Edit Details
+                                        </flux:menu.item>
+                                        
+                                        <flux:menu.item icon="{{ $user->is_active ? 'pause-circle' : 'play-circle' }}" wire:click="toggleActive({{ $user->id }})">
+                                            {{ $user->is_active ? 'Disable Account' : 'Enable Account' }}
+                                        </flux:menu.item>
+
+                                        <flux:menu.separator />
+
+                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmDelete({{ $user->id }})">
+                                            Delete Account
+                                        </flux:menu.item>
+                                    </flux:menu>
+                                </flux:dropdown>
                             </td>
                         </tr>
                     @empty
@@ -355,53 +377,67 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
 
-    @if($showModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl w-full max-w-lg border border-zinc-200 dark:border-zinc-700 overflow-y-auto max-h-[90vh]">
-            <flux:heading size="lg" class="mb-4">{{ $editingUser ? 'Edit Student' : 'Create Student' }}</flux:heading>
-            
-            <form wire:submit="{{ $editingUser ? 'updateUser' : 'createUser' }}" class="flex flex-col gap-4">
-                
+    <!-- Create / Edit Student Modal -->
+    <flux:modal wire:model="showModal" class="min-w-[480px]">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                    {{ $editingUser ? 'Edit Student Account' : 'Create New Student Account' }}
+                </h2>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">Fill in student details and academic program assignment below.</p>
+            </div>
+
+            <form wire:submit="{{ $editingUser ? 'updateUser' : 'createUser' }}" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <flux:input wire:model="first_name" label="First Name" type="text" required />
+                    <flux:input wire:model="middle_name" label="Middle Name (Optional)" type="text" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
                     <flux:input wire:model="last_name" label="Last Name" type="text" required />
+                    <flux:input wire:model="suffix" label="Suffix (Optional)" type="text" placeholder="e.g. Jr., Sr., III" />
                 </div>
 
                 <flux:input wire:model="email" label="Email Address" type="email" required />
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <flux:input wire:model="student_number" label="Student Number" type="text" placeholder="e.g. STU-001" required />
-                    <flux:input wire:model="section" label="Section" type="text" placeholder="e.g. BSCS-3A" />
-                </div>
+
+                <flux:input wire:model="student_number" label="Student Number" type="text" placeholder="e.g. 2026-00001" required />
 
                 <div class="grid grid-cols-2 gap-4">
-                    <x-searchable-select 
-                        name="program_id" 
-                        label="Program" 
-                        placeholder="Select Program" 
-                        required 
-                        :options="array_merge([['value' => '', 'label' => 'Select Program']], $programs->map(fn($p) => ['value' => (string)$p->id, 'label' => $p->code . ' - ' . $p->name])->toArray())" 
-                    />
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Academic Program</label>
+                        <select wire:model="program_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                            <option value="">Select Program...</option>
+                            @foreach($programs as $prog)
+                                <option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('program_id') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
 
-                    <flux:select wire:model="year_level" label="Year Level" required>
-                        <flux:select.option value="">Select Year</flux:select.option>
-                        <flux:select.option value="1">1st Year</flux:select.option>
-                        <flux:select.option value="2">2nd Year</flux:select.option>
-                        <flux:select.option value="3">3rd Year</flux:select.option>
-                        <flux:select.option value="4">4th Year</flux:select.option>
-                    </flux:select>
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Year Level</label>
+                        <select wire:model="year_level" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                            <option value="">Select Year...</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                        </select>
+                        @error('year_level') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
                 </div>
 
-                <flux:input wire:model="password" label="Password" type="password" :placeholder="$editingUser ? 'Leave blank to keep current' : 'Password'" :required="!$editingUser" />
+                <flux:input wire:model="section" label="Section (Optional)" type="text" placeholder="e.g. BSIT-3A" />
 
-                <div class="flex justify-end gap-2 mt-4">
-                    <flux:button wire:click="$set('showModal', false)">Cancel</flux:button>
-                    <flux:button variant="primary" type="submit">Save</flux:button>
+                <div class="flex justify-end gap-2 pt-4">
+                    <flux:button variant="ghost" wire:click="$set('showModal', false)">Cancel</flux:button>
+                    <flux:button variant="primary" type="submit">
+                        {{ $editingUser ? 'Save Changes' : 'Create Student' }}
+                    </flux:button>
                 </div>
             </form>
         </div>
-    </div>
-    @endif
+    </flux:modal>
 
     <!-- Delete Confirmation Modal -->
     @if($showDeleteModal && $deletingUser)
@@ -415,8 +451,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <x-slot:details>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Name</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->name }}</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Full Name</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingUser->student?->formatted_name ?? $deletingUser->name }}</span>
                 </div>
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Student ID</span>

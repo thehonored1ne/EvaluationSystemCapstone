@@ -30,6 +30,13 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 6, 2026
+- **Unified User Portals & Suffix Support**: Consolidated user management into `/admin/employees` (Deans, Program Heads, Faculty, Staff, Admin) and `/admin/students` (Students). Added `suffix` database column and `formatted_name` accessor (`Last Name, First Name Middle Name Suffix`).
+- **Self-Account & System Safeguards**: Implemented backend guards preventing active logged-in administrators (`auth()->id()`) from self-disabling or self-deleting (with visual `YOU` badges), and added a safeguard protecting the last remaining active Administrator account.
+- **Admin Dashboard Restructuring**: Overhauled top 4 statistic cards (Total Employees, Total Students, Current Evaluation Progress with expected sum formula, Pending Submissions with live odometer counter), simplified the Evaluation Period Status card (explicit date-time windows, real-time schedule indicator badge, and specific button text), and updated the overall feedback sentiment card for all evaluator groups.
+- **Role-Anonymized Submission Stream**: Transformed recent submissions feed into a strict role-relationship stream (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`) maintaining complete anonymity.
+- **Branding & Visual System**: Integrated official logo asset `public/GRC-o-Evaluation-LOGO.png` across header and sidebar navigation, and standardized all dashboard cards with a full 4-side 2px dark red (`#800000`) border.
+
 ### June 18, 2026
 - **Larastan & Spatie Laravel Activitylog Integration**: Configured Larastan (PHPStan) at level 5 with a baseline file to ensure clean static analysis runs. Published and configured Spatie Laravel Activitylog to audit changes to key models (`User`, `Evaluation`, `EvaluationQuestion`, `AcademicClass`, `Department`, `Program`) while ignoring sensitive parameters such as password updates. Added automated Pest feature tests to verify logging accuracy and password filtering.
 - **Welcome Page Issue Reporting Button**: Added a fixed glassmorphic "Report an Issue" button with a warning triangle icon in the bottom-right corner of the landing welcome page (`welcome.blade.php`). This button links directly to the external report submission website (`https://grc-reporting.vercel.app`) to streamline bug and user experience reporting.

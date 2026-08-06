@@ -37,3 +37,7 @@
   Faculty - can evaluate their peers(faculty - faculty), can evaluate superior(upward - program head on their department), can evaluate self(self)
   Student - can evaluate their superior(upward - faculty)
   Staff - can evaluate their superior(upward - program head), can evaluate self(self)
+
+
+
+- export/import/template in employees and student data
