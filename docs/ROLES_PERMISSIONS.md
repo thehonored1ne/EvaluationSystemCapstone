@@ -30,3 +30,5 @@ The table below displays who evaluates whom under different evaluation configura
 ## 3. Route Guard & Access Control Policies
 * **Spatie Middleware**: Middleware directives (`role:admin`, `role:dean`, etc.) guard web routes.
 * **Livewire Component Authorization**: Actions on Livewire controllers (such as deleting users or ending active evaluation schedules) perform backend policy checks (`$user->hasRole(...)`) prior to execution to prevent request forgery.
+* **Self-Account Safety Policy**: Backend guards in `toggleActive()`, `confirmDelete()`, and `deleteUser()` prevent active logged-in administrators (`auth()->id()`) from self-disabling or deleting their own accounts.
+* **System Administrator Protection**: Guard prevents disabling or deleting the last active Administrator account to ensure system accessibility.

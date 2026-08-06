@@ -9,7 +9,10 @@ Handles user authentication, role-based access control, account administration, 
 * **Supported Roles**: Admin, Dean, Program Head, Faculty, Student, Staff
 * **Key Features**:
   * Role-based route protection & dynamic post-login dashboard routing
-  * Account administration panels (Manage Deans, Program Heads, Faculty, Students, Staff)
+  * Consolidated user administration panels: `/admin/employees` (Deans, Program Heads, Faculty, Staff, Admin) and `/admin/students` (Students)
+  * Formatted full names (`Last Name, First Name Middle Name Suffix`) with `suffix` database column support
+  * Self-account protection preventing active logged-in admin (`auth()->id()`) from self-disabling or self-deletion (`YOU` badge)
+  * System safeguard preventing the deactivation or deletion of the last remaining active Administrator account
   * User profile, security password updates, and interface theme settings
 
 ---
@@ -54,7 +57,10 @@ Integrates a Python Flask microservice pipeline to analyze textual feedback comm
 ## 6. Evaluation Oversight & Operations
 Provides real-time administrative supervision over active and past evaluation cycles.
 * **Key Features**:
-  * Real-time submission rate and completion progress tracking
+  * Real-time metrics: Total Employees, Total Students, Current Evaluation Progress (expected sum formula), and Pending Submissions odometer counter
+  * Evaluation Period Status panel with clear status banners, explicit date-time windows, real-time schedule indicator badges, and direct action triggers
+  * Sentiment feedback overview aggregated across all evaluators (Students, Faculty, Deans, Program Heads, Staff)
+  * Strict role-relationship anonymized submission log stream (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`)
   * Multi-level filtering by Department, Program, Class Section, and Evaluation Type
 
 ---
