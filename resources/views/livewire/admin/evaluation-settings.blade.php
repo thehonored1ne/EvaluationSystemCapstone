@@ -5,9 +5,6 @@ use Livewire\Attributes\Lazy;
 use App\Models\AcademicYear;
 use App\Models\Semester;
 use App\Models\EvaluationCriterion;
-use App\Models\Department;
-use App\Models\Employee;
-use App\Models\Program;
 use Livewire\Attributes\Layout;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
@@ -15,24 +12,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         return view('livewire.placeholders.evaluation-settings-skeleton');
     }
-    // Program CRUD
-    public bool $showProgModal = false;
-    public bool $showDeleteProgModal = false;
-    public string $progId = '';
-    public string $progCode = '';
-    public string $progName = '';
-    public string $progDeptId = '';
-    public string $progHeadId = '';
-    public ?Program $deletingProg = null;
-
-    // Department CRUD
-    public bool $showDeptModal = false;
-    public bool $showDeleteDeptModal = false;
-    public string $deptId = '';
-    public string $deptCode = '';
-    public string $deptName = '';
-    public string $deptDeanId = '';
-    public ?Department $deletingDept = null;
 
     // Criterion Delete
     public bool $showDeleteCriterionModal = false;
@@ -56,12 +35,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // Criteria points (array keyed by ID)
     public array $criteriaPoints = [];
 
-    // Max targets config
+    // Dynamic Max score targets config for all 7 evaluation terms
     public string $upwardStudentMaxTarget = '90';
-    public string $upwardEmployeeMaxTarget = '50';
-    public string $downwardMaxTarget = '50';
-    public string $peerMaxTarget = '50';
     public string $selfMaxTarget = '10';
+    public string $deanMaxTarget = '50';
+    public string $programHeadMaxTarget = '50';
+    public string $peerMaxTarget = '50';
+    public string $downwardMaxTarget = '50';
+    public string $staffMaxTarget = '10';
+    public string $upwardEmployeeMaxTarget = '50';
 
     // Evaluation window schedule
     public string $startsAt = '';
@@ -85,11 +67,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
-            $this->upwardStudentMaxTarget = (string)(float)$activeSem->upward_student_max_points;
-            $this->upwardEmployeeMaxTarget = (string)(float)$activeSem->upward_employee_max_points;
-            $this->downwardMaxTarget = (string)(float)$activeSem->downward_max_points;
-            $this->peerMaxTarget = (string)(float)$activeSem->peer_max_points;
-            $this->selfMaxTarget = (string)(float)$activeSem->self_max_points;
+            $this->upwardStudentMaxTarget = (string)(float)($activeSem->upward_student_max_points ?: 90);
+            $this->upwardEmployeeMaxTarget = (string)(float)($activeSem->upward_employee_max_points ?: 50);
+            $this->deanMaxTarget = (string)(float)($activeSem->dean_max_points ?: 50);
+            $this->programHeadMaxTarget = (string)(float)($activeSem->program_head_max_points ?: 50);
+            $this->downwardMaxTarget = (string)(float)($activeSem->downward_max_points ?: 50);
+            $this->peerMaxTarget = (string)(float)($activeSem->peer_max_points ?: 50);
+            $this->selfMaxTarget = (string)(float)($activeSem->self_max_points ?: 10);
+            $this->staffMaxTarget = (string)(float)($activeSem->staff_max_points ?: 10);
+            
             $this->startsAt = $activeSem->evaluation_starts_at ? $activeSem->evaluation_starts_at->format('Y-m-d\TH:i') : '';
             $this->endsAt = $activeSem->evaluation_ends_at ? $activeSem->evaluation_ends_at->format('Y-m-d\TH:i') : '';
         }
@@ -98,188 +84,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function getAcademicYearsProperty()
     {
         return AcademicYear::with('semesters')->orderBy('name', 'desc')->get();
-    }
-
-    public function getDepartmentsProperty()
-    {
-        return Department::with('dean')->orderBy('name')->get();
-    }
-
-    public function getDeansProperty()
-    {
-        return Employee::where('role', 'dean')->orderBy('last_name')->get();
-    }
-
-    public function getProgramsProperty()
-    {
-        return Program::with(['department', 'programHead'])->orderBy('name')->get();
-    }
-
-    public function getProgramHeadsProperty()
-    {
-        return Employee::where('role', 'program head')->orderBy('last_name')->get();
-    }
-
-    // Open department modal
-    public function openDeptModal($id = null)
-    {
-        $this->resetErrorBag();
-        if ($id) {
-            $dept = Department::findOrFail($id);
-            $this->deptId = (string)$dept->id;
-            $this->deptCode = $dept->code;
-            $this->deptName = $dept->name;
-            $this->deptDeanId = (string)$dept->dean_id;
-        } else {
-            $this->deptId = '';
-            $this->deptCode = '';
-            $this->deptName = '';
-            $this->deptDeanId = '';
-        }
-        $this->showDeptModal = true;
-    }
-
-    // Save department (create or update)
-    public function saveDept()
-    {
-        $rules = [
-            'deptCode' => 'required|string|max:50|unique:departments,code,' . $this->deptId,
-            'deptName' => 'required|string|max:255',
-            'deptDeanId' => 'nullable|exists:employees,id',
-        ];
-
-        $this->validate($rules);
-
-        $data = [
-            'code' => $this->deptCode,
-            'name' => $this->deptName,
-            'dean_id' => $this->deptDeanId ?: null,
-        ];
-
-        if ($this->deptId) {
-            $dept = Department::findOrFail($this->deptId);
-            $dept->update($data);
-            
-            // Sync dean employee department if assigned
-            if ($dept->dean_id) {
-                Employee::where('id', $dept->dean_id)->update(['department_id' => $dept->id]);
-            }
-            
-            session()->flash('status', "Department '{$dept->name}' updated successfully.");
-        } else {
-            $dept = Department::create($data);
-            
-            // Sync dean employee department if assigned
-            if ($dept->dean_id) {
-                Employee::where('id', $dept->dean_id)->update(['department_id' => $dept->id]);
-            }
-            
-            session()->flash('status', "Department '{$dept->name}' created successfully.");
-        }
-
-        $this->showDeptModal = false;
-    }
-
-    // Confirm Delete
-    public function confirmDeleteDept($id)
-    {
-        $this->deletingDept = Department::with('dean')->findOrFail($id);
-        $this->showDeleteDeptModal = true;
-    }
-
-    // Delete Department
-    public function deleteDept()
-    {
-        if ($this->deletingDept) {
-            $name = $this->deletingDept->name;
-            $this->deletingDept->delete();
-            $this->deletingDept = null;
-            session()->flash('status', "Department '{$name}' deleted successfully.");
-        }
-        $this->showDeleteDeptModal = false;
-    }
-
-    // Open program modal
-    public function openProgModal($id = null)
-    {
-        $this->resetErrorBag();
-        if ($id) {
-            $prog = Program::findOrFail($id);
-            $this->progId = (string)$prog->id;
-            $this->progCode = $prog->code;
-            $this->progName = $prog->name;
-            $this->progDeptId = (string)$prog->department_id;
-            $this->progHeadId = (string)$prog->program_head_id;
-        } else {
-            $this->progId = '';
-            $this->progCode = '';
-            $this->progName = '';
-            $this->progDeptId = '';
-            $this->progHeadId = '';
-        }
-        $this->showProgModal = true;
-    }
-
-    // Save program (create or update)
-    public function saveProg()
-    {
-        $rules = [
-            'progCode' => 'required|string|max:50|unique:programs,code,' . $this->progId,
-            'progName' => 'required|string|max:255',
-            'progDeptId' => 'required|exists:departments,id',
-            'progHeadId' => 'nullable|exists:employees,id',
-        ];
-
-        $this->validate($rules);
-
-        $data = [
-            'code' => $this->progCode,
-            'name' => $this->progName,
-            'department_id' => $this->progDeptId,
-            'program_head_id' => $this->progHeadId ?: null,
-        ];
-
-        if ($this->progId) {
-            $prog = Program::findOrFail($this->progId);
-            $prog->update($data);
-            
-            // Sync program head employee department if assigned
-            if ($prog->program_head_id) {
-                Employee::where('id', $prog->program_head_id)->update(['department_id' => $prog->department_id]);
-            }
-            
-            session()->flash('status', "Program '{$prog->name}' updated successfully.");
-        } else {
-            $prog = Program::create($data);
-            
-            // Sync program head employee department if assigned
-            if ($prog->program_head_id) {
-                Employee::where('id', $prog->program_head_id)->update(['department_id' => $prog->department_id]);
-            }
-            
-            session()->flash('status', "Program '{$prog->name}' created successfully.");
-        }
-
-        $this->showProgModal = false;
-    }
-
-    // Confirm Delete Program
-    public function confirmDeleteProg($id)
-    {
-        $this->deletingProg = Program::with(['department', 'programHead'])->findOrFail($id);
-        $this->showDeleteProgModal = true;
-    }
-
-    // Delete Program
-    public function deleteProg()
-    {
-        if ($this->deletingProg) {
-            $name = $this->deletingProg->name;
-            $this->deletingProg->delete();
-            $this->deletingProg = null;
-            session()->flash('status', "Program '{$name}' deleted successfully.");
-        }
-        $this->showDeleteProgModal = false;
     }
 
     public function getActiveSemesterProperty()
@@ -330,14 +134,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // Toggle active semester
     public function setActiveSemester($id)
     {
-        // Set all semesters to inactive
         Semester::query()->update(['is_active' => false]);
         
         $semester = Semester::findOrFail($id);
         $semester->is_active = true;
         $semester->save();
 
-        // Also make sure its parent Academic Year is set to active
         AcademicYear::query()->update(['is_active' => false]);
         $year = $semester->academicYear;
         $year->is_active = true;
@@ -357,17 +159,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             return;
         }
 
-        // If currently closed, validate before opening
         if (!$activeSem->is_evaluation_open) {
             $this->resetErrorBag();
 
-            // 1. Check if schedule window is set in the database
             if (!$activeSem->evaluation_starts_at || !$activeSem->evaluation_ends_at) {
                 $this->addError('evaluation_toggle', "Cannot open evaluations: Please configure and save the evaluation window schedule dates first.");
                 return;
             }
 
-            // 2. Check if criteria points are balanced
             $totals = $this->categoryTotals;
             $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
             $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
@@ -394,7 +193,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         session()->flash('status', "Evaluations have been successfully {$status}.");
     }
 
-    // Save evaluation schedule — intercept if one already exists
+    // Save evaluation schedule
     public function saveSchedule()
     {
         $this->validate([
@@ -407,7 +206,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             return;
         }
 
-        // If there is already a saved schedule, ask for confirmation before overwriting
         if ($activeSem->evaluation_starts_at || $activeSem->evaluation_ends_at) {
             $this->showOverwriteModal = true;
             return;
@@ -416,7 +214,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->commitSaveSchedule($activeSem);
     }
 
-    // Called when admin confirms overwrite from the modal
     public function confirmSaveSchedule()
     {
         $this->showOverwriteModal = false;
@@ -434,7 +231,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->commitSaveSchedule($activeSem);
     }
 
-    // Internal: persist dates to DB
     private function commitSaveSchedule(Semester $activeSem): void
     {
         $activeSem->update([
@@ -445,7 +241,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         session()->flash('status', "Evaluation schedule dates updated successfully.");
     }
 
-    // Open the remove schedule confirmation modal
     public function confirmRemoveSchedule()
     {
         $activeSem = $this->activeSemester;
@@ -456,7 +251,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->showRemoveScheduleModal = true;
     }
 
-    // Clear / remove the saved schedule from DB
     public function clearSchedule()
     {
         $this->showRemoveScheduleModal = false;
@@ -574,14 +368,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         session()->flash('status', "Evaluation criterion created successfully.");
     }
 
-    // Confirm Delete Criterion
     public function confirmDeleteCriterion($id)
     {
         $this->deletingCriterion = EvaluationCriterion::findOrFail($id);
         $this->showDeleteCriterionModal = true;
     }
 
-    // Delete Evaluation Criterion
     public function deleteCriterion()
     {
         if ($this->deletingCriterion) {
@@ -594,7 +386,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         }
     }
 
-    // Save criteria points and targets
+    // Save criteria points and dynamic max score targets
     public function savePoints()
     {
         $totals = $this->categoryTotals;
@@ -606,7 +398,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
 
         if (abs($totals['upward_student'] - $upwardStudentTarget) > 0.001) {
-            $this->addError('points_upward_student', "Student Upward evaluation total points must equal exactly {$upwardStudentTarget} (Current: {$totals['upward_student']}).");
+            $this->addError('points_upward_student', "Student Evaluation total points must equal exactly {$upwardStudentTarget} (Current: {$totals['upward_student']}).");
             return;
         }
 
@@ -616,17 +408,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         }
 
         if (abs($totals['downward'] - $downwardTarget) > 0.001) {
-            $this->addError('points_downward', "Downward evaluation total points must equal exactly {$downwardTarget} (Current: {$totals['downward']}).");
+            $this->addError('points_downward', "Supervisor Evaluation total points must equal exactly {$downwardTarget} (Current: {$totals['downward']}).");
             return;
         }
 
         if (abs($totals['peer'] - $peerTarget) > 0.001) {
-            $this->addError('points_peer', "Peer evaluation total points must equal exactly {$peerTarget} (Current: {$totals['peer']}).");
+            $this->addError('points_peer', "Peer Evaluation total points must equal exactly {$peerTarget} (Current: {$totals['peer']}).");
             return;
         }
 
         if (abs($totals['self'] - $selfTarget) > 0.001) {
-            $this->addError('points_self', "Self evaluation total points must equal exactly {$selfTarget} (Current: {$totals['self']}).");
+            $this->addError('points_self', "Self Evaluation total points must equal exactly {$selfTarget} (Current: {$totals['self']}).");
             return;
         }
 
@@ -635,9 +427,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $activeSem->update([
                 'upward_student_max_points' => $upwardStudentTarget,
                 'upward_employee_max_points' => $upwardEmployeeTarget,
+                'dean_max_points' => is_numeric($this->deanMaxTarget) ? (float)$this->deanMaxTarget : 50.0,
+                'program_head_max_points' => is_numeric($this->programHeadMaxTarget) ? (float)$this->programHeadMaxTarget : 50.0,
                 'downward_max_points' => $downwardTarget,
                 'peer_max_points' => $peerTarget,
                 'self_max_points' => $selfTarget,
+                'staff_max_points' => is_numeric($this->staffMaxTarget) ? (float)$this->staffMaxTarget : 10.0,
             ]);
         }
 
@@ -649,12 +444,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             ]);
         }
 
-        session()->flash('status', "Evaluation criteria points and max targets updated successfully.");
+        session()->flash('status', "Evaluation criteria score points and dynamic max targets updated successfully.");
     }
 }; ?>
 
-<div class="w-full flex flex-col gap-6">
-    <div class="flex justify-between items-center">
+<div class="w-full flex flex-col gap-6 text-left">
+    <!-- Header Section -->
+    <div class="flex justify-between items-center w-full">
         <div>
             <flux:heading size="xl" level="1">Evaluation Settings</flux:heading>
             <flux:subheading>Manage system academic periods, evaluation windows, and point allocations.</flux:subheading>
@@ -662,701 +458,627 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     @if (session()->has('status'))
-        <div class="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 rounded-lg border border-emerald-200 dark:border-emerald-800 text-sm font-medium animate-pulse">
+        <div class="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 rounded-xl border border-emerald-200 dark:border-emerald-800 text-sm font-medium">
             {{ session('status') }}
         </div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        <!-- Left Side: Status Toggles & Criteria Points -->
-        <div class="lg:col-span-7 flex flex-col gap-6">
-            
-            <!-- Active Evaluation Status Card -->
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="bolt" class="size-5 text-indigo-500" />
-                        Active Period Status
-                    </h2>
-                    
+    <!-- SECTION 1: Active Evaluation Status & Toggle Control Banner (Full Width) -->
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 w-full">
+        <div class="flex items-center gap-4">
+            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-900">
+                <flux:icon icon="bolt" class="size-7" />
+            </div>
+            <div>
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">System Access Status</h2>
                     @if($this->activeSemester)
-                        @php
-                            $status = $this->activeSemester->evaluation_status;
-                        @endphp
-                        
-                        @if($status === 'locked')
-                            <flux:badge variant="danger" size="md">Closed (Locked)</flux:badge>
+                        @php $status = $this->activeSemester->evaluation_status; @endphp
+                        @if($status === 'active')
+                            <flux:badge variant="success" size="sm" class="font-bold">Open & Active</flux:badge>
                         @elseif($status === 'scheduled')
-                            <flux:badge variant="warning" size="md">Scheduled (Not started)</flux:badge>
+                            <flux:badge variant="warning" size="sm" class="font-bold">Scheduled</flux:badge>
                         @elseif($status === 'expired')
-                            <flux:badge variant="danger" size="md">Expired (Closed)</flux:badge>
-                        @elseif($status === 'active')
-                            <flux:badge variant="success" size="md">Open & Active</flux:badge>
+                            <flux:badge variant="danger" size="sm" class="font-bold">Expired</flux:badge>
+                        @else
+                            <flux:badge variant="danger" size="sm" class="font-bold">Closed / Locked</flux:badge>
                         @endif
                     @else
-                        <flux:badge variant="neutral" size="md">No Active Period</flux:badge>
+                        <flux:badge variant="neutral" size="sm">No Active Semester</flux:badge>
                     @endif
                 </div>
-
-                @if($this->activeSemester)
-                    <div class="space-y-6">
-                        <!-- Period Info -->
-                        <div class="grid grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-lg">
-                            <div>
-                                <span class="text-xs text-zinc-500 dark:text-zinc-400 block font-medium">Academic Year</span>
-                                <span class="text-base font-semibold text-zinc-800 dark:text-zinc-200">{{ $this->activeYear->name }}</span>
-                            </div>
-                            <div>
-                                <span class="text-xs text-zinc-500 dark:text-zinc-400 block font-medium">Semester</span>
-                                <span class="text-base font-semibold text-zinc-800 dark:text-zinc-200">{{ $this->activeSemester->name }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Schedule Setting Section -->
-                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-1.5">
-                                <flux:icon icon="clock" class="size-4 text-zinc-400" />
-                                Configure Evaluation Window
-                            </h3>
-
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                                <!-- Left: Input form -->
-                                <form wire:submit="saveSchedule" class="space-y-4">
-                                    <div class="flex flex-col gap-4">
-                                        <flux:input
-                                            type="datetime-local"
-                                            wire:model="startsAt"
-                                            label="Start Time & Date"
-                                            class="w-full"
-                                            class:input="!rounded-lg"
-                                        />
-                                        <flux:input
-                                            type="datetime-local"
-                                            wire:model="endsAt"
-                                            label="End Time & Date"
-                                            class="w-full"
-                                            class:input="!rounded-lg"
-                                        />
-                                    </div>
-                                    @error('endsAt')
-                                        <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                                    @enderror
-
-                                    <div class="flex justify-end pt-1">
-                                        <flux:button type="submit" variant="outline" size="sm" icon="calendar">
-                                            Save Schedule Window
-                                        </flux:button>
-                                    </div>
-                                </form>
-
-                                <!-- Right: Current saved schedule display -->
-                                @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
-                                    <div class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 space-y-4">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
-                                                <flux:icon icon="calendar-days" class="size-4" />
-                                                Current Saved Schedule
-                                            </span>
-                                            @if($this->activeSemester->is_evaluation_open)
-                                                <button
-                                                    type="button"
-                                                    disabled
-                                                    class="flex items-center gap-1 text-xs font-semibold text-zinc-400 dark:text-zinc-600 cursor-not-allowed"
-                                                    title="Close evaluation first to remove schedule"
-                                                >
-                                                    <flux:icon icon="lock-closed" class="size-3.5" />
-                                                    Locked
-                                                </button>
-                                            @else
-                                                <button
-                                                    type="button"
-                                                    wire:click="confirmRemoveSchedule"
-                                                    class="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors"
-                                                >
-                                                    <flux:icon icon="trash" class="size-3.5" />
-                                                    Remove
-                                                </button>
-                                            @endif
-                                        </div>
-
-                                        <div class="space-y-2">
-                                            <div class="flex items-start gap-2">
-                                                <span class="mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-emerald-500 mt-1.5"></span>
-                                                <div>
-                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Opens</p>
-                                                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                                                        {{ $this->activeSemester->evaluation_starts_at
-                                                            ? $this->activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A')
-                                                            : '—' }}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-start gap-2">
-                                                <span class="mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-rose-500 mt-1.5"></span>
-                                                <div>
-                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Closes</p>
-                                                    <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                                                        {{ $this->activeSemester->evaluation_ends_at
-                                                            ? $this->activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A')
-                                                            : '—' }}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        @php
-                                            $status = $this->activeSemester->evaluation_status;
-                                        @endphp
-                                        <div class="pt-1">
-                                            @if($status === 'active')
-                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 rounded-full px-2.5 py-0.5">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                    Active Now
-                                                </span>
-                                            @elseif($status === 'scheduled')
-                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/40 rounded-full px-2.5 py-0.5">
-                                                    <flux:icon icon="clock" class="size-3" />
-                                                    Scheduled
-                                                </span>
-                                            @elseif($status === 'expired')
-                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-full px-2.5 py-0.5">
-                                                    <flux:icon icon="x-circle" class="size-3" />
-                                                    Expired
-                                                </span>
-                                            @else
-                                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 rounded-full px-2.5 py-0.5">
-                                                    <flux:icon icon="lock-closed" class="size-3" />
-                                                    Locked
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @else
-                                    <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30 p-4 flex flex-col items-center justify-center text-center gap-2 min-h-[120px]">
-                                        <flux:icon icon="calendar" class="size-7 text-zinc-300 dark:text-zinc-600" />
-                                        <p class="text-xs text-zinc-400 dark:text-zinc-500 font-medium">No schedule set yet.</p>
-                                        <p class="text-xs text-zinc-400 dark:text-zinc-500">Set a start and end date, then click Save.</p>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-
-                        <!-- Manual Lock / Unlock Toggle -->
-                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                        Manual Evaluation Control
-                                    </p>
-                                    <p class="text-xs text-zinc-500">
-                                        Opening this allows evaluations to be active during the scheduled start and end window.
-                                    </p>
-                                </div>
-                                
-                                <flux:button 
-                                    variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
-                                    wire:click="toggleEvaluation"
-                                    size="sm"
-                                >
-                                    {{ $this->activeSemester->is_evaluation_open ? 'Close Evaluation' : 'Open Evaluation' }}
-                                </flux:button>
-                            </div>
-                            @error('evaluation_toggle')
-                                <div class="mt-3 p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 rounded-lg border border-rose-100 dark:border-rose-900 text-xs font-semibold">
-                                    {{ $message }}
-                                </div>
-                            @enderror
-                        </div>
-                    </div>
-                @else
-                    <div class="text-center py-6 text-zinc-500">
-                        <flux:icon icon="exclamation-circle" class="size-8 mx-auto mb-2 text-zinc-400" />
-                        <p class="text-sm">There is currently no active academic year/semester set.</p>
-                        <p class="text-xs mt-1">Please select an active semester in the Academic Periods panel to the right.</p>
-                    </div>
-                @endif
-            </div>
-
-            <!-- Dynamic Criteria Points Card -->
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="adjustments-horizontal" class="size-5 text-indigo-500" />
-                        Evaluation Criteria Points
-                    </h2>
-                </div>
-
-                <p class="text-xs text-zinc-500 mb-6">
-                    Configure the target max points and individual part points for each evaluation target. Saving will update the settings for the active semester.
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    @if($this->activeSemester)
+                        Active Period: <span class="font-bold text-zinc-800 dark:text-zinc-200">A.Y. {{ $this->activeYear->name }} — {{ $this->activeSemester->name }}</span>
+                    @else
+                        No active academic year or semester selected.
+                    @endif
                 </p>
-
-                @php
-                    $totals = $this->categoryTotals;
-                    $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
-                    $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
-                    $downwardTarget = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
-                    $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
-                    $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
-
-                    $isUpwardStudentBalanced = abs(($totals['upward_student'] ?? 0.0) - $upwardStudentTarget) < 0.001;
-                    $isUpwardEmployeeBalanced = abs(($totals['upward_employee'] ?? 0.0) - $upwardEmployeeTarget) < 0.001;
-                    $isDownwardBalanced = abs(($totals['downward'] ?? 0.0) - $downwardTarget) < 0.001;
-                    $isPeerBalanced = abs(($totals['peer'] ?? 0.0) - $peerTarget) < 0.001;
-                    $isSelfBalanced = abs(($totals['self'] ?? 0.0) - $selfTarget) < 0.001;
-                    $allBalanced = $isUpwardStudentBalanced && $isUpwardEmployeeBalanced && $isDownwardBalanced && $isPeerBalanced && $isSelfBalanced;
-                @endphp
-
-                <!-- Adjust Target Points Panel -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800 mb-6">
-                    <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Student Upward Target</label>
-                        <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="upwardStudentMaxTarget" min="0" class="font-bold text-sm" />
-                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Employee Upward Target</label>
-                        <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="upwardEmployeeMaxTarget" min="0" class="font-bold text-sm" />
-                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Downward Target</label>
-                        <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="downwardMaxTarget" min="0" class="font-bold text-sm" />
-                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Peer Target</label>
-                        <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="peerMaxTarget" min="0" class="font-bold text-sm" />
-                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">Self Target</label>
-                        <div class="flex items-center gap-1">
-                            <flux:input type="number" wire:model.live="selfMaxTarget" min="0" class="font-bold text-sm" />
-                            <span class="text-xs text-zinc-400 font-semibold">pts</span>
-                        </div>
-                    </div>
-                </div>
-
-                <form wire:submit="savePoints" class="space-y-8">
-                    <!-- Student Upward Evaluation Points Category -->
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Student Upward Evaluation</h3>
-                                <flux:badge variant="{{ $isUpwardStudentBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['upward_student'] ?? 0 }} / {{ $upwardStudentTarget }} pts
-                                </flux:badge>
-                            </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_student')">Add Part</flux:button>
-                        </div>
-
-                        <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'upward_student') as $criterion)
-                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
-                                    <div class="flex-1">
-                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
-                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 flex items-center gap-1">
-                                            <flux:input 
-                                                type="number" 
-                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
-                                                min="0" 
-                                                class="text-right font-semibold"
-                                            />
-                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
-                                        </div>
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                        />
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('points_upward_student')
-                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Employee Upward Evaluation Points Category -->
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Employee Upward Evaluation (PHs/Deans)</h3>
-                                <flux:badge variant="{{ $isUpwardEmployeeBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['upward_employee'] ?? 0 }} / {{ $upwardEmployeeTarget }} pts
-                                </flux:badge>
-                            </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_employee')">Add Part</flux:button>
-                        </div>
-
-                        <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'upward_employee') as $criterion)
-                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
-                                    <div class="flex-1">
-                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
-                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 flex items-center gap-1">
-                                            <flux:input 
-                                                type="number" 
-                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
-                                                min="0" 
-                                                class="text-right font-semibold"
-                                            />
-                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
-                                        </div>
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                        />
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('points_upward_employee')
-                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Downward Evaluation Points Category -->
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Downward Evaluation (Faculty/PHs)</h3>
-                                <flux:badge variant="{{ $isDownwardBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['downward'] ?? 0 }} / {{ $downwardTarget }} pts
-                                </flux:badge>
-                            </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('downward')">Add Part</flux:button>
-                        </div>
-
-                        <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'downward') as $criterion)
-                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
-                                    <div class="flex-1">
-                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
-                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 flex items-center gap-1">
-                                            <flux:input 
-                                                type="number" 
-                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
-                                                min="0" 
-                                                class="text-right font-semibold"
-                                            />
-                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
-                                        </div>
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                        />
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('points_downward')
-                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Peer/Supervisor Points Category -->
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation</h3>
-                                <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['peer'] ?? 0 }} / {{ $peerTarget }} pts
-                                </flux:badge>
-                            </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('peer')">Add Part</flux:button>
-                        </div>
-
-                        <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'peer') as $criterion)
-                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
-                                    <div class="flex-1">
-                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
-                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 flex items-center gap-1">
-                                            <flux:input 
-                                                type="number" 
-                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
-                                                min="0" 
-                                                class="text-right font-semibold"
-                                            />
-                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
-                                        </div>
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                        />
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('points_peer')
-                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Self Evaluation Points Category -->
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Self Evaluation</h3>
-                                <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm">
-                                    {{ $totals['self'] ?? 0 }} / {{ $selfTarget }} pts
-                                </flux:badge>
-                            </div>
-                            <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('self')">Add Part</flux:button>
-                        </div>
-
-                        <div class="space-y-3">
-                            @foreach($this->criteria->where('evaluation_type', 'self') as $criterion)
-                                <div class="flex items-center justify-between gap-4 p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg hover:border-zinc-200 transition duration-150">
-                                    <div class="flex-1">
-                                        <span class="text-xs text-zinc-500">Part #{{ $criterion->order }}</span>
-                                        <span class="font-medium text-sm text-zinc-800 dark:text-zinc-200 block">{{ $criterion->name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 flex items-center gap-1">
-                                            <flux:input 
-                                                type="number" 
-                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
-                                                min="0" 
-                                                class="text-right font-semibold"
-                                            />
-                                            <span class="text-xs font-semibold text-zinc-400">pts</span>
-                                        </div>
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                        />
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        @error('points_self')
-                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="flex items-center justify-between border-t border-zinc-150 dark:border-zinc-800 pt-4 mt-6">
-                        <div>
-                            <span class="text-xs text-zinc-500 font-medium">Scoring Configuration Status</span>
-                            <span class="text-sm font-bold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
-                                {{ $allBalanced ? 'All categories balanced' : 'Please resolve point balancing' }}
-                            </span>
-                        </div>
-
-                        <flux:button 
-                            type="submit" 
-                            variant="primary" 
-                            :disabled="!$allBalanced"
-                        >
-                            Save Points
-                        </flux:button>
-                    </div>
-                </form>
             </div>
         </div>
 
-        <!-- Right Side: Academic Periods Listing & Actions -->
-        <div class="lg:col-span-5 flex flex-col gap-6">
-            
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="calendar" class="size-5 text-indigo-500" />
-                        Academic Periods
-                    </h2>
-                </div>
+        @if($this->activeSemester)
+            <div class="flex flex-col items-end gap-2 w-full md:w-auto">
+                <flux:button 
+                    variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
+                    wire:click="toggleEvaluation"
+                    class="w-full md:w-auto font-bold"
+                >
+                    {{ $this->activeSemester->is_evaluation_open ? 'Close Evaluation System' : 'Open Evaluation System' }}
+                </flux:button>
+                @error('evaluation_toggle')
+                    <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                @enderror
+            </div>
+        @endif
+    </div>
 
-                <div class="flex gap-2 mb-6">
-                    <flux:button size="sm" variant="outline" class="flex-1" icon="plus" wire:click="$set('showYearModal', true)">Add Year</flux:button>
-                    <flux:button size="sm" variant="outline" class="flex-1" icon="plus" wire:click="$set('showSemModal', true)">Add Semester</flux:button>
-                </div>
+    <!-- SECTION 2: Evaluation Window Schedule & Academic Periods (2 Balanced Grid Columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
+        
+        <!-- Card 1: Set Evaluation Dates Schedule Window -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-4 h-full">
+            <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <flux:icon icon="clock" class="size-5 text-indigo-500" />
+                    Set Evaluation Schedule Dates
+                </h2>
+            </div>
 
-                <div class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                    @forelse($this->academicYears as $year)
-                        <div class="border border-zinc-100 dark:border-zinc-800 rounded-lg overflow-hidden shadow-xs">
-                            <!-- Year Header -->
-                            <div class="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/40 p-3 border-b border-zinc-100 dark:border-zinc-800">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-semibold text-sm text-zinc-950 dark:text-zinc-150">A.Y. {{ $year->name }}</span>
-                                    @if($year->is_active)
-                                        <flux:badge variant="info" size="sm">Active</flux:badge>
-                                    @endif
-                                </div>
-                                
-                                @if(!$year->is_active)
-                                    <flux:button size="xs" variant="ghost" wire:click="setActiveYear({{ $year->id }})">Activate</flux:button>
+            @if($this->activeSemester)
+                <form wire:submit="saveSchedule" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <flux:input
+                                type="datetime-local"
+                                wire:model="startsAt"
+                                label="Start Date & Time"
+                            />
+                        </div>
+                        <div>
+                            <flux:input
+                                type="datetime-local"
+                                wire:model="endsAt"
+                                label="End Date & Time"
+                            />
+                        </div>
+                    </div>
+                    @error('endsAt')
+                        <span class="text-xs text-rose-500 font-semibold block">{{ $message }}</span>
+                    @enderror
+
+                    <div class="flex justify-end pt-2">
+                        <flux:button type="submit" variant="outline" size="sm" icon="calendar">
+                            Save Schedule Window
+                        </flux:button>
+                    </div>
+                </form>
+
+                <!-- Current Saved Schedule Banner -->
+                @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
+                    <div class="mt-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
+                                <flux:icon icon="calendar-days" class="size-4" />
+                                Current Saved Schedule
+                            </span>
+                            @if($this->activeSemester->is_evaluation_open)
+                                <span class="text-xs text-zinc-400 dark:text-zinc-500 italic">Locked while open</span>
+                            @else
+                                <button
+                                    type="button"
+                                    wire:click="confirmRemoveSchedule"
+                                    class="text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors"
+                                >
+                                    Clear Schedule
+                                </button>
+                            @endif
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <p class="text-zinc-500 font-medium">Opens On</p>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                    {{ $this->activeSemester->evaluation_starts_at ? $this->activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : '—' }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-zinc-500 font-medium">Closes On</p>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                    {{ $this->activeSemester->evaluation_ends_at ? $this->activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : '—' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            @else
+                <p class="text-xs text-zinc-400">Select an active semester to configure evaluation schedule dates.</p>
+            @endif
+        </div>
+
+        <!-- Card 2: Academic Years & Semesters Management -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-4 h-full">
+            <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <flux:icon icon="calendar" class="size-5 text-indigo-500" />
+                    Academic Years & Semesters
+                </h2>
+                <div class="flex gap-2">
+                    <flux:button size="xs" variant="outline" icon="plus" wire:click="$set('showYearModal', true)">Add Year</flux:button>
+                    <flux:button size="xs" variant="outline" icon="plus" wire:click="$set('showSemModal', true)">Add Semester</flux:button>
+                </div>
+            </div>
+
+            <div class="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                @forelse($this->academicYears as $year)
+                    <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <!-- Year Header -->
+                        <div class="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/40 p-3 border-b border-zinc-200 dark:border-zinc-800">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">A.Y. {{ $year->name }}</span>
+                                @if($year->is_active)
+                                    <flux:badge variant="info" size="sm" class="font-bold">Active Year</flux:badge>
                                 @endif
                             </div>
+                            
+                            @if(!$year->is_active)
+                                <flux:button size="xs" variant="ghost" wire:click="setActiveYear({{ $year->id }})">Set Active</flux:button>
+                            @endif
+                        </div>
 
-                            <!-- Semesters List -->
-                            <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                @forelse($year->semesters as $sem)
-                                    <div class="flex items-center justify-between p-3 pl-6 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-sm text-zinc-700 dark:text-zinc-300 font-medium">{{ $sem->name }}</span>
-                                            @if($sem->is_active)
-                                                <flux:badge variant="info" size="sm">Active</flux:badge>
-                                            @endif
-                                            @php
-                                                $semStatus = $sem->evaluation_status;
-                                            @endphp
-                                            @if($semStatus === 'active')
-                                                <flux:badge variant="success" size="sm">Open</flux:badge>
-                                            @endif
-                                        </div>
-
-                                        @if(!$sem->is_active)
-                                            <flux:button size="xs" variant="ghost" wire:click="setActiveSemester({{ $sem->id }})">
-                                                Activate
-                                            </flux:button>
+                        <!-- Semesters List -->
+                        <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            @forelse($year->semesters as $sem)
+                                <div class="flex items-center justify-between p-3 pl-6 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{{ $sem->name }}</span>
+                                        @if($sem->is_active)
+                                            <flux:badge variant="info" size="sm" class="font-bold">Active Semester</flux:badge>
                                         @endif
                                     </div>
-                                @empty
-                                    <div class="p-3 pl-6 text-xs text-zinc-500 italic">No semesters added yet.</div>
-                                @endforelse
-                            </div>
+
+                                    @if(!$sem->is_active)
+                                        <flux:button size="xs" variant="ghost" wire:click="setActiveSemester({{ $sem->id }})">
+                                            Activate
+                                        </flux:button>
+                                    @endif
+                                </div>
+                            @empty
+                                <div class="p-3 pl-6 text-xs text-zinc-400 italic">No semesters added under this year.</div>
+                            @endforelse
                         </div>
-                    @empty
-                        <div class="text-center py-6 text-zinc-400 text-sm">No Academic Years created.</div>
-                    @endforelse
-                </div>
-            </div>
-
-            <!-- Departments Card -->
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="academic-cap" class="size-5 text-indigo-500" />
-                        Manage Departments
-                    </h2>
-                    <flux:button size="sm" variant="outline" icon="plus" wire:click="openDeptModal()">Add Dept</flux:button>
-                </div>
-
-                <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                    @forelse($this->departments as $dept)
-                        <div class="p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg flex items-center justify-between hover:border-zinc-200 transition duration-150">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">{{ $dept->code }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-250">{{ $dept->name }}</span>
-                                </div>
-                                <div class="text-xs text-zinc-500 mt-1">
-                                    Dean: <span class="font-medium text-zinc-750 dark:text-zinc-300">{{ $dept->dean ? $dept->dean->full_name : 'Not assigned' }}</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <flux:button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="pencil" 
-                                    wire:click="openDeptModal({{ $dept->id }})"
-                                    class="text-zinc-650 dark:text-zinc-400"
-                                />
-                                <flux:button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="trash" 
-                                    wire:click="confirmDeleteDept({{ $dept->id }})"
-                                    class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                />
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center py-6 text-zinc-400 text-sm">No departments created.</div>
-                    @endforelse
-                </div>
-            </div>
-
-            <!-- Programs Card -->
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="book-open" class="size-5 text-indigo-500" />
-                        Manage Programs
-                    </h2>
-                    <flux:button size="sm" variant="outline" icon="plus" wire:click="openProgModal()">Add Prog</flux:button>
-                </div>
-
-                <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                    @forelse($this->programs as $prog)
-                        <div class="p-3 bg-zinc-50 dark:bg-zinc-800/20 border border-zinc-100 dark:border-zinc-800 rounded-lg flex items-center justify-between hover:border-zinc-200 transition duration-150">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">{{ $prog->code }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-250">{{ $prog->name }}</span>
-                                </div>
-                                <div class="text-xs text-zinc-500 mt-1">
-                                    Dept: <span class="font-medium text-zinc-700 dark:text-zinc-300 mr-2">{{ $prog->department?->code ?: 'None' }}</span>
-                                    Head: <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $prog->programHead ? $prog->programHead->full_name : 'Not assigned' }}</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <flux:button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="pencil" 
-                                    wire:click="openProgModal({{ $prog->id }})"
-                                    class="text-zinc-650 dark:text-zinc-400"
-                                />
-                                <flux:button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    icon="trash" 
-                                    wire:click="confirmDeleteProg({{ $prog->id }})"
-                                    class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                />
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center py-6 text-zinc-400 text-sm">No programs created.</div>
-                    @endforelse
-                </div>
+                    </div>
+                @empty
+                    <div class="text-center py-6 text-zinc-400 text-sm">No Academic Years created.</div>
+                @endforelse
             </div>
         </div>
     </div>
 
+    <!-- SECTION 3: Evaluation Weight Score Card & Dynamic Target Inputs (Full Width Card with 5px #800000 Left Border) -->
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <flux:icon icon="chart-bar" class="size-6 text-[#800000] dark:text-red-400" />
+                    Evaluation Weight Score Card & Dynamic Max Points Target
+                </h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Configure max score points for all 7 evaluation types. Relative percentage weights update automatically.
+                </p>
+            </div>
+
+            @php
+                $totals = $this->categoryTotals;
+                $tStudent = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
+                $tSelf = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
+                $tDean = is_numeric($this->deanMaxTarget) ? (float)$this->deanMaxTarget : 0.0;
+                $tHead = is_numeric($this->programHeadMaxTarget) ? (float)$this->programHeadMaxTarget : 0.0;
+                $tPeer = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
+                $tSuper = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
+                $tStaff = is_numeric($this->staffMaxTarget) ? (float)$this->staffMaxTarget : 0.0;
+
+                $isUpwardStudentBalanced = abs(($totals['upward_student'] ?? 0.0) - $tStudent) < 0.001;
+                $isUpwardEmployeeBalanced = abs(($totals['upward_employee'] ?? 0.0) - $tDean) < 0.001;
+                $isDownwardBalanced = abs(($totals['downward'] ?? 0.0) - $tSuper) < 0.001;
+                $isPeerBalanced = abs(($totals['peer'] ?? 0.0) - $tPeer) < 0.001;
+                $isSelfBalanced = abs(($totals['self'] ?? 0.0) - $tSelf) < 0.001;
+                $allBalanced = $isUpwardStudentBalanced && $isUpwardEmployeeBalanced && $isDownwardBalanced && $isPeerBalanced && $isSelfBalanced;
+
+                $grandTotal = max(1, $tStudent + $tSelf + $tDean + $tHead + $tPeer + $tSuper + $tStaff);
+
+                $studentPct = round(($tStudent / $grandTotal) * 100);
+                $selfPct = round(($tSelf / $grandTotal) * 100);
+                $deanPct = round(($tDean / $grandTotal) * 100);
+                $headPct = round(($tHead / $grandTotal) * 100);
+                $peerPct = round(($tPeer / $grandTotal) * 100);
+                $superPct = round(($tSuper / $grandTotal) * 100);
+                $staffPct = round(($tStaff / $grandTotal) * 100);
+            @endphp
+
+            <flux:badge variant="{{ $allBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold self-start sm:self-auto">
+                {{ $allBalanced ? 'Points Balanced' : 'Unbalanced Points' }}
+            </flux:badge>
+        </div>
+
+        <!-- 7 Evaluation Terms Grid (Spacious Responsive Layout) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- 1. Student Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-indigo-500"></span>
+                            Student Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded">{{ $studentPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Students evaluating Professors</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="upwardStudentMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Self Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-rose-500"></span>
+                            Self Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded">{{ $selfPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Faculty/Staff self evaluation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="selfMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Dean Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-emerald-500"></span>
+                            Dean Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded">{{ $deanPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Executive Dean evaluation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="deanMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Program Head Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-sky-500"></span>
+                            Program Head Eval
+                        </span>
+                        <span class="text-xs font-mono font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded">{{ $headPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Program Head evaluation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="programHeadMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Peer Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-purple-500"></span>
+                            Peer Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded">{{ $peerPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Faculty peer evaluation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="peerMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Supervisor Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-amber-500"></span>
+                            Supervisor Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded">{{ $superPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Deans/Program Heads rating Faculty</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="downwardMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. Staff Evaluation -->
+            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                            <span class="size-2.5 rounded-full bg-teal-500"></span>
+                            Staff Evaluation
+                        </span>
+                        <span class="text-xs font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded">{{ $staffPct }}% weight</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">Staff performance evaluation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
+                    <div class="flex items-center gap-1">
+                        <flux:input type="number" wire:model.live="staffMaxTarget" min="0" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Cumulative Target Card -->
+            <div class="p-4 bg-[#800000]/10 dark:bg-red-950/30 rounded-xl border border-[#800000]/20 dark:border-red-900/50 flex flex-col justify-between space-y-2">
+                <span class="text-xs font-bold text-[#800000] dark:text-red-400 uppercase tracking-wider">Total Max Evaluation Target</span>
+                <span class="font-mono font-bold text-2xl text-[#800000] dark:text-red-400">{{ $grandTotal }} <span class="text-sm">pts</span></span>
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">Sum of active target score points</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 4: Evaluation Questionnaire Parts Breakdown Setup (Full Width Card) -->
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full">
+        <div>
+            <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <flux:icon icon="adjustments-horizontal" class="size-6 text-indigo-500" />
+                Questionnaire Parts & Point Allocations Setup
+            </h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                Configure individual criteria parts under each evaluation category. The sum of parts must equal the category target points.
+            </p>
+        </div>
+
+        <form wire:submit="savePoints" class="space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                
+                <!-- Student Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Student Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isUpwardStudentBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['upward_student'] ?? 0 }} / {{ $tStudent }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_student')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @foreach($this->criteria->where('evaluation_type', 'upward_student') as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm"
+                                        />
+                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('points_upward_student')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Supervisor Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Supervisor Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isDownwardBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['downward'] ?? 0 }} / {{ $tSuper }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('downward')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @foreach($this->criteria->where('evaluation_type', 'downward') as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm"
+                                        />
+                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('points_downward')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Peer Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['peer'] ?? 0 }} / {{ $tPeer }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('peer')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @foreach($this->criteria->where('evaluation_type', 'peer') as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm"
+                                        />
+                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('points_peer')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Self Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Self Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['self'] ?? 0 }} / {{ $tSelf }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('self')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @foreach($this->criteria->where('evaluation_type', 'self') as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm"
+                                        />
+                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('points_self')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-4">
+                <div>
+                    <span class="text-xs text-zinc-500 font-medium">Scoring Balance Status</span>
+                    <span class="text-sm font-bold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                        {{ $allBalanced ? 'All criteria categories balanced' : 'Please balance part points with target points' }}
+                    </span>
+                </div>
+
+                <flux:button 
+                    type="submit" 
+                    variant="primary" 
+                    :disabled="!$allBalanced"
+                >
+                    Save Points & Score Weights
+                </flux:button>
+            </div>
+        </form>
+    </div>
+
     <!-- Create Academic Year Modal -->
     @if($showYearModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">Create Academic Year</flux:heading>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800 space-y-4">
+            <flux:heading size="lg">Create Academic Year</flux:heading>
             
             <form wire:submit="createAcademicYear" class="space-y-4">
                 <flux:input 
@@ -1379,9 +1101,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Create Semester Modal -->
     @if($showSemModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">Create Semester</flux:heading>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800 space-y-4">
+            <flux:heading size="lg">Create Semester</flux:heading>
             
             <form wire:submit="createSemester" class="space-y-4">
                 <flux:select wire:model="selectedYearId" label="Academic Year" required>
@@ -1409,19 +1131,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Create Criterion Modal -->
     @if($showCriterionModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">Create Criterion</flux:heading>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800 space-y-4">
+            <flux:heading size="lg">Create Part / Criterion</flux:heading>
             
             <form wire:submit="createCriterion" class="space-y-4">
                 <flux:input 
                     wire:model="newCriterionName" 
                     label="Part Name" 
-                    placeholder="e.g. Part 1: Course Prep" 
+                    placeholder="e.g. Part 1: Course Preparation" 
                     required 
                 />
                 @error('newCriterionName')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
+                    <span class="text-xs text-rose-500 font-semibold block">{{ $message }}</span>
                 @enderror
 
                 <flux:input 
@@ -1433,182 +1155,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 />
 
                 <flux:select wire:model="newCriterionType" label="Evaluation Target Type" required>
-                    <flux:select.option value="upward_student">Student Upward Evaluation</flux:select.option>
+                    <flux:select.option value="upward_student">Student Evaluation</flux:select.option>
                     <flux:select.option value="upward_employee">Employee Upward Evaluation (PHs/Deans)</flux:select.option>
-                    <flux:select.option value="downward">Downward Evaluation (Faculty/PHs)</flux:select.option>
+                    <flux:select.option value="downward">Supervisor Evaluation (Faculty/PHs)</flux:select.option>
                     <flux:select.option value="peer">Peer Evaluation (Faculty)</flux:select.option>
                     <flux:select.option value="self">Self Evaluation</flux:select.option>
                 </flux:select>
 
                 <div class="flex justify-end gap-2 mt-6">
                     <flux:button size="sm" wire:click="$set('showCriterionModal', false)">Cancel</flux:button>
-                    <flux:button size="sm" variant="primary" type="submit">Create</flux:button>
+                    <flux:button size="sm" variant="primary" type="submit">Create Part</flux:button>
                 </div>
             </form>
         </div>
     </div>
-    @endif
-
-    <!-- Create/Edit Department Modal -->
-    @if($showDeptModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">{{ $deptId ? 'Edit Department' : 'Create Department' }}</flux:heading>
-            
-            <form wire:submit="saveDept" class="space-y-4">
-                <flux:input 
-                    wire:model="deptCode" 
-                    label="Department Code" 
-                    placeholder="e.g. CCS" 
-                    required 
-                />
-                @error('deptCode')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <flux:input 
-                    wire:model="deptName" 
-                    label="Department Name" 
-                    placeholder="e.g. College of Computer Studies" 
-                    required 
-                />
-                @error('deptName')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <flux:select wire:model="deptDeanId" label="Dean / Head (Optional)">
-                    <flux:select.option value="">Select Dean</flux:select.option>
-                    @foreach($this->deans as $dean)
-                        <flux:select.option value="{{ $dean->id }}">{{ $dean->full_name }} ({{ $dean->employee_number }})</flux:select.option>
-                    @endforeach
-                </flux:select>
-                @error('deptDeanId')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <div class="flex justify-end gap-2 mt-6">
-                    <flux:button size="sm" wire:click="$set('showDeptModal', false)">Cancel</flux:button>
-                    <flux:button size="sm" variant="primary" type="submit">{{ $deptId ? 'Save Changes' : 'Create' }}</flux:button>
-                </div>
-            </form>
-        </div>
-    </div>
-    @endif
-
-    <!-- Delete Department Confirmation Modal -->
-    @if($showDeleteDeptModal && $deletingDept)
-    <x-confirmation-modal 
-        title="Delete Department" 
-        on-confirm="deleteDept" 
-        on-cancel="$set('showDeleteDeptModal', false)" 
-    >
-        Are you sure you want to delete this department? This action cannot be undone and will cascade to remove associated programs and unlink assigned staff/deans.
-
-        <x-slot:details>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Code</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->code }}</span>
-                </div>
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Dean / Head</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->dean ? $deletingDept->dean->full_name : 'Not assigned' }}</span>
-                </div>
-                <div class="sm:col-span-2">
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Name</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDept->name }}</span>
-                </div>
-            </div>
-        </x-slot:details>
-    </x-confirmation-modal>
-    @endif
-
-    <!-- Create/Edit Program Modal -->
-    @if($showProgModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-sm border border-zinc-200 dark:border-zinc-800">
-            <flux:heading size="lg" class="mb-4">{{ $progId ? 'Edit Program' : 'Create Program' }}</flux:heading>
-            
-            <form wire:submit="saveProg" class="space-y-4">
-                <flux:input 
-                    wire:model="progCode" 
-                    label="Program Code" 
-                    placeholder="e.g. BSCS" 
-                    required 
-                />
-                @error('progCode')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <flux:input 
-                    wire:model="progName" 
-                    label="Program Name" 
-                    placeholder="e.g. BS Computer Science" 
-                    required 
-                />
-                @error('progName')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <flux:select wire:model="progDeptId" label="Department / College" required>
-                    <flux:select.option value="">Select Department</flux:select.option>
-                    @foreach($this->departments as $dept)
-                        <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                @error('progDeptId')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <flux:select wire:model="progHeadId" label="Program Head / Lead (Optional)">
-                    <flux:select.option value="">Select Program Head</flux:select.option>
-                    @foreach($this->programHeads as $head)
-                        <flux:select.option value="{{ $head->id }}">{{ $head->full_name }} ({{ $head->employee_number }})</flux:select.option>
-                    @endforeach
-                </flux:select>
-                @error('progHeadId')
-                    <span class="text-xs text-rose-500 font-semibold">{{ $message }}</span>
-                @enderror
-
-                <div class="flex justify-end gap-2 mt-6">
-                    <flux:button size="sm" wire:click="$set('showProgModal', false)">Cancel</flux:button>
-                    <flux:button size="sm" variant="primary" type="submit">{{ $progId ? 'Save Changes' : 'Create' }}</flux:button>
-                </div>
-            </form>
-        </div>
-    </div>
-    @endif
-
-    <!-- Delete Program Confirmation Modal -->
-    @if($showDeleteProgModal && $deletingProg)
-    <x-confirmation-modal 
-        title="Delete Program" 
-        on-confirm="deleteProg" 
-        on-cancel="$set('showDeleteProgModal', false)" 
-    >
-        Are you sure you want to delete this program? This action cannot be undone and will cascade to affect student program links.
-
-        <x-slot:details>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Code</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->code }}</span>
-                </div>
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Head</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->programHead ? $deletingProg->programHead->full_name : 'Not assigned' }}</span>
-                </div>
-                <div class="sm:col-span-2">
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Name</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->name }}</span>
-                </div>
-                <div class="sm:col-span-2">
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingProg->department?->code }} - {{ $deletingProg->department?->name }}</span>
-                </div>
-            </div>
-        </x-slot:details>
-    </x-confirmation-modal>
     @endif
 
     <!-- Delete Criterion Confirmation Modal -->
@@ -1623,8 +1183,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <x-slot:details>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Target Type</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150 capitalize">{{ $deletingCriterion->evaluation_type }} Evaluation</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Evaluation Type</span>
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150 capitalize">{{ $deletingCriterion->evaluation_type }}</span>
                 </div>
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Max Points Allocation</span>
@@ -1641,8 +1201,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Overwrite Schedule Confirmation Modal -->
     @if($showOverwriteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-sm mx-4 p-6 space-y-5">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-sm p-6 space-y-5">
             <div class="flex items-start gap-3">
                 <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
                     <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400" />
@@ -1691,7 +1251,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         on-cancel="$set('showRemoveScheduleModal', false)" 
         confirm-text="Yes, Remove"
     >
-        This will permanently clear the saved evaluation window. The <span class="font-semibold text-rose-600 dark:text-rose-400 font-semibold">Open Evaluation</span> button will also stop working until a new schedule is set.
+        This will permanently clear the saved evaluation window schedule. The <span class="font-semibold text-rose-600 dark:text-rose-400">Open Evaluation</span> button will also stop working until a new schedule is set.
 
         @if($this->activeSemester->evaluation_starts_at || $this->activeSemester->evaluation_ends_at)
             <x-slot:details>

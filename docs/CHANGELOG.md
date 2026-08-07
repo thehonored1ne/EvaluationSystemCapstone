@@ -6,7 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [2026-08-07]
+
+### Added
+- **Institutional Rankings Page (`/rankings`)**:
+  - Added a dedicated **Rankings** page positioned directly below **Results** in the main sidebar ([sidebar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php)).
+  - Features 4 top summary metric cards styled with 5px dark red (`#800000`) left borders and live `<x-odometer>` counters (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating).
+  - Two primary leaderboards: **Faculty Leaderboard** (ranked with 🥇, 🥈, 🥉 badges, department badges, evaluations count, composite rating, and performance descriptor badges) and **Department Leaderboard** (ranked department averages, dean assignment, and faculty count).
+  - Search input bar, Department Filter dropdown, and Sort selector (*Highest Rating First*, *Lowest Rating First*, *Most Evaluations*).
+- **Completion Tracking Monitoring Dashboard Redesign**:
+  - Redesigned the **Completion Tracking** page ([manage-evaluations.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)) into a comprehensive multi-perspective evaluation monitoring dashboard.
+  - Added 4 top summary metric cards styled with 5px dark red (`#800000`) left borders and live `<x-odometer>` counters (Total Submissions Received, Student Progress %, Supervisor Ratings %, Self Appraisals Done).
+  - Multi-perspective navigation tabs: **Student Upward Progress**, **Supervisor & Executive Ratings**, and **Self Appraisals**.
+  - Built-in search input bar, Department Filter dropdown, Status Filter (`All`, `100% Completed`, `In Progress`, `Pending`), and "Send Reminders" action button.
+- **Evaluation Weight Score Card**:
+  - Added a dedicated **Evaluation Weight Score Card** to the Evaluation Settings page ([evaluation-settings.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php)).
+  - Features a 5px thick dark red (`#800000`) left border, live percentage distribution calculation across all 5 evaluation targets (Student Upward, Employee Upward, Supervisor Downward, Peer, and Self), color-coded progress bars, real-time balance status indicator, and grand total target score summary.
+- **Admin Programs Management Page**:
+  - Added a dedicated `/admin/programs` page positioned directly below **Departments** in the main sidebar.
+  - Features 4 top summary metric cards styled with 5px dark red (`#800000`) left borders and live `<x-odometer>` counters (Total Academic Programs, Assigned Program Heads, Program Students, Active Departments).
+  - Search input bar, Department Filter dropdown, Program Head assignment filter, and multiple sort modes.
+  - Table displaying Program Code, Name, Department, Program Head, Enrolled Students count badge, and `<flux:dropdown>` Action menu.
+  - Removed duplicate/redundant Department and Program cards from the Evaluation Settings view.
+- **Admin Departments Management Page**:
+  - Added a dedicated `/admin/departments` page positioned directly below **Classes** in the main sidebar.
+  - Features 4 top summary metric cards styled with 5px dark red (`#800000`) left borders and live `<x-odometer>` counters (Total Departments, Assigned Deans, Academic Programs, Department Faculty).
+  - Built-in search input bar and Dean Assignment filter dropdown (`Assigned Dean`, `Unassigned Dean`) with multiple sorting modes.
+  - Table displaying Department Code, Name, Assigned Dean, Academic Programs count badge, Department Faculty count badge, and `<flux:dropdown>` Action menu for editing and deletion.
+- **Admin Classes Page Enhancements**:
+  - Replaced text schedule field with a schedule days selector (`MW`, `TTH`, `FS`, `MWF`, etc.) and start/end time pickers (`type="time"`).
+  - Removed the `room` column from the table and form views for a cleaner layout focused strictly on section schedules.
+  - Grouped table action items into a clean `<flux:dropdown>` Action menu (Manage Enrollment, Edit Class, Delete Class) matching user management pages.
+  - Removed subject code and professor employee ID labels in table columns, displaying clean Subject Name and Professor Name.
+  - Added Subject and Professor filter dropdowns alongside Semester and Department search controls.
+- **Admin Subjects Page Enhancements**:
+  - Top 4 summary statistics cards (Total Subjects, Active Classes Assigned, Total Units Offered, Unassigned Subjects) styled with 5px dark red (`#800000`) left borders and live `<x-odometer>` digit animation counters.
+  - Advanced search and filtering bar supporting Units filtering (1 Unit Lab, 2 Units, 3 Units Lecture, 4+ Units Major), Usage Status (Assigned vs. Unassigned), and multiple sorting modes (Code A-Z/Z-A, Name, Most Units, Most Classes).
+  - Interactive **Assigned Classes Modal** displaying all section classes linked to a subject, including semester, assigned faculty member, schedule/room, and enrolled student counts.
+- **Admin Dashboard Visual Styling**: Standardized all cards on the Admin Dashboard with a 5px thick dark red (`#800000`) left border.
 
 ---
 

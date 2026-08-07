@@ -89,6 +89,7 @@ test('only admins can access subjects and classes and role management routes', f
     $this->actingAs($this->adminUser);
     $this->get('/admin/subjects')->assertStatus(200);
     $this->get('/admin/classes')->assertStatus(200);
+    $this->get('/admin/departments')->assertStatus(200);
     $this->get('/admin/employees')->assertStatus(200);
     $this->get('/admin/students')->assertStatus(200);
 
@@ -96,6 +97,7 @@ test('only admins can access subjects and classes and role management routes', f
     $this->actingAs($this->facultyUser);
     $this->get('/admin/subjects')->assertStatus(403);
     $this->get('/admin/classes')->assertStatus(403);
+    $this->get('/admin/departments')->assertStatus(403);
     $this->get('/admin/employees')->assertStatus(403);
     $this->get('/admin/students')->assertStatus(403);
 
@@ -103,6 +105,7 @@ test('only admins can access subjects and classes and role management routes', f
     $this->actingAs($this->studentUser);
     $this->get('/admin/subjects')->assertStatus(403);
     $this->get('/admin/classes')->assertStatus(403);
+    $this->get('/admin/departments')->assertStatus(403);
     $this->get('/admin/employees')->assertStatus(403);
     $this->get('/admin/students')->assertStatus(403);
 });
@@ -305,7 +308,7 @@ test('dean and student role management pages CRUD functions correctly', function
     expect($studentUser->hasRole('student'))->toBeTrue();
 });
 
-test('department CRUD inside evaluation settings works correctly', function () {
+test('department CRUD works correctly', function () {
     $this->actingAs($this->adminUser);
 
     // Create a dean to test dean assignment
@@ -318,12 +321,12 @@ test('department CRUD inside evaluation settings works correctly', function () {
     ]);
 
     // 1. Create Department
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openDeptModal')
-        ->set('deptCode', 'COE')
-        ->set('deptName', 'College of Engineering')
-        ->set('deptDeanId', $deanEmp->id)
-        ->call('saveDept');
+    $component = Volt::test('admin.manage-departments')
+        ->call('prepareCreate')
+        ->set('code', 'COE')
+        ->set('name', 'College of Engineering')
+        ->set('dean_id', (string)$deanEmp->id)
+        ->call('saveDepartment');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseHas('departments', ['code' => 'COE', 'name' => 'College of Engineering', 'dean_id' => $deanEmp->id]);
@@ -332,27 +335,27 @@ test('department CRUD inside evaluation settings works correctly', function () {
     $dept = Department::where('code', 'COE')->first();
 
     // 2. Edit/Update Department
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openDeptModal', $dept->id)
-        ->set('deptName', 'College of Engineering and Technology')
-        ->call('saveDept');
+    $component = Volt::test('admin.manage-departments')
+        ->call('editDepartment', $dept)
+        ->set('name', 'College of Engineering and Technology')
+        ->call('saveDepartment');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseHas('departments', ['id' => $dept->id, 'name' => 'College of Engineering and Technology']);
 
     // 3. Prevent duplicate code validation
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openDeptModal')
-        ->set('deptCode', 'COE')
-        ->set('deptName', 'Duplicate College')
-        ->call('saveDept');
+    $component = Volt::test('admin.manage-departments')
+        ->call('prepareCreate')
+        ->set('code', 'COE')
+        ->set('name', 'Duplicate College')
+        ->call('saveDepartment');
 
-    $component->assertHasErrors(['deptCode']);
+    $component->assertHasErrors(['code']);
 
     // 4. Delete Department
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('confirmDeleteDept', $dept->id)
-        ->call('deleteDept');
+    $component = Volt::test('admin.manage-departments')
+        ->call('confirmDelete', $dept)
+        ->call('deleteDepartment');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseMissing('departments', ['id' => $dept->id]);
@@ -428,7 +431,7 @@ test('filtering user management lists by department works correctly', function (
         });
 });
 
-test('program CRUD inside evaluation settings works correctly', function () {
+test('program CRUD works correctly', function () {
     $this->actingAs($this->adminUser);
 
     // Create a program head to test assignment
@@ -441,13 +444,13 @@ test('program CRUD inside evaluation settings works correctly', function () {
     ]);
 
     // 1. Create Program
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openProgModal')
-        ->set('progCode', 'BSIT')
-        ->set('progName', 'BS Information Technology')
-        ->set('progDeptId', $this->dept->id)
-        ->set('progHeadId', $headEmp->id)
-        ->call('saveProg');
+    $component = Volt::test('admin.manage-programs')
+        ->call('prepareCreate')
+        ->set('code', 'BSIT')
+        ->set('name', 'BS Information Technology')
+        ->set('department_id', (string)$this->dept->id)
+        ->set('program_head_id', (string)$headEmp->id)
+        ->call('saveProgram');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseHas('programs', ['code' => 'BSIT', 'name' => 'BS Information Technology', 'department_id' => $this->dept->id, 'program_head_id' => $headEmp->id]);
@@ -456,28 +459,28 @@ test('program CRUD inside evaluation settings works correctly', function () {
     $prog = Program::where('code', 'BSIT')->first();
 
     // 2. Edit/Update Program
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openProgModal', $prog->id)
-        ->set('progName', 'BS Info Tech')
-        ->call('saveProg');
+    $component = Volt::test('admin.manage-programs')
+        ->call('editProgram', $prog)
+        ->set('name', 'BS Info Tech')
+        ->call('saveProgram');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseHas('programs', ['id' => $prog->id, 'name' => 'BS Info Tech']);
 
     // 3. Prevent duplicate code validation
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('openProgModal')
-        ->set('progCode', 'BSIT')
-        ->set('progName', 'Duplicate Program')
-        ->set('progDeptId', $this->dept->id)
-        ->call('saveProg');
+    $component = Volt::test('admin.manage-programs')
+        ->call('prepareCreate')
+        ->set('code', 'BSIT')
+        ->set('name', 'Duplicate Program')
+        ->set('department_id', (string)$this->dept->id)
+        ->call('saveProgram');
 
-    $component->assertHasErrors(['progCode']);
+    $component->assertHasErrors(['code']);
 
     // 4. Delete Program
-    $component = Volt::test('admin.evaluation-settings')
-        ->call('confirmDeleteProg', $prog->id)
-        ->call('deleteProg');
+    $component = Volt::test('admin.manage-programs')
+        ->call('confirmDelete', $prog)
+        ->call('deleteProgram');
 
     $component->assertHasNoErrors();
     $this->assertDatabaseMissing('programs', ['id' => $prog->id]);
