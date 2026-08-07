@@ -71,6 +71,8 @@
                         </div>
                         <flux:navlist.item icon="book-open" :href="route('admin.subjects')" :current="request()->routeIs('admin.subjects')" wire:navigate>Subjects</flux:navlist.item>
                         <flux:navlist.item icon="academic-cap" :href="route('admin.classes')" :current="request()->routeIs('admin.classes')" wire:navigate>Classes</flux:navlist.item>
+                        <flux:navlist.item icon="building-office-2" :href="route('admin.departments')" :current="request()->routeIs('admin.departments')" wire:navigate>Departments</flux:navlist.item>
+                        <flux:navlist.item icon="academic-cap" :href="route('admin.programs')" :current="request()->routeIs('admin.programs')" wire:navigate>Programs</flux:navlist.item>
                         <flux:navlist.item icon="cog-6-tooth" :href="route('admin.evaluation-settings')" :current="request()->routeIs('admin.evaluation-settings')" wire:navigate>Evaluation Settings</flux:navlist.item>
                     </flux:navlist.group>
                 @endif
@@ -132,6 +134,10 @@
 
                     @if($user->hasAnyRole(['admin', 'dean']))
                         <flux:navlist.item icon="check-badge" :href="route('evaluation-results')" :current="request()->routeIs('evaluation-results')" wire:navigate>Results</flux:navlist.item>
+                    @endif
+
+                    @if($user->hasAnyRole(['admin', 'dean', 'program head', 'faculty']))
+                        <flux:navlist.item icon="trophy" :href="route('rankings')" :current="request()->routeIs('rankings')" wire:navigate>Rankings</flux:navlist.item>
                     @endif
                 </flux:navlist.group>
 

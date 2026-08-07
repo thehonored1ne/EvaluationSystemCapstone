@@ -61,6 +61,7 @@ class Student extends Model
     public function getFormattedNameAttribute(): string
     {
         $firstMiddleSuffix = trim(implode(' ', array_filter([$this->first_name, $this->middle_name, $this->suffix])));
+
         return "{$this->last_name}, {$firstMiddleSuffix}";
     }
 }

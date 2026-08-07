@@ -70,6 +70,14 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.classes');
 
+    Volt::route('/admin/departments', 'admin.manage-departments')
+        ->middleware('role:admin')
+        ->name('admin.departments');
+
+    Volt::route('/admin/programs', 'admin.manage-programs')
+        ->middleware('role:admin')
+        ->name('admin.programs');
+
     Volt::route('/admin/ai', 'admin.manage-ai')
         ->middleware('role:admin')
         ->name('admin.ai');
@@ -107,6 +115,10 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
     Volt::route('/evaluation-results', 'evaluation-results')
         ->middleware('role:admin|dean')
         ->name('evaluation-results');
+
+    Volt::route('/rankings', 'rankings')
+        ->middleware('role:admin|dean|program head|faculty')
+        ->name('rankings');
 
     Volt::route('/analytics', 'analytics')
         ->middleware('role:admin')

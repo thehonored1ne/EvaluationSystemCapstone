@@ -311,7 +311,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Top Row Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Card 1: Total Employees -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Employees</span>
@@ -323,7 +323,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 2: Total Students -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Students</span>
@@ -335,7 +335,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 3: Current Evaluation Progress -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Current Evaluation Progress</span>
@@ -352,7 +352,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 4: Pending Submissions -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border: 2px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Pending Submissions</span>
@@ -367,7 +367,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Middle Row: Simplified Status & Feedback Overview Cards -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Simplified Card 1: Evaluation Period Status -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border: 2px solid #800000 !important;">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -457,7 +457,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Simplified Card 2: Overall Evaluation Feedback Overview -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border: 2px solid #800000 !important;">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -536,7 +536,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         <!-- Department Completion rates -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-7" style="border: 2px solid #800000 !important;">
+        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-7" style="border-left: 5px solid #800000 !important;">
             <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                 Department Participation Rates
             </h3>
@@ -582,7 +582,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </flux:card>
 
         <!-- Recent Submissions Log -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-5" style="border: 2px solid #800000 !important;">
+        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-5" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                     Recent Submissions Log
@@ -634,7 +634,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:heading size="lg">Quick System Actions</flux:heading>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
+            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="cog" class="size-5" />
                 </div>
@@ -644,7 +644,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
+            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="chart-bar" class="size-5" />
                 </div>
@@ -654,7 +654,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
+            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="document-text" class="size-5" />
                 </div>
@@ -664,7 +664,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border: 2px solid #800000 !important;">
+            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="user" class="size-5" />
                 </div>

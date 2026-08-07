@@ -40,4 +40,12 @@ class Department extends Model
     {
         return $this->hasMany(Program::class);
     }
+
+    /**
+     * Get the employees belonging to this department.
+     */
+    public function employees()
+    {
+        return $this->hasMany(Employee::class);
+    }
 }
