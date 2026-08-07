@@ -20,19 +20,21 @@ Handles user authentication, role-based access control, account administration, 
 ## 2. Academic Structure & Catalog Management
 Manages institutional hierarchy, curriculum catalogs, academic periods, and class allocations.
 * **Key Features**:
-  * Department & Academic Program administration
-  * Academic Year & Semester scheduling with active-term toggles
-  * Subject catalog management
-  * Class section creation (linking subjects, assigned faculty, sections, and programs)
+  * **Dedicated Departments Management Page (`/admin/departments`)**: Features 4 metric cards (5px `#800000` dark red border, `<x-odometer>`), Dean assignment filter (`Assigned Dean`, `Unassigned Dean`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion
+  * **Dedicated Academic Programs Management Page (`/admin/programs`)**: Features 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions
+  * Academic Year & Semester scheduling with active-term toggles and schedule removal safeguards
+  * Subject catalog management (`/admin/subjects`) with grouped actions
+  * Class section management (`/admin/classes`) linking subjects, assigned faculty, sections, and programs
 
 ---
 
 ## 3. Questionnaire & Evaluation Settings
 Allows administrators to configure evaluation instruments, rating criteria, question banks, and evaluation schedules.
 * **Key Features**:
+  * **Evaluation Weight Score Card**: Configures dynamic max score point targets for all 7 evaluation types (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`), calculating real-time percentage distribution weights with color-coded progress bars and balance indicators
+  * **4-Section Vertical Dashboard**: Structured layout separating System Access Banner, 2-Column Schedule Grid, Evaluation Weight Score Card, and Questionnaire Parts Breakdown
   * **Evaluation Criteria**: Categorizes evaluation areas (Teaching Effectiveness, Classroom Management, Professionalism, Communication)
   * **Question Bank**: Rating-scale questions assigned to specific criteria
-  * **Evaluation Parameters**: Configures active periods, target evaluator roles, and completion rules
 
 ---
 
@@ -57,6 +59,7 @@ Integrates a Python Flask microservice pipeline to analyze textual feedback comm
 ## 6. Evaluation Oversight & Operations
 Provides real-time administrative supervision over active and past evaluation cycles.
 * **Key Features**:
+  * **Completion Tracking Monitoring Dashboard (`/manage-evaluations`)**: Multi-perspective monitoring dashboard featuring 4 metric cards (Total Submissions, Student Progress %, Supervisor Ratings %, Self Appraisals Done), tabs (**Student Upward Progress**, **Supervisor & Executive Ratings**, **Self Appraisals**), search, department filter, completion status filter, and reminder broadcast
   * Real-time metrics: Total Employees, Total Students, Current Evaluation Progress (expected sum formula), and Pending Submissions odometer counter
   * Evaluation Period Status panel with clear status banners, explicit date-time windows, real-time schedule indicator badges, and direct action triggers
   * Sentiment feedback overview aggregated across all evaluators (Students, Faculty, Deans, Program Heads, Staff)
@@ -65,9 +68,10 @@ Provides real-time administrative supervision over active and past evaluation cy
 
 ---
 
-## 7. Analytics, Results & Report Generation
-Translates quantitative ratings and qualitative sentiment insights into visual dashboards and exportable summaries.
+## 7. Analytics, Results & Rankings
+Translates quantitative ratings and qualitative sentiment insights into visual dashboards, institutional leaderboards, and exportable summaries.
 * **Key Features**:
+  * **Institutional Performance Rankings Page (`/rankings`)**: Dedicated leaderboard page featuring 4 metric cards (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating), **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes
   * **Individual Results**: Score breakdowns per faculty member, criteria metrics, and sentiment distribution
   * **Executive Analytics**: Visual performance trends, rating distribution charts, and department comparisons
   * **Report Generator**: Printable and exportable performance evaluation summaries

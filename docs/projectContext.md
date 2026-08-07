@@ -30,6 +30,15 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 7, 2026
+- **Admin Departments Management Page (`/admin/departments`)**: Added a dedicated department management panel in the main sidebar with 4 metric cards (5px `#800000` dark red left border, live `<x-odometer>` counters), Dean assignment filter (`Assigned Dean`, `Unassigned Dean`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion.
+- **Admin Programs Management Page (`/admin/programs`)**: Added a dedicated academic programs panel directly below Departments in the sidebar with 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions. Removed duplicate department/program cards from Evaluation Settings.
+- **Evaluation Weight Score Card & Dynamic Target Points**: Added a dynamic Evaluation Weight Score Card to Evaluation Settings with dynamic target point inputs for all 7 evaluation types (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`), real-time percentage weight calculations, color-coded progress bars, balance status badge, and database migration support.
+- **Evaluation Settings 4-Section Dashboard**: Re-architected Evaluation Settings into a spacious 4-section vertical layout (Active Access Status Banner, 2-Column Schedule & Period Grid, Evaluation Weight Score Card, Questionnaire Parts Setup).
+- **Completion Tracking Dashboard Redesign (`/manage-evaluations`)**: Redesigned Completion Tracking into a multi-perspective evaluation monitoring dashboard with 4 metric cards (Total Submissions Received, Student Progress %, Supervisor Ratings %, Self Appraisals Done), tabs (**Student Upward Progress**, **Supervisor & Executive Ratings**, **Self Appraisals**), search, department filter, completion status filter, and reminder broadcast.
+- **Institutional Rankings Page (`/rankings`)**: Added a dedicated Rankings page below Results in the sidebar featuring 4 metric cards, **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes.
+- **Code Quality & Testing**: Formatted codebase using **Laravel Pint**, verified static analysis using **PHPStan** (0 errors), and confirmed 100% pass across all Pest feature tests.
+
 ### August 6, 2026
 - **Unified User Portals & Suffix Support**: Consolidated user management into `/admin/employees` (Deans, Program Heads, Faculty, Staff, Admin) and `/admin/students` (Students). Added `suffix` database column and `formatted_name` accessor (`Last Name, First Name Middle Name Suffix`).
 - **Self-Account & System Safeguards**: Implemented backend guards preventing active logged-in administrators (`auth()->id()`) from self-disabling or self-deleting (with visual `YOU` badges), and added a safeguard protecting the last remaining active Administrator account.
