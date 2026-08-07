@@ -325,7 +325,7 @@ test('department CRUD works correctly', function () {
         ->call('prepareCreate')
         ->set('code', 'COE')
         ->set('name', 'College of Engineering')
-        ->set('dean_id', (string)$deanEmp->id)
+        ->set('dean_id', (string) $deanEmp->id)
         ->call('saveDepartment');
 
     $component->assertHasNoErrors();
@@ -448,8 +448,8 @@ test('program CRUD works correctly', function () {
         ->call('prepareCreate')
         ->set('code', 'BSIT')
         ->set('name', 'BS Information Technology')
-        ->set('department_id', (string)$this->dept->id)
-        ->set('program_head_id', (string)$headEmp->id)
+        ->set('department_id', (string) $this->dept->id)
+        ->set('program_head_id', (string) $headEmp->id)
         ->call('saveProgram');
 
     $component->assertHasNoErrors();
@@ -472,7 +472,7 @@ test('program CRUD works correctly', function () {
         ->call('prepareCreate')
         ->set('code', 'BSIT')
         ->set('name', 'Duplicate Program')
-        ->set('department_id', (string)$this->dept->id)
+        ->set('department_id', (string) $this->dept->id)
         ->call('saveProgram');
 
     $component->assertHasErrors(['code']);

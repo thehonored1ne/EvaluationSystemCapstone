@@ -67,14 +67,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
-            $this->upwardStudentMaxTarget = (string)(float)($activeSem->upward_student_max_points ?: 90);
-            $this->upwardEmployeeMaxTarget = (string)(float)($activeSem->upward_employee_max_points ?: 50);
-            $this->deanMaxTarget = (string)(float)($activeSem->dean_max_points ?: 50);
-            $this->programHeadMaxTarget = (string)(float)($activeSem->program_head_max_points ?: 50);
-            $this->downwardMaxTarget = (string)(float)($activeSem->downward_max_points ?: 50);
-            $this->peerMaxTarget = (string)(float)($activeSem->peer_max_points ?: 50);
-            $this->selfMaxTarget = (string)(float)($activeSem->self_max_points ?: 10);
-            $this->staffMaxTarget = (string)(float)($activeSem->staff_max_points ?: 10);
+            $this->upwardStudentMaxTarget = (string)(float)($activeSem->upward_student_max_points ?? 90);
+            $this->upwardEmployeeMaxTarget = (string)(float)($activeSem->upward_employee_max_points ?? 50);
+            $this->deanMaxTarget = (string)(float)($activeSem->dean_max_points ?? 50);
+            $this->programHeadMaxTarget = (string)(float)($activeSem->program_head_max_points ?? 50);
+            $this->downwardMaxTarget = (string)(float)($activeSem->downward_max_points ?? 50);
+            $this->peerMaxTarget = (string)(float)($activeSem->peer_max_points ?? 50);
+            $this->selfMaxTarget = (string)(float)($activeSem->self_max_points ?? 10);
+            $this->staffMaxTarget = (string)(float)($activeSem->staff_max_points ?? 10);
             
             $this->startsAt = $activeSem->evaluation_starts_at ? $activeSem->evaluation_starts_at->format('Y-m-d\TH:i') : '';
             $this->endsAt = $activeSem->evaluation_ends_at ? $activeSem->evaluation_ends_at->format('Y-m-d\TH:i') : '';
