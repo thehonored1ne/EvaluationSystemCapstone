@@ -148,3 +148,39 @@ select:focus[data-flux-control] {
     );
 }
 
+/* Subtle & Sleek Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(161, 161, 170, 0.35);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(161, 161, 170, 0.6);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: rgba(113, 113, 122, 0.35);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(113, 113, 122, 0.6);
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(161, 161, 170, 0.35) transparent;
+}
+
+.dark * {
+    scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+}
+

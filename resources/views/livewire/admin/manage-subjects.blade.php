@@ -21,8 +21,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // Form properties for Subject CRUD
     public string $code = '';
     public string $name = '';
-    public string $description = '';
-    public int $units = 3;
+    public string $year_level = '';
+    public string $semester_offered = '';
     
     // Modal states
     public bool $showModal = false;
@@ -38,7 +38,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     // Filter & Search properties
     public string $search = '';
-    public string $unitsFilter = '';
+    public string $yearFilter = '';
+    public string $semesterFilter = '';
     public string $usageFilter = '';
     public string $sortBy = 'code_asc';
 
@@ -52,38 +53,39 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public string $quick_schedule_end_time = '';
 
     public function updatedSearch() { $this->resetPage(); }
-    public function updatedUnitsFilter() { $this->resetPage(); }
+    public function updatedYearFilter() { $this->resetPage(); }
+    public function updatedSemesterFilter() { $this->resetPage(); }
     public function updatedUsageFilter() { $this->resetPage(); }
     public function updatedSortBy() { $this->resetPage(); }
 
     public function clearFilters()
     {
-        $this->reset(['search', 'unitsFilter', 'usageFilter']);
+        $this->reset(['search', 'yearFilter', 'semesterFilter', 'usageFilter']);
         $this->sortBy = 'code_asc';
         $this->resetPage();
     }
 
     public function prepareCreate()
     {
-        $this->reset(['code', 'name', 'description', 'units', 'editingSubject']);
-        $this->units = 3;
+        $this->reset(['code', 'name', 'year_level', 'semester_offered', 'editingSubject']);
         $this->showModal = true;
     }
 
     public function createSubject()
     {
         $this->validate([
-            'code' => 'required|string|unique:subjects,code',
+            'code' => 'required|string|max:50',
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'units' => 'required|integer|min:1',
+            'year_level' => 'nullable|integer|between:1,4',
+            'semester_offered' => 'nullable|string|max:50',
         ]);
 
         Subject::create([
-            'code' => strtoupper($this->code),
-            'name' => $this->name,
-            'description' => $this->description ?: null,
-            'units' => $this->units,
+            'code' => strtoupper(trim($this->code)),
+            'name' => trim($this->name),
+            'year_level' => $this->year_level !== '' ? (int)$this->year_level : null,
+            'semester_offered' => $this->semester_offered ?: null,
+            'units' => 3,
         ]);
 
         $this->showModal = false;
@@ -99,25 +101,25 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->editingSubject = $subject;
         $this->code = $subject->code;
         $this->name = $subject->name;
-        $this->description = $subject->description ?? '';
-        $this->units = $subject->units;
+        $this->year_level = $subject->year_level ? (string)$subject->year_level : '';
+        $this->semester_offered = $subject->semester_offered ?? '';
         $this->showModal = true;
     }
 
     public function updateSubject()
     {
         $this->validate([
-            'code' => 'required|string|unique:subjects,code,' . $this->editingSubject->id,
+            'code' => 'required|string|max:50',
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'units' => 'required|integer|min:1',
+            'year_level' => 'nullable|integer|between:1,4',
+            'semester_offered' => 'nullable|string|max:50',
         ]);
 
         $this->editingSubject->update([
-            'code' => strtoupper($this->code),
-            'name' => $this->name,
-            'description' => $this->description ?: null,
-            'units' => $this->units,
+            'code' => strtoupper(trim($this->code)),
+            'name' => trim($this->name),
+            'year_level' => $this->year_level !== '' ? (int)$this->year_level : null,
+            'semester_offered' => $this->semester_offered ?: null,
         ]);
 
         $this->showModal = false;
@@ -138,20 +140,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         if (!$this->deletingSubject) return;
 
+        $subjectToDelete = $this->deletingSubject;
+
         // Check if subject has classes
-        if ($this->deletingSubject->classes()->exists()) {
+        if ($subjectToDelete->classes()->exists()) {
             \Flux::toast(
                 heading: 'Cannot Delete Subject',
                 text: 'This subject has classes associated with it. Delete the classes first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
+            $this->deletingSubject = null;
             return;
         }
 
-        $this->deletingSubject->delete();
-        $this->showDeleteModal = false;
+        // Reset properties before delete to prevent Livewire dehydration 404
         $this->deletingSubject = null;
+        $this->editingSubject = null;
+        $this->showDeleteModal = false;
+
+        $subjectToDelete->delete();
 
         \Flux::toast(
             heading: 'Subject Deleted',
@@ -226,7 +234,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         // 1. Calculate Summary Statistics
         $totalSubjects = Subject::count();
-        $totalUnits = Subject::sum('units');
         $unassignedSubjectsCount = Subject::doesntHave('classes')->count();
 
         $activeSem = Semester::where('is_active', true)->first();
@@ -244,12 +251,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             });
         }
 
-        if ($this->unitsFilter !== '') {
-            if ($this->unitsFilter === '4+') {
-                $query->where('units', '>=', 4);
-            } else {
-                $query->where('units', (int)$this->unitsFilter);
-            }
+        if ($this->yearFilter !== '') {
+            $query->where('year_level', (int)$this->yearFilter);
+        }
+
+        if ($this->semesterFilter) {
+            $query->where('semester_offered', $this->semesterFilter);
         }
 
         if ($this->usageFilter === 'assigned') {
@@ -261,7 +268,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         match ($this->sortBy) {
             'code_desc' => $query->orderBy('code', 'desc'),
             'name_asc' => $query->orderBy('name', 'asc'),
-            'units_desc' => $query->orderBy('units', 'desc')->orderBy('code', 'asc'),
+            'name_desc' => $query->orderBy('name', 'desc'),
+            'year_asc' => $query->orderBy('year_level', 'asc')->orderBy('code', 'asc'),
             'classes_desc' => $query->orderBy('classes_count', 'desc')->orderBy('code', 'asc'),
             default => $query->orderBy('code', 'asc'),
         };
@@ -273,7 +281,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return [
             'subjects' => $query->paginate(10),
             'totalSubjects' => $totalSubjects,
-            'totalUnits' => $totalUnits,
             'unassignedSubjectsCount' => $unassignedSubjectsCount,
             'activeClassesCount' => $activeClassesCount,
             'activeSemester' => $activeSem,
@@ -288,13 +295,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Subjects</flux:heading>
-            <flux:subheading class="text-left">Curriculum catalog management, subject unit allocations, and assigned section classes.</flux:subheading>
+            <flux:subheading class="text-left">Curriculum catalog, year level curriculum placement, semester offerings, and section class assignments.</flux:subheading>
         </div>
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Subject</flux:button>
     </div>
 
     <!-- Top Row Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- Card 1: Total Subjects -->
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
@@ -321,19 +328,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </span>
         </div>
 
-        <!-- Card 3: Total Units Offered -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Units Offered</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalUnits" /></span>
-                </div>
-                <flux:icon name="document-text" class="size-6 text-[#800000] dark:text-red-400" />
-            </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Cumulative catalog credit units</span>
-        </div>
-
-        <!-- Card 4: Unassigned Subjects -->
+        <!-- Card 3: Unassigned Subjects -->
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
@@ -348,83 +343,117 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     
     <!-- Search & Advanced Filter Controls Bar -->
     <div class="flex flex-col gap-3 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-        <!-- Search Input Bar -->
-        <div class="flex items-center gap-3 w-full">
-            <div class="flex-1">
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full">
+            <!-- Search Input Bar -->
+            <div class="flex-1 min-w-[220px]">
                 <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by code or subject name..." />
             </div>
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0" />
-        </div>
 
-        <!-- Filter Dropdowns Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-            <!-- Units Filter -->
-            <div>
-                <flux:select wire:model.live="unitsFilter" class="w-full" placeholder="Filter Units">
-                    <flux:select.option value="">All Units</flux:select.option>
-                    <flux:select.option value="1">1 Unit (Lab)</flux:select.option>
-                    <flux:select.option value="2">2 Units</flux:select.option>
-                    <flux:select.option value="3">3 Units (Lecture)</flux:select.option>
-                    <flux:select.option value="4+">4+ Units (Major)</flux:select.option>
-                </flux:select>
+            <!-- Filter Dropdowns Grid (2x2 on mobile/tablet, 4-across on desktop) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 flex-1 items-center">
+                <!-- Year Level Filter -->
+                <div>
+                    <flux:select wire:model.live="yearFilter" class="w-full" placeholder="All Year Levels">
+                        <flux:select.option value="">All Year Levels</flux:select.option>
+                        <flux:select.option value="1">1st Year</flux:select.option>
+                        <flux:select.option value="2">2nd Year</flux:select.option>
+                        <flux:select.option value="3">3rd Year</flux:select.option>
+                        <flux:select.option value="4">4th Year</flux:select.option>
+                    </flux:select>
+                </div>
+
+                <!-- Semester Offered Filter -->
+                <div>
+                    <flux:select wire:model.live="semesterFilter" class="w-full" placeholder="All Semesters">
+                        <flux:select.option value="">All Semesters</flux:select.option>
+                        <flux:select.option value="1st Semester">1st Semester</flux:select.option>
+                        <flux:select.option value="2nd Semester">2nd Semester</flux:select.option>
+                        <flux:select.option value="Summer">Summer</flux:select.option>
+                        <flux:select.option value="Both">Both / Any Semester</flux:select.option>
+                    </flux:select>
+                </div>
+
+                <!-- Usage Filter -->
+                <div>
+                    <flux:select wire:model.live="usageFilter" class="w-full" placeholder="Filter Usage">
+                        <flux:select.option value="">All Usage Status</flux:select.option>
+                        <flux:select.option value="assigned">Assigned to Classes</flux:select.option>
+                        <flux:select.option value="unassigned">Unassigned Subjects</flux:select.option>
+                    </flux:select>
+                </div>
+
+                <!-- Sort By -->
+                <div>
+                    <flux:select wire:model.live="sortBy" class="w-full">
+                        <flux:select.option value="code_asc">Code (A to Z)</flux:select.option>
+                        <flux:select.option value="code_desc">Code (Z to A)</flux:select.option>
+                        <flux:select.option value="name_asc">Name (A to Z)</flux:select.option>
+                        <flux:select.option value="year_asc">Year Level (1st to 4th)</flux:select.option>
+                        <flux:select.option value="classes_desc">Most Classes</flux:select.option>
+                    </flux:select>
+                </div>
             </div>
 
-            <!-- Usage Filter -->
-            <div>
-                <flux:select wire:model.live="usageFilter" class="w-full" placeholder="Filter Usage">
-                    <flux:select.option value="">All Usage Status</flux:select.option>
-                    <flux:select.option value="assigned">Assigned to Classes</flux:select.option>
-                    <flux:select.option value="unassigned">Unassigned Subjects</flux:select.option>
-                </flux:select>
-            </div>
-
-            <!-- Sort By -->
-            <div>
-                <flux:select wire:model.live="sortBy" class="w-full">
-                    <flux:select.option value="code_asc">Code (A to Z)</flux:select.option>
-                    <flux:select.option value="code_desc">Code (Z to A)</flux:select.option>
-                    <flux:select.option value="name_asc">Name (A to Z)</flux:select.option>
-                    <flux:select.option value="units_desc">Most Units</flux:select.option>
-                    <flux:select.option value="classes_desc">Most Classes</flux:select.option>
-                </flux:select>
-            </div>
+            <!-- Reset Button -->
+            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0 self-end lg:self-center" />
         </div>
     </div>
     
     <!-- Skeleton Loading State -->
-    <div wire:loading wire:target="search, unitsFilter, usageFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
+    <div wire:loading wire:target="search, yearFilter, semesterFilter, usageFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
         <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
     <!-- Main Subjects Table -->
-    <div wire:loading.remove wire:target="search, unitsFilter, usageFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+    <div wire:loading.remove wire:target="search, yearFilter, semesterFilter, usageFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
             <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[18%] px-4 py-3.5">Code</th>
-                        <th class="w-[32%] px-4 py-3.5">Subject Name</th>
-                        <th class="w-[24%] px-4 py-3.5">Description</th>
-                        <th class="w-[10%] px-4 py-3.5 text-center">Units</th>
+                        <th class="w-[15%] px-4 py-3.5">Code</th>
+                        <th class="w-[38%] px-4 py-3.5">Subject Name</th>
+                        <th class="w-[15%] px-4 py-3.5">Year Level</th>
+                        <th class="w-[15%] px-4 py-3.5">Semester Offered</th>
                         <th class="w-[10%] px-4 py-3.5 text-center">Assigned Classes</th>
-                        <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
+                        <th class="w-[7%] px-4 py-3.5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($subjects as $subject)
                         <tr wire:key="{{ $subject->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                            <!-- Code -->
                             <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#800000] dark:text-red-400">
                                 {{ $subject->code }}
                             </td>
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold">
+
+                            <!-- Name -->
+                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $subject->name }}">
                                 {{ $subject->name }}
                             </td>
-                            <td class="px-4 py-3.5 dark:text-zinc-400 text-xs truncate max-w-xs" title="{{ $subject->description }}">
-                                {{ $subject->description ?: 'No description' }}
+
+                            <!-- Year Level -->
+                            <td class="px-4 py-3.5 text-xs">
+                                @if($subject->year_level)
+                                    <flux:badge size="sm" color="amber" class="font-bold">
+                                        {{ $subject->year_level }}{{ match($subject->year_level) { 1 => 'st', 2 => 'nd', 3 => 'rd', 4 => 'th', default => 'th' } }} Year
+                                    </flux:badge>
+                                @else
+                                    <span class="text-zinc-400 italic">All Years</span>
+                                @endif
                             </td>
-                            <td class="px-4 py-3.5 dark:text-zinc-300 text-center font-bold">
-                                {{ $subject->units }}
+
+                            <!-- Semester Offered -->
+                            <td class="px-4 py-3.5 text-xs">
+                                @if($subject->semester_offered)
+                                    <flux:badge size="sm" color="blue" class="font-medium">
+                                        {{ $subject->semester_offered }}
+                                    </flux:badge>
+                                @else
+                                    <span class="text-zinc-400 italic">Any Term</span>
+                                @endif
                             </td>
+
+                            <!-- Assigned Classes Count -->
                             <td class="px-4 py-3.5 text-center">
                                 <button type="button" wire:click="viewClasses({{ $subject->id }})" class="inline-flex items-center gap-1 hover:opacity-80 transition-opacity" title="Click to view assigned section classes">
                                     @if($subject->classes_count > 0)
@@ -438,7 +467,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                     @endif
                                 </button>
                             </td>
-                            <!-- Action Column (Grouped Action Dropdown Menu) -->
+
+                            <!-- Action Column -->
                             <td class="px-4 py-3.5 text-right">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
@@ -502,8 +532,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <form wire:submit="{{ $editingSubject ? 'updateSubject' : 'createSubject' }}" class="flex flex-col gap-4">
                 <flux:input wire:model="code" label="Subject Code" type="text" placeholder="e.g. CS101" required />
                 <flux:input wire:model="name" label="Subject Name" type="text" placeholder="e.g. Introduction to Computer Science" required />
-                <flux:input wire:model="units" label="Academic Units" type="number" min="1" required />
-                <flux:input wire:model="description" label="Description (Optional)" type="text" placeholder="Brief subject description..." />
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Year Level -->
+                    <flux:select wire:model="year_level" label="Year Level Placement (Optional)">
+                        <flux:select.option value="">All Year Levels</flux:select.option>
+                        <flux:select.option value="1">1st Year</flux:select.option>
+                        <flux:select.option value="2">2nd Year</flux:select.option>
+                        <flux:select.option value="3">3rd Year</flux:select.option>
+                        <flux:select.option value="4">4th Year</flux:select.option>
+                    </flux:select>
+
+                    <!-- Semester Offered -->
+                    <flux:select wire:model="semester_offered" label="Semester Offered (Optional)">
+                        <flux:select.option value="">Any Semester</flux:select.option>
+                        <flux:select.option value="1st Semester">1st Semester</flux:select.option>
+                        <flux:select.option value="2nd Semester">2nd Semester</flux:select.option>
+                        <flux:select.option value="Summer">Summer</flux:select.option>
+                        <flux:select.option value="Both">Both Semesters</flux:select.option>
+                    </flux:select>
+                </div>
 
                 <div class="flex justify-end gap-2 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3">
                     <flux:button wire:click="$set('showModal', false)">Cancel</flux:button>
@@ -523,7 +571,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <div class="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <div>
                     <span class="text-xs font-mono font-bold text-[#800000] dark:text-red-400 uppercase tracking-wider block">
-                        {{ $selectedSubjectForClass->code }} ({{ $selectedSubjectForClass->units }} Units)
+                        {{ $selectedSubjectForClass->code }}
                     </span>
                     <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
                         Create Section Class for "{{ $selectedSubjectForClass->name }}"
@@ -593,7 +641,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <div class="flex justify-between items-start border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <span class="text-xs font-mono font-bold text-[#800000] dark:text-red-400 uppercase tracking-wider block">
-                        {{ $viewingSubject->code }} ({{ $viewingSubject->units }} {{ Str::plural('Unit', $viewingSubject->units) }})
+                        {{ $viewingSubject->code }}
                     </span>
                     <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
                         Assigned Section Classes for "{{ $viewingSubject->name }}"
@@ -680,10 +728,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->code }}</span>
                 </div>
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Units</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->units }}</span>
-                </div>
-                <div class="sm:col-span-2">
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Subject Name</span>
                     <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingSubject->name }}</span>
                 </div>

@@ -11,6 +11,20 @@
                 <x-app-logo></x-app-logo>
             </a>
 
+            @php
+                $activeSemester = \App\Models\Semester::where('is_active', true)->with('academicYear')->first();
+                $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
+            @endphp
+
+            <div class="px-2 mb-3">
+                <div class="flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium tracking-wide text-center">
+                    <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 leading-none">Active Term</span>
+                    <span class="truncate font-semibold text-xs mt-0.5">
+                        {{ $activeSemester ? $activeSemester->academicYear?->name . ' • ' . $shortSemName : 'No Active Term' }}
+                    </span>
+                </div>
+            </div>
+
             <flux:navlist variant="outline">
                 @php
                     $user = auth()->user();

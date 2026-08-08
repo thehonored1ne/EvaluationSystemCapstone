@@ -23,6 +23,7 @@ class Department extends Model
         'name',
         'code',
         'dean_id',
+        'program_head_id',
     ];
 
     /**
@@ -31,6 +32,22 @@ class Department extends Model
     public function dean()
     {
         return $this->belongsTo(Employee::class, 'dean_id');
+    }
+
+    /**
+     * Get the Program Head managing this department.
+     */
+    public function programHead()
+    {
+        return $this->belongsTo(Employee::class, 'program_head_id');
+    }
+
+    /**
+     * Get all Program Heads belonging to this department.
+     */
+    public function programHeads()
+    {
+        return $this->hasMany(Employee::class)->where('role', 'program head');
     }
 
     /**

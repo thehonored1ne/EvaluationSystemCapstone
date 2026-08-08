@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Department;
+use App\Models\Program;
 use Illuminate\Support\Carbon;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
@@ -49,6 +50,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public string $studentSearch = '';
     public array $enrolledStudentIds = [];
 
+    // Fast Batch Enrollment & Multi-Select properties
+    public array $selectedStudentIds = [];
+    public string $enrollProgramFilter = '';
+    public string $enrollYearFilter = '';
+    public bool $selectAllUnenrolled = false;
+
     public function mount()
     {
         $activeSemester = Semester::where('is_active', true)->first();
@@ -62,6 +69,34 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function updatedFilterDepartment() { $this->resetPage(); }
     public function updatedFilterSubject() { $this->resetPage(); }
     public function updatedFilterTeacher() { $this->resetPage(); }
+
+    public function updatedEnrollProgramFilter()
+    {
+        $this->selectedStudentIds = [];
+        $this->selectAllUnenrolled = false;
+    }
+
+    public function updatedEnrollYearFilter()
+    {
+        $this->selectedStudentIds = [];
+        $this->selectAllUnenrolled = false;
+    }
+
+    public function updatedStudentSearch()
+    {
+        $this->selectedStudentIds = [];
+        $this->selectAllUnenrolled = false;
+    }
+
+    public function updatedSelectAllUnenrolled($value)
+    {
+        if ($value && $this->managingClass) {
+            $candidates = $this->getUnenrolledCandidates();
+            $this->selectedStudentIds = $candidates->pluck('id')->map(fn($id) => (string)$id)->toArray();
+        } else {
+            $this->selectedStudentIds = [];
+        }
+    }
 
     public function clearFilters()
     {
@@ -98,15 +133,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'schedule_end_time' => 'nullable|string',
         ]);
 
-        // Construct schedule from day and time pickers if provided
         if ($this->schedule_days && $this->schedule_start_time && $this->schedule_end_time) {
             try {
                 $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
                 $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
                 $this->schedule = $this->schedule_days . ' ' . $startStr . ' - ' . $endStr;
-            } catch (\Exception $e) {
-                // Fallback to existing schedule string
-            }
+            } catch (\Exception $e) {}
         }
 
         AcademicClass::create([
@@ -136,7 +168,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->schedule = $class->schedule ?? '';
         $this->room = $class->room ?? '';
 
-        // Pre-parse schedule if formatted (e.g. "MW 09:00 AM - 10:30 AM")
         $this->schedule_days = '';
         $this->schedule_start_time = '';
         $this->schedule_end_time = '';
@@ -165,15 +196,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'schedule_end_time' => 'nullable|string',
         ]);
 
-        // Construct schedule from day and time pickers if provided
         if ($this->schedule_days && $this->schedule_start_time && $this->schedule_end_time) {
             try {
                 $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
                 $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
                 $this->schedule = $this->schedule_days . ' ' . $startStr . ' - ' . $endStr;
-            } catch (\Exception $e) {
-                // Fallback
-            }
+            } catch (\Exception $e) {}
         }
 
         $this->editingClass->update([
@@ -203,20 +231,25 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         if (!$this->deletingClass) return;
 
-        // Check if class has evaluations
-        if ($this->deletingClass->evaluations()->exists()) {
+        $classToDelete = $this->deletingClass;
+
+        if ($classToDelete->evaluations()->exists()) {
             \Flux::toast(
                 heading: 'Cannot Delete Class',
                 text: 'This class has evaluation submissions associated with it. Delete the evaluations first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
+            $this->deletingClass = null;
             return;
         }
 
-        $this->deletingClass->delete();
-        $this->showDeleteModal = false;
         $this->deletingClass = null;
+        $this->editingClass = null;
+        $this->managingClass = null;
+        $this->showDeleteModal = false;
+
+        $classToDelete->delete();
 
         \Flux::toast(
             heading: 'Class Deleted',
@@ -230,6 +263,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         $this->managingClass = $class;
         $this->studentSearch = '';
+        $this->enrollProgramFilter = '';
+        $this->enrollYearFilter = '';
+        $this->selectedStudentIds = [];
+        $this->selectAllUnenrolled = false;
         $this->updateEnrolledList();
         $this->showEnrollmentModal = true;
     }
@@ -249,14 +286,60 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         try {
             $this->managingClass->students()->attach($studentId);
             $this->updateEnrolledList();
+            $this->selectedStudentIds = array_diff($this->selectedStudentIds, [(string)$studentId]);
             \Flux::toast(
                 heading: 'Student Enrolled',
                 text: 'The student was added to this class.',
                 variant: 'success'
             );
-        } catch (\Exception $e) {
-            // Ignore duplicate attachment exception
+        } catch (\Exception $e) {}
+    }
+
+    public function enrollSelectedStudents()
+    {
+        if (!$this->managingClass || empty($this->selectedStudentIds)) return;
+
+        $this->managingClass->students()->syncWithoutDetaching($this->selectedStudentIds);
+        $count = count($this->selectedStudentIds);
+        $this->selectedStudentIds = [];
+        $this->selectAllUnenrolled = false;
+        $this->updateEnrolledList();
+
+        \Flux::toast(
+            heading: 'Batch Students Enrolled',
+            text: "Successfully enrolled $count student(s) into this class.",
+            variant: 'success'
+        );
+    }
+
+    public function enrollMatchingSectionStudents()
+    {
+        if (!$this->managingClass) return;
+
+        $sectionCode = $this->managingClass->section;
+        $matchingStudentIds = Student::where('section', $sectionCode)
+            ->whereNotIn('id', $this->enrolledStudentIds)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($matchingStudentIds)) {
+            \Flux::toast(
+                heading: 'No Matching Unenrolled Students',
+                text: "All students in section '$sectionCode' are already enrolled in this class.",
+                variant: 'warning'
+            );
+            return;
         }
+
+        $this->managingClass->students()->syncWithoutDetaching($matchingStudentIds);
+        $count = count($matchingStudentIds);
+        $this->updateEnrolledList();
+
+        \Flux::toast(
+            heading: 'Batch Section Enrollment Complete',
+            text: "Successfully enrolled all $count student(s) matching section '$sectionCode'.",
+            variant: 'success'
+        );
     }
 
     public function unenrollStudent($studentId)
@@ -271,6 +354,50 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             text: 'The student was removed from this class.',
             variant: 'success'
         );
+    }
+
+    public function unenrollAllStudents()
+    {
+        if (!$this->managingClass) return;
+
+        $count = count($this->enrolledStudentIds);
+        $this->managingClass->students()->detach();
+        $this->updateEnrolledList();
+
+        \Flux::toast(
+            heading: 'All Students Removed',
+            text: "Successfully unenrolled all $count student(s) from this class.",
+            variant: 'success'
+        );
+    }
+
+    private function getUnenrolledCandidates()
+    {
+        if (!$this->managingClass) return collect();
+
+        $query = Student::query()
+            ->with('program.department')
+            ->whereNotIn('id', $this->enrolledStudentIds);
+
+        if ($this->studentSearch) {
+            $searchStr = '%' . trim($this->studentSearch) . '%';
+            $query->where(function ($q) use ($searchStr) {
+                $q->where('first_name', 'like', $searchStr)
+                  ->orWhere('last_name', 'like', $searchStr)
+                  ->orWhere('student_number', 'like', $searchStr)
+                  ->orWhere('section', 'like', $searchStr);
+            });
+        }
+
+        if ($this->enrollProgramFilter !== '') {
+            $query->where('program_id', $this->enrollProgramFilter);
+        }
+
+        if ($this->enrollYearFilter !== '') {
+            $query->where('year_level', (int)$this->enrollYearFilter);
+        }
+
+        return $query->orderBy('last_name')->limit(50)->get();
     }
 
     public function with(): array
@@ -312,26 +439,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('teacher_id', $this->filterTeacher);
         }
 
-        // Fetch dropdown options
         $subjectsList = Subject::orderBy('name')->get();
         $teachersList = Employee::whereIn('role', ['faculty', 'program head'])->orderBy('last_name')->get();
         $semestersList = Semester::with('academicYear')->orderBy('id', 'desc')->get();
         $departmentsList = Department::orderBy('name')->get();
+        $programsList = Program::orderBy('code')->get();
 
-        // Search students for enrollment modal
-        $studentSearchResults = [];
-        if ($this->showEnrollmentModal && strlen(trim($this->studentSearch)) >= 2) {
-            $searchStr = '%' . $this->studentSearch . '%';
-            $studentSearchResults = Student::query()
-                ->with('program.department')
-                ->where(function ($q) use ($searchStr) {
-                    $q->where('first_name', 'like', $searchStr)
-                      ->orWhere('last_name', 'like', $searchStr)
-                      ->orWhere('student_number', 'like', $searchStr);
-                })
+        // Candidates for student enrollment modal
+        $unenrolledCandidates = collect();
+        $matchingSectionCount = 0;
+
+        if ($this->showEnrollmentModal && $this->managingClass) {
+            $unenrolledCandidates = $this->getUnenrolledCandidates();
+
+            $matchingSectionCount = Student::where('section', $this->managingClass->section)
                 ->whereNotIn('id', $this->enrolledStudentIds)
-                ->limit(10)
-                ->get();
+                ->count();
         }
 
         return [
@@ -340,7 +463,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'teachersList' => $teachersList,
             'semestersList' => $semestersList,
             'departmentsList' => $departmentsList,
-            'studentSearchResults' => $studentSearchResults,
+            'programsList' => $programsList,
+            'unenrolledCandidates' => $unenrolledCandidates,
+            'studentSearchResults' => $unenrolledCandidates,
+            'matchingSectionCount' => $matchingSectionCount,
         ];
     }
 }; ?>
@@ -354,63 +480,65 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Class</flux:button>
     </div>
     
-    <!-- Advanced Search & Filter Controls Bar -->
+    <!-- Search & Advanced Filter Controls Bar (Inline Flex + 2x2/4-across Grid) -->
     <div class="flex flex-col gap-3 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-        <!-- Search Input Bar -->
-        <div class="flex items-center gap-3 w-full">
-            <div class="flex-1">
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full">
+            <!-- Search Input Bar -->
+            <div class="flex-1 min-w-[220px]">
                 <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by section, subject or professor..." />
             </div>
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" class="shrink-0" />
-        </div>
 
-        <!-- Filter Dropdowns Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
-            <!-- Filter Semester -->
-            <div>
-                <flux:select wire:model.live="filterSemester" class="w-full" placeholder="Filter Semester">
-                    <flux:select.option value="">All Semesters</flux:select.option>
-                    @foreach($semestersList as $sem)
-                        <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+            <!-- Filter Dropdowns Grid (2x2 on mobile/tablet, 4-across on desktop) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 flex-1 items-center">
+                <!-- Semester Filter -->
+                <div>
+                    <flux:select wire:model.live="filterSemester" class="w-full" placeholder="All Semesters">
+                        <flux:select.option value="">All Semesters</flux:select.option>
+                        @foreach($semestersList as $sem)
+                            <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <!-- Department Filter -->
+                <div>
+                    <flux:select wire:model.live="filterDepartment" class="w-full" placeholder="All Departments">
+                        <flux:select.option value="">All Departments</flux:select.option>
+                        @foreach($departmentsList as $dept)
+                            <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <!-- Subject Filter -->
+                <div>
+                    <flux:select wire:model.live="filterSubject" class="w-full" placeholder="All Subjects">
+                        <flux:select.option value="">All Subjects</flux:select.option>
+                        @foreach($subjectsList as $subj)
+                            <flux:select.option value="{{ $subj->id }}">{{ $subj->code }} - {{ $subj->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <!-- Professor Filter -->
+                <div>
+                    <flux:select wire:model.live="filterTeacher" class="w-full" placeholder="All Professors">
+                        <flux:select.option value="">All Professors</flux:select.option>
+                        @foreach($teachersList as $t)
+                            <flux:select.option value="{{ $t->id }}">{{ $t->formatted_name ?? $t->full_name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
             </div>
 
-            <!-- Filter Department -->
-            <div>
-                <flux:select wire:model.live="filterDepartment" class="w-full" placeholder="Filter Department">
-                    <flux:select.option value="">All Departments</flux:select.option>
-                    @foreach($departmentsList as $dept)
-                        <flux:select.option value="{{ $dept->id }}">{{ $dept->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <!-- Filter Subject -->
-            <div>
-                <flux:select wire:model.live="filterSubject" class="w-full" placeholder="Filter Subject">
-                    <flux:select.option value="">All Subjects</flux:select.option>
-                    @foreach($subjectsList as $subj)
-                        <flux:select.option value="{{ $subj->id }}">{{ $subj->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <!-- Filter Professor -->
-            <div>
-                <flux:select wire:model.live="filterTeacher" class="w-full" placeholder="Filter Professor">
-                    <flux:select.option value="">All Professors</flux:select.option>
-                    @foreach($teachersList as $t)
-                        <flux:select.option value="{{ $t->id }}">{{ $t->formatted_name ?? $t->full_name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
+            <!-- Reset Button -->
+            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0 self-end lg:self-center" />
         </div>
     </div>
     
-    <!-- Table Skeleton Loader -->
+    <!-- Skeleton Loading State -->
     <div wire:loading wire:target="search, filterSemester, filterDepartment, filterSubject, filterTeacher, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
-        <x-skeleton type="table" :rows="5" :cols="6" />
+        <x-skeleton type="table" :rows="5" :cols="7" />
     </div>
 
     <!-- Main Classes Table -->
@@ -419,51 +547,79 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[26%] px-4 py-3.5">Subject</th>
-                        <th class="w-[24%] px-4 py-3.5">Professor</th>
                         <th class="w-[10%] px-4 py-3.5">Section</th>
+                        <th class="w-[26%] px-4 py-3.5">Subject</th>
+                        <th class="w-[20%] px-4 py-3.5">Assigned Professor</th>
                         <th class="w-[18%] px-4 py-3.5">Schedule</th>
-                        <th class="w-[14%] px-4 py-3.5">Semester</th>
-                        <th class="w-[8%] px-4 py-3.5 text-center">Students</th>
-                        <th class="w-[8%] px-4 py-3.5 text-right">Action</th>
+                        <th class="w-[12%] px-4 py-3.5">Academic Period</th>
+                        <th class="w-[8%] px-4 py-3.5 text-center">Enrolled</th>
+                        <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                    @forelse ($classes as $class)
-                        <tr wire:key="{{ $class->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                            <!-- Subject Column (Name only, code label removed) -->
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $class->subject->name }}">
-                                {{ $class->subject->name }}
-                            </td>
-                            
-                            <!-- Professor Column (Name only, employee number label removed) -->
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $class->teacher->formatted_name ?? $class->teacher->full_name }}">
-                                {{ $class->teacher->formatted_name ?? $class->teacher->full_name }}
+                    @forelse ($classes as $classItem)
+                        <tr wire:key="{{ $classItem->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                            <!-- Section -->
+                            <td class="px-4 py-3.5 font-bold text-zinc-900 dark:text-zinc-100">
+                                {{ $classItem->section }}
                             </td>
 
-                            <!-- Section Column -->
-                            <td class="px-4 py-3.5 font-bold font-mono text-xs text-zinc-900 dark:text-zinc-100">
-                                {{ $class->section }}
+                            <!-- Subject -->
+                            <td class="px-4 py-3.5">
+                                <span class="font-mono text-xs font-bold text-[#800000] dark:text-red-400 block">
+                                    {{ $classItem->subject->code }}
+                                </span>
+                                <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block">
+                                    {{ $classItem->subject->name }}
+                                </span>
                             </td>
 
-                            <!-- Schedule Column (Schedule only, room removed) -->
-                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs font-medium truncate" title="{{ $class->schedule }}">
-                                {{ $class->schedule ?: 'No Schedule' }}
+                            <!-- Teacher -->
+                            <td class="px-4 py-3.5">
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100 block truncate">
+                                    {{ $classItem->teacher->formatted_name ?? $classItem->teacher->full_name }}
+                                </span>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400 block truncate">
+                                    {{ $classItem->teacher->department->code ?? '' }} {{ $classItem->teacher->role ? '(' . ucfirst($classItem->teacher->role) . ')' : '' }}
+                                </span>
                             </td>
 
-                            <!-- Semester Column -->
-                            <td class="px-4 py-3.5 dark:text-zinc-400 text-xs">
-                                {{ $class->semester->academicYear->name }} - {{ $class->semester->name }}
+                            <!-- Schedule -->
+                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-300">
+                                @if($classItem->schedule)
+                                    <span class="font-semibold block">{{ $classItem->schedule }}</span>
+                                    @if($classItem->room)
+                                        <span class="text-zinc-500 block">Room: {{ $classItem->room }}</span>
+                                    @endif
+                                @else
+                                    <span class="text-zinc-400 italic">No schedule set</span>
+                                @endif
                             </td>
 
-                            <!-- Students Column -->
+                            <!-- Semester -->
+                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                                <span class="font-semibold block text-zinc-800 dark:text-zinc-200">
+                                    {{ $classItem->semester->academicYear->name }}
+                                </span>
+                                <span>{{ $classItem->semester->name }}</span>
+                            </td>
+
+                            <!-- Enrolled Count -->
                             <td class="px-4 py-3.5 text-center">
-                                <flux:badge size="sm" color="{{ $class->students_count > 0 ? 'indigo' : 'zinc' }}" class="font-bold">
-                                    {{ $class->students_count }} Enrolled
-                                </flux:badge>
+                                <button type="button" wire:click="manageStudents({{ $classItem->id }})" class="hover:opacity-80 transition-opacity">
+                                    @if($classItem->students_count > 0)
+                                        <flux:badge size="sm" color="indigo" class="cursor-pointer font-bold">
+                                            {{ $classItem->students_count }} {{ Str::plural('student', $classItem->students_count) }}
+                                        </flux:badge>
+                                    @else
+                                        <flux:badge size="sm" color="zinc" class="cursor-pointer">
+                                            0 students
+                                        </flux:badge>
+                                    @endif
+                                </button>
                             </td>
 
-                            <!-- Action Column (Grouped Action Dropdown) -->
+                            <!-- Actions -->
                             <td class="px-4 py-3.5 text-right">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
@@ -471,17 +627,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                     </flux:button>
 
                                     <flux:menu>
-                                        <flux:menu.item icon="academic-cap" wire:click="manageStudents({{ $class->id }})">
+                                        <flux:menu.item icon="user-plus" wire:click="manageStudents({{ $classItem->id }})">
                                             Manage Enrollment
                                         </flux:menu.item>
 
-                                        <flux:menu.item icon="pencil-square" wire:click="editClass({{ $class->id }})">
-                                            Edit Class
+                                        <flux:menu.item icon="pencil-square" wire:click="editClass({{ $classItem->id }})">
+                                            Edit Class Details
                                         </flux:menu.item>
 
                                         <flux:menu.separator />
 
-                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmDelete({{ $class->id }})">
+                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmDelete({{ $classItem->id }})">
                                             Delete Class
                                         </flux:menu.item>
                                     </flux:menu>
@@ -625,74 +781,144 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </x-confirmation-modal>
     @endif
 
-    <!-- Student Enrollment Modal -->
-    @if($showEnrollmentModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-2xl border border-zinc-200 dark:border-zinc-800 overflow-y-auto max-h-[90vh] flex flex-col gap-6">
-            <div class="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-800 pb-3">
+    <!-- Compact Fixed-Viewport Student Enrollment Modal -->
+    @if($showEnrollmentModal && $managingClass)
+    <div class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 flex min-h-full items-center justify-center">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full border border-zinc-200 dark:border-zinc-800 flex flex-col my-auto overflow-hidden" style="max-width: 560px !important; max-height: calc(100vh - 3.5rem) !important;">
+            <!-- Compact Fixed Header -->
+            <div class="px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 shrink-0 flex justify-between items-center z-10">
                 <div>
-                    <flux:heading size="lg">Student Enrollment</flux:heading>
-                    <p class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-                        Class: <span class="font-semibold">{{ $managingClass?->subject->name }}</span> | Section: <span class="font-semibold">{{ $managingClass?->section }}</span>
+                    <div class="flex items-center gap-2">
+                        <flux:badge size="sm" color="amber" class="font-bold">{{ $managingClass->section }}</flux:badge>
+                        <flux:heading size="md">Manage Class Enrollment</flux:heading>
+                    </div>
+                    <p class="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                        Subject: <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $managingClass->subject->code }} - {{ $managingClass->subject->name }}</span>
                     </p>
                 </div>
-                <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="$set('showEnrollmentModal', false)" />
+                <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="$set('showEnrollmentModal', false)" tooltip="Close Modal" />
             </div>
 
-            <!-- Enrolled Students List -->
-            <div class="flex flex-col gap-2">
-                <flux:heading size="sm" class="font-semibold">Enrolled Students ({{ count($enrolledStudentIds) }})</flux:heading>
-                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg max-h-60 overflow-y-auto divide-y divide-zinc-200 dark:divide-zinc-700">
-                    @forelse($managingClass?->students ?? [] as $student)
-                        <div class="flex justify-between items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm">
-                            <div>
-                                <span class="font-medium dark:text-zinc-300 block">{{ $student->formatted_name ?? $student->full_name }}</span>
-                                <span class="font-mono text-xs text-zinc-500">{{ $student->student_number }} | Year {{ $student->year_level }} | {{ $student->program?->code }}</span>
-                            </div>
-                            <flux:button size="xs" variant="ghost" class="text-red-500 hover:text-red-600" wire:click="unenrollStudent({{ $student->id }})">
-                                Remove
+            <!-- Scrollable Modal Body (min-h-0 forces flex container scrolling) -->
+            <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+                <!-- 1-Click Smart Batch Action Banner -->
+                @if($matchingSectionCount > 0)
+                    <div class="flex items-center justify-between gap-2 p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <div class="flex items-center gap-2">
+                            <flux:icon name="bolt" class="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span class="text-xs text-amber-800 dark:text-amber-300">
+                                Found <strong>{{ $matchingSectionCount }}</strong> unenrolled in section <strong>"{{ $managingClass->section }}"</strong>.
+                            </span>
+                        </div>
+                        <flux:button size="xs" variant="primary" wire:click="enrollMatchingSectionStudents" icon="user-group" class="shrink-0 font-bold">
+                            Enroll All {{ $matchingSectionCount }}
+                        </flux:button>
+                    </div>
+                @endif
+
+                <!-- Enrolled Students Accordion List -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center">
+                        <flux:heading size="sm" class="font-semibold text-xs uppercase tracking-wider">
+                            Enrolled Students ({{ count($enrolledStudentIds) }})
+                        </flux:heading>
+
+                        @if(count($enrolledStudentIds) > 0)
+                            <flux:button size="xs" variant="ghost" class="text-red-500 hover:text-red-600 text-[11px] py-0" wire:click="unenrollAllStudents">
+                                Unenroll All
                             </flux:button>
-                        </div>
-                    @empty
-                        <div class="px-4 py-6 text-center text-xs text-gray-500 dark:text-zinc-400">
-                            No students enrolled in this class yet.
-                        </div>
-                    @endforelse
-                </div>
-            </div>
+                        @endif
+                    </div>
 
-            <!-- Search and Add Students -->
-            <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <flux:heading size="sm" class="font-semibold">Enroll New Students</flux:heading>
-                <flux:input wire:model.live.debounce.300ms="studentSearch" placeholder="Search students by name or student number (min 2 chars)..." icon="magnifying-glass" />
-
-                @if(strlen(trim($studentSearch)) >= 2)
-                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg max-h-48 overflow-y-auto divide-y divide-zinc-200 dark:divide-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50">
-                        @forelse($studentSearchResults as $student)
-                            <div class="flex justify-between items-center px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-sm">
-                                <div>
-                                    <span class="font-medium dark:text-zinc-300 block">{{ $student->formatted_name ?? $student->full_name }}</span>
-                                    <span class="font-mono text-xs text-zinc-500">{{ $student->student_number }} | Year {{ $student->year_level }} | {{ $student->program?->code }}</span>
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg max-h-28 overflow-y-auto divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                        @forelse($managingClass->students as $student)
+                            <div class="flex justify-between items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs">
+                                <div class="truncate pr-2">
+                                    <span class="font-medium dark:text-zinc-200 inline-block">{{ $student->formatted_name ?? $student->full_name }}</span>
+                                    <span class="font-mono text-[11px] text-zinc-400 inline-block ml-1">({{ $student->student_number }}) · {{ $student->section ?: 'No Sec' }}</span>
                                 </div>
-                                <flux:button size="xs" variant="primary" wire:click="enrollStudent({{ $student->id }})">
-                                    Enroll
+                                <flux:button size="xs" variant="ghost" class="text-red-500 hover:text-red-600 shrink-0 text-[11px] py-0" wire:click="unenrollStudent({{ $student->id }})">
+                                    Remove
                                 </flux:button>
                             </div>
                         @empty
-                            <div class="px-4 py-6 text-center text-xs text-gray-500 dark:text-zinc-400">
-                                No matching unenrolled students found.
+                            <div class="px-3 py-4 text-center text-xs text-gray-500 dark:text-zinc-400">
+                                No students enrolled yet.
                             </div>
                         @endforelse
                     </div>
-                @else
-                    <div class="text-center py-4 text-xs text-gray-400 dark:text-zinc-500">
-                        Type at least 2 characters to search for students to enroll.
+                </div>
+
+                <!-- Fast Multi-Select & Filtered Batch Enrollment -->
+                <div class="flex flex-col gap-2 border-t border-zinc-200 dark:border-zinc-700 pt-3">
+                    <div class="flex justify-between items-center gap-2">
+                        <flux:heading size="sm" class="font-semibold text-xs uppercase tracking-wider">Unenrolled Candidates</flux:heading>
+                        
+                        @if(count($selectedStudentIds) > 0)
+                            <flux:button size="xs" variant="primary" wire:click="enrollSelectedStudents" icon="user-plus" class="font-bold py-0.5">
+                                Enroll Selected ({{ count($selectedStudentIds) }})
+                            </flux:button>
+                        @endif
                     </div>
-                @endif
+
+                    <!-- Filter Controls inside Modal -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-800/40 p-2 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <flux:input wire:model.live.debounce.300ms="studentSearch" placeholder="Search name or section..." icon="magnifying-glass" class="w-full" />
+
+                        <flux:select wire:model.live="enrollProgramFilter" class="w-full" placeholder="All Programs">
+                            <flux:select.option value="">All Programs</flux:select.option>
+                            @foreach($programsList as $prog)
+                                <flux:select.option value="{{ $prog->id }}">{{ $prog->code }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+
+                        <flux:select wire:model.live="enrollYearFilter" class="w-full" placeholder="All Year Levels">
+                            <flux:select.option value="">All Years</flux:select.option>
+                            <flux:select.option value="1">1st Year</flux:select.option>
+                            <flux:select.option value="2">2nd Year</flux:select.option>
+                            <flux:select.option value="3">3rd Year</flux:select.option>
+                            <flux:select.option value="4">4th Year</flux:select.option>
+                        </flux:select>
+                    </div>
+
+                    <!-- Candidate List with Checkboxes -->
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg max-h-36 overflow-y-auto divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                        @if($unenrolledCandidates->count() > 0)
+                            <!-- Select All Header -->
+                            <div class="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 font-semibold text-[11px] text-zinc-700 dark:text-zinc-300 sticky top-0 z-10">
+                                <input type="checkbox" wire:model.live="selectAllUnenrolled" class="rounded border-zinc-300 text-[#800000] focus:ring-[#800000]">
+                                <span>Select All Candidates ({{ $unenrolledCandidates->count() }})</span>
+                            </div>
+
+                            @foreach($unenrolledCandidates as $student)
+                                <div wire:key="candidate-{{ $student->id }}" class="flex justify-between items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 text-xs">
+                                    <div class="flex items-center gap-2.5 truncate pr-2">
+                                        <input type="checkbox" wire:model.live="selectedStudentIds" value="{{ $student->id }}" class="rounded border-zinc-300 text-[#800000] focus:ring-[#800000]">
+                                        <div class="truncate">
+                                            <span class="font-medium dark:text-zinc-200 inline-block">{{ $student->formatted_name ?? $student->full_name }}</span>
+                                            <span class="font-mono text-[11px] text-zinc-400 inline-block ml-1">({{ $student->student_number }}) · Sec: {{ $student->section ?: 'N/A' }} · Yr {{ $student->year_level }} · {{ $student->program?->code }}</span>
+                                        </div>
+                                    </div>
+                                    <flux:button size="xs" variant="outline" class="shrink-0 text-[11px] py-0" wire:click="enrollStudent({{ $student->id }})">
+                                        Enroll
+                                    </flux:button>
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="px-3 py-6 text-center text-xs text-gray-500 dark:text-zinc-400">
+                                No matching unenrolled students found.
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <flux:button wire:click="$set('showEnrollmentModal', false)">Close</flux:button>
+            <!-- Compact Fixed Footer -->
+            <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex justify-between items-center z-10">
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Selected: <strong>{{ count($selectedStudentIds) }}</strong>
+                </span>
+                <flux:button size="sm" variant="primary" wire:click="$set('showEnrollmentModal', false)">Close</flux:button>
             </div>
         </div>
     </div>

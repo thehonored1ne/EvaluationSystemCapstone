@@ -117,12 +117,17 @@ test('subject crud works correctly with validations', function () {
     $component = Volt::test('admin.manage-subjects')
         ->set('code', 'CS101')
         ->set('name', 'Intro to CS')
-        ->set('units', 3)
-        ->set('description', 'Introduction class')
+        ->set('year_level', '1')
+        ->set('semester_offered', '1st Semester')
         ->call('createSubject');
 
     $component->assertHasNoErrors();
-    $this->assertDatabaseHas('subjects', ['code' => 'CS101', 'name' => 'Intro to CS']);
+    $this->assertDatabaseHas('subjects', [
+        'code' => 'CS101',
+        'name' => 'Intro to CS',
+        'year_level' => 1,
+        'semester_offered' => '1st Semester',
+    ]);
 
     $subject = Subject::where('code', 'CS101')->first();
 
@@ -130,18 +135,26 @@ test('subject crud works correctly with validations', function () {
     $component = Volt::test('admin.manage-subjects')
         ->call('editSubject', $subject)
         ->set('name', 'Intro to Computer Science')
+        ->set('year_level', '2')
+        ->set('semester_offered', '2nd Semester')
         ->call('updateSubject');
 
     $component->assertHasNoErrors();
-    $this->assertDatabaseHas('subjects', ['code' => 'CS101', 'name' => 'Intro to Computer Science']);
+    $this->assertDatabaseHas('subjects', [
+        'code' => 'CS101',
+        'name' => 'Intro to Computer Science',
+        'year_level' => 2,
+        'semester_offered' => '2nd Semester',
+    ]);
 
-    // 3. Prevent duplicate code validation
+    // 3. Allow duplicate subject codes across different entries
     $component = Volt::test('admin.manage-subjects')
         ->set('code', 'CS101')
-        ->set('name', 'Another CS Class')
+        ->set('name', 'Advanced CS Class')
         ->call('createSubject');
 
-    $component->assertHasErrors(['code']);
+    $component->assertHasNoErrors();
+    $this->assertDatabaseHas('subjects', ['code' => 'CS101', 'name' => 'Advanced CS Class']);
 
     // 4. Delete Subject
     $component = Volt::test('admin.manage-subjects')
@@ -311,12 +324,12 @@ test('dean and student role management pages CRUD functions correctly', function
 test('department CRUD works correctly', function () {
     $this->actingAs($this->adminUser);
 
-    // Create a dean to test dean assignment
-    $deanEmp = Employee::create([
-        'employee_number' => 'DEAN-TEST-01',
+    // Create a program head to test program head assignment
+    $headEmp = Employee::create([
+        'employee_number' => 'PH-TEST-01',
         'first_name' => 'Richard',
         'last_name' => 'Feynman',
-        'role' => 'dean',
+        'role' => 'program head',
         'status' => 'active',
     ]);
 
@@ -325,12 +338,12 @@ test('department CRUD works correctly', function () {
         ->call('prepareCreate')
         ->set('code', 'COE')
         ->set('name', 'College of Engineering')
-        ->set('dean_id', (string) $deanEmp->id)
+        ->set('program_head_id', (string) $headEmp->id)
         ->call('saveDepartment');
 
     $component->assertHasNoErrors();
-    $this->assertDatabaseHas('departments', ['code' => 'COE', 'name' => 'College of Engineering', 'dean_id' => $deanEmp->id]);
-    expect($deanEmp->refresh()->department_id)->not->toBeNull();
+    $this->assertDatabaseHas('departments', ['code' => 'COE', 'name' => 'College of Engineering', 'program_head_id' => $headEmp->id]);
+    expect($headEmp->refresh()->department_id)->not->toBeNull();
 
     $dept = Department::where('code', 'COE')->first();
 
@@ -360,7 +373,24 @@ test('department CRUD works correctly', function () {
     $component->assertHasNoErrors();
     $this->assertDatabaseMissing('departments', ['id' => $dept->id]);
 });
+test('department automatically detects program head assigned via employee department_id', function () {
+    $this->actingAs($this->adminUser);
 
+    // Program Head assigned to department directly on Employee profile
+    $headEmp = Employee::create([
+        'employee_number' => 'PH-AUTO-01',
+        'first_name' => 'Alan',
+        'last_name' => 'Turing',
+        'role' => 'program head',
+        'status' => 'active',
+        'department_id' => $this->dept->id,
+    ]);
+
+    Volt::test('admin.manage-departments')
+        ->assertSee('Turing, Alan')
+        ->assertSee('PH-AUTO-01')
+        ->assertViewHas('assignedHeadsCount', 1);
+});
 test('filtering user management lists by department works correctly', function () {
     $this->actingAs($this->adminUser);
 
@@ -835,4 +865,76 @@ test('admin dashboard recent submissions feed displays correct labels for non-cl
 
             return true;
         });
+});
+
+test('selecting department when adding program auto fills assigned program head with fallback', function () {
+    $this->actingAs($this->adminUser);
+
+    // 1. Department WITH an assigned Program Head
+    $deptWithHead = Department::create(['code' => 'COE-PROG', 'name' => 'College of Engineering']);
+    $headEmp = Employee::create([
+        'employee_number' => 'PH-PROG-01',
+        'first_name' => 'Grace',
+        'last_name' => 'Hopper',
+        'role' => 'program head',
+        'status' => 'active',
+        'department_id' => $deptWithHead->id,
+    ]);
+
+    // 2. Department WITHOUT an assigned Program Head (fallback test)
+    $deptNoHead = Department::create(['code' => 'EMPTY-DEPT', 'name' => 'Empty Department']);
+
+    // Test auto-fill when department with head is selected
+    Volt::test('admin.manage-programs')
+        ->set('department_id', (string) $deptWithHead->id)
+        ->assertSet('program_head_id', (string) $headEmp->id)
+        // Test fallback when department without head is selected
+        ->set('department_id', (string) $deptNoHead->id)
+        ->assertSet('program_head_id', '');
+});
+
+test('admin can view, add, remove, and unenroll all students in program management modal', function () {
+    $this->actingAs($this->adminUser);
+
+    $dept = Department::create(['code' => 'STUD-DEPT', 'name' => 'Department of Science']);
+    $prog = Program::create(['code' => 'BS-DATA', 'name' => 'BS Data Science', 'department_id' => $dept->id]);
+
+    $student1 = Student::create([
+        'student_number' => 'STU-001',
+        'first_name' => 'Margaret',
+        'last_name' => 'Hamilton',
+        'year_level' => 3,
+        'program_id' => $prog->id,
+    ]);
+
+    $student2 = Student::create([
+        'student_number' => 'STU-002',
+        'first_name' => 'Ada',
+        'last_name' => 'Lovelace',
+        'year_level' => 1,
+        'program_id' => null,
+    ]);
+
+    // 1. Open modal and inspect enrolled student
+    $component = Volt::test('admin.manage-programs')
+        ->call('manageStudents', $prog->id)
+        ->assertSee('Hamilton, Margaret')
+        ->assertSee('STU-001');
+
+    // 2. Add student2 to program via search
+    $component->set('studentSearch', 'Lovelace')
+        ->call('addStudentToProgram', $student2->id);
+
+    expect($student2->refresh()->program_id)->toBe($prog->id);
+
+    // 3. Remove student1 from program
+    $component->call('removeStudentFromProgram', $student1->id);
+
+    expect($student1->refresh()->program_id)->toBeNull();
+
+    // 4. Unenroll all students
+    $component->call('unenrollAllStudents');
+
+    expect($student2->refresh()->program_id)->toBeNull();
+    expect($prog->students()->count())->toBe(0);
 });

@@ -35,10 +35,35 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public ?Program $editingProgram = null;
     public ?Program $deletingProgram = null;
 
+    // Student Enrollment modal properties
+    public bool $showStudentsModal = false;
+    public ?Program $managingProgram = null;
+    public string $studentSearch = '';
+
     public function updatedSearch() { $this->resetPage(); }
     public function updatedDepartmentFilter() { $this->resetPage(); }
     public function updatedHeadFilter() { $this->resetPage(); }
     public function updatedSortBy() { $this->resetPage(); }
+
+    public function updatedDepartmentId($value)
+    {
+        if (!$value) {
+            $this->program_head_id = '';
+            return;
+        }
+
+        $dept = Department::with(['programHead', 'programHeads'])->find($value);
+        if (!$dept) {
+            $this->program_head_id = '';
+            return;
+        }
+
+        // Auto-detect program head from explicit column or employee department relationship
+        $headId = $dept->program_head_id ?: $dept->programHeads->first()?->id;
+
+        // Fallback: If no program head is assigned to this department, fallback to unassigned
+        $this->program_head_id = $headId ? (string)$headId : '';
+    }
 
     public function clearFilters()
     {
@@ -132,24 +157,82 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         if (!$this->deletingProgram) return;
 
+        $programToDelete = $this->deletingProgram;
+
         // Check if program has enrolled students
-        if ($this->deletingProgram->students()->exists()) {
+        if ($programToDelete->students()->exists()) {
             \Flux::toast(
                 heading: 'Cannot Delete Program',
-                text: 'This program has enrolled students linked to it. Re-assign or remove them first.',
+                text: 'This program has enrolled students linked to it. Re-assign or remove them first using the Students modal.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
+            $this->deletingProgram = null;
             return;
         }
 
-        $this->deletingProgram->delete();
-        $this->showDeleteModal = false;
+        // Reset component properties BEFORE deleting to avoid Livewire dehydration 404
         $this->deletingProgram = null;
+        $this->editingProgram = null;
+        $this->managingProgram = null;
+        $this->showDeleteModal = false;
+
+        $programToDelete->delete();
 
         \Flux::toast(
             heading: 'Program Deleted',
             text: 'Academic program deleted successfully.',
+            variant: 'success'
+        );
+    }
+
+    // Student Enrollment management actions
+    public function manageStudents(Program $program)
+    {
+        $this->managingProgram = $program;
+        $this->studentSearch = '';
+        $this->showStudentsModal = true;
+    }
+
+    public function addStudentToProgram(Student $student)
+    {
+        if (!$this->managingProgram) return;
+
+        $student->update(['program_id' => $this->managingProgram->id]);
+        $this->managingProgram->refresh();
+
+        \Flux::toast(
+            heading: 'Student Enrolled',
+            text: "{$student->formatted_name} was enrolled into {$this->managingProgram->code}.",
+            variant: 'success'
+        );
+    }
+
+    public function removeStudentFromProgram(Student $student)
+    {
+        if (!$this->managingProgram) return;
+
+        $student->update(['program_id' => null]);
+        $this->managingProgram->refresh();
+
+        \Flux::toast(
+            heading: 'Student Unlinked',
+            text: "{$student->formatted_name} was removed from {$this->managingProgram->code}.",
+            variant: 'success'
+        );
+    }
+
+    public function unenrollAllStudents()
+    {
+        if (!$this->managingProgram) return;
+
+        $count = Student::where('program_id', $this->managingProgram->id)->count();
+        Student::where('program_id', $this->managingProgram->id)->update(['program_id' => null]);
+        $this->managingProgram->refresh();
+
+        \Flux::toast(
+            heading: 'All Students Unlinked',
+            text: "{$count} student(s) were unlinked from {$this->managingProgram->code}. You can now safely delete or manage this program.",
             variant: 'success'
         );
     }
@@ -196,6 +279,32 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $departmentsList = Department::orderBy('name')->get();
         $programHeadsList = Employee::where('role', 'program head')->where('status', 'active')->orderBy('last_name')->get();
 
+        // Enrolled and Searchable Students data for modal
+        $enrolledStudents = collect();
+        $studentSearchResults = collect();
+
+        if ($this->managingProgram) {
+            $enrolledStudents = Student::where('program_id', $this->managingProgram->id)
+                ->orderBy('last_name')
+                ->get();
+
+            if ($this->studentSearch) {
+                $queryStr = '%' . $this->studentSearch . '%';
+                $studentSearchResults = Student::where(function ($q) use ($queryStr) {
+                        $q->where('first_name', 'like', $queryStr)
+                          ->orWhere('last_name', 'like', $queryStr)
+                          ->orWhere('student_number', 'like', $queryStr);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('program_id')
+                          ->orWhere('program_id', '!=', $this->managingProgram->id);
+                    })
+                    ->with('program')
+                    ->limit(8)
+                    ->get();
+            }
+        }
+
         return [
             'programs' => $query->paginate(10),
             'totalPrograms' => $totalPrograms,
@@ -204,6 +313,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'departmentsCovered' => $departmentsCovered,
             'departmentsList' => $departmentsList,
             'programHeadsList' => $programHeadsList,
+            'enrolledStudents' => $enrolledStudents,
+            'studentSearchResults' => $studentSearchResults,
         ];
     }
 }; ?>
@@ -363,7 +474,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                             <!-- Enrolled Students Count -->
                             <td class="px-4 py-3.5 text-center">
-                                <flux:badge size="sm" color="purple" class="font-bold">
+                                <flux:badge size="sm" color="purple" class="font-bold cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-900 transition-colors" wire:click="manageStudents({{ $prog->id }})" tooltip="Click to manage enrolled students">
                                     {{ $prog->students_count }} {{ Str::plural('Student', $prog->students_count) }}
                                 </flux:badge>
                             </td>
@@ -425,7 +536,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <flux:input wire:model="code" label="Program Code" type="text" placeholder="e.g. BSCS" required />
                 <flux:input wire:model="name" label="Program Name" type="text" placeholder="e.g. Bachelor of Science in Computer Science" required />
                 
-                <flux:select wire:model="department_id" label="Department / College" required>
+                <flux:select wire:model.live="department_id" label="Department / College" required>
                     <flux:select.option value="">Select Department</flux:select.option>
                     @foreach($departmentsList as $dept)
                         <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
@@ -483,9 +594,109 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         @if($deletingProgram->students()->exists())
             <x-slot:warning>
-                This program currently has {{ $deletingProgram->students()->count() }} student(s) enrolled under it. You cannot delete it until those student records are re-assigned or removed.
+                This program currently has {{ $deletingProgram->students()->count() }} student(s) enrolled under it. You cannot delete it until those student records are re-assigned or removed. You can click the Students badge in the table to manage or unenroll them.
             </x-slot:warning>
         @endif
     </x-confirmation-modal>
+    @endif
+
+    <!-- Manage Enrolled Students Modal -->
+    @if($showStudentsModal && $managingProgram)
+    <div class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 flex min-h-full items-center justify-center">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full border border-zinc-200 dark:border-zinc-800 flex flex-col my-auto overflow-hidden" style="max-width: 540px !important; max-height: calc(100vh - 3.5rem) !important;">
+            <!-- Header -->
+            <div class="px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 shrink-0 flex justify-between items-center z-10">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <flux:badge color="purple" size="sm" class="font-mono font-bold">{{ $managingProgram->code }}</flux:badge>
+                        <flux:heading size="md">Enrolled Students</flux:heading>
+                    </div>
+                    <flux:subheading class="text-[11px] mt-0.5">{{ $managingProgram->name }} ({{ $managingProgram->department?->code }})</flux:subheading>
+                </div>
+                <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="$set('showStudentsModal', false)" />
+            </div>
+
+            <!-- Scrollable Body (min-h-0 forces flex container scrolling) -->
+            <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+                <!-- Search & Add Section -->
+                <div class="flex flex-col gap-1.5 bg-gray-50 dark:bg-zinc-800/40 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Add / Transfer Student</span>
+                    <flux:input wire:model.live.debounce.300ms="studentSearch" icon="magnifying-glass" placeholder="Search student name or number..." class="w-full" />
+
+                    @if($studentSearch && $studentSearchResults->isNotEmpty())
+                        <div class="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-700 mt-1 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 max-h-36 overflow-y-auto">
+                            @foreach($studentSearchResults as $searchResult)
+                                <div class="flex justify-between items-center px-3 py-1.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                    <div class="truncate pr-2">
+                                        <span class="font-semibold text-zinc-900 dark:text-zinc-100 inline-block">{{ $searchResult->formatted_name }}</span>
+                                        <span class="text-[11px] font-mono text-zinc-400 inline-block ml-1">({{ $searchResult->student_number }})</span>
+                                    </div>
+                                    <flux:button size="xs" variant="primary" icon="plus" class="shrink-0 text-[11px] py-0" wire:click="addStudentToProgram({{ $searchResult->id }})">
+                                        Enroll
+                                    </flux:button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @elseif($studentSearch && $studentSearchResults->isEmpty())
+                        <p class="text-[11px] text-zinc-500 italic mt-0.5">No matching unenrolled students found.</p>
+                    @endif
+                </div>
+
+                <!-- Enrolled Students List Header -->
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
+                        Currently Enrolled ({{ $enrolledStudents->count() }})
+                    </span>
+                    @if($enrolledStudents->isNotEmpty())
+                        <flux:button size="xs" variant="danger" icon="user-minus" class="text-[11px] py-0" wire:click="unenrollAllStudents" wire:confirm="Are you sure you want to remove ALL students from this program?">
+                            Unenroll All
+                        </flux:button>
+                    @endif
+                </div>
+
+                <!-- Enrolled Students List Table -->
+                <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 max-h-40 overflow-y-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-50 dark:bg-zinc-800/80 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 uppercase">
+                            <tr>
+                                <th class="px-3 py-2">Student</th>
+                                <th class="px-3 py-2">Year/Sec</th>
+                                <th class="px-3 py-2 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @forelse($enrolledStudents as $student)
+                                <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/30">
+                                    <td class="px-3 py-1.5 font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ $student->formatted_name }}
+                                        <span class="block text-[11px] font-mono text-zinc-400">{{ $student->student_number }}</span>
+                                    </td>
+                                    <td class="px-3 py-1.5 text-[11px] text-zinc-500">
+                                        Yr {{ $student->year_level }} {{ $student->section ? '('.$student->section.')' : '' }}
+                                    </td>
+                                    <td class="px-3 py-1.5 text-right">
+                                        <flux:button size="xs" variant="ghost" icon="trash" class="text-red-500 hover:text-red-600 text-[11px] py-0" wire:click="removeStudentFromProgram({{ $student->id }})">
+                                            Remove
+                                        </flux:button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-3 py-6 text-center text-zinc-500">
+                                        <p class="text-xs font-semibold">No students enrolled in this program.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 shrink-0 flex justify-end">
+                <flux:button size="sm" variant="primary" wire:click="$set('showStudentsModal', false)">Close</flux:button>
+            </div>
+        </div>
+    </div>
     @endif
 </div>

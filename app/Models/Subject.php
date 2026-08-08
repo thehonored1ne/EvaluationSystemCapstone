@@ -12,6 +12,8 @@ class Subject extends Model
     protected $fillable = [
         'code',
         'name',
+        'year_level',
+        'semester_offered',
         'description',
         'units',
     ];

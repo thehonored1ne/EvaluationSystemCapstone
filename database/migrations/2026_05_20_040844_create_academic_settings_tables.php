@@ -34,8 +34,10 @@ return new class extends Migration
 
         Schema::create('subjects', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique(); // e.g. "CS101"
+            $table->string('code'); // e.g. "CS101"
             $table->string('name'); // e.g. "Introduction to Computer Science"
+            $table->unsignedInteger('year_level')->nullable(); // e.g. 1, 2, 3, 4
+            $table->string('semester_offered')->nullable(); // e.g. "1st Semester", "2nd Semester", "Summer", "Both"
             $table->text('description')->nullable();
             $table->integer('units')->default(3);
             $table->timestamps();

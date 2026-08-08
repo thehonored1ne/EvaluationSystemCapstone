@@ -4,6 +4,32 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-08]
+
+### Added
+- **Subject Catalog Curriculum Metadata**:
+  - Added `year_level` (*1st Year* to *4th Year*) and `semester_offered` (*1st Semester*, *2nd Semester*, *Summer*) to the `subjects` table via migration `2026_08_08_000002_add_year_level_and_semester_offered_to_subjects_table.php`.
+  - Added curriculum metadata fields, table badges, search/filter controls, and sorting in [manage-subjects.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-subjects.blade.php).
+- **800 BSIT Student Roster Seeder**:
+  - Created `database/seeders/EightHundredStudentsSeeder.php` generating 800 BSIT students split equally (200 each) across Year Levels 1–4 with random full names, suffixes (`Jr.`, `Sr.`, `III`, etc.), sections (`BSIT-1A` through `BSIT-4D`), and user accounts.
+- **Fast 1-Click & Multi-Select Class Enrollment**:
+  - Added 1-Click Smart Section Enrollment (`enrollMatchingSectionStudents()`) enrolling all unenrolled section students in 1 click.
+  - Added multi-select candidate checkboxes with **Select All Candidates** toggle and **Enroll Selected (X)** batch action.
+  - Added Program & Year Level modal filter dropdowns and an **Unenroll All** quick reset option.
+- **Sidebar Active Term Badge**:
+  - Added dynamic **Active Term** badge in [sidebar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php) displaying active academic year and shortened semester (e.g. `2025-2026 • 1st Sem`).
+- **Subtle Custom Scrollbars**:
+  - Added custom subtle 5px translucent rounded scrollbar styling in `resources/css/app.css` across light and dark modes for WebKit and Firefox (`scrollbar-width: thin`).
+
+### Fixed
+- **Duplicate Subject Code Support**:
+  - Removed `unique:subjects,code` validation rule from Livewire subject management actions and dropped DB unique index on `subjects.code` via SQLite table reconstruction migration `2026_08_08_000003_drop_unique_constraint_on_subjects_code.php`.
+- **Responsive Table Filter Bar Alignment**:
+  - Re-aligned main table filter controls on `/admin/subjects` and `/admin/classes` from 1-column stacked list into an inline flex bar with a `grid-cols-2 md:grid-cols-4` responsive layout.
+- **Student Enrollment Modal Viewport & Flexbox Scrolling**:
+  - Constrained student management modals on Classes and Programs pages to compact max widths (`580px` / `540px`) and `max-height: calc(100vh - 3.5rem)`.
+  - Added sticky headers and footers (`sticky z-10`), CSS flexbox `min-h-0` on `flex-1` modal body container, and `overflow-y-auto min-h-full` on backdrop wrapper to prevent off-screen clipping and ensure smooth internal scrolling.
+
 ---
 
 ## [2026-08-07]

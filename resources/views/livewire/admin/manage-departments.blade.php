@@ -18,13 +18,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     // Filter properties
     public string $search = '';
-    public string $deanFilter = '';
+    public string $headFilter = '';
     public string $sortBy = 'name_asc';
 
     // Department Form properties
     public string $code = '';
     public string $name = '';
-    public string $dean_id = '';
+    public string $program_head_id = '';
     
     public bool $showModal = false;
     public bool $showDeleteModal = false;
@@ -33,19 +33,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public ?Department $deletingDepartment = null;
 
     public function updatedSearch() { $this->resetPage(); }
-    public function updatedDeanFilter() { $this->resetPage(); }
+    public function updatedHeadFilter() { $this->resetPage(); }
     public function updatedSortBy() { $this->resetPage(); }
 
     public function clearFilters()
     {
-        $this->reset(['search', 'deanFilter']);
+        $this->reset(['search', 'headFilter']);
         $this->sortBy = 'name_asc';
         $this->resetPage();
     }
 
     public function prepareCreate()
     {
-        $this->reset(['code', 'name', 'dean_id', 'editingDepartment']);
+        $this->reset(['code', 'name', 'program_head_id', 'editingDepartment']);
         $this->showModal = true;
     }
 
@@ -54,29 +54,29 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $rules = [
             'code' => 'required|string|max:50|unique:departments,code' . ($this->editingDepartment ? ',' . $this->editingDepartment->id : ''),
             'name' => 'required|string|max:255',
-            'dean_id' => 'nullable|exists:employees,id',
+            'program_head_id' => 'nullable|exists:employees,id',
         ];
 
         $this->validate($rules);
 
         $codeFormatted = strtoupper(trim($this->code));
-        $deanIdValue = $this->dean_id ?: null;
+        $headIdValue = $this->program_head_id ?: null;
 
         if ($this->editingDepartment) {
-            $oldDeanId = $this->editingDepartment->dean_id;
+            $oldHeadId = $this->editingDepartment->program_head_id;
 
             $this->editingDepartment->update([
                 'code' => $codeFormatted,
                 'name' => $this->name,
-                'dean_id' => $deanIdValue,
+                'program_head_id' => $headIdValue,
             ]);
 
-            // Sync old and new Dean department relationship
-            if ($oldDeanId && $oldDeanId != $deanIdValue) {
-                Employee::where('id', $oldDeanId)->update(['department_id' => null]);
+            // Sync old and new Program Head department relationship
+            if ($oldHeadId && $oldHeadId != $headIdValue) {
+                Employee::where('id', $oldHeadId)->update(['department_id' => null]);
             }
-            if ($deanIdValue) {
-                Employee::where('id', $deanIdValue)->update(['department_id' => $this->editingDepartment->id]);
+            if ($headIdValue) {
+                Employee::where('id', $headIdValue)->update(['department_id' => $this->editingDepartment->id]);
             }
 
             \Flux::toast(
@@ -88,11 +88,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $department = Department::create([
                 'code' => $codeFormatted,
                 'name' => $this->name,
-                'dean_id' => $deanIdValue,
+                'program_head_id' => $headIdValue,
             ]);
 
-            if ($deanIdValue) {
-                Employee::where('id', $deanIdValue)->update(['department_id' => $department->id]);
+            if ($headIdValue) {
+                Employee::where('id', $headIdValue)->update(['department_id' => $department->id]);
             }
 
             \Flux::toast(
@@ -110,7 +110,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->editingDepartment = $dept;
         $this->code = $dept->code;
         $this->name = $dept->name;
-        $this->dean_id = $dept->dean_id ? (string)$dept->dean_id : '';
+        
+        // Auto-detect program head from explicit column or employee department relationship
+        $headId = $dept->program_head_id ?: $dept->programHeads->first()?->id;
+        $this->program_head_id = $headId ? (string)$headId : '';
+        
         $this->showModal = true;
     }
 
@@ -124,29 +128,36 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         if (!$this->deletingDepartment) return;
 
-        // Check if department has associated programs or active non-dean employees
-        $hasNonDeanEmployees = Employee::where('department_id', $this->deletingDepartment->id)
-            ->when($this->deletingDepartment->dean_id, fn($q) => $q->where('id', '!=', $this->deletingDepartment->dean_id))
+        $deptToDelete = $this->deletingDepartment;
+
+        // Check if department has associated programs or active non-head employees
+        $hasNonHeadEmployees = Employee::where('department_id', $deptToDelete->id)
+            ->when($deptToDelete->program_head_id, fn($q) => $q->where('id', '!=', $deptToDelete->program_head_id))
+            ->where('role', '!=', 'program head')
             ->exists();
 
-        if ($this->deletingDepartment->programs()->exists() || $hasNonDeanEmployees) {
+        if ($deptToDelete->programs()->exists() || $hasNonHeadEmployees) {
             \Flux::toast(
                 heading: 'Cannot Delete Department',
                 text: 'This department has academic programs or faculty assigned to it. Re-assign or remove them first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
+            $this->deletingDepartment = null;
             return;
         }
 
-        // Unlink dean if assigned
-        if ($this->deletingDepartment->dean_id) {
-            Employee::where('id', $this->deletingDepartment->dean_id)->update(['department_id' => null]);
+        // Unlink program head if assigned
+        if ($deptToDelete->program_head_id) {
+            Employee::where('id', $deptToDelete->program_head_id)->update(['department_id' => null]);
         }
 
-        $this->deletingDepartment->delete();
-        $this->showDeleteModal = false;
+        // Reset component properties BEFORE deleting to avoid Livewire dehydration 404
         $this->deletingDepartment = null;
+        $this->editingDepartment = null;
+        $this->showDeleteModal = false;
+
+        $deptToDelete->delete();
 
         \Flux::toast(
             heading: 'Department Deleted',
@@ -159,13 +170,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         // 1. Calculate Summary Statistics
         $totalDepartments = Department::count();
-        $assignedDeansCount = Department::whereNotNull('dean_id')->count();
+        
+        // Auto-detect departments with active Program Head leadership
+        $assignedHeadsCount = Department::where(function ($q) {
+            $q->whereNotNull('program_head_id')
+              ->orWhereHas('employees', fn($empQ) => $empQ->where('role', 'program head'));
+        })->count();
+
         $totalPrograms = Program::count();
         $totalFaculty = Employee::where('role', 'faculty')->whereNotNull('department_id')->count();
 
         // 2. Query Departments with relations and counts
         $query = Department::query()
-            ->with('dean')
+            ->with(['programHead', 'programHeads'])
             ->withCount(['programs', 'employees']);
 
         if ($this->search) {
@@ -175,10 +192,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             });
         }
 
-        if ($this->deanFilter === 'assigned') {
-            $query->whereNotNull('dean_id');
-        } elseif ($this->deanFilter === 'unassigned') {
-            $query->whereNull('dean_id');
+        if ($this->headFilter === 'assigned') {
+            $query->where(function ($q) {
+                $q->whereNotNull('program_head_id')
+                  ->orWhereHas('employees', fn($empQ) => $empQ->where('role', 'program head'));
+            });
+        } elseif ($this->headFilter === 'unassigned') {
+            $query->whereNull('program_head_id')
+                  ->whereDoesntHave('employees', fn($empQ) => $empQ->where('role', 'program head'));
         }
 
         match ($this->sortBy) {
@@ -190,16 +211,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             default => $query->orderBy('name', 'asc'),
         };
 
-        // Available active deans list
-        $deansList = Employee::where('role', 'dean')->where('status', 'active')->orderBy('last_name')->get();
+        // Available active program heads list
+        $programHeadsList = Employee::where('role', 'program head')->where('status', 'active')->orderBy('last_name')->get();
 
         return [
             'departments' => $query->paginate(10),
             'totalDepartments' => $totalDepartments,
-            'assignedDeansCount' => $assignedDeansCount,
+            'assignedHeadsCount' => $assignedHeadsCount,
             'totalPrograms' => $totalPrograms,
             'totalFaculty' => $totalFaculty,
-            'deansList' => $deansList,
+            'programHeadsList' => $programHeadsList,
         ];
     }
 }; ?>
@@ -209,7 +230,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Departments</flux:heading>
-            <flux:subheading class="text-left">Institutional college & department management, dean assignments, academic programs, and department faculty.</flux:subheading>
+            <flux:subheading class="text-left">Institutional college & department management, program head assignments, academic programs, and department faculty members.</flux:subheading>
         </div>
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Department</flux:button>
     </div>
@@ -228,16 +249,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Active institutional colleges & departments</span>
         </div>
 
-        <!-- Card 2: Assigned Deans -->
+        <!-- Card 2: Assigned Program Heads -->
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Deans</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$assignedDeansCount" /></span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Program Heads</span>
+                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$assignedHeadsCount" /></span>
                 </div>
                 <flux:icon name="user-group" class="size-6 text-[#800000] dark:text-red-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Departments with active Dean leadership</span>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Departments with active Program Head leadership</span>
         </div>
 
         <!-- Card 3: Total Programs -->
@@ -252,11 +273,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Degree programs across departments</span>
         </div>
 
-        <!-- Card 4: Department Faculty -->
+        <!-- Card 4: Faculty Members -->
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Faculty</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Faculty Members</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalFaculty" /></span>
                 </div>
                 <flux:icon name="users" class="size-6 text-[#800000] dark:text-red-400" />
@@ -277,12 +298,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         <!-- Filter Dropdowns Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-            <!-- Dean Assignment Filter -->
+            <!-- Program Head Assignment Filter -->
             <div>
-                <flux:select wire:model.live="deanFilter" class="w-full" placeholder="All Dean Status">
-                    <flux:select.option value="">All Dean Status</flux:select.option>
-                    <flux:select.option value="assigned">Assigned Dean</flux:select.option>
-                    <flux:select.option value="unassigned">Unassigned Dean</flux:select.option>
+                <flux:select wire:model.live="headFilter" class="w-full" placeholder="All Program Head Status">
+                    <flux:select.option value="">All Program Head Status</flux:select.option>
+                    <flux:select.option value="assigned">Assigned Program Head</flux:select.option>
+                    <flux:select.option value="unassigned">Unassigned Program Head</flux:select.option>
                 </flux:select>
             </div>
 
@@ -301,21 +322,21 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     <!-- Skeleton Loading State -->
-    <div wire:loading wire:target="search, deanFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
+    <div wire:loading wire:target="search, headFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
         <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
     <!-- Main Departments Table -->
-    <div wire:loading.remove wire:target="search, deanFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+    <div wire:loading.remove wire:target="search, headFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
             <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[15%] px-4 py-3.5">Code</th>
-                        <th class="w-[35%] px-4 py-3.5">Department Name</th>
-                        <th class="w-[24%] px-4 py-3.5">Assigned Dean</th>
+                        <th class="w-[14%] px-4 py-3.5">Code</th>
+                        <th class="w-[32%] px-4 py-3.5">Department Name</th>
+                        <th class="w-[24%] px-4 py-3.5">Assigned Program Head</th>
                         <th class="w-[10%] px-4 py-3.5 text-center">Programs</th>
-                        <th class="w-[10%] px-4 py-3.5 text-center">Faculty</th>
+                        <th class="w-[14%] px-4 py-3.5 text-center">Faculty Members</th>
                         <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
                     </tr>
                 </thead>
@@ -332,11 +353,21 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                 {{ $dept->name }}
                             </td>
 
-                            <!-- Assigned Dean -->
+                            <!-- Assigned Program Head (Auto-Detected) -->
                             <td class="px-4 py-3.5 dark:text-zinc-300 text-xs">
-                                @if($dept->dean)
-                                    <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $dept->dean->formatted_name }}</span>
-                                    <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $dept->dean->employee_number }}</span>
+                                @php
+                                    $detectedHeads = $dept->programHeads;
+                                    if ($detectedHeads->isEmpty() && $dept->programHead) {
+                                        $detectedHeads = collect([$dept->programHead]);
+                                    }
+                                @endphp
+                                @if($detectedHeads->isNotEmpty())
+                                    @foreach($detectedHeads as $head)
+                                        <div class="mb-1 last:mb-0">
+                                            <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $head->formatted_name }}</span>
+                                            <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $head->employee_number }}</span>
+                                        </div>
+                                    @endforeach
                                 @else
                                     <span class="text-zinc-400 italic">Unassigned</span>
                                 @endif
@@ -352,7 +383,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             <!-- Faculty Count -->
                             <td class="px-4 py-3.5 text-center">
                                 <flux:badge size="sm" color="indigo" class="font-bold">
-                                    {{ $dept->employees_count }} {{ Str::plural('Faculty', $dept->employees_count) }}
+                                    {{ $dept->employees_count }} {{ Str::plural('Faculty Member', $dept->employees_count) }}
                                 </flux:badge>
                             </td>
 
@@ -413,10 +444,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <flux:input wire:model="code" label="Department Code" type="text" placeholder="e.g. CCS" required />
                 <flux:input wire:model="name" label="Department Name" type="text" placeholder="e.g. College of Computer Studies" required />
                 
-                <flux:select wire:model="dean_id" label="Assigned Dean (Optional)">
+                <flux:select wire:model="program_head_id" label="Assigned Program Head (Optional)">
                     <flux:select.option value="">Unassigned (None)</flux:select.option>
-                    @foreach($deansList as $d)
-                        <flux:select.option value="{{ $d->id }}">{{ $d->formatted_name }} ({{ $d->employee_number }})</flux:select.option>
+                    @foreach($programHeadsList as $head)
+                        <flux:select.option value="{{ $head->id }}">{{ $head->formatted_name }} ({{ $head->employee_number }})</flux:select.option>
                     @endforeach
                 </flux:select>
 
@@ -448,8 +479,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDepartment->code }}</span>
                 </div>
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Dean</span>
-                    <span class="font-bold text-zinc-900 dark:text-zinc-150">{{ $deletingDepartment->dean->formatted_name ?? 'Unassigned' }}</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Program Head</span>
+                    @php
+                        $delHeads = $deletingDepartment->programHeads;
+                        if ($delHeads->isEmpty() && $deletingDepartment->programHead) {
+                            $delHeads = collect([$deletingDepartment->programHead]);
+                        }
+                    @endphp
+                    <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                        {{ $delHeads->isNotEmpty() ? $delHeads->pluck('formatted_name')->join(', ') : 'Unassigned' }}
+                    </span>
                 </div>
                 <div class="sm:col-span-2">
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Department Name</span>
@@ -466,3 +505,4 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </x-confirmation-modal>
     @endif
 </div>
+

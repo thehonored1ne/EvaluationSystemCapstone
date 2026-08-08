@@ -30,6 +30,9 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 8, 2026
+- **Department Leadership Alignment (`/admin/departments`)**: Updated the Department Management page and modal to assign **Program Head** leadership instead of Dean. Replaced the stat card, filter dropdowns, table headers, form select inputs, and deletion modals to use `program_head_id` and active `program head` employees. Added migration `2026_08_08_000001_add_program_head_id_to_departments_table.php` and updated tests.
+
 ### August 7, 2026
 - **Admin Departments Management Page (`/admin/departments`)**: Added a dedicated department management panel in the main sidebar with 4 metric cards (5px `#800000` dark red left border, live `<x-odometer>` counters), Dean assignment filter (`Assigned Dean`, `Unassigned Dean`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion.
 - **Admin Programs Management Page (`/admin/programs`)**: Added a dedicated academic programs panel directly below Departments in the sidebar with 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions. Removed duplicate department/program cards from Evaluation Settings.
