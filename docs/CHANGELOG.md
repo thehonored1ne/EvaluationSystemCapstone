@@ -4,7 +4,27 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2026-08-08]
+## [2026-08-11]
+
+### Added
+- **Single-Question Interactive Evaluation Wizard**:
+  - Re-architected `resources/views/livewire/evaluation-form.blade.php` across all 6 evaluator portals (Students, Faculty, Staff, Program Heads, Deans, Self) from a single long-scrolling form into a focused single-question evaluation wizard.
+  - Features a real-time evaluator progress header (`X/11 Answered • X%`), an interactive question navigator grid with number pills (`1`, `2`, `3`...) and completion checkmarks, 300ms smooth auto-advance upon selecting a rating, enlarged high-contrast horizontal rating buttons (`1`–`5`) with theme-tuned hover states, a stylized rating scale legend, and a final **Summary & Review** screen with criterion breakdown matrix, skipped question alerts, live profanity-filtered comments textarea, and background job queue submission (`ProcessEvaluationSubmission`).
+- **Collapsed Mini Sidebar & Navigation Enhancements**:
+  - Added collapsible icon-only mini sidebar mode with dark red (`#800000`) GRC logo asset, centered profile avatar in mini mode, right-aligned hover tooltips across all sidebar links, dark red active page indicator background (`#800000`), and automatic hiding of group headings (`x-show="!sidebarCollapsed"`) in [group.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/flux/navlist/group.blade.php).
+- **Admin Navbar & Theme Mode Persistence**:
+  - Styled Admin Header with dark red background (`#800000`) and replaced `Admin Portal` text with dynamic `Logged as Admin` (or user role) badge in [navbar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/navbar.blade.php).
+  - Integrated native Livewire Flux `$flux.appearance` Light/Dark mode switcher with Half Moon (Light Mode) and Sun (Dark Mode) icons, backed by `<head>` inline initialization script in [head.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/partials/head.blade.php) and `livewire:navigated` listener for persistent dark mode across full page reloads and Livewire SPA transitions.
+  - Added dynamic unread notification count badge on notification bell icon with dropdown preview menu.
+
+### Fixed
+- **Alpine Template Single Root Wrapper Fix**:
+  - Wrapped multi-question iteration inside a single root `<div>` container under Alpine `<template x-if="!isReviewStep">` in `evaluation-form.blade.php`, resolving DOM element detachment bugs when stepping to question 2+.
+- **Blade Constant Evaluation & Button Styling**:
+  - Replaced single-colon `:disabled` with double-colon `::disabled` on `<flux:button>` to prevent Blade from attempting to evaluate Alpine JS expressions as PHP constants.
+  - Fixed Next Question button styling with explicit dark red background (`bg-[#800000] text-white hover:bg-[#990000]`), eliminating plain white button background artifacts.
+
+---
 
 ### Added
 - **Subject Catalog Curriculum Metadata**:

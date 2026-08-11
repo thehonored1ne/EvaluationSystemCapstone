@@ -16,7 +16,7 @@ A role-based evaluation system with the following active portals:
 ---
 
 ## Core System Features
-- **Evaluation Submission**: Idempotent queue-based submissions (runs on `sync` connection). Dashboard buttons are locked with "Processing" / "Completed" badges once submitted to prevent double-evaluation.
+- **Evaluation Submission**: Idempotent queue-based submissions via an interactive **Single-Question Wizard UX** (real-time progress header, question number grid navigator, 300ms auto-advance, enlarged horizontal rating buttons, and a final Summary & Review step). Submissions run on the background processing queue (`ProcessEvaluationSubmission`), locking dashboard buttons with "Processing" / "Completed" status badges.
 - **Profanity Filter**: Real-time removal of curse words from evaluation comments with constructive toast warnings.
 - **Evaluation Windows**: Configurable schedules with conflict protection modals ("Overwrite" / "Remove"), schedule removal protection when evaluations are open, and Asia/Manila timezone alignment.
 - **AI Sentiment Pipeline**: Integrates Flask-based VADER sentiment analysis (with Tagalog/Taglish custom lexicon) and a multimodal Decision Tree Classifier (combining text TF-IDF + rating values) to analyze evaluation comments, featuring a confidence Agreement Gate, daily scheduled retraining, and a Human-in-the-Loop sentiment override management dashboard (with validation accuracy, a Confusion Matrix, and fully anonymized data views).

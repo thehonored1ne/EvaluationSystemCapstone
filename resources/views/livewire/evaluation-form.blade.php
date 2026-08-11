@@ -123,7 +123,6 @@ new class extends Component {
         }
 
         foreach ($this->curseWords as $word) {
-            // If the word requires strict boundaries, compile with \b
             if (in_array($word, $this->strictBoundaryWords)) {
                 $pattern = '/\b' . preg_quote($word, '/') . '\b/i';
             } else {
@@ -132,7 +131,6 @@ new class extends Component {
             $text = preg_replace($pattern, '', $text);
         }
 
-        // Clean up double spaces and trim whitespace
         $text = preg_replace('/\s+/', ' ', $text);
         return trim($text);
     }
@@ -151,7 +149,6 @@ new class extends Component {
         $this->ratings = [];
         $this->comments = '';
         
-        // Initialize ratings keys for all active questions in this type
         $criteria = EvaluationCriterion::where('evaluation_type', $this->evaluationType)
             ->with(['questions' => fn($q) => $q->where('is_active', true)])
             ->get();
@@ -169,6 +166,23 @@ new class extends Component {
             ->with(['questions' => fn($q) => $q->where('is_active', true)])
             ->orderBy('order')
             ->get();
+    }
+
+    public function getQuestionsProperty()
+    {
+        $questions = [];
+        foreach ($this->criteria as $criterion) {
+            foreach ($criterion->questions as $question) {
+                $questions[] = [
+                    'id' => $question->id,
+                    'question_text' => $question->question_text,
+                    'criterion_id' => $criterion->id,
+                    'criterion_name' => $criterion->name,
+                    'max_points' => (float)$criterion->max_points,
+                ];
+            }
+        }
+        return $questions;
     }
 
     public function submit()
@@ -191,7 +205,6 @@ new class extends Component {
             return;
         }
 
-        // Validate that all questions have a rating between 1 and 5
         $rules = [];
         $messages = [];
         foreach ($this->ratings as $questionId => $rating) {
@@ -201,16 +214,11 @@ new class extends Component {
 
         $this->validate($rules, $messages);
 
-        // Record the hit to the rate limiter on successful validation (5-minute cooldown)
         RateLimiter::hit($rateLimitKey, 300);
 
-        // Convert values to integers
         $sanitizedRatings = collect($this->ratings)->map(fn($val) => (int)$val)->toArray();
-
-        // Final sanitation check on submission
         $cleanComments = $this->filterProfanity($this->comments);
 
-        // Dispatch background job for queue processing and idempotency
         ProcessEvaluationSubmission::dispatch(
             auth()->id(),
             $this->evaluatee->id,
@@ -221,9 +229,6 @@ new class extends Component {
             $cleanComments ?: null
         );
 
-        // If queue driver is sync, the database updates immediately.
-        // If database queue is used, it will be processed in background.
-        
         $this->dispatch('evaluation-submitted');
         
         session()->flash('success', 'Evaluation submitted successfully to the background processing queue.');
@@ -231,14 +236,68 @@ new class extends Component {
     }
 }; ?>
 
-<div x-data="{ ratings: @entangle('ratings') }" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden">
-    <!-- Header -->
-    <div class="px-6 py-5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+@php
+    $flatQuestions = $this->questions;
+    $totalQuestionsCount = count($flatQuestions);
+@endphp
+
+<div 
+    x-data="{ 
+        ratings: @entangle('ratings'),
+        currentIndex: 0,
+        totalQuestions: {{ $totalQuestionsCount }},
+        isReviewStep: false,
+        autoAdvanceTimeout: null,
+        
+        selectRating(questionId, ratingVal) {
+            this.ratings[questionId] = ratingVal;
+            
+            clearTimeout(this.autoAdvanceTimeout);
+            this.autoAdvanceTimeout = setTimeout(() => {
+                if (this.currentIndex < this.totalQuestions - 1) {
+                    this.currentIndex++;
+                } else {
+                    this.isReviewStep = true;
+                }
+            }, 300);
+        },
+        
+        goToQuestion(index) {
+            this.isReviewStep = false;
+            this.currentIndex = index;
+        },
+
+        nextQuestion() {
+            if (this.currentIndex < this.totalQuestions - 1) {
+                this.currentIndex++;
+            } else {
+                this.isReviewStep = true;
+            }
+        },
+
+        prevQuestion() {
+            if (this.isReviewStep) {
+                this.isReviewStep = false;
+            } else if (this.currentIndex > 0) {
+                this.currentIndex--;
+            }
+        },
+
+        get answeredCount() {
+            return Object.values(this.ratings).filter(r => r !== '' && r !== null && r !== undefined).length;
+        },
+
+        get progressPercent() {
+            if (this.totalQuestions === 0) return 0;
+            return Math.round((this.answeredCount / this.totalQuestions) * 100);
+        }
+    }" 
+    class="max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden"
+>
+    <!-- Simple Header: Name & Progress -->
+    <div class="px-6 py-4 bg-[#800000] text-white flex items-center justify-between gap-4">
         <div>
-            <span class="text-xs uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full font-semibold">
-                {{ strtoupper($evaluationType) }} EVALUATION
-            </span>
-            <h2 class="text-xl font-bold mt-2">
+            <h2 class="text-lg md:text-xl font-bold">
                 @if($evaluationType === 'self')
                     Self Evaluation
                 @else
@@ -246,17 +305,31 @@ new class extends Component {
                 @endif
             </h2>
             @if($class)
-                <p class="text-sm opacity-90 font-medium mt-1">
-                    Class: <span class="underline">{{ $class->subject->code }} - {{ $class->subject->name }}</span> ({{ $class->section }})
+                <p class="text-xs text-red-100 mt-0.5">
+                    {{ $class->subject->code }} - {{ $class->subject->name }} ({{ $class->section }})
                 </p>
             @endif
         </div>
+
+        <div class="flex items-center gap-2 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-full border border-white/20 shrink-0">
+            <span x-text="`${answeredCount}/${totalQuestions} Answered`"></span>
+            <span class="opacity-60">•</span>
+            <span x-text="`${progressPercent}%`" class="text-amber-300"></span>
+        </div>
+    </div>
+
+    <!-- Progress Bar Line -->
+    <div class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800">
+        <div 
+            class="h-full bg-[#800000] dark:bg-red-600 transition-all duration-300 ease-out" 
+            :style="`width: ${progressPercent}%`"
+        ></div>
     </div>
 
     <!-- Alert Messages -->
     @if(session()->has('success'))
-        <div class="mx-6 mt-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3">
-            <flux:icon icon="check-circle" class="size-6 text-emerald-600" />
+        <div class="mx-6 mt-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3">
+            <flux:icon icon="check-circle" class="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div class="text-sm font-semibold">{{ session('success') }}</div>
         </div>
     @endif
@@ -264,101 +337,288 @@ new class extends Component {
     @if($retryAfter > 0)
         <div x-data="{ seconds: @entangle('retryAfter') }" 
              x-init="const interval = setInterval(() => { if (seconds > 0) { seconds--; } else { clearInterval(interval); $wire.set('retryAfter', 0); } }, 1000)"
-             class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3">
-            <flux:icon icon="clock" class="size-6 text-rose-600 animate-pulse" />
+             class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+            <flux:icon icon="clock" class="size-5 text-rose-600 dark:text-rose-400 animate-pulse shrink-0" />
             <div class="text-sm font-semibold">
                 Too many submission attempts. Please wait <span x-text="seconds" class="font-bold"></span> seconds before submitting again.
             </div>
         </div>
     @elseif(session()->has('error'))
-        <div class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3">
-            <flux:icon icon="x-circle" class="size-6 text-rose-600" />
+        <div class="mx-6 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+            <flux:icon icon="x-circle" class="size-5 text-rose-600 dark:text-rose-400 shrink-0" />
             <div class="text-sm font-semibold">{{ session('error') }}</div>
         </div>
     @endif
 
-    <!-- Form -->
-    <form wire:submit="submit" class="p-6 flex flex-col gap-6">
-        @php $qIndex = 1; @endphp
-        @foreach($this->criteria as $criterion)
-            <div class="border border-zinc-100 dark:border-zinc-800 rounded-xl p-4 md:p-6 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-4">
-                <div class="flex justify-between items-center border-b border-zinc-150 dark:border-zinc-800 pb-3">
-                    <h3 class="font-bold text-zinc-800 dark:text-zinc-100 text-base md:text-lg">
-                        {{ $criterion->name }}
-                    </h3>
-                    <span class="text-xs font-semibold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-2 py-1 rounded">
-                        Max: {{ (float)$criterion->max_points }} pts
-                    </span>
-                </div>
+    <!-- Question Number Pills Grid Navigator -->
+    <div class="px-6 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 flex items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+            @foreach($flatQuestions as $idx => $q)
+                <button
+                    type="button"
+                    @click="goToQuestion({{ $idx }})"
+                    class="size-8 rounded-lg text-xs font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border"
+                    :class="{
+                        'bg-[#800000] border-[#800000] text-white shadow-sm scale-105': !isReviewStep && currentIndex === {{ $idx }},
+                        'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
+                        'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400': (!isReviewStep && currentIndex !== {{ $idx }}) && !ratings[{{ $q['id'] }}],
+                        'opacity-60': isReviewStep && !ratings[{{ $q['id'] }}]
+                    }"
+                    title="Question {{ $idx + 1 }}"
+                >
+                    <template x-if="ratings[{{ $q['id'] }}] && currentIndex !== {{ $idx }}">
+                        <flux:icon icon="check" class="size-3.5 stroke-[3]" />
+                    </template>
+                    <template x-if="!ratings[{{ $q['id'] }}] || currentIndex === {{ $idx }}">
+                        <span>{{ $idx + 1 }}</span>
+                    </template>
+                </button>
+            @endforeach
 
-                <div class="flex flex-col gap-6 divide-y divide-zinc-100 dark:divide-zinc-800">
-                    @foreach($criterion->questions as $question)
-                        <div class="pt-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 {{ $loop->first ? 'pt-0' : '' }}">
-                            <div class="flex-1">
-                                <p class="text-sm md:text-base font-medium text-zinc-800 dark:text-zinc-200 flex gap-2">
-                                    <span class="text-indigo-500 font-bold">{{ $qIndex++ }}.</span>
-                                    <span>{{ $question->question_text }}</span>
-                                </p>
-                                @error("ratings.{$question->id}")
-                                    <span class="text-xs text-rose-500 font-semibold mt-1 block">{{ $message }}</span>
-                                @enderror
+            <!-- Final Review Step Button Pill -->
+            <button
+                type="button"
+                @click="isReviewStep = true"
+                class="h-8 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border"
+                :class="{
+                    'bg-[#800000] border-[#800000] text-white shadow-sm': isReviewStep,
+                    'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400': !isReviewStep
+                }"
+            >
+                <flux:icon icon="clipboard-document-check" class="size-3.5" />
+                <span>Review & Submit</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="p-6 md:p-8">
+
+        <!-- Active Question Card Step (Wrapped in single root div for Alpine template compatibility) -->
+        <template x-if="!isReviewStep && totalQuestions > 0">
+            <div>
+                @foreach($flatQuestions as $idx => $q)
+                    <div 
+                        x-show="currentIndex === {{ $idx }}" 
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 scale-98"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        class="flex flex-col gap-6"
+                    >
+                        <!-- Question Header Info -->
+                        <div class="flex items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
+                            <span class="px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#800000] dark:text-red-400 text-xs font-bold border border-red-900/20">
+                                {{ $q['criterion_name'] }}
+                            </span>
+                            <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                                Question {{ $idx + 1 }} of {{ $totalQuestionsCount }}
+                            </span>
+                        </div>
+
+                        <!-- Question Text -->
+                        <div class="py-6 min-h-[90px] flex items-center justify-center">
+                            <h3 class="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-100 text-center leading-relaxed max-w-2xl">
+                                {{ $q['question_text'] }}
+                            </h3>
+                        </div>
+
+                        <!-- Horizontal 1-5 Rating Buttons Container -->
+                        <div class="my-5 flex flex-col items-center justify-center gap-6">
+                            <!-- 1 to 5 Buttons with Clean Aspect-Square Dimensions -->
+                            <div class="flex items-center justify-center gap-3 sm:gap-4 md:gap-6 py-2">
+                                @for($ratingVal = 1; $ratingVal <= 5; $ratingVal++)
+                                    <button
+                                        type="button"
+                                        @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
+                                        class="w-20 h-20 sm:w-16 sm:h-16 md:w-25 md:h-25 aspect-square rounded-2xl border-2 text-xl sm:text-2xl md:text-3xl font-black transition-all duration-200 flex items-center justify-center cursor-pointer select-none shrink-0 shadow-sm"
+                                        :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
+                                            ? 'bg-[#800000] border-[#800000] text-white shadow-xl shadow-red-950/50 scale-110 ring-4 ring-red-900/30'
+                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#800000] dark:hover:border-red-500 hover:text-[#800000] dark:hover:text-red-300'"
+                                    >
+                                        <span class="leading-none">{{ $ratingVal }}</span>
+                                    </button>
+                                @endfor
                             </div>
 
-                            <!-- Horizontal 1-5 rating buttons -->
-                            <div class="flex justify-center items-center gap-1.5 md:gap-2 self-center lg:self-auto shrink-0">
-                                @for($ratingVal = 1; $ratingVal <= 5; $ratingVal++)
-                                    <label class="group cursor-pointer select-none">
-                                        <input type="radio" 
-                                               x-model="ratings[{{ $question->id }}]" 
-                                               value="{{ $ratingVal }}" 
-                                               class="sr-only" />
-                                        <div class="w-10 h-10 md:w-11 md:h-11 rounded-full flex flex-col justify-center items-center text-xs md:text-sm font-bold border transition-all duration-200"
-                                             :class="ratings && ratings[{{ $question->id }}] == {{ $ratingVal }}
-                                                 ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none scale-110'
-                                                 : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 dark:hover:border-indigo-500'">
-                                            <span>{{ $ratingVal }}</span>
+                            <!-- Separate Divider Line & Scale Legend Badges -->
+                            <div class="w-full pt-8 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-wrap justify-center items-center gap-3 sm:gap-6 text-xs md:text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+                                <span class="flex items-center gap-1.5"><strong class="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[11px] font-black flex items-center justify-center">1</strong> Poor</span>
+                                <span class="opacity-40">•</span>
+                                <span class="flex items-center gap-1.5"><strong class="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[11px] font-black flex items-center justify-center">2</strong> Fair</span>
+                                <span class="opacity-40">•</span>
+                                <span class="flex items-center gap-1.5"><strong class="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[11px] font-black flex items-center justify-center">3</strong> Satisfactory</span>
+                                <span class="opacity-40">•</span>
+                                <span class="flex items-center gap-1.5"><strong class="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[11px] font-black flex items-center justify-center">4</strong> Very Satisfactory</span>
+                                <span class="opacity-40">•</span>
+                                <span class="flex items-center gap-1.5"><strong class="size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[11px] font-black flex items-center justify-center">5</strong> Outstanding</span>
+                            </div>
+                        </div>
+
+                        <!-- Card Controls -->
+                        <div class="flex justify-between items-center border-t border-zinc-200 dark:border-zinc-800/80 pt-8">
+                            <flux:button 
+                                variant="subtle" 
+                                type="button" 
+                                @click="prevQuestion()" 
+                                ::disabled="currentIndex === 0"
+                                icon="arrow-left"
+                                class="cursor-pointer"
+                            >
+                                Previous
+                            </flux:button>
+
+                            <button 
+                                type="button" 
+                                @click="nextQuestion()" 
+                                class="px-8 py-3 rounded-xl bg-[#800000] hover:bg-[#990000] text-white text-xs md:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#800000]"
+                            >
+                                <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </template>
+
+        <!-- Final Summary & Review Step -->
+        <template x-if="isReviewStep">
+            <form wire:submit="submit" class="flex flex-col gap-6">
+                <!-- Review Step Header -->
+                <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                    <div>
+                        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                            Evaluation Summary & Final Review
+                        </h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Review your ratings and optionally add feedback comments before submitting.
+                        </p>
+                    </div>
+
+                    <flux:button 
+                        variant="subtle" 
+                        type="button" 
+                        @click="goToQuestion(0)" 
+                        icon="pencil-square" 
+                        size="sm"
+                        class="cursor-pointer"
+                    >
+                        Edit Answers
+                    </flux:button>
+                </div>
+
+                <!-- Answer Completion Status Banner -->
+                <template x-if="answeredCount < totalQuestions">
+                    <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 rounded-xl flex items-center gap-3">
+                        <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <div class="text-xs font-semibold">
+                            You have answered <span class="font-bold text-amber-900 dark:text-amber-200" x-text="answeredCount"></span> of <span class="font-bold text-amber-900 dark:text-amber-200" x-text="totalQuestions"></span> questions. All questions require a rating before submitting.
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="answeredCount === totalQuestions">
+                    <div class="p-3.5 bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-black dark:text-black rounded-sm flex items-center gap-3">
+                        <flux:icon icon="check-circle" class="size-5 text-black dark:text-black shrink-0" />
+                        <div class="text-xs font-semibold">
+                            All <span class="font-bold text-black dark:text-black" x-text="totalQuestions"></span> questions answered! Ready for final submission.
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Rating Matrix Breakdown by Criterion -->
+                <div class="flex flex-col gap-4">
+                    @foreach($this->criteria as $criterion)
+                        <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-2.5">
+                            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
+                                <h4 class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                                    {{ $criterion->name }}
+                                </h4>
+                                <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                                    Max: {{ (float)$criterion->max_points }} pts
+                                </span>
+                            </div>
+
+                            <div class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                                @foreach($criterion->questions as $q)
+                                    @php
+                                        $qIndexInFlat = array_search($q->id, array_column($flatQuestions, 'id'));
+                                    @endphp
+                                    <div class="py-2 flex items-center justify-between gap-3 text-xs">
+                                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                                            <span class="font-bold text-zinc-400 shrink-0">{{ $qIndexInFlat !== false ? $qIndexInFlat + 1 : '' }}.</span>
+                                            <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate">{{ $q->question_text }}</span>
                                         </div>
-                                    </label>
-                                @endfor
+
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <template x-if="ratings[{{ $q->id }}]">
+                                                <span class="px-2 py-0.5 rounded-md bg-[#800000] text-white font-bold text-xs">
+                                                    Score: <span x-text="ratings[{{ $q->id }}]"></span> / 5
+                                                </span>
+                                            </template>
+                                            <template x-if="!ratings[{{ $q->id }}]">
+                                                <button 
+                                                    type="button" 
+                                                    @click="goToQuestion({{ $qIndexInFlat !== false ? $qIndexInFlat : 0 }})" 
+                                                    class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-900/40 text-black dark:text-black font-bold text-[11px] hover:underline cursor-pointer"
+                                                >
+                                                    Unanswered
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
                         </div>
                     @endforeach
                 </div>
-            </div>
-        @endforeach
 
-        <!-- Legend / Rating Guide -->
-        <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-wrap justify-between items-center gap-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span class="uppercase tracking-wider">Rating Scale:</span>
-            <div class="flex flex-wrap gap-4">
-                <span>1 - Poor</span>
-                <span>2 - Fair</span>
-                <span>3 - Satisfactory</span>
-                <span>4 - Very Satisfactory</span>
-                <span>5 - Outstanding</span>
-            </div>
-        </div>
+                <!-- Comments Textarea -->
+                <div class="flex flex-col gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+                    <label for="comments" class="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                        Comments & Suggestions (Optional)
+                    </label>
+                    <textarea 
+                        id="comments" 
+                        wire:model.live.debounce.1000ms="comments" 
+                        rows="3" 
+                        placeholder="Share constructive feedback here..." 
+                        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#800000] focus:ring-1 focus:ring-[#800000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
+                    ></textarea>
+                </div>
 
-        <!-- Comments -->
-        <div class="flex flex-col gap-2">
-            <label for="comments" class="text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                Comments / Suggestions (Optional)
-            </label>
-            <textarea id="comments" 
-                      wire:model.live.debounce.1000ms="comments" 
-                      rows="4" 
-                      placeholder="Share constructive feedback here..." 
-                      class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"></textarea>
-        </div>
+                <!-- Review Action Controls -->
+                <div class="flex justify-between items-center border-t border-zinc-200 dark:border-zinc-800 pt-4">
+                    <flux:button 
+                        variant="subtle" 
+                        type="button" 
+                        @click="goToQuestion(0)" 
+                        icon="arrow-left"
+                        class="cursor-pointer"
+                    >
+                        Back to Questions
+                    </flux:button>
 
-        <!-- Action buttons -->
-        <div class="flex justify-end gap-3 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-            <flux:button variant="ghost" type="button" wire:click="resetForm" :disabled="$retryAfter > 0">
-                Clear Form
-            </flux:button>
-            <flux:button variant="primary" type="submit" :disabled="$retryAfter > 0">
-                Submit Evaluation
-            </flux:button>
-        </div>
-    </form>
+                    <div class="flex items-center gap-3">
+                        <flux:button 
+                            variant="ghost" 
+                            type="button" 
+                            wire:click="resetForm" 
+                            :disabled="$retryAfter > 0"
+                            class="cursor-pointer text-xs"
+                        >
+                            Reset All
+                        </flux:button>
+                        <flux:button 
+                            
+                            type="submit" 
+                            :disabled="$retryAfter > 0"
+                            class="bg-[#800000] hover:bg-[#990000] border-[#800000] text-white px-6 font-bold cursor-pointer"
+                        >
+                            Submit Evaluation
+                        </flux:button>
+                    </div>
+                </div>
+            </form>
+        </template>
+    </div>
 </div>

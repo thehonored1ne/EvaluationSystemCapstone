@@ -17,6 +17,7 @@
 - use redis for queue jobs to improve performance.
 
 - [X] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
+- [X] Single-Question Interactive Evaluation Wizard (`evaluation-form.blade.php`), Collapsed Mini Sidebar with GRC logo, dark red navbar & active page styling (`#800000`), role badge, notification count badge, and persistent dark mode across full page reloads & SPA transitions (`$flux.appearance`).
 
 - import data via excel feature (only admin can do this)
 - ui issues in reports table
