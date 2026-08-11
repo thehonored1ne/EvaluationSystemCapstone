@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2026-08-11]
 
 ### Added
+- **Redesigned Admin Reports Page (No Tables + Integrated AI Analysis)**:
+  - Redesigned both the **Summary Report** and **Individual Report** views on `/admin/reports` ([reports.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)), replacing data tables with visual scorecards, criteria progress bars, faculty performance grid cards, and AI sentiment analysis blocks.
+  - **Summary Report**: Features Executive Metric Scorecards (institutional average, category averages, submission counts), AI Institutional Analysis Block (overall sentiment progress bar + executive summary text), and Faculty Performance Grid Cards (responsive professor cards with department code, overall score badge, category score pills, and AI sentiment badge).
+  - **Individual Report**: Features Profile & Score Scorecards (overall score badge + performance descriptor pill), Criteria Performance Progress Cards (with fill bars and `4.50 / 5.0` badges), AI Sentiment & Feedback Analysis Block (positive/neutral/constructive percentages + key strengths & focus area cards), and Submitted Comments Cards Stream with individual AI sentiment tags.
+  - Preserved full single-page document export formatting via `window.print()` with signature blocks.
+- **Evaluation Form Draft Persistence (`localStorage`)**:
+  - Implemented reactive `localStorage` draft persistence in Alpine (`x-data`) in `evaluation-form.blade.php` so selected 1-5 rating answers, comments, and current question step persist seamlessly across browser reloads, page navigation, and dashboard visits.
+  - Stored under unique session keys (`draft_eval_{userID}_{type}_{evaluateeID}_{classID}`).
+  - Configured automatic draft clearing upon successful submission (`@evaluation-submitted.window`) or when clicking **Reset All**.
+  - Updated progress bar line fill color to `bg-amber-400 dark:bg-amber-400` so it stands out distinctly from the maroon `#800000` header in light mode.
+- **Required Comments Validation in Evaluation Form**:
+  - Added `required|string|min:3` validation rule for comments before evaluation submission in `evaluation-form.blade.php`.
+  - Updated UI label to `Comments & Suggestions *` with red asterisk, updated placeholder to `Share constructive feedback here (required)...`, and added `@error('comments')` message display below the textarea.
+- **Global Evaluator Layout & Header Auto-Hide**:
+  - Wrapped top dashboard header card in `@if(!$showForm)` across all 5 evaluator dashboards (`student`, `faculty`, `dean`, `program-head`, `staff`) so the dashboard header banner hides automatically when taking an evaluation.
+  - Rendered `<x-admin.navbar />` and `<x-admin.footer />` across all logged-in evaluator roles (`@if(auth()->check())`) in [sidebar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php).
+  - Formatted navbar role badges using `ucwords(str_replace(['_', '-'], ' ', $roleRaw))` (e.g. `Logged as Student`, `Logged as Faculty`, `Logged as Dean`, `Logged as Program Head`, `Logged as Staff`).
+  - Fixed notification badge alignment on bell icon in [navbar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/navbar.blade.php).
+- **Evaluator Dashboard Table Cell Cleanliness**:
+  - Simplified table columns across Student, Faculty, Dean, Program Head, and Staff dashboards so `Name` and `Subject` columns contain strictly single-line strings without auxiliary employee IDs, departments, or schedule sub-texts.
 - **Single-Question Interactive Evaluation Wizard**:
   - Re-architected `resources/views/livewire/evaluation-form.blade.php` across all 6 evaluator portals (Students, Faculty, Staff, Program Heads, Deans, Self) from a single long-scrolling form into a focused single-question evaluation wizard.
   - Features a real-time evaluator progress header (`X/11 Answered • X%`), an interactive question navigator grid with number pills (`1`, `2`, `3`...) and completion checkmarks, 300ms smooth auto-advance upon selecting a rating, enlarged high-contrast horizontal rating buttons (`1`–`5`) with theme-tuned hover states, a stylized rating scale legend, and a final **Summary & Review** screen with criterion breakdown matrix, skipped question alerts, live profanity-filtered comments textarea, and background job queue submission (`ProcessEvaluationSubmission`).

@@ -16,8 +16,10 @@
         }
     }
 
-    $roleName = $user ? ucfirst($user->getRoleNames()->first() ?? 'Admin') : 'Admin';
+    $roleRaw = $user ? ($user->getRoleNames()->first() ?? 'User') : 'User';
+    $roleName = ucwords(str_replace(['_', '-'], ' ', $roleRaw));
 @endphp
+
 
 <flux:header class="border-b border-red-900/40 bg-[#800000] text-white shadow-md">
     <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
@@ -65,10 +67,10 @@
 
         <!-- Notification Icon Dropdown -->
         <flux:dropdown position="bottom" align="end">
-            <button type="button" class="relative p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer" title="Notifications">
+            <button type="button" class="relative inline-flex items-center justify-center p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer" title="Notifications">
                 <flux:icon icon="bell" class="size-5" />
                 @if($unreadNotificationsCount > 0)
-                    <span class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-zinc-950 px-1 border border-red-900 shadow-sm animate-pulse">
+                    <span class="absolute top-0 right-0 -mt-0.5 -mr-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-zinc-950 px-1 border border-red-900 shadow-sm animate-pulse">
                         {{ $unreadNotificationsCount > 9 ? '9+' : $unreadNotificationsCount }}
                     </span>
                 @endif

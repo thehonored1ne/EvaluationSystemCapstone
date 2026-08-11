@@ -18,9 +18,9 @@
 
 - [X] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
 - [X] Single-Question Interactive Evaluation Wizard (`evaluation-form.blade.php`), Collapsed Mini Sidebar with GRC logo, dark red navbar & active page styling (`#800000`), role badge, notification count badge, and persistent dark mode across full page reloads & SPA transitions (`$flux.appearance`).
-
-- import data via excel feature (only admin can do this)
-- ui issues in reports table
+- [X] Redesigned Admin Reports Page (`/admin/reports`): Eliminated traditional tables in both Summary and Individual reports, replacing them with Executive Metric Cards, Criteria Performance Progress Bars, AI Sentiment & Insights Blocks (sentiment breakdown bar + positive/neutral/constructive percentages + executive summary text), Submitted Comments Stream cards, and Faculty Performance Grid Cards with full `window.print()` single-page export support.
+- [X] Evaluation Form Draft Persistence & Required Comments: Added `localStorage` draft saving in Alpine (`x-data`) for 1-5 rating answers, comments, and question step across page reloads & dashboard navigation. Enforced `required|string|min:3` comments validation on submit with UI red asterisk `Comments & Suggestions *` and error alert. Updated progress bar line fill to `bg-amber-400 dark:bg-amber-400`.
+- [X] Evaluator Navbar, Footer & Table Cleanliness: Enabled navbar and footer for all logged-in evaluator roles (`@if(auth()->check())`), fixed notification badge positioning, auto-hid dashboard header banner when evaluation form is open, and cleaned up table cells in all 5 evaluator dashboards to display strictly single-line strings under Name and Subject headers.
 - need to update the summary result more, lets make a report generation that can be exported to pdf with all the data in the evaluation. create a separate table to store the evaluation results that can be used for reporting purposes. should show individual result and summary result.
 - weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this. still thinking how this applies
 

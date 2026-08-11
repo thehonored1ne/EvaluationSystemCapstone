@@ -23,12 +23,19 @@ A role-based evaluation system with the following active portals:
 - **Custom Searchable Selects**: Custom Alpine-based `<x-searchable-select>` replacing native listbox dropdowns.
 - **Reusable Confirmation Modals**: Standardized modal `<x-confirmation-modal>` with custom details and relationship cascade warnings before deletions.
 - **Notifications**: Automated sidebar badges that clear instantly upon visiting the notifications page.
-- **Summary Reports**: Tabular summary reports of evaluation results filtered by semester/school year, downloadable as a print-optimized PDF, with strict role-based department filtering (Admin sees all; Dean/Program Head see department only).
+- **Summary Reports**: Printable and exportable performance evaluation summaries (`/admin/reports`) featuring table-less executive scorecards, visual criteria progress bars (`4.50 / 5.0`), integrated **AI Sentiment & Insights Blocks** (positive/neutral/constructive sentiment distribution + automated narrative analysis), submitted comments cards streams, and **Faculty Performance Grid Cards** (replacing traditional data tables) with full single-page `window.print()` document export formatting.
 - **Skeleton Shimmer Loading**: Hardware-accelerated shimmer skeleton loader page shells display instantly upon navigating to any admin-facing dashboard or management portal, loading actual data asynchronously in the background.
 
 ---
 
 ## Milestones & Summary of Work Done
+
+### August 11, 2026
+- **Redesigned Admin Reports Page (`/admin/reports`)**: Eliminated traditional data tables from both Summary and Individual reports in favor of executive scorecards, criteria progress bars (`4.50 / 5.0`), AI Sentiment & Insights Blocks (positive/neutral/constructive sentiment distribution + automated narrative text), submitted comments cards streams, and Faculty Performance Grid Cards with full single-page `window.print()` document export support.
+- **Evaluation Form Draft Persistence (`localStorage`)**: Added reactive `localStorage` draft saving in Alpine (`x-data`) for 1-5 rating answers, comments, and question step across page reloads & dashboard navigation. Enforced `required|string|min:3` comments validation on submit with UI red asterisk `Comments & Suggestions *` and error alert. Updated progress bar line fill to `bg-amber-400 dark:bg-amber-400`.
+- **Evaluator Navbar, Footer & Table Cleanliness**: Enabled navbar and footer for all logged-in evaluator roles (`@if(auth()->check())`), fixed notification badge positioning, auto-hid dashboard header banner when evaluation form is open, and cleaned up table cells in all 5 evaluator dashboards to display strictly single-line strings under Name and Subject headers.
+- **Single-Question Interactive Evaluation Wizard**: Re-architected `evaluation-form.blade.php` into a focused single-question evaluation wizard with real-time progress header, question number grid navigator, 300ms auto-advance, enlarged horizontal rating buttons, and a final Summary & Review screen.
+- **Collapsed Mini Sidebar & Navigation Enhancements**: Added collapsible icon-only mini sidebar mode with dark red (`#800000`) GRC logo asset, right-aligned tooltips, dark red active page indicator, and persistent dark mode switcher (`$flux.appearance`).
 
 ### August 8, 2026
 - **Department Leadership Alignment (`/admin/departments`)**: Updated the Department Management page and modal to assign **Program Head** leadership instead of Dean. Replaced the stat card, filter dropdowns, table headers, form select inputs, and deletion modals to use `program_head_id` and active `program head` employees. Added migration `2026_08_08_000001_add_program_head_id_to_departments_table.php` and updated tests.

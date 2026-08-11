@@ -134,6 +134,20 @@ test('evaluation form comment filters out curse words', function () {
         ->assertSet('comments', 'This is a and b class.');
 });
 
+test('evaluation form requires comments before submission', function () {
+    $this->actingAs($this->facUser1);
+
+    Livewire::test('evaluation-form', [
+        'evaluatee' => $this->facUser2,
+        'evaluationType' => 'peer',
+    ])
+        ->set("ratings.{$this->q1->id}", 5)
+        ->set("ratings.{$this->q2->id}", 5)
+        ->set('comments', '')
+        ->call('submit')
+        ->assertHasErrors(['comments' => 'required']);
+});
+
 test('faculty targeting logic finds peers in same department only', function () {
     $this->actingAs($this->facUser1);
 

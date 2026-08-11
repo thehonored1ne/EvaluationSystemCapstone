@@ -212,6 +212,10 @@ new class extends Component {
             $messages["ratings.{$questionId}.required"] = 'Please provide a rating for this question.';
         }
 
+        $rules['comments'] = 'required|string|min:3';
+        $messages['comments.required'] = 'Please provide comments / feedback before submitting your evaluation.';
+        $messages['comments.min'] = 'Your comment must be at least 3 characters long.';
+
         $this->validate($rules, $messages);
 
         RateLimiter::hit($rateLimitKey, 300);
@@ -244,13 +248,64 @@ new class extends Component {
 <div 
     x-data="{ 
         ratings: @entangle('ratings'),
+        comments: @entangle('comments'),
         currentIndex: 0,
         totalQuestions: {{ $totalQuestionsCount }},
         isReviewStep: false,
         autoAdvanceTimeout: null,
+        storageKey: 'draft_eval_{{ auth()->id() }}_{{ $evaluationType }}_{{ $evaluatee->id }}_{{ $class?->id ?? 'noclass' }}',
+
+        init() {
+            const saved = localStorage.getItem(this.storageKey);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.ratings && typeof data.ratings === 'object') {
+                        Object.keys(data.ratings).forEach(qId => {
+                            if (this.ratings.hasOwnProperty(qId)) {
+                                this.ratings[qId] = data.ratings[qId];
+                            }
+                        });
+                    }
+                    if (data.comments !== undefined && data.comments !== null) {
+                        this.comments = data.comments;
+                    }
+                    if (typeof data.currentIndex === 'number' && data.currentIndex < this.totalQuestions) {
+                        this.currentIndex = data.currentIndex;
+                    }
+                    if (typeof data.isReviewStep === 'boolean') {
+                        this.isReviewStep = data.isReviewStep;
+                    }
+                } catch(e) {}
+            }
+
+            this.$watch('ratings', () => this.saveDraft());
+            this.$watch('comments', () => this.saveDraft());
+            this.$watch('currentIndex', () => this.saveDraft());
+            this.$watch('isReviewStep', () => this.saveDraft());
+        },
+
+        saveDraft() {
+            try {
+                const draft = {
+                    ratings: this.ratings,
+                    comments: this.comments,
+                    currentIndex: this.currentIndex,
+                    isReviewStep: this.isReviewStep
+                };
+                localStorage.setItem(this.storageKey, JSON.stringify(draft));
+            } catch(e) {}
+        },
+
+        clearDraft() {
+            try {
+                localStorage.removeItem(this.storageKey);
+            } catch(e) {}
+        },
         
         selectRating(questionId, ratingVal) {
             this.ratings[questionId] = ratingVal;
+            this.saveDraft();
             
             clearTimeout(this.autoAdvanceTimeout);
             this.autoAdvanceTimeout = setTimeout(() => {
@@ -265,6 +320,7 @@ new class extends Component {
         goToQuestion(index) {
             this.isReviewStep = false;
             this.currentIndex = index;
+            this.saveDraft();
         },
 
         nextQuestion() {
@@ -273,6 +329,7 @@ new class extends Component {
             } else {
                 this.isReviewStep = true;
             }
+            this.saveDraft();
         },
 
         prevQuestion() {
@@ -281,6 +338,7 @@ new class extends Component {
             } else if (this.currentIndex > 0) {
                 this.currentIndex--;
             }
+            this.saveDraft();
         },
 
         get answeredCount() {
@@ -292,6 +350,7 @@ new class extends Component {
             return Math.round((this.answeredCount / this.totalQuestions) * 100);
         }
     }" 
+    @evaluation-submitted.window="clearDraft()"
     class="max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden"
 >
     <!-- Simple Header: Name & Progress -->
@@ -321,7 +380,7 @@ new class extends Component {
     <!-- Progress Bar Line -->
     <div class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800">
         <div 
-            class="h-full bg-[#800000] dark:bg-red-600 transition-all duration-300 ease-out" 
+            class="h-full bg-amber-400 dark:bg-amber-400 transition-all duration-300 ease-out shadow-sm" 
             :style="`width: ${progressPercent}%`"
         ></div>
     </div>
@@ -574,16 +633,22 @@ new class extends Component {
 
                 <!-- Comments Textarea -->
                 <div class="flex flex-col gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                    <label for="comments" class="text-sm font-bold text-zinc-800 dark:text-zinc-200">
-                        Comments & Suggestions (Optional)
+                    <label for="comments" class="text-sm font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1">
+                        Comments & Suggestions <span class="text-rose-500 font-bold">*</span>
                     </label>
                     <textarea 
                         id="comments" 
                         wire:model.live.debounce.1000ms="comments" 
                         rows="3" 
-                        placeholder="Share constructive feedback here..." 
+                        placeholder="Share constructive feedback here (required)..." 
                         class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#800000] focus:ring-1 focus:ring-[#800000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
                     ></textarea>
+                    @error('comments')
+                        <div class="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                            <flux:icon icon="exclamation-circle" class="size-4 shrink-0 text-rose-500" />
+                            <span>{{ $message }}</span>
+                        </div>
+                    @enderror
                 </div>
 
                 <!-- Review Action Controls -->
@@ -602,7 +667,7 @@ new class extends Component {
                         <flux:button 
                             variant="ghost" 
                             type="button" 
-                            wire:click="resetForm" 
+                            @click="clearDraft(); $wire.resetForm()" 
                             :disabled="$retryAfter > 0"
                             class="cursor-pointer text-xs"
                         >

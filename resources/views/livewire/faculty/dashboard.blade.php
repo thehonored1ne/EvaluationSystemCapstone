@@ -98,32 +98,34 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4 py-6">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-        <div>
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Faculty Evaluation Dashboard</h1>
-            <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
-                Department: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->department?->name ?? 'Not assigned' }} ({{ $this->department?->code ?? 'N/A' }})</span>
-                @if($this->activeSemester)
-                    | Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} - {{ $this->activeSemester->name }}</span>
-                @endif
-            </p>
-        </div>
+    @if(!$showForm)
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+            <div>
+                <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Faculty Evaluation Dashboard</h1>
+                <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
+                    Department: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->department?->name ?? 'Not assigned' }} ({{ $this->department?->code ?? 'N/A' }})</span>
+                    @if($this->activeSemester)
+                        | Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} - {{ $this->activeSemester->name }}</span>
+                    @endif
+                </p>
+            </div>
 
-        <div>
-            @if($this->isEvaluationOpen)
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Evaluations Open
-                </span>
-            @else
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                    <span class="size-2 rounded-full bg-rose-500"></span>
-                    Evaluations Closed
-                </span>
-            @endif
+            <div>
+                @if($this->isEvaluationOpen)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Evaluations Open
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                        <span class="size-2 rounded-full bg-rose-500"></span>
+                        Evaluations Closed
+                    </span>
+                @endif
+            </div>
         </div>
-    </div>
+    @endif
 
     @if(session()->has('error') && !$showForm)
         <div class="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3">
@@ -203,7 +205,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
                                         <th class="px-6 py-3.5">Name</th>
-                                        <th class="px-6 py-3.5">ID</th>
                                         <th class="px-6 py-3.5">Status</th>
                                         <th class="px-6 py-3.5 text-right">Action</th>
                                     </tr>
@@ -213,8 +214,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         @if($peer->user)
                                             @php $status = $this->getEvaluationStatus($peer->user->id, 'peer'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                                                <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $peer->full_name }}</td>
-                                                <td class="px-6 py-4 text-zinc-500">{{ $peer->employee_number }}</td>
+                                                <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                                                    {{ $peer->full_name }}
+                                                </td>
                                                 <td class="px-6 py-4">
                                                     @if($status === 'completed')
                                                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
@@ -271,7 +273,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
                                         <th class="px-6 py-3.5">Name</th>
-                                        <th class="px-6 py-3.5">ID</th>
                                         <th class="px-6 py-3.5">Status</th>
                                         <th class="px-6 py-3.5 text-right">Action</th>
                                     </tr>
@@ -281,8 +282,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         @if($head->user)
                                             @php $status = $this->getEvaluationStatus($head->user->id, 'upward_employee'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                                                <td class="px-6 py-4 font-semibold text-zinc-855 dark:text-zinc-245">{{ $head->full_name }}</td>
-                                                <td class="px-6 py-4 text-zinc-500">{{ $head->employee_number }}</td>
+                                                <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                                                    {{ $head->full_name }}
+                                                </td>
                                                 <td class="px-6 py-4">
                                                     @if($status === 'completed')
                                                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">

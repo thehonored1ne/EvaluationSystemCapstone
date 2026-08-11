@@ -75,7 +75,7 @@ Translates quantitative ratings and qualitative sentiment insights into visual d
   * **Institutional Performance Rankings Page (`/rankings`)**: Dedicated leaderboard page featuring 4 metric cards (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating), **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes
   * **Individual Results**: Score breakdowns per faculty member, criteria metrics, and sentiment distribution
   * **Executive Analytics**: Visual performance trends, rating distribution charts, and department comparisons
-  * **Report Generator**: Printable and exportable performance evaluation summaries
+* **Report Generator (`/admin/reports`)**: Printable and exportable performance evaluation summaries featuring table-less executive scorecards, visual criteria progress bars (`4.50 / 5.0`), integrated **AI Sentiment & Insights Blocks** (positive/neutral/constructive sentiment distribution + automated narrative analysis), submitted comments cards streams, and **Faculty Performance Grid Cards** (replacing traditional data tables) with full single-page `window.print()` document export formatting.
 
 ---
 

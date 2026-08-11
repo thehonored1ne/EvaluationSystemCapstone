@@ -21,7 +21,7 @@ test('admin dashboard renders admin navbar and footer', function () {
     $response->assertSee('Global Reciprocal Colleges');
 });
 
-test('non admin users do not see admin navbar badge', function () {
+test('evaluators see their role navbar badge and footer', function () {
     $student = User::factory()->create();
     $student->assignRole('student');
 
@@ -29,4 +29,7 @@ test('non admin users do not see admin navbar badge', function () {
 
     $response->assertStatus(200);
     $response->assertDontSee('Logged as Admin');
+    $response->assertSee('Logged as Student');
+    $response->assertSee('Academic Evaluation System');
+    $response->assertSee('Global Reciprocal Colleges');
 });
