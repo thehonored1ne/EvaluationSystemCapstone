@@ -13,6 +13,7 @@
 >
     <button
         type="button"
+        x-show="!sidebarCollapsed"
         class="group/disclosure-button mb-[2px] flex h-10 w-full items-center rounded-lg text-zinc-500 hover:bg-zinc-800/5 hover:text-zinc-800 lg:h-8 dark:text-white/80 dark:hover:bg-white/[7%] dark:hover:text-white"
     >
         <div class="pl-3 pr-4">
@@ -33,7 +34,7 @@
 <?php elseif ($heading): ?>
 
 <div {{ $attributes->class('block space-y-[2px]') }}>
-    <div class="px-1 py-2">
+    <div class="px-1 py-2" x-show="!sidebarCollapsed">
         <div class="text-xs leading-none text-zinc-400">{{ $heading }}</div>
     </div>
 
