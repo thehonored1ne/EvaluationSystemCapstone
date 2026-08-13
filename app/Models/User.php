@@ -368,6 +368,67 @@ class User extends Authenticatable // implements MustVerifyEmail
                     ];
                 }
             }
+        } elseif ($this->hasRole('department head') && $this->employee) {
+            $emp = $this->employee;
+
+            // Check self evaluation
+            $selfEvaluated = Evaluation::where([
+                'semester_id' => $sem->id,
+                'evaluator_id' => $this->id,
+                'evaluatee_id' => $this->id,
+                'evaluation_type' => 'self',
+            ])->exists();
+
+            if (! $selfEvaluated && $isEvaluationOpen) {
+                $notifications[] = (object) [
+                    'type' => 'reminder',
+                    'title' => 'Self Evaluation Incomplete',
+                    'description' => 'Please submit your department head self-evaluation report.',
+                    'created_at' => $notificationTime,
+                ];
+            }
+
+            // Staff members in administrative department pending
+            if ($emp->department_id) {
+                $staffMembers = Employee::where('role', 'staff')
+                    ->where('department_id', $emp->department_id)
+                    ->with('user')
+                    ->get();
+
+                $staffPending = 0;
+                foreach ($staffMembers as $staff) {
+                    if ($staff->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $staff->user->id, 'evaluation_type' => 'downward'])->exists()) {
+                        $staffPending++;
+                    }
+                }
+
+                if ($staffPending > 0 && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'type' => 'reminder',
+                        'title' => 'Pending Staff Evaluations',
+                        'description' => "You have {$staffPending} staff evaluation(s) remaining in your administrative department.",
+                        'created_at' => $notificationTime,
+                    ];
+                }
+            }
+
+            // Dean pending
+            $deans = Employee::where('role', 'dean')->with('user')->get();
+            $deanPending = 0;
+            foreach ($deans as $dean) {
+                if ($dean->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $dean->user->id, 'evaluation_type' => 'upward_employee'])->exists()) {
+                    $deanPending++;
+                }
+            }
+
+            if ($deanPending > 0 && $isEvaluationOpen) {
+                $notifications[] = (object) [
+                    'type' => 'reminder',
+                    'title' => 'Pending Dean Evaluation',
+                    'description' => "You have {$deanPending} Dean evaluation(s) remaining to complete.",
+                    'created_at' => $notificationTime,
+                ];
+            }
         }
 
         return $notifications;

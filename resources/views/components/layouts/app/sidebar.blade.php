@@ -115,6 +115,7 @@
                         $dashboardRoute = match(true) {
                             $user->hasRole('admin') => 'admin.dashboard',
                             $user->hasRole('dean') => 'dean.dashboard',
+                            $user->hasRole('department head') => 'department-head.dashboard',
                             $user->hasRole('program head') => 'program-head.dashboard',
                             $user->hasRole('faculty') => 'faculty.dashboard',
                             $user->hasRole('student') => 'student.dashboard',
@@ -203,13 +204,13 @@
                         @endif
 
                         @if(!$user->hasRole('admin'))
-                            <div x-data="{ open: {{ request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'program-head.dashboard') ? 'true' : 'false' }} }" class="w-full">
+                            <div x-data="{ open: {{ request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'department-head.dashboard', 'program-head.dashboard') ? 'true' : 'false' }} }" class="w-full">
                                 <flux:tooltip content="My Evaluations" position="right">
                                     <flux:navlist.item 
                                         icon="clipboard-document-check" 
                                         as="button"
                                         @click.prevent="open = !open" 
-                                        :current="request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'program-head.dashboard')"
+                                        :current="request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'department-head.dashboard', 'program-head.dashboard')"
                                         class="cursor-pointer w-full text-left"
                                         title="My Evaluations"
                                     >
@@ -227,6 +228,18 @@
                                         </flux:tooltip>
                                         <flux:tooltip content="Program Head Evaluations" position="right">
                                             <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'program-heads'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'program-heads'" wire:navigate class="text-xs" title="Program Head Evaluations">Program Head Evaluations</flux:navlist.item>
+                                        </flux:tooltip>
+                                    @endif
+
+                                    @if($user->hasRole('department head'))
+                                        <flux:tooltip content="Self Evaluation" position="right">
+                                            <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>
+                                        </flux:tooltip>
+                                        <flux:tooltip content="Staff Evaluation" position="right">
+                                            <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'staff'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'staff'" wire:navigate class="text-xs" title="Staff Evaluation">Staff Evaluation</flux:navlist.item>
+                                        </flux:tooltip>
+                                        <flux:tooltip content="Dean Evaluation" position="right">
+                                            <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'dean'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'dean'" wire:navigate class="text-xs" title="Dean Evaluation">Dean Evaluation</flux:navlist.item>
                                         </flux:tooltip>
                                     @endif
 

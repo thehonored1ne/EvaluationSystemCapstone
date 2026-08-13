@@ -6,11 +6,12 @@ This document maps user roles to their features, views, and target evaluation bo
 
 ## 1. System Roles
 * **Admin**: Complete system dashboard access, CRUD controls for users/departments/programs/schedules, evaluation questions, and global analytics.
-* **Dean**: Department-wide monitoring of evaluation participation rates, reports generation, and evaluator roles.
-* **Program Head**: Program-specific monitoring of classes, student enrollment, faculty evaluations, and reports generation.
-* **Faculty**: Accesses self-evaluations, peer evaluations, and supervisor evaluations.
+* **Dean**: Department-wide monitoring of evaluation participation rates, reports generation, evaluates Program Heads & Department Heads.
+* **Program Head**: Program-specific monitoring of classes, student enrollment, evaluates Faculty Professors, evaluates Self, evaluates Dean.
+* **Department Head**: Administrative department monitoring, evaluates Department Staff, evaluates Self, evaluates Dean.
+* **Faculty**: Accesses self-evaluations, peer evaluations, and supervisor evaluations (targets Program Head).
 * **Student**: Accesses evaluations targeting teachers of classes they are currently enrolled in.
-* **Staff**: Accesses self-evaluations and supervisor evaluations.
+* **Staff**: Accesses self-evaluations, peer evaluations, and supervisor evaluations (targets Department Head).
 
 ---
 
@@ -20,10 +21,11 @@ The table below displays who evaluates whom under different evaluation configura
 | **Evaluation Type** | **Evaluator Role** | **Target (Evaluatee) Role** | **Department boundaries** |
 |:---|:---|:---|:---|
 | **Student Evaluation** | Student | Faculty | Must be enrolled in the teacher's active class. |
-| **Peer Evaluation** | Faculty | Faculty | Must belong to the *same* department. |
-| **Downward Evaluation** | Dean / Program Head | Program Head / Faculty | Must belong to the *same* department (subordinates). |
-| **Upward Evaluation** | Faculty / Staff | Program Head | Must belong to the *same* department (superiors). |
-| **Self Evaluation** | Any Employee | Themselves | Evaluates their own performance. |
+| **Dean Evaluation** | Dean | Program Head / Department Head | Must manage the program/department head's department. |
+| **Program / Dept Head Eval** | Program Head / Department Head | Faculty / Staff | Program Head evaluates Faculty; Department Head evaluates Department Staff. |
+| **Peer Evaluation** | Faculty / Staff | Peer Faculty / Peer Staff | Faculty evaluates Peer Faculty; Staff evaluates Peer Staff in the same department. |
+| **Self Evaluation** | Any Employee | Themselves | Program Head, Department Head, Dean, Faculty, Staff evaluate Self. |
+| **Superior Evaluation** | Subordinate | Superior | Faculty → Program Head, Staff → Department Head, Program Head / Department Head → Dean. |
 
 ---
 

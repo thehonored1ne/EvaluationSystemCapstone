@@ -60,7 +60,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'email', 'editingUser',
             'employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'department_id'
         ]);
-        $this->role = in_array($this->selectedRole, ['admin', 'dean', 'program head', 'faculty', 'staff']) 
+        $this->role = in_array($this->selectedRole, ['admin', 'dean', 'department head', 'program head', 'faculty', 'staff']) 
             ? $this->selectedRole 
             : 'faculty';
         $this->showModal = true;
@@ -107,6 +107,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'all' => User::whereHas('employee')->count(),
                 'admin' => User::whereHas('employee', fn($q) => $q->where('role', 'admin'))->count(),
                 'dean' => User::whereHas('employee', fn($q) => $q->where('role', 'dean'))->count(),
+                'department head' => User::whereHas('employee', fn($q) => $q->where('role', 'department head'))->count(),
                 'program head' => User::whereHas('employee', fn($q) => $q->where('role', 'program head'))->count(),
                 'faculty' => User::whereHas('employee', fn($q) => $q->where('role', 'faculty'))->count(),
                 'staff' => User::whereHas('employee', fn($q) => $q->where('role', 'staff'))->count(),
@@ -122,7 +123,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'suffix' => 'nullable|string|max:255',
-            'role' => 'required|in:admin,dean,program head,faculty,staff',
+            'role' => 'required|in:admin,dean,department head,program head,faculty,staff',
             'department_id' => 'nullable|exists:departments,id',
             'email' => 'required|email|unique:users,email',
         ]);
@@ -148,12 +149,35 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $user->assignRole($this->role);
 
+        $this->syncDepartmentHeadship($employee, $this->department_id, $this->role);
+
         $this->showModal = false;
         \Flux::toast(
             heading: 'Employee Created',
             text: 'The employee account has been successfully created.',
             variant: 'success'
         );
+    }
+
+    private function syncDepartmentHeadship(Employee $employee, ?string $newDeptId, string $newRole, ?string $oldRole = null)
+    {
+        $deptIdVal = $newDeptId ? (int)$newDeptId : null;
+
+        // Clear old department leadership if role changed or department changed or set to null
+        if ($oldRole === 'program head' && ($newRole !== 'program head' || !$deptIdVal)) {
+            Department::where('program_head_id', $employee->id)->update(['program_head_id' => null]);
+        }
+        if ($oldRole === 'department head' && ($newRole !== 'department head' || !$deptIdVal)) {
+            Department::where('department_head_id', $employee->id)->update(['department_head_id' => null]);
+        }
+
+        if ($newRole === 'program head' && $deptIdVal) {
+            Department::where('program_head_id', $employee->id)->where('id', '!=', $deptIdVal)->update(['program_head_id' => null]);
+            Department::where('id', $deptIdVal)->update(['program_head_id' => $employee->id]);
+        } elseif ($newRole === 'department head' && $deptIdVal) {
+            Department::where('department_head_id', $employee->id)->where('id', '!=', $deptIdVal)->update(['department_head_id' => null]);
+            Department::where('id', $deptIdVal)->update(['department_head_id' => $employee->id]);
+        }
     }
 
     public function editUser(User $user)
@@ -180,7 +204,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'suffix' => 'nullable|string|max:255',
-            'role' => 'required|in:admin,dean,program head,faculty,staff',
+            'role' => 'required|in:admin,dean,department head,program head,faculty,staff',
             'department_id' => 'nullable|exists:departments,id',
             'email' => 'required|email|unique:users,email,' . $this->editingUser->id,
         ]);
@@ -205,6 +229,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         if ($oldRole && $oldRole !== $this->role) {
             $this->editingUser->syncRoles([$this->role]);
         }
+
+        $this->syncDepartmentHeadship($this->editingUser->employee, $this->department_id, $this->role, $oldRole);
 
         $this->showModal = false;
         \Flux::toast(
@@ -328,6 +354,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 '' => ['label' => 'All Employees', 'count' => $counts['all']],
                 'admin' => ['label' => 'Admin', 'count' => $counts['admin']],
                 'dean' => ['label' => 'Deans', 'count' => $counts['dean']],
+                'department head' => ['label' => 'Department Heads', 'count' => $counts['department head']],
                 'program head' => ['label' => 'Program Heads', 'count' => $counts['program head']],
                 'faculty' => ['label' => 'Faculty / Professors', 'count' => $counts['faculty']],
                 'staff' => ['label' => 'Staff', 'count' => $counts['staff']],
@@ -516,6 +543,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         <option value="faculty">Faculty / Professor</option>
                         <option value="admin">Administrator (Admin)</option>
                         <option value="dean">Dean</option>
+                        <option value="department head">Department Head</option>
                         <option value="program head">Program Head</option>
                         <option value="staff">Staff</option>
                     </select>

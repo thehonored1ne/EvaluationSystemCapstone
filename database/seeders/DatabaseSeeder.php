@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         $roles = [
             'admin',
             'dean',
+            'department head',
             'program head',
             'faculty',
             'student',

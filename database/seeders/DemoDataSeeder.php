@@ -20,13 +20,43 @@ class DemoDataSeeder extends Seeder
         // 1. Create Departments (Colleges)
         $ccs = Department::firstOrCreate(
             ['code' => 'CCS'],
-            ['name' => 'College of Computer Studies']
+            ['name' => 'College of Computer Studies', 'type' => 'academic']
         );
 
         $coed = Department::firstOrCreate(
             ['code' => 'COED'],
-            ['name' => 'College of Education']
+            ['name' => 'College of Education', 'type' => 'academic']
         );
+
+        $hrad = Department::firstOrCreate(
+            ['code' => 'HRAD'],
+            ['name' => 'Human Resources & Administrative Services', 'type' => 'administrative']
+        );
+
+        // Seed Department Head for Administrative Department
+        $deptHeadEmp = Employee::firstOrCreate(
+            ['employee_number' => 'DH-0001'],
+            [
+                'first_name' => 'Admin',
+                'last_name' => 'DeptHead',
+                'role' => 'department head',
+                'status' => 'active',
+                'department_id' => $hrad->id,
+            ]
+        );
+        $hrad->update(['department_head_id' => $deptHeadEmp->id]);
+
+        $deptHeadUser = User::firstOrCreate(
+            ['employee_id' => $deptHeadEmp->id],
+            [
+                'email' => 'dept.head@example.com',
+                'name' => 'Admin DeptHead',
+                'password' => Hash::make('password'),
+            ]
+        );
+        if (! $deptHeadUser->hasRole('department head')) {
+            $deptHeadUser->assignRole('department head');
+        }
 
         // Update Dean seeded in DatabaseSeeder to manage CCS
         $deanEmployee = Employee::where('employee_number', 'DEAN-001')->first();
@@ -96,12 +126,18 @@ class DemoDataSeeder extends Seeder
             $employee->update(['department_id' => $data['program']->department_id]);
             $programHeadEmployees[] = $employee;
 
+            // Set program_head_id on department if not set yet
+            $deptModel = $data['program']->department;
+            if ($deptModel && !$deptModel->program_head_id) {
+                $deptModel->update(['program_head_id' => $employee->id]);
+            }
+
             $email = strtolower($data['code']).'.head@example.com';
             $user = User::firstOrCreate(
-                ['email' => $email],
+                ['employee_id' => $employee->id],
                 [
+                    'email' => $email,
                     'name' => $data['name'],
-                    'employee_id' => $employee->id,
                     'password' => Hash::make('password'),
                 ]
             );
@@ -137,10 +173,10 @@ class DemoDataSeeder extends Seeder
             $facultyEmployees[] = $employee;
 
             $user = User::firstOrCreate(
-                ['email' => strtolower($firstName.'.'.$lastName).'@example.com'],
+                ['employee_id' => $employee->id],
                 [
+                    'email' => strtolower($firstName.'.'.$lastName).$i.'@example.com',
                     'name' => "$firstName $lastName",
-                    'employee_id' => $employee->id,
                     'password' => Hash::make('password'),
                 ]
             );
@@ -172,10 +208,10 @@ class DemoDataSeeder extends Seeder
             $staffEmployees[] = $employee;
 
             $user = User::firstOrCreate(
-                ['email' => strtolower($sName['first'].'.'.$sName['last']).'@example.com'],
+                ['employee_id' => $employee->id],
                 [
+                    'email' => strtolower($sName['first'].'.'.$sName['last']).'@example.com',
                     'name' => "{$sName['first']} {$sName['last']}",
-                    'employee_id' => $employee->id,
                     'password' => Hash::make('password'),
                 ]
             );
@@ -211,10 +247,10 @@ class DemoDataSeeder extends Seeder
             $students[] = $student;
 
             $user = User::firstOrCreate(
-                ['email' => strtolower($firstName.'.'.$lastName).'@example.com'],
+                ['student_id' => $student->id],
                 [
+                    'email' => strtolower($firstName.'.'.$lastName).$i.'@example.com',
                     'name' => "$firstName $lastName",
-                    'student_id' => $student->id,
                     'password' => Hash::make('password'),
                 ]
             );
@@ -303,6 +339,9 @@ class DemoDataSeeder extends Seeder
 
             // Enroll students into their program classes based on program and year level
             foreach ($students as $student) {
+                if (! $student->program) {
+                    continue;
+                }
                 $progCode = $student->program->code;
 
                 // Map program code and year level to appropriate sections

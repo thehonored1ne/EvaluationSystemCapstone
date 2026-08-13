@@ -16,6 +16,9 @@ Route::get('dashboard', function () {
     if ($user->hasRole('dean')) {
         return redirect()->route('dean.dashboard');
     }
+    if ($user->hasRole('department head')) {
+        return redirect()->route('department-head.dashboard');
+    }
     if ($user->hasRole('program head')) {
         return redirect()->route('program-head.dashboard');
     }
@@ -50,6 +53,7 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
 
     // Legacy redirects for old user management routes
     Route::redirect('/admin/deans', '/admin/employees?selectedRole=dean')->name('admin.deans');
+    Route::redirect('/admin/department-heads', '/admin/employees?selectedRole=department+head')->name('admin.department-heads');
     Route::redirect('/admin/program-heads', '/admin/employees?selectedRole=program+head')->name('admin.program-heads');
     Route::redirect('/admin/faculty', '/admin/employees?selectedRole=faculty')->name('admin.faculty');
     Route::redirect('/admin/staff', '/admin/employees?selectedRole=staff')->name('admin.staff');
@@ -86,6 +90,11 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
     Volt::route('/dean/dashboard', 'dean.dashboard')
         ->middleware('role:dean')
         ->name('dean.dashboard');
+
+    // Department Head Dashboard
+    Volt::route('/department-head/dashboard', 'department-head.dashboard')
+        ->middleware('role:department head')
+        ->name('department-head.dashboard');
 
     // Program Head Dashboard
     Volt::route('/program-head/dashboard', 'program-head.dashboard')

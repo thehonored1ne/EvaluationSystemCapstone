@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
+use App\Models\EvaluationSummary;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function placeholder()
@@ -253,12 +254,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
         $teachers = $this->teachers;
 
+        $summaries = EvaluationSummary::where('semester_id', $semester->id)
+            ->get()
+            ->keyBy('evaluatee_id');
+
         $allEvals = Evaluation::with('sentiment')
             ->where('semester_id', $semester->id)
             ->get();
 
-        $teacherRows = $teachers->map(function ($teacher) use ($semester, $allEvals) {
+        $teacherRows = $teachers->map(function ($teacher) use ($semester, $allEvals, $summaries) {
             $userId = $teacher->user?->id;
+            $summary = $summaries->get($teacher->id);
             
             if (!$userId) {
                 return (object) [
@@ -280,35 +286,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             }
 
             $teacherEvals = $allEvals->where('evaluatee_id', $userId);
-            $totalSubmissions = $teacherEvals->count();
-
-            // Applicable categories
-            $role = $teacher->role;
-            if ($role === 'faculty') {
-                $applicableCategories = [
-                    'upward_student' => (float)$semester->upward_student_max_points,
-                    'peer' => (float)$semester->peer_max_points,
-                    'downward' => (float)$semester->downward_max_points,
-                    'self' => (float)$semester->self_max_points,
-                ];
-            } elseif ($role === 'program head') {
-                $applicableCategories = [
-                    'upward_employee' => (float)$semester->upward_employee_max_points,
-                    'downward' => (float)$semester->downward_max_points,
-                    'self' => (float)$semester->self_max_points,
-                ];
-            } elseif ($role === 'dean') {
-                $applicableCategories = [
-                    'upward_employee' => (float)$semester->upward_employee_max_points,
-                    'self' => (float)$semester->self_max_points,
-                ];
-            } else {
-                $applicableCategories = [];
-            }
+            $totalSubmissions = $summary ? $summary->total_submissions : $teacherEvals->count();
 
             $typeAverages = [];
-            $totalSubmittedMaxPoints = 0.0;
-
             foreach (['upward_student', 'upward_employee', 'downward', 'peer', 'self'] as $type) {
                 $tEvals = $teacherEvals->where('evaluation_type', $type);
                 $tCount = $tEvals->count();
@@ -318,24 +298,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     'count' => $tCount,
                     'average' => $tAvg,
                 ];
-
-                if (array_key_exists($type, $applicableCategories) && $tCount > 0) {
-                    $totalSubmittedMaxPoints += $applicableCategories[$type];
-                }
             }
 
-            // Category-weighted overall average
-            $overallAverage = 0.00;
-            if ($totalSubmittedMaxPoints > 0) {
-                foreach ($applicableCategories as $type => $maxPoints) {
-                    $info = $typeAverages[$type];
-                    if ($info->count > 0) {
-                        $weight = $maxPoints / $totalSubmittedMaxPoints;
-                        $overallAverage += $info->average * $weight;
-                    }
-                }
+            // Overall score from cached summary or dynamic calculation
+            $overallAverage = $summary && $summary->overall_rating > 0
+                ? round($summary->overall_rating, 2)
+                : 0.00;
+
+            if ($overallAverage == 0.00 && $totalSubmissions > 0) {
+                $overallAverage = round($teacherEvals->avg('rating_average') ?? 0.00, 2);
             }
-            $overallAverage = round($overallAverage, 2);
 
             // Teacher sentiment
             $pos = 0; $neg = 0; $neu = 0;

@@ -4,6 +4,31 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-14]
+
+### Added
+- **Overhaul Evaluation Settings UI & 6 Standardized Relationship Categories**:
+  - Rendered all 6 relationship categories in Section 4 of `/admin/evaluation-settings` ([evaluation-settings.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php)) including **Dean Evaluation Parts** (`dean`) and **Superior Evaluation Parts** (`superior`).
+  - Standardized terminology across the system (Student, Dean, Program/Dept Head, Peer, Self, Superior), replacing legacy terms (`upward_student`, `downward`, `upward_employee`).
+  - Configured each `+ Add Part` button to auto-preselect its exact category in the Create Part modal (`wire:click="openCriterionModal('student')"`, `'dean'`, `'ph_dh'`, `'peer'`, `'self'`, `'superior'`).
+  - Removed indicator dots to eliminate visual clutter and updated Superior Evaluation labels to explicitly state `PH/DH → Dean` (`Faculty → PH, Staff → DH, PH/DH → Dean`).
+- **High-Contrast Theme Legibility**:
+  - Upgraded Section 3 Top Control Banner and Category Weight Cards in `evaluation-settings.blade.php` with theme-aware classes (`bg-zinc-50 dark:bg-zinc-800/80` and `bg-white dark:bg-zinc-800/40`), ensuring 100% legibility in both Light Mode and Dark Mode.
+- **Department Head System Role & Administrative Department Leadership**:
+  - Added first-class support for the **Department Head** user role (`department head`) across Spatie role management, user administration (`/admin/employees`), administrative department leadership pointers (`departments.department_head_id`), and relationship evaluation matrices.
+- **Bidirectional Department Leadership Synchronization**:
+  - Added `syncDepartmentHeadship()` in [manage-employees.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php). Assigning or updating an employee's department on the Employees Page automatically updates the department leadership pointers (`program_head_id` / `department_head_id`) on the department.
+  - Enforced single authoritative leader rendering in [manage-departments.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-departments.blade.php), resolving duplicate Program Head listings.
+  - Synchronized `headFilter` (assigned/unassigned) query logic on the Departments Page to check both leadership pointers and linked employee relationships.
+
+### Fixed
+- **Duplicate User Accounts & Uniqueness Constraints**:
+  - Created migration `2026_08_13_000002_cleanup_duplicate_users_and_add_unique_constraint.php` merging duplicate user accounts sharing `employee_id` and added `UNIQUE` constraints on `users.employee_id` and `users.student_id`.
+- **Department Unassign Bug**:
+  - Fixed issue where setting a department leader to `Unassigned` on the Departments Page failed to persist due to unlinked employee `department_id` fallbacks.
+
+---
+
 ## [2026-08-11]
 
 ### Added

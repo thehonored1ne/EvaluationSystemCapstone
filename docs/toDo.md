@@ -21,6 +21,7 @@
 - [X] Redesigned Admin Reports Page (`/admin/reports`): Eliminated traditional tables in both Summary and Individual reports, replacing them with Executive Metric Cards, Criteria Performance Progress Bars, AI Sentiment & Insights Blocks (sentiment breakdown bar + positive/neutral/constructive percentages + executive summary text), Submitted Comments Stream cards, and Faculty Performance Grid Cards with full `window.print()` single-page export support.
 - [X] Evaluation Form Draft Persistence & Required Comments: Added `localStorage` draft saving in Alpine (`x-data`) for 1-5 rating answers, comments, and question step across page reloads & dashboard navigation. Enforced `required|string|min:3` comments validation on submit with UI red asterisk `Comments & Suggestions *` and error alert. Updated progress bar line fill to `bg-amber-400 dark:bg-amber-400`.
 - [X] Evaluator Navbar, Footer & Table Cleanliness: Enabled navbar and footer for all logged-in evaluator roles (`@if(auth()->check())`), fixed notification badge positioning, auto-hid dashboard header banner when evaluation form is open, and cleaned up table cells in all 5 evaluator dashboards to display strictly single-line strings under Name and Subject headers.
+
 - need to update the summary result more, lets make a report generation that can be exported to pdf with all the data in the evaluation. create a separate table to store the evaluation results that can be used for reporting purposes. should show individual result and summary result.
 - weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this. still thinking how this applies
 
@@ -39,6 +40,113 @@
   Student - can evaluate their superior(upward - faculty)
   Staff - can evaluate their superior(upward - program head), can evaluate self(self)
 
-
-
 - export/import/template in employees and student data
+
+
+# **New todo:** - [X] Completed
+
+- [X] **Evaluation Settings Overhaul & Department Leadership Sync (2026-08-14)**:
+  - Added Dean Evaluation Parts (`dean`) and Superior Evaluation Parts (`superior`) to Section 4 in `evaluation-settings.blade.php`.
+  - Upgraded contrast and legibility across Section 3 & Section 4 for both Light Mode and Dark Mode.
+  - Standardized the 6 relationship categories across the system (Student, Dean, Program/Dept Head, Peer, Self, Superior) and updated labels to explicitly list `PH/DH → Dean`.
+  - Implemented bidirectional department leadership synchronization (`syncDepartmentHeadship()`) between Employees and Departments pages, fixing duplicate Program Head display bugs and unassign persistence issues.
+
+[X] [Relationships check and new label]
+
+Student Evaluation: student evaluates faculty professor
+
+Dean Evaluation: dean evaluates program head, dean evaluates department head
+
+Program / Department Head Evaluation: program head evaluates faculty professor, department head evaluates department staff
+
+Peer Evaluation: faculty prof evaluates peer faculty prof, department staff evaluates peer department staff
+
+Self Evaluation: program head  evaluates self, department head evaluates self, dean evaluates self, faculty professor evaluates self, department staff evaluates self.
+
+Superior Evaluation: program head evaluates dean, department head evaluates dean, faculty professor evaluates program head, department staff evaluates department head.
+
+[Example Computation for each part in student evaluation]
+
+Part 1:
+given example: part max pts: 36
+
+  Rating | max rating      Points
+
+1. 5           5             ?
+2. 4           5             ?
+3. 3           5             ?
+4. 4           5             ?
+5. 5           5             ?
+6. 5           5             ?
+
+total question: 6
+
+formula:
+Rating / Max Rating * Total Question = Points
+
+example:
+
+1. 5 / 5 * 6 = 6 pts
+2. 4 / 5 * 6 = 4.8 pts
+3. 3 / 5 * 6 = 3.6 pts
+4. 4 / 5 * 6 = 4.8 pts
+5. 5 / 5 * 6 = 6 pts
+6. 5 / 5 * 6 = 6 pts
+
+Formula for total points:
+
+31.2 = 6 + 4.8 + 3.6 + 4.8 + 6 + 6
+
+part 1 points: 31.2
+
+[Example Computation for combining all part in student evaluation with weights applied]
+
+given example:
+total max points: 90
+weighted rating: 45%
+for example student evaluation have 3 parts
+
+formula:
+
+part 1 + part 2 + part 3 = total part points
+
+ex. 31.2 + 31.2 + 16.2 = 78.6
+
+formula:
+total part points / max points * 100 * weighted rating = weighted score
+
+ex. 78.6 / 90 * 100 * .45 = 39.3
+
+weighted score: 39.3%
+
+[Example formula for max pts]
+Note: total max pts set and weights is needed to by dynamic. it means the admin can change it anytime.
+the total max pts should be rounded
+
+given:
+total max pts set: 200 pts
+total weights: 100%
+
+distribution:
+
+student evaluation:(30% weight)
+dean evaluation:(15% weight)
+ph/dh evaluation:(15% weight)
+peer evaluation:(15% weight)
+self evaluation: (5% weight)
+superior evaluation: (20% weight)
+
+example:
+
+student evaluation: 30% of 200 is 60 pts, so student total max point now is 60 pts.
+dean evaluation: 15% of 200 is 30 pts.
+ph/dh evaluation: 15% of 200 is 30 pts.
+peer evaluation: 15% of 200 is 30 pts.
+self evaluation: 5% of 200 is 10 pts.
+superior evaluation: 20% of 200 is 40 pts.
+
+[when does formula apply]
+
+1.Per-form computation (happens when an evaluation is submitted)
+2.Weighted conversion
+3.Final score computation

@@ -22,8 +22,10 @@ class Department extends Model
     protected $fillable = [
         'name',
         'code',
+        'type',
         'dean_id',
         'program_head_id',
+        'department_head_id',
     ];
 
     /**
@@ -40,6 +42,22 @@ class Department extends Model
     public function programHead()
     {
         return $this->belongsTo(Employee::class, 'program_head_id');
+    }
+
+    /**
+     * Get the Department Head managing this department.
+     */
+    public function departmentHead()
+    {
+        return $this->belongsTo(Employee::class, 'department_head_id');
+    }
+
+    /**
+     * Get all Department Heads belonging to this department.
+     */
+    public function departmentHeads()
+    {
+        return $this->hasMany(Employee::class)->where('role', 'department head');
     }
 
     /**

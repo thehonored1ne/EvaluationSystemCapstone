@@ -27,11 +27,17 @@ class Evaluation extends Model
         'class_id',
         'evaluation_type',
         'rating_average',
+        'raw_score',
+        'max_score',
+        'weighted_score',
         'comments',
     ];
 
     protected $casts = [
-        'rating_average' => 'decimal:2',
+        'rating_average' => 'float',
+        'raw_score' => 'float',
+        'max_score' => 'float',
+        'weighted_score' => 'float',
     ];
 
     /**

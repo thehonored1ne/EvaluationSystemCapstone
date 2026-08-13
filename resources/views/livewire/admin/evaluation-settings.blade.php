@@ -36,9 +36,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public array $criteriaPoints = [];
 
     // Dynamic Max score targets config for all 7 evaluation terms
+    public string $overallMaxTarget = '200';
+    public string $studentWeightTarget = '30';
+    public string $deanWeightTarget = '15';
+    public string $phDhWeightTarget = '15';
+    public string $peerWeightTarget = '15';
+    public string $selfWeightTarget = '5';
+    public string $superiorWeightTarget = '20';
+
     public string $upwardStudentMaxTarget = '90';
     public string $selfMaxTarget = '10';
     public string $deanMaxTarget = '50';
+    public string $departmentHeadMaxTarget = '50';
     public string $programHeadMaxTarget = '50';
     public string $peerMaxTarget = '50';
     public string $downwardMaxTarget = '50';
@@ -67,9 +76,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
+            $this->overallMaxTarget = (string)(float)($activeSem->overall_max_points ?? 200);
+            $this->studentWeightTarget = (string)(float)($activeSem->student_weight ?? 30);
+            $this->deanWeightTarget = (string)(float)($activeSem->dean_weight ?? 15);
+            $this->phDhWeightTarget = (string)(float)($activeSem->ph_dh_weight ?? 15);
+            $this->peerWeightTarget = (string)(float)($activeSem->peer_weight ?? 15);
+            $this->selfWeightTarget = (string)(float)($activeSem->self_weight ?? 5);
+            $this->superiorWeightTarget = (string)(float)($activeSem->superior_weight ?? 20);
+
             $this->upwardStudentMaxTarget = (string)(float)($activeSem->upward_student_max_points ?? 90);
             $this->upwardEmployeeMaxTarget = (string)(float)($activeSem->upward_employee_max_points ?? 50);
             $this->deanMaxTarget = (string)(float)($activeSem->dean_max_points ?? 50);
+            $this->departmentHeadMaxTarget = (string)(float)($activeSem->department_head_max_points ?? 50);
             $this->programHeadMaxTarget = (string)(float)($activeSem->program_head_max_points ?? 50);
             $this->downwardMaxTarget = (string)(float)($activeSem->downward_max_points ?? 50);
             $this->peerMaxTarget = (string)(float)($activeSem->peer_max_points ?? 50);
@@ -104,19 +122,30 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function getCategoryTotalsProperty()
     {
         $totals = [
+            'student' => 0.0,
             'upward_student' => 0.0,
-            'upward_employee' => 0.0,
+            'dean' => 0.0,
+            'ph_dh' => 0.0,
             'downward' => 0.0,
             'peer' => 0.0,
-            'self' => 0.0
+            'self' => 0.0,
+            'superior' => 0.0,
+            'upward_employee' => 0.0,
         ];
         $criteria = EvaluationCriterion::all();
         foreach ($criteria as $criterion) {
             $val = $this->criteriaPoints[$criterion->id] ?? 0.0;
-            if (isset($totals[$criterion->evaluation_type])) {
-                $totals[$criterion->evaluation_type] += is_numeric($val) ? (float)$val : 0.0;
+            $type = $criterion->evaluation_type;
+            if (isset($totals[$type])) {
+                $totals[$type] += is_numeric($val) ? (float)$val : 0.0;
             }
         }
+
+        // Combine aliased totals for legacy criteria mapping
+        $totals['combined_student'] = $totals['student'] + $totals['upward_student'];
+        $totals['combined_ph_dh'] = $totals['ph_dh'] + $totals['downward'];
+        $totals['combined_superior'] = $totals['superior'] + $totals['upward_employee'];
+
         return $totals;
     }
 
@@ -327,7 +356,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // Open Criterion Modal with specific Type
     public function openCriterionModal($type)
     {
-        $this->newCriterionType = $type;
+        $this->newCriterionType = match ($type) {
+            'upward_student' => 'student',
+            'downward' => 'ph_dh',
+            'upward_employee' => 'superior',
+            default => $type,
+        };
         $this->newCriterionName = '';
         $this->newCriterionMaxPoints = '0';
         $this->showCriterionModal = true;
@@ -339,7 +373,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->validate([
             'newCriterionName' => 'required|string|max:255',
             'newCriterionMaxPoints' => 'required|numeric|min:0',
-            'newCriterionType' => 'required|in:upward_student,upward_employee,downward,peer,self',
+            'newCriterionType' => 'required|in:student,dean,ph_dh,peer,self,superior',
         ]);
 
         $exists = EvaluationCriterion::where('evaluation_type', $this->newCriterionType)
@@ -391,48 +425,69 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         $totals = $this->categoryTotals;
 
-        $upwardStudentTarget = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
-        $upwardEmployeeTarget = is_numeric($this->upwardEmployeeMaxTarget) ? (float)$this->upwardEmployeeMaxTarget : 0.0;
-        $downwardTarget = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
-        $peerTarget = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
-        $selfTarget = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
-
-        if (abs($totals['upward_student'] - $upwardStudentTarget) > 0.001) {
-            $this->addError('points_upward_student', "Student Evaluation total points must equal exactly {$upwardStudentTarget} (Current: {$totals['upward_student']}).");
+        $totalWeights = (float)$this->studentWeightTarget + (float)$this->deanWeightTarget + (float)$this->phDhWeightTarget + (float)$this->peerWeightTarget + (float)$this->selfWeightTarget + (float)$this->superiorWeightTarget;
+        if (abs($totalWeights - 100.0) > 0.001) {
+            $this->addError('total_weights', "Total category percentage weights must equal exactly 100% (Current total: {$totalWeights}%).");
             return;
         }
 
-        if (abs($totals['upward_employee'] - $upwardEmployeeTarget) > 0.001) {
-            $this->addError('points_upward_employee', "Employee Upward evaluation total points must equal exactly {$upwardEmployeeTarget} (Current: {$totals['upward_employee']}).");
+        $overall = is_numeric($this->overallMaxTarget) ? (float)$this->overallMaxTarget : 200.0;
+        $studentTarget = round(((float)$this->studentWeightTarget / 100.0) * $overall, 2);
+        $deanTarget = round(((float)$this->deanWeightTarget / 100.0) * $overall, 2);
+        $phDhTarget = round(((float)$this->phDhWeightTarget / 100.0) * $overall, 2);
+        $peerTarget = round(((float)$this->peerWeightTarget / 100.0) * $overall, 2);
+        $selfTarget = round(((float)$this->selfWeightTarget / 100.0) * $overall, 2);
+        $superiorTarget = round(((float)$this->superiorWeightTarget / 100.0) * $overall, 2);
+
+        if (abs(($totals['combined_student'] ?? 0.0) - $studentTarget) > 0.001) {
+            $this->addError('points_student', "Student Evaluation total criteria points must equal exactly {$studentTarget} pts (Current: {$totals['combined_student']}).");
             return;
         }
 
-        if (abs($totals['downward'] - $downwardTarget) > 0.001) {
-            $this->addError('points_downward', "Supervisor Evaluation total points must equal exactly {$downwardTarget} (Current: {$totals['downward']}).");
+        if (abs(($totals['dean'] ?? 0.0) - $deanTarget) > 0.001 && EvaluationCriterion::where('evaluation_type', 'dean')->count() > 0) {
+            $this->addError('points_dean', "Dean Evaluation total criteria points must equal exactly {$deanTarget} pts (Current: {$totals['dean']}).");
             return;
         }
 
-        if (abs($totals['peer'] - $peerTarget) > 0.001) {
-            $this->addError('points_peer', "Peer Evaluation total points must equal exactly {$peerTarget} (Current: {$totals['peer']}).");
+        if (abs(($totals['combined_ph_dh'] ?? 0.0) - $phDhTarget) > 0.001) {
+            $this->addError('points_ph_dh', "Program / Department Head Evaluation total criteria points must equal exactly {$phDhTarget} pts (Current: {$totals['combined_ph_dh']}).");
             return;
         }
 
-        if (abs($totals['self'] - $selfTarget) > 0.001) {
-            $this->addError('points_self', "Self Evaluation total points must equal exactly {$selfTarget} (Current: {$totals['self']}).");
+        if (abs(($totals['peer'] ?? 0.0) - $peerTarget) > 0.001) {
+            $this->addError('points_peer', "Peer Evaluation total criteria points must equal exactly {$peerTarget} pts (Current: {$totals['peer']}).");
+            return;
+        }
+
+        if (abs(($totals['self'] ?? 0.0) - $selfTarget) > 0.001) {
+            $this->addError('points_self', "Self Evaluation total criteria points must equal exactly {$selfTarget} pts (Current: {$totals['self']}).");
+            return;
+        }
+
+        if (abs(($totals['combined_superior'] ?? 0.0) - $superiorTarget) > 0.001 && EvaluationCriterion::whereIn('evaluation_type', ['superior', 'upward_employee'])->count() > 0) {
+            $this->addError('points_superior', "Superior Evaluation total criteria points must equal exactly {$superiorTarget} pts (Current: {$totals['combined_superior']}).");
             return;
         }
 
         $activeSem = Semester::where('is_active', true)->first();
         if ($activeSem) {
             $activeSem->update([
-                'upward_student_max_points' => $upwardStudentTarget,
-                'upward_employee_max_points' => $upwardEmployeeTarget,
-                'dean_max_points' => is_numeric($this->deanMaxTarget) ? (float)$this->deanMaxTarget : 50.0,
-                'program_head_max_points' => is_numeric($this->programHeadMaxTarget) ? (float)$this->programHeadMaxTarget : 50.0,
-                'downward_max_points' => $downwardTarget,
+                'overall_max_points' => $overall,
+                'student_weight' => (float)$this->studentWeightTarget,
+                'dean_weight' => (float)$this->deanWeightTarget,
+                'ph_dh_weight' => (float)$this->phDhWeightTarget,
+                'peer_weight' => (float)$this->peerWeightTarget,
+                'self_weight' => (float)$this->selfWeightTarget,
+                'superior_weight' => (float)$this->superiorWeightTarget,
+                'upward_student_max_points' => $studentTarget,
+                'upward_employee_max_points' => $superiorTarget,
+                'dean_max_points' => $deanTarget,
+                'department_head_max_points' => $phDhTarget,
+                'program_head_max_points' => $phDhTarget,
+                'downward_max_points' => $phDhTarget,
                 'peer_max_points' => $peerTarget,
                 'self_max_points' => $selfTarget,
-                'staff_max_points' => is_numeric($this->staffMaxTarget) ? (float)$this->staffMaxTarget : 10.0,
+                'staff_max_points' => $selfTarget,
             ]);
         }
 
@@ -657,204 +712,208 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- SECTION 3: Evaluation Weight Score Card & Dynamic Target Inputs (Full Width Card with 5px #800000 Left Border) -->
     <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full" style="border-left: 5px solid #800000 !important;">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
                 <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <flux:icon icon="chart-bar" class="size-6 text-[#800000] dark:text-red-400" />
                     Evaluation Weight Score Card & Dynamic Max Points Target
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Configure max score points for all 7 evaluation types. Relative percentage weights update automatically.
+                    Configure overall total max evaluation points and percentage weights for the 6 standardized relationship categories.
                 </p>
             </div>
 
             @php
                 $totals = $this->categoryTotals;
-                $tStudent = is_numeric($this->upwardStudentMaxTarget) ? (float)$this->upwardStudentMaxTarget : 0.0;
-                $tSelf = is_numeric($this->selfMaxTarget) ? (float)$this->selfMaxTarget : 0.0;
-                $tDean = is_numeric($this->deanMaxTarget) ? (float)$this->deanMaxTarget : 0.0;
-                $tHead = is_numeric($this->programHeadMaxTarget) ? (float)$this->programHeadMaxTarget : 0.0;
-                $tPeer = is_numeric($this->peerMaxTarget) ? (float)$this->peerMaxTarget : 0.0;
-                $tSuper = is_numeric($this->downwardMaxTarget) ? (float)$this->downwardMaxTarget : 0.0;
-                $tStaff = is_numeric($this->staffMaxTarget) ? (float)$this->staffMaxTarget : 0.0;
+                $overall = is_numeric($this->overallMaxTarget) ? (float)$this->overallMaxTarget : 200.0;
+                
+                $wStudent = is_numeric($this->studentWeightTarget) ? (float)$this->studentWeightTarget : 30.0;
+                $wDean = is_numeric($this->deanWeightTarget) ? (float)$this->deanWeightTarget : 15.0;
+                $wPhDh = is_numeric($this->phDhWeightTarget) ? (float)$this->phDhWeightTarget : 15.0;
+                $wPeer = is_numeric($this->peerWeightTarget) ? (float)$this->peerWeightTarget : 15.0;
+                $wSelf = is_numeric($this->selfWeightTarget) ? (float)$this->selfWeightTarget : 5.0;
+                $wSuperior = is_numeric($this->superiorWeightTarget) ? (float)$this->superiorWeightTarget : 20.0;
 
-                $isUpwardStudentBalanced = abs(($totals['upward_student'] ?? 0.0) - $tStudent) < 0.001;
-                $isUpwardEmployeeBalanced = abs(($totals['upward_employee'] ?? 0.0) - $tDean) < 0.001;
-                $isDownwardBalanced = abs(($totals['downward'] ?? 0.0) - $tSuper) < 0.001;
+                $totalWeights = $wStudent + $wDean + $wPhDh + $wPeer + $wSelf + $wSuperior;
+                $isWeightsBalanced = abs($totalWeights - 100.0) < 0.001;
+
+                $tStudent = round(($wStudent / 100.0) * $overall, 2);
+                $tDean = round(($wDean / 100.0) * $overall, 2);
+                $tPhDh = round(($wPhDh / 100.0) * $overall, 2);
+                $tPeer = round(($wPeer / 100.0) * $overall, 2);
+                $tSelf = round(($wSelf / 100.0) * $overall, 2);
+                $tSuperior = round(($wSuperior / 100.0) * $overall, 2);
+
+                $isStudentBalanced = abs(($totals['combined_student'] ?? 0.0) - $tStudent) < 0.001;
+                $isDeanBalanced = abs(($totals['dean'] ?? 0.0) - $tDean) < 0.001 || EvaluationCriterion::where('evaluation_type', 'dean')->count() === 0;
+                $isPhDhBalanced = abs(($totals['combined_ph_dh'] ?? 0.0) - $tPhDh) < 0.001;
                 $isPeerBalanced = abs(($totals['peer'] ?? 0.0) - $tPeer) < 0.001;
                 $isSelfBalanced = abs(($totals['self'] ?? 0.0) - $tSelf) < 0.001;
-                $allBalanced = $isUpwardStudentBalanced && $isUpwardEmployeeBalanced && $isDownwardBalanced && $isPeerBalanced && $isSelfBalanced;
+                $isSuperiorBalanced = abs(($totals['combined_superior'] ?? 0.0) - $tSuperior) < 0.001 || EvaluationCriterion::whereIn('evaluation_type', ['superior', 'upward_employee'])->count() === 0;
 
-                $grandTotal = max(1, $tStudent + $tSelf + $tDean + $tHead + $tPeer + $tSuper + $tStaff);
-
-                $studentPct = round(($tStudent / $grandTotal) * 100);
-                $selfPct = round(($tSelf / $grandTotal) * 100);
-                $deanPct = round(($tDean / $grandTotal) * 100);
-                $headPct = round(($tHead / $grandTotal) * 100);
-                $peerPct = round(($tPeer / $grandTotal) * 100);
-                $superPct = round(($tSuper / $grandTotal) * 100);
-                $staffPct = round(($tStaff / $grandTotal) * 100);
+                $allBalanced = $isWeightsBalanced && $isStudentBalanced && $isDeanBalanced && $isPhDhBalanced && $isPeerBalanced && $isSelfBalanced && $isSuperiorBalanced;
             @endphp
 
-            <flux:badge variant="{{ $allBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold self-start sm:self-auto">
-                {{ $allBalanced ? 'Points Balanced' : 'Unbalanced Points' }}
-            </flux:badge>
+            <div class="flex items-center gap-3 self-start sm:self-auto">
+                <flux:badge variant="{{ $isWeightsBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold">
+                    Weights: {{ $totalWeights }}% / 100%
+                </flux:badge>
+                <flux:badge variant="{{ $allBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold">
+                    {{ $allBalanced ? 'System Balanced' : 'Action Required' }}
+                </flux:badge>
+            </div>
         </div>
 
-        <!-- 7 Evaluation Terms Grid (Spacious Responsive Layout) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Top Control Banner: Overall Total Max Points & Total Weight -->
+        <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-1">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-[#800000] dark:text-red-400 flex items-center gap-1.5">
+                    <flux:icon icon="adjustments-vertical" class="size-4 text-[#800000] dark:text-red-400" />
+                    Overall Evaluation Max Points Target
+                </span>
+                <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Setting this value dynamically scales target points for all 6 categories based on their percentage weights.</p>
+            </div>
+
+            <div class="flex items-center gap-4 w-full md:w-auto shrink-0">
+                <div class="w-36">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Overall Target</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="overallMaxTarget" min="1" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 text-center min-w-[130px] shadow-2xs">
+                    <span class="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block tracking-wider mb-0.5">Category Weights Sum</span>
+                    <span class="text-xl font-mono font-extrabold {{ $isWeightsBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">{{ $totalWeights }}%</span>
+                </div>
+            </div>
+        </div>
+
+        @error('total_weights')
+            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+        @enderror
+
+        <!-- 6 Standardized Relationship Categories Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- 1. Student Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-indigo-500"></span>
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
                             Student Evaluation
                         </span>
-                        <span class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded">{{ $studentPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tStudent }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Students evaluating Professors</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Student evaluates Faculty Professor</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="upwardStudentMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. Self Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-rose-500"></span>
-                            Self Evaluation
-                        </span>
-                        <span class="text-xs font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded">{{ $selfPct }}% weight</span>
-                    </div>
-                    <p class="text-[11px] text-zinc-400">Faculty/Staff self evaluation</p>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="selfMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="studentWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. Dean Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <!-- 2. Dean Evaluation -->
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-emerald-500"></span>
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
                             Dean Evaluation
                         </span>
-                        <span class="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded">{{ $deanPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tDean }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Executive Dean evaluation</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Dean evaluates Program Head & Department Head</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="deanMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="deanWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 4. Program Head Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <!-- 3. Program / Dept Head Evaluation -->
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-sky-500"></span>
-                            Program Head Eval
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
+                            Program / Dept Head Eval
                         </span>
-                        <span class="text-xs font-mono font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded">{{ $headPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tPhDh }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Program Head evaluation</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Prog Head evaluates Faculty / Dept Head evaluates Staff</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="programHeadMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="phDhWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 5. Peer Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <!-- 4. Peer Evaluation -->
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-purple-500"></span>
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
                             Peer Evaluation
                         </span>
-                        <span class="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded">{{ $peerPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tPeer }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Faculty peer evaluation</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Faculty evaluates Peer Faculty / Staff evaluates Peer Staff</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="peerMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="peerWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 6. Supervisor Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <!-- 5. Self Evaluation -->
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-amber-500"></span>
-                            Supervisor Evaluation
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
+                            Self Evaluation
                         </span>
-                        <span class="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded">{{ $superPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tSelf }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Deans/Program Heads rating Faculty</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Prog Head, Dept Head, Dean, Faculty, Staff evaluate Self</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="downwardMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="selfWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- 7. Staff Evaluation -->
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between">
+            <!-- 6. Superior Evaluation -->
+            <div class="p-4 bg-white dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <span class="size-2.5 rounded-full bg-teal-500"></span>
-                            Staff Evaluation
+                        <span class="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
+                            Superior Evaluation
                         </span>
-                        <span class="text-xs font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded">{{ $staffPct }}% weight</span>
+                        <span class="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-2.5 py-1 rounded-md shadow-2xs">{{ $tSuperior }} pts</span>
                     </div>
-                    <p class="text-[11px] text-zinc-400">Staff performance evaluation</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Subordinate evaluates Superior (Faculty → PH, Staff → DH, PH/DH → Dean)</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Target Points</label>
-                    <div class="flex items-center gap-1">
-                        <flux:input type="number" wire:model.live="staffMaxTarget" min="0" class="font-bold text-sm" />
-                        <span class="text-xs text-zinc-400 font-bold">pts</span>
+                <div class="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-700/80">
+                    <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider">Weight %</label>
+                    <div class="flex items-center gap-1.5">
+                        <flux:input type="number" wire:model.live="superiorWeightTarget" min="0" max="100" class="font-bold text-sm" />
+                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
                     </div>
                 </div>
-            </div>
-
-            <!-- Total Cumulative Target Card -->
-            <div class="p-4 bg-[#800000]/10 dark:bg-red-950/30 rounded-xl border border-[#800000]/20 dark:border-red-900/50 flex flex-col justify-between space-y-2">
-                <span class="text-xs font-bold text-[#800000] dark:text-red-400 uppercase tracking-wider">Total Max Evaluation Target</span>
-                <span class="font-mono font-bold text-2xl text-[#800000] dark:text-red-400">{{ $grandTotal }} <span class="text-sm">pts</span></span>
-                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">Sum of active target score points</span>
             </div>
         </div>
     </div>
@@ -867,31 +926,31 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 Questionnaire Parts & Point Allocations Setup
             </h2>
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Configure individual criteria parts under each evaluation category. The sum of parts must equal the category target points.
+                Configure criteria parts under each relationship category. The sum of criteria part points must equal the category target points.
             </p>
         </div>
 
         <form wire:submit="savePoints" class="space-y-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 
-                <!-- Student Evaluation Parts Category -->
-                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                <!-- 1. Student Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
                     <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Student Evaluation Parts</h3>
-                            <flux:badge variant="{{ $isUpwardStudentBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
-                                {{ $totals['upward_student'] ?? 0 }} / {{ $tStudent }} pts
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Student Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isStudentBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['combined_student'] ?? 0 }} / {{ $tStudent }} pts
                             </flux:badge>
                         </div>
-                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('upward_student')">Add Part</flux:button>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('student')">Add Part</flux:button>
                     </div>
 
                     <div class="space-y-2">
-                        @foreach($this->criteria->where('evaluation_type', 'upward_student') as $criterion)
-                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                        @foreach($this->criteria->whereIn('evaluation_type', ['student', 'upward_student']) as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
                                 <div class="flex-1 min-w-0">
-                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <div class="w-20 flex items-center gap-1">
@@ -899,9 +958,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             type="number" 
                                             wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                             min="0" 
-                                            class="text-right font-bold text-sm"
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
                                         />
-                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
                                     </div>
                                     <flux:button 
                                         size="xs" 
@@ -914,29 +973,29 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
                         @endforeach
                     </div>
-                    @error('points_upward_student')
+                    @error('points_student')
                         <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
                     @enderror
                 </div>
 
-                <!-- Supervisor Evaluation Parts Category -->
-                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                <!-- 2. Dean Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
                     <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Supervisor Evaluation Parts</h3>
-                            <flux:badge variant="{{ $isDownwardBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
-                                {{ $totals['downward'] ?? 0 }} / {{ $tSuper }} pts
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Dean Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isDeanBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['dean'] ?? 0 }} / {{ $tDean }} pts
                             </flux:badge>
                         </div>
-                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('downward')">Add Part</flux:button>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('dean')">Add Part</flux:button>
                     </div>
 
                     <div class="space-y-2">
-                        @foreach($this->criteria->where('evaluation_type', 'downward') as $criterion)
-                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                        @forelse($this->criteria->where('evaluation_type', 'dean') as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
                                 <div class="flex-1 min-w-0">
-                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <div class="w-20 flex items-center gap-1">
@@ -944,9 +1003,56 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             type="number" 
                                             wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                             min="0" 
-                                            class="text-right font-bold text-sm"
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
                                         />
-                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @empty
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 italic py-2 font-medium">No Dean evaluation criteria parts created yet.</p>
+                        @endforelse
+                    </div>
+                    @error('points_dean')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- 3. Program / Dept Head Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Program / Dept Head Eval Parts</h3>
+                            <flux:badge variant="{{ $isPhDhBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['combined_ph_dh'] ?? 0 }} / {{ $tPhDh }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('ph_dh')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @foreach($this->criteria->whereIn('evaluation_type', ['ph_dh', 'downward']) as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
+                                        />
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
                                     </div>
                                     <flux:button 
                                         size="xs" 
@@ -959,16 +1065,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
                         @endforeach
                     </div>
-                    @error('points_downward')
+                    @error('points_ph_dh')
                         <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
                     @enderror
                 </div>
 
-                <!-- Peer Evaluation Parts Category -->
-                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                <!-- 4. Peer Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
                     <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation Parts</h3>
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Peer Evaluation Parts</h3>
                             <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
                                 {{ $totals['peer'] ?? 0 }} / {{ $tPeer }} pts
                             </flux:badge>
@@ -978,10 +1084,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                     <div class="space-y-2">
                         @foreach($this->criteria->where('evaluation_type', 'peer') as $criterion)
-                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
                                 <div class="flex-1 min-w-0">
-                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <div class="w-20 flex items-center gap-1">
@@ -989,9 +1095,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             type="number" 
                                             wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                             min="0" 
-                                            class="text-right font-bold text-sm"
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
                                         />
-                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
                                     </div>
                                     <flux:button 
                                         size="xs" 
@@ -1009,11 +1115,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     @enderror
                 </div>
 
-                <!-- Self Evaluation Parts Category -->
-                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-4">
+                <!-- 5. Self Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
                     <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Self Evaluation Parts</h3>
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Self Evaluation Parts</h3>
                             <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
                                 {{ $totals['self'] ?? 0 }} / {{ $tSelf }} pts
                             </flux:badge>
@@ -1023,10 +1129,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                     <div class="space-y-2">
                         @foreach($this->criteria->where('evaluation_type', 'self') as $criterion)
-                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
                                 <div class="flex-1 min-w-0">
-                                    <span class="text-[11px] text-zinc-400 font-mono block">Part #{{ $criterion->order }}</span>
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate block">{{ $criterion->name }}</span>
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <div class="w-20 flex items-center gap-1">
@@ -1034,9 +1140,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             type="number" 
                                             wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                             min="0" 
-                                            class="text-right font-bold text-sm"
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
                                         />
-                                        <span class="text-xs text-zinc-400 font-semibold">pts</span>
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
                                     </div>
                                     <flux:button 
                                         size="xs" 
@@ -1053,12 +1159,59 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
                     @enderror
                 </div>
+
+                <!-- 6. Superior Evaluation Parts Category -->
+                <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Superior Evaluation Parts</h3>
+                            <flux:badge variant="{{ $isSuperiorBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                {{ $totals['combined_superior'] ?? 0 }} / {{ $tSuperior }} pts
+                            </flux:badge>
+                        </div>
+                        <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('superior')">Add Part</flux:button>
+                    </div>
+
+                    <div class="space-y-2">
+                        @forelse($this->criteria->whereIn('evaluation_type', ['superior', 'upward_employee']) as $criterion)
+                            <div class="flex items-center justify-between gap-4 p-3 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                    <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-20 flex items-center gap-1">
+                                        <flux:input 
+                                            type="number" 
+                                            wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                            min="0" 
+                                            class="text-right font-bold text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
+                                        />
+                                        <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
+                                    </div>
+                                    <flux:button 
+                                        size="xs" 
+                                        variant="ghost" 
+                                        icon="trash" 
+                                        wire:click="confirmDeleteCriterion({{ $criterion->id }})"
+                                        class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    />
+                                </div>
+                            </div>
+                        @empty
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 italic py-2 font-medium">No Superior evaluation criteria parts created yet.</p>
+                        @endforelse
+                    </div>
+                    @error('points_superior')
+                        <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <div class="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-4">
                 <div>
-                    <span class="text-xs text-zinc-500 font-medium">Scoring Balance Status</span>
-                    <span class="text-sm font-bold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider block">Scoring Balance Status</span>
+                    <span class="text-sm font-extrabold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
                         {{ $allBalanced ? 'All criteria categories balanced' : 'Please balance part points with target points' }}
                     </span>
                 </div>
@@ -1155,11 +1308,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 />
 
                 <flux:select wire:model="newCriterionType" label="Evaluation Target Type" required>
-                    <flux:select.option value="upward_student">Student Evaluation</flux:select.option>
-                    <flux:select.option value="upward_employee">Employee Upward Evaluation (PHs/Deans)</flux:select.option>
-                    <flux:select.option value="downward">Supervisor Evaluation (Faculty/PHs)</flux:select.option>
-                    <flux:select.option value="peer">Peer Evaluation (Faculty)</flux:select.option>
-                    <flux:select.option value="self">Self Evaluation</flux:select.option>
+                    <flux:select.option value="student">Student Evaluation (Student evaluates Faculty)</flux:select.option>
+                    <flux:select.option value="dean">Dean Evaluation (Dean evaluates Program Head / Department Head)</flux:select.option>
+                    <flux:select.option value="ph_dh">Program / Department Head Evaluation (Prog Head evaluates Faculty / Dept Head evaluates Staff)</flux:select.option>
+                    <flux:select.option value="peer">Peer Evaluation (Faculty evaluates Peer / Staff evaluates Peer)</flux:select.option>
+                    <flux:select.option value="self">Self Evaluation (Prog Head, Dept Head, Dean, Faculty, Staff evaluate Self)</flux:select.option>
+                    <flux:select.option value="superior">Superior Evaluation (Faculty → PH, Staff → DH, PH/DH → Dean)</flux:select.option>
                 </flux:select>
 
                 <div class="flex justify-end gap-2 mt-6">

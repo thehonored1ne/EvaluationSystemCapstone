@@ -14,10 +14,18 @@ class Semester extends Model
         'name',
         'is_active',
         'is_evaluation_open',
+        'overall_max_points',
+        'student_weight',
+        'dean_weight',
+        'ph_dh_weight',
+        'peer_weight',
+        'self_weight',
+        'superior_weight',
         'upward_student_max_points',
         'upward_employee_max_points',
         'dean_max_points',
         'program_head_max_points',
+        'department_head_max_points',
         'downward_max_points',
         'peer_max_points',
         'self_max_points',
@@ -29,10 +37,18 @@ class Semester extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'is_evaluation_open' => 'boolean',
+        'overall_max_points' => 'float',
+        'student_weight' => 'float',
+        'dean_weight' => 'float',
+        'ph_dh_weight' => 'float',
+        'peer_weight' => 'float',
+        'self_weight' => 'float',
+        'superior_weight' => 'float',
         'upward_student_max_points' => 'float',
         'upward_employee_max_points' => 'float',
         'dean_max_points' => 'float',
         'program_head_max_points' => 'float',
+        'department_head_max_points' => 'float',
         'downward_max_points' => 'float',
         'peer_max_points' => 'float',
         'self_max_points' => 'float',
@@ -40,6 +56,33 @@ class Semester extends Model
         'evaluation_starts_at' => 'datetime',
         'evaluation_ends_at' => 'datetime',
     ];
+
+    /**
+     * Get percentage weight for a category type.
+     */
+    public function getCategoryWeight(string $type): float
+    {
+        return match ($type) {
+            'student', 'upward_student' => (float) ($this->student_weight ?? 30.0),
+            'dean' => (float) ($this->dean_weight ?? 15.0),
+            'ph_dh', 'downward' => (float) ($this->ph_dh_weight ?? 15.0),
+            'peer' => (float) ($this->peer_weight ?? 15.0),
+            'self' => (float) ($this->self_weight ?? 5.0),
+            'superior', 'upward_employee' => (float) ($this->superior_weight ?? 20.0),
+            default => 15.0,
+        };
+    }
+
+    /**
+     * Calculate category max points dynamically: (weight % / 100) * overall_max_points.
+     */
+    public function getCategoryMaxPoints(string $type): float
+    {
+        $weight = $this->getCategoryWeight($type);
+        $overall = (float) ($this->overall_max_points ?? 200.0);
+
+        return round(($weight / 100.0) * $overall, 2);
+    }
 
     /**
      * Determine if evaluations are currently open based on status and start/end dates.

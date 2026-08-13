@@ -6,10 +6,10 @@ A high-level functional overview of all core modules in the Academic Evaluation 
 
 ## 1. Role-Based Authentication & User Management
 Handles user authentication, role-based access control, account administration, and profile settings.
-* **Supported Roles**: Admin, Dean, Program Head, Faculty, Student, Staff
+* **Supported Roles**: Admin, Dean, Program Head, Department Head, Faculty, Student, Staff
 * **Key Features**:
   * Role-based route protection & dynamic post-login dashboard routing
-  * Consolidated user administration panels: `/admin/employees` (Deans, Program Heads, Faculty, Staff, Admin) and `/admin/students` (Students)
+  * Consolidated user administration panels: `/admin/employees` (Deans, Program Heads, Department Heads, Faculty, Staff, Admin) and `/admin/students` (Students)
   * Formatted full names (`Last Name, First Name Middle Name Suffix`) with `suffix` database column support
   * Self-account protection preventing active logged-in admin (`auth()->id()`) from self-disabling or self-deletion (`YOU` badge)
   * System safeguard preventing the deactivation or deletion of the last remaining active Administrator account
@@ -20,7 +20,7 @@ Handles user authentication, role-based access control, account administration, 
 ## 2. Academic Structure & Catalog Management
 Manages institutional hierarchy, curriculum catalogs, academic periods, and class allocations.
 * **Key Features**:
-  * **Dedicated Departments Management Page (`/admin/departments`)**: Features 4 metric cards (5px `#800000` dark red border, `<x-odometer>`), Dean assignment filter (`Assigned Dean`, `Unassigned Dean`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion
+  * **Dedicated Departments Management Page (`/admin/departments`)**: Features 4 metric cards (5px `#800000` dark red border, `<x-odometer>`), Leader assignment filter (`Assigned Leader`, `Unassigned Leader`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion. Supports both Academic Departments (managed by Program Heads) and Administrative Departments (managed by Department Heads). Automatic bidirectional sync with `/admin/employees`.
   * **Dedicated Academic Programs Management Page (`/admin/programs`)**: Features 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions
   * Academic Year & Semester scheduling with active-term toggles and schedule removal safeguards
   * Subject catalog management (`/admin/subjects`) with grouped actions

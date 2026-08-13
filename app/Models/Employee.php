@@ -61,6 +61,14 @@ class Employee extends Model
     }
 
     /**
+     * Get the department managed by this employee (if they are a Department Head).
+     */
+    public function managedAdminDepartment()
+    {
+        return $this->hasOne(Department::class, 'department_head_id');
+    }
+
+    /**
      * Get the employee's full name.
      */
     public function getFullNameAttribute(): string
