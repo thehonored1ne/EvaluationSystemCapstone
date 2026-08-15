@@ -311,40 +311,40 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Top Row Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Card 1: Total Employees -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Employees</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$employeeCount" /></span>
                 </div>
-                <flux:icon name="users" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon name="users" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
 
         </div>
 
         <!-- Card 2: Total Students -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Students</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$studentCount" /></span>
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
 
         </div>
 
         <!-- Card 3: Current Evaluation Progress -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Current Evaluation Progress</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$progressPercent" suffix="%" /></span>
                 </div>
-                <flux:icon name="check-circle" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon name="check-circle" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 mt-3 overflow-hidden">
-                <div class="h-3 rounded-full transition-all duration-500" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important; background-color: #800000 !important;"></div>
+                <div class="h-3 rounded-full transition-all duration-500 bg-[#9b0000] dark:bg-[#f89696]" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium block mt-2">
                 {{ $submittedCount }} of {{ $expectedCount }} expected evaluations submitted
@@ -352,13 +352,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 4: Pending Submissions -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Pending Submissions</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$pendingCount" /></span>
                 </div>
-                <flux:icon name="clock" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon name="clock" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Awaiting evaluator completion</span>
         </div>
@@ -367,7 +367,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Middle Row: Simplified Status & Feedback Overview Cards -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Simplified Card 1: Evaluation Period Status -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border-left: 5px solid #800000 !important;">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -457,7 +457,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Simplified Card 2: Overall Evaluation Feedback Overview -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6" style="border-left: 5px solid #800000 !important;">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -500,20 +500,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                     <!-- 3 Simple Stat Boxes -->
                     <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Positive</span>
-                            <span class="text-2xl font-black text-emerald-800 dark:text-emerald-300 block mt-1">{{ $posCount }}</span>
-                            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{{ $posPct }}% of total</span>
+                        <div class="bg-[#dffbee] dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-[#035e44] dark:text-[#03dd9f] uppercase tracking-wider block">Positive</span>
+                            <span class="text-2xl font-black text-[#035e44] dark:text-[#03dd9f] block mt-1">{{ $posCount }}</span>
+                            <span class="text-xs text-[#035e44] dark:text-[#03dd9f] font-semibold">{{ $posPct }}% of total</span>
                         </div>
-                        <div class="bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-700 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider block">Neutral</span>
-                            <span class="text-2xl font-black text-zinc-800 dark:text-zinc-200 block mt-1">{{ $neuCount }}</span>
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold">{{ $neuPct }}% of total</span>
+                        <div class="bg-[#fcf6e4] dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-[#843c06] dark:text-[#f7a15e] uppercase tracking-wider block">Neutral</span>
+                            <span class="text-2xl font-black text-[#843c06] dark:text-[#f7a15e] block mt-1">{{ $neuCount }}</span>
+                            <span class="text-xs text-[#843c06] dark:text-[#f7a15e] font-semibold">{{ $neuPct }}% of total</span>
                         </div>
-                        <div class="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">Negative</span>
-                            <span class="text-2xl font-black text-rose-800 dark:text-rose-300 block mt-1">{{ $negCount }}</span>
-                            <span class="text-xs text-rose-600 dark:text-rose-400 font-semibold">{{ $negPct }}% of total</span>
+                        <div class="bg-[#fff1f2] dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 p-3 rounded-xl text-center">
+                            <span class="text-xs font-bold text-[#a30f34] dark:text-[#f89bb2] uppercase tracking-wider block">Negative</span>
+                            <span class="text-2xl font-black text-[#a30f34] dark:text-[#f89bb2] block mt-1">{{ $negCount }}</span>
+                            <span class="text-xs text-[#a30f34] dark:text-[#f89bb2] font-semibold">{{ $negPct }}% of total</span>
                         </div>
                     </div>
 
@@ -532,62 +532,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
 
-    <!-- Bottom Row: Department Stats & Recent Submissions -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        <!-- Department Completion rates -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-7" style="border-left: 5px solid #800000 !important;">
-            <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                Department Participation Rates
-            </h3>
-
-            @if(count($departmentStats) > 0)
-                <div class="w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-zinc-50 dark:bg-zinc-850 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                            <tr>
-                                <th class="px-4 py-3">Department</th>
-                                <th class="px-4 py-3 text-center">Submissions</th>
-                                <th class="px-4 py-3 text-right">Completion %</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($departmentStats as $dept)
-                                <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                                    <td class="px-4 py-3.5">
-                                        <span class="font-bold text-zinc-800 dark:text-zinc-200 block">{{ $dept['code'] }}</span>
-                                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{{ $dept['name'] }}</span>
-                                    </td>
-                                    <td class="px-4 py-3.5 text-center text-zinc-700 dark:text-zinc-300 font-semibold">
-                                        {{ $dept['submitted'] }} <span class="text-zinc-400 text-xs">/ {{ $dept['expected'] }}</span>
-                                    </td>
-                                    <td class="px-4 py-3.5 text-right">
-                                        <div class="flex items-center justify-end gap-2.5">
-                                            <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ $dept['rate'] }}%</span>
-                                            <div class="w-16 bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                                                <div class="bg-indigo-500 dark:bg-indigo-400 h-1.5 rounded-full" style="width: {{ $dept['rate'] }}%"></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div class="text-center py-6 text-zinc-500">
-                    <p class="text-sm">No departments or evaluations loaded.</p>
-                </div>
-            @endif
-        </flux:card>
-
+    <!-- Bottom Row: Recent Submissions Log -->
+    <div class="w-full">
         <!-- Recent Submissions Log -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs lg:col-span-5" style="border-left: 5px solid #800000 !important;">
+        <flux:card class="p-6 flex flex-col gap-4 shadow-xs w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                     Recent Submissions Log
                 </h3>
-   
             </div>
 
             @if(count($recentSubmissions) > 0)
@@ -602,7 +554,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                     <div class="relative flex space-x-3">
                                         <div>
                                             <span class="h-6 w-6 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
-                                                <span class="h-2 w-2 rounded-full bg-[#800000]"></span>
+                                                <span class="h-2 w-2 rounded-full bg-[#9b0000] dark:bg-[#f89696]"></span>
                                             </span>
                                         </div>
                                         <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
@@ -634,7 +586,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:heading size="lg">Quick System Actions</flux:heading>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
+            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="cog" class="size-5" />
                 </div>
@@ -644,7 +596,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
+            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="chart-bar" class="size-5" />
                 </div>
@@ -654,7 +606,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
+            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="document-text" class="size-5" />
                 </div>
@@ -664,14 +616,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs" style="border-left: 5px solid #800000 !important;">
+            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
                     <flux:icon name="user" class="size-5" />
                 </div>
                 <div>
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Manage Accounts</span>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Create/edit student & faculty users.</span>
-                </div>
             </flux:card>
         </div>
     </div>

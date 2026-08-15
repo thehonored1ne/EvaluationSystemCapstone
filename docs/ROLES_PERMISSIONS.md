@@ -6,7 +6,7 @@ This document maps user roles to their features, views, and target evaluation bo
 
 ## 1. System Roles
 * **Admin**: Complete system dashboard access, CRUD controls for users/departments/programs/schedules, evaluation questions, and global analytics.
-* **Dean**: Department-wide monitoring of evaluation participation rates, reports generation, evaluates Program Heads & Department Heads.
+* **Dean**: Department-wide monitoring of evaluation participation rates, reports generation, evaluates Academic Faculty, Program Heads & Department Heads.
 * **Program Head**: Program-specific monitoring of classes, student enrollment, evaluates Faculty Professors, evaluates Self, evaluates Dean.
 * **Department Head**: Administrative department monitoring, evaluates Department Staff, evaluates Self, evaluates Dean.
 * **Faculty**: Accesses self-evaluations, peer evaluations, and supervisor evaluations (targets Program Head).
@@ -21,7 +21,7 @@ The table below displays who evaluates whom under different evaluation configura
 | **Evaluation Type** | **Evaluator Role** | **Target (Evaluatee) Role** | **Department boundaries** |
 |:---|:---|:---|:---|
 | **Student Evaluation** | Student | Faculty | Must be enrolled in the teacher's active class. |
-| **Dean Evaluation** | Dean | Program Head / Department Head | Must manage the program/department head's department. |
+| **Dean Evaluation** | Dean | Faculty / Program Head / Dept Head | Evaluates Faculty and Program Heads within their college. |
 | **Program / Dept Head Eval** | Program Head / Department Head | Faculty / Staff | Program Head evaluates Faculty; Department Head evaluates Department Staff. |
 | **Peer Evaluation** | Faculty / Staff | Peer Faculty / Peer Staff | Faculty evaluates Peer Faculty; Staff evaluates Peer Staff in the same department. |
 | **Self Evaluation** | Any Employee | Themselves | Program Head, Department Head, Dean, Faculty, Staff evaluate Self. |

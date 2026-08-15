@@ -77,29 +77,19 @@ test('reports component defaults to individual tab and switches to summary tab',
         ->assertSet('activeTab', 'summary');
 });
 
-test('dean summary report only includes department faculty', function () {
-    $this->actingAs($this->deanUser);
-
-    Livewire::test('reports')
-        ->set('activeTab', 'summary')
-        ->assertSet('selectedSemesterId', $this->semester->id)
-        ->assertSee('Faculty1 CCS')
-        ->assertDontSee('Faculty2 CBA');
-});
-
-test('admin summary report includes all departments', function () {
+test('summary report renders academic department leaderboard for admin and dean', function () {
     $this->actingAs($this->adminUser);
 
     Livewire::test('reports')
         ->set('activeTab', 'summary')
         ->assertSet('selectedSemesterId', $this->semester->id)
-        ->assertSee('Faculty1 CCS')
-        ->assertSee('Faculty2 CBA');
+        ->assertSee('Academic Department Rankings')
+        ->assertSee('College of Computer Studies')
+        ->assertSee('College of Business Administration');
 });
 
-test('summary report calculates average scores correctly', function () {
-    // Create evaluations for Faculty CCS
-    // Student Evaluation
+test('summary report calculates institutional average and student average correctly', function () {
+    // Student Evaluation for Faculty CCS
     Evaluation::create([
         'semester_id' => $this->semester->id,
         'evaluator_id' => $this->adminUser->id,
@@ -108,22 +98,13 @@ test('summary report calculates average scores correctly', function () {
         'rating_average' => 4.50,
     ]);
 
-    // Peer Evaluation
+    // Student Evaluation for Faculty CBA
     Evaluation::create([
         'semester_id' => $this->semester->id,
         'evaluator_id' => $this->adminUser->id,
-        'evaluatee_id' => $this->facUserCCS->id,
-        'evaluation_type' => 'peer',
+        'evaluatee_id' => $this->facUserCBA->id,
+        'evaluation_type' => 'upward_student',
         'rating_average' => 3.50,
-    ]);
-
-    // Self Evaluation
-    Evaluation::create([
-        'semester_id' => $this->semester->id,
-        'evaluator_id' => $this->facUserCCS->id,
-        'evaluatee_id' => $this->facUserCCS->id,
-        'evaluation_type' => 'self',
-        'rating_average' => 5.00,
     ]);
 
     $this->actingAs($this->adminUser);
@@ -131,8 +112,73 @@ test('summary report calculates average scores correctly', function () {
     Livewire::test('reports')
         ->set('activeTab', 'summary')
         ->assertSet('selectedSemesterId', $this->semester->id)
-        ->assertSee('4.50')
-        ->assertSee('3.50')
-        ->assertSee('5.00')
-        ->assertSee('4.33'); // overall average (4.50 + 3.50 + 5.00) / 3 = 4.33
+        ->assertSee('4.00') // Institutional Average: (4.50 + 3.50) / 2 = 4.00
+        ->assertSee('Scope: All Academic Departments');
+});
+
+test('summary report flags faculty requiring attention below benchmark', function () {
+    // Evaluation with low score and pacing comment for Faculty CBA
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $this->facUserCBA->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 2.80,
+        'comments' => 'Ang mabilis magturo ni sir, please slow down lecture pacing.',
+    ]);
+
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('reports')
+        ->set('activeTab', 'summary')
+        ->assertSet('selectedSemesterId', $this->semester->id)
+        ->assertSee('Faculty Requiring Pedagogical Attention')
+        ->assertSee('Faculty2 CBA')
+        ->assertSee('2.80')
+        ->assertSee('Critical')
+        ->assertSee('lecture pacing');
+});
+
+test('summary report displays prescriptive recommendations and rating spread', function () {
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $this->facUserCCS->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 4.80,
+        'comments' => 'Very approachable and clear discussion, highly organized.',
+    ]);
+
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('reports')
+        ->set('activeTab', 'summary')
+        ->assertSet('selectedSemesterId', $this->semester->id)
+        ->assertSee('Prescriptive AI Executive Insights')
+        ->assertSee('Target Benchmark: 4.00')
+        ->assertSee('Range:')
+        ->assertSee('Across All Evaluations');
+});
+
+test('individual report renders without errors when selecting a professor', function () {
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $this->facUserCCS->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 4.65,
+        'comments' => 'Excellent teaching approach and active engagement.',
+    ]);
+
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $this->semester->id)
+        ->set('selectedTeacherId', $this->facCCS->id)
+        ->assertSee('Summary of Faculty Performance Evaluation on Teaching Effectiveness')
+        ->assertSee('Faculty1 CCS')
+        ->assertSee('Global Reciprocal Colleges')
+        ->assertSee('AI Qualitative Analysis')
+        ->assertSee('Students Evaluation');
 });

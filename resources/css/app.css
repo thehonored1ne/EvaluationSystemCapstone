@@ -9,7 +9,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Lexend', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand: #9b0000;
+    --color-brand-hover: #7a0000;
+    --color-brand-subtle: #9c2121;
+    --color-brand-dark: #f89696;
+    --color-brand-dark-hover: #f57575;
+    --color-brand-dark-subtle: #fcc5c5;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -23,16 +30,16 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
-    --color-accent-foreground: var(--color-white);
+    --color-accent: #9b0000;
+    --color-accent-content: #9b0000;
+    --color-accent-foreground: #ffffff;
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #f89696;
+        --color-accent-content: #f89696;
+        --color-accent-foreground: #171717;
     }
 }
 
@@ -58,7 +65,7 @@
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+    @apply outline-hidden ring-2 ring-[#9b0000] dark:ring-[#f89696] ring-offset-2 ring-offset-accent-foreground;
 }
 
 /* \[:where(&)\]:size-4 {
@@ -76,31 +83,88 @@ select:focus[data-flux-control] {
 }
 
 [data-flux-toast-dialog][data-variant="danger"] > div {
-    background-color: #fef2f2 !important;
-    border-color: #f87171 !important;
-    color: #991b1b !important;
+    background-color: #fff1f2 !important;
+    border-color: #A30F34 !important;
+    color: #A30F34 !important;
 }
 
 [data-flux-toast-dialog][data-variant="danger"] div {
-    color: #991b1b !important;
+    color: #A30F34 !important;
 }
 
 [data-flux-toast-dialog][data-variant="danger"] ui-close button {
-    color: #991b1b !important;
+    color: #A30F34 !important;
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] > div {
     background-color: #450a0a !important;
-    border-color: #991b1b !important;
-    color: #fca5a5 !important;
+    border-color: #F89BB2 !important;
+    color: #F89BB2 !important;
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] div {
-    color: #fca5a5 !important;
+    color: #F89BB2 !important;
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] ui-close button {
-    color: #fca5a5 !important;
+    color: #F89BB2 !important;
+}
+
+/* ==========================================================================
+   Unified Call To Action (CTA) Button Tokens (Light & Dark Mode)
+   Light Mode: Background #9b0000, Hover #7a0000, Text #ffffff
+   Dark Mode:  Background #f89696, Hover #f57575, Text #171717
+   ========================================================================== */
+[data-flux-button][data-variant="primary"],
+button[data-variant="primary"],
+a[data-variant="primary"],
+.btn-cta,
+.login-btn-darkred {
+    background-color: #9b0000 !important;
+    color: #ffffff !important;
+    border-color: #9b0000 !important;
+}
+
+[data-flux-button][data-variant="primary"]:hover,
+button[data-variant="primary"]:hover,
+a[data-variant="primary"]:hover,
+.btn-cta:hover,
+.login-btn-darkred:hover {
+    background-color: #7a0000 !important;
+    color: #ffffff !important;
+    border-color: #7a0000 !important;
+}
+
+[data-flux-button][data-variant="primary"] span,
+[data-flux-button][data-variant="primary"] svg,
+[data-flux-button][data-variant="primary"] [data-flux-icon] {
+    color: #ffffff !important;
+}
+
+.dark [data-flux-button][data-variant="primary"],
+.dark button[data-variant="primary"],
+.dark a[data-variant="primary"],
+.dark .btn-cta,
+.dark .login-btn-darkred {
+    background-color: #f89696 !important;
+    color: #171717 !important;
+    border-color: #f89696 !important;
+}
+
+.dark [data-flux-button][data-variant="primary"]:hover,
+.dark button[data-variant="primary"]:hover,
+.dark a[data-variant="primary"]:hover,
+.dark .btn-cta:hover,
+.dark .login-btn-darkred:hover {
+    background-color: #f57575 !important;
+    color: #171717 !important;
+    border-color: #f57575 !important;
+}
+
+.dark [data-flux-button][data-variant="primary"] span,
+.dark [data-flux-button][data-variant="primary"] svg,
+.dark [data-flux-button][data-variant="primary"] [data-flux-icon] {
+    color: #171717 !important;
 }
 
 /* Premium CSS Shimmer Sweep Animation */

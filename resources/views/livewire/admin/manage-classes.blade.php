@@ -566,7 +566,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                             <!-- Subject -->
                             <td class="px-4 py-3.5">
-                                <span class="font-mono text-xs font-bold text-[#800000] dark:text-red-400 block">
+                                <span class="font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] block">
                                     {{ $classItem->subject->code }}
                                 </span>
                                 <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block">
@@ -886,14 +886,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         @if($unenrolledCandidates->count() > 0)
                             <!-- Select All Header -->
                             <div class="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 font-semibold text-[11px] text-zinc-700 dark:text-zinc-300 sticky top-0 z-10">
-                                <input type="checkbox" wire:model.live="selectAllUnenrolled" class="rounded border-zinc-300 text-[#800000] focus:ring-[#800000]">
+                                <input type="checkbox" wire:model.live="selectAllUnenrolled" class="rounded border-zinc-300 text-[#9b0000] focus:ring-[#9b0000]">
                                 <span>Select All Candidates ({{ $unenrolledCandidates->count() }})</span>
                             </div>
 
                             @foreach($unenrolledCandidates as $student)
                                 <div wire:key="candidate-{{ $student->id }}" class="flex justify-between items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 text-xs">
                                     <div class="flex items-center gap-2.5 truncate pr-2">
-                                        <input type="checkbox" wire:model.live="selectedStudentIds" value="{{ $student->id }}" class="rounded border-zinc-300 text-[#800000] focus:ring-[#800000]">
+                                        <input type="checkbox" wire:model.live="selectedStudentIds" value="{{ $student->id }}" class="rounded border-zinc-300 text-[#9b0000] focus:ring-[#9b0000]">
                                         <div class="truncate">
                                             <span class="font-medium dark:text-zinc-200 inline-block">{{ $student->formatted_name ?? $student->full_name }}</span>
                                             <span class="font-mono text-[11px] text-zinc-400 inline-block ml-1">({{ $student->student_number }}) · Sec: {{ $student->section ?: 'N/A' }} · Yr {{ $student->year_level }} · {{ $student->program?->code }}</span>

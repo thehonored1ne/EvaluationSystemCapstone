@@ -126,7 +126,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 
                 @if($metrics)
                     <div class="flex items-center gap-4 py-2">
-                        <div class="size-16 rounded-full border-4 border-indigo-500 flex items-center justify-center font-mono font-bold text-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30">
+                        <div class="size-16 rounded-full border-4 border-[#4338ca] dark:border-[#bcb6ec] flex items-center justify-center font-mono font-bold text-lg text-[#4338ca] dark:text-[#bcb6ec] bg-[#eef2ff] dark:bg-indigo-950/30">
                             {{ number_format(($metrics['accuracy'] ?? 0) * 100, 1) }}%
                         </div>
                         <div>
@@ -148,9 +148,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                     <thead>
                                         <tr class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 font-mono text-[10px] uppercase">
                                             <th class="p-2 border-b border-r border-zinc-200 dark:border-zinc-700 text-left font-bold">Act \ Pred</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 font-semibold">POS</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-semibold">NEU</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-rose-600 dark:text-rose-400 font-semibold">NEG</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-[#035e44] dark:text-[#03dd9f] font-semibold">POS</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-[#843c06] dark:text-[#f7a15e] font-semibold">NEU</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-[#a30f34] dark:text-[#f89bb2] font-semibold">NEG</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900 font-mono">
@@ -163,9 +163,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                                         $isCorrect = $actKey === $predKey;
                                                         $cellClass = 'p-2 text-zinc-700 dark:text-zinc-300';
                                                         if ($isCorrect && $count > 0) {
-                                                            $cellClass .= ' bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-bold';
+                                                            $cellClass .= ' bg-[#dffbee] dark:bg-emerald-950/20 text-[#035e44] dark:text-[#03dd9f] font-bold';
                                                         } elseif (!$isCorrect && $count > 0) {
-                                                            $cellClass .= ' bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400';
+                                                            $cellClass .= ' bg-[#fff1f2] dark:bg-rose-950/20 text-[#a30f34] dark:text-[#f89bb2]';
                                                         }
                                                     @endphp
                                                     <td class="{{ $cellClass }}">

@@ -366,8 +366,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <button 
                 wire:click="$set('selectedRole', '{{ $roleKey }}')" 
                 @if($isActive)
-                    style="background-color: #800000 !important; color: #ffffff !important;"
-                    class="px-4 py-2 text-xs font-semibold rounded-lg border border-[#800000] shadow-sm cursor-pointer"
+                    style="background-color: #9b0000 !important; color: #ffffff !important;"
+                    class="px-4 py-2 text-xs font-semibold rounded-lg border border-[#9b0000] shadow-sm cursor-pointer"
                 @else
                     class="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-900 text-zinc-900 hover:bg-zinc-100 dark:border-zinc-300 dark:text-zinc-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer"
                 @endif

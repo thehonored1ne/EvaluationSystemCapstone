@@ -188,12 +188,23 @@ test('program head supervisor logic finds dean of their department', function ()
     expect($dept->dean_id)->toBe($this->deanEmp1->id);
 });
 
-test('staff supervisor logic finds program heads in same department only', function () {
-    // Staff 1 (CCS) supervisors should include PH 1 (CCS) but NOT PH 2 (COED)
-    $heads = Employee::where('role', 'program head')
+test('staff supervisor logic finds department head of their department', function () {
+    $dhEmp = Employee::create(['employee_number' => 'DH-01', 'first_name' => 'Dept', 'last_name' => 'Head', 'role' => 'department head', 'status' => 'active', 'department_id' => $this->ccs->id]);
+    $this->ccs->update(['department_head_id' => $dhEmp->id]);
+
+    $dept = Department::find($this->staffEmp1->department_id);
+    expect($dept->department_head_id)->toBe($dhEmp->id);
+});
+
+test('staff peer evaluation logic finds other staff in same department', function () {
+    $staffEmp2 = Employee::create(['employee_number' => 'S-02', 'first_name' => 'Staff2', 'last_name' => 'CCS', 'role' => 'staff', 'status' => 'active', 'department_id' => $this->ccs->id]);
+    $staffEmpOther = Employee::create(['employee_number' => 'S-03', 'first_name' => 'Staff3', 'last_name' => 'COED', 'role' => 'staff', 'status' => 'active', 'department_id' => $this->coed->id]);
+
+    $peers = Employee::where('role', 'staff')
         ->where('department_id', $this->staffEmp1->department_id)
+        ->where('id', '!=', $this->staffEmp1->id)
         ->pluck('id');
 
-    expect($heads)->toContain($this->phEmp1->id);
-    expect($heads)->not->toContain($this->phEmp2->id);
+    expect($peers)->toContain($staffEmp2->id);
+    expect($peers)->not->toContain($staffEmpOther->id);
 });

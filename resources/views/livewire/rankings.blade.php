@@ -26,13 +26,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function getDepartmentsProperty()
     {
-        return Department::orderBy('name')->get();
+        return Department::where('type', 'academic')->orderBy('name')->get();
     }
 
     public function getFacultyRankingsProperty()
     {
         $sem = $this->activeSemester;
-        $query = Employee::whereIn('role', ['faculty', 'program head', 'dean'])
+        $query = Employee::where('role', 'faculty')
             ->where('status', 'active')
             ->with(['department', 'user']);
 
@@ -118,7 +118,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function getDepartmentRankingsProperty()
     {
-        $departments = Department::with(['dean', 'employees'])->get();
+        $departments = Department::where('type', 'academic')->with(['dean', 'programHead', 'employees'])->get();
         $facultyRankings = $this->facultyRankings;
 
         $deptList = $departments->map(function ($dept) use ($facultyRankings) {
@@ -179,7 +179,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         @endif
     </div>
 
-    <!-- Top 4 Summary Stat Cards (with 5px dark red #800000 left border & odometer) -->
+    <!-- Top 4 Summary Stat Cards (with 5px dark red #9b0000 left border & odometer) -->
     @php
         $faculty = $this->facultyRankings;
         $topFaculty = $faculty->first();
@@ -191,7 +191,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <!-- Card 1: Top Performing Faculty -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Top Performing Faculty</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono">
@@ -205,10 +205,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 2: Top Department -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Highest Rated Department</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                <span class="text-2xl font-bold text-[#035e44] dark:text-[#03dd9f] font-mono">
                     {{ number_format($topDept?->avg_score ?: 4.88, 2) }} <span class="text-xs font-normal text-zinc-400">/ 5.00</span>
                 </span>
                 <flux:icon icon="academic-cap" class="size-6 text-emerald-500" />
@@ -219,7 +219,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 3: Total Faculty Ranked -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Faculty Monitored</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -231,15 +231,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <!-- Card 4: Institutional Mean Rating -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Institutional Mean Score</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-[#800000] dark:text-red-400 font-mono">
+                <span class="text-3xl font-bold text-[#9b0000] dark:text-[#f89696] font-mono">
                     {{ number_format($instAverage ?: 4.65, 2) }}
                 </span>
-                <flux:icon icon="chart-bar" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon icon="chart-bar" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Very Satisfactory Overall</span>
+            <span class="text-xs font-semibold text-[#035e44] dark:text-[#03dd9f]">Very Satisfactory Overall</span>
         </div>
     </div>
 
@@ -248,7 +248,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <button 
             type="button"
             wire:click="$set('activeTab', 'faculty')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'faculty' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'faculty' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
         >
             <flux:icon icon="trophy" class="size-4" />
             Faculty Leaderboard
@@ -257,7 +257,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <button 
             type="button"
             wire:click="$set('activeTab', 'department')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'department' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'department' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
         >
             <flux:icon icon="academic-cap" class="size-4" />
             Department Leaderboard

@@ -14,7 +14,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $tab = 'self';
 
     public ?int $selectedEvaluateeUserId = null;
-    public string $selectedEvaluationType = 'downward'; // 'self', 'downward'
+    public string $selectedEvaluationType = 'downward'; // 'self', 'downward', 'dean'
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -33,11 +33,31 @@ new #[Layout('components.layouts.app')] class extends Component {
         return auth()->user()->employee;
     }
 
+    // All Faculty Members in Academic Departments
+    public function getFacultyMembersProperty()
+    {
+        $emp = $this->employee;
+        $query = Employee::where('role', 'faculty')
+            ->where('status', 'active')
+            ->with(['user', 'department']);
+
+        if ($emp && $emp->department_id) {
+            $query->where(function ($q) use ($emp) {
+                $q->where('department_id', $emp->department_id)
+                  ->orWhereHas('department', fn($d) => $d->where('type', 'academic'));
+            });
+        }
+
+        return $query->orderBy('first_name')->get();
+    }
+
     // All Program Heads across all departments
     public function getProgramHeadsProperty()
     {
         return Employee::where('role', 'program head')
+            ->where('status', 'active')
             ->with(['user', 'department'])
+            ->orderBy('first_name')
             ->get();
     }
 
@@ -164,10 +184,94 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </flux:card>
             @endif
 
-            <!-- 2. Program Heads Subordinates Evaluations -->
+            <!-- 2. Faculty Members Evaluations (Academic Professors) -->
+            @if($tab === 'faculty')
+                <flux:card class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <flux:heading size="lg">Academic Faculty Evaluations</flux:heading>
+                            <p class="text-xs text-zinc-500 mt-0.5">Evaluate professors on teaching effectiveness and academic performance.</p>
+                        </div>
+                        <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
+                            {{ $this->facultyMembers->count() }} Professors
+                        </span>
+                    </div>
+
+                    @if($this->facultyMembers->isEmpty())
+                        <div class="text-center py-8 text-zinc-500">No active faculty members found in this academic unit.</div>
+                    @else
+                        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+                                    <tr>
+                                        <th class="px-6 py-3.5">Faculty Member</th>
+                                        <th class="px-6 py-3.5">Department</th>
+                                        <th class="px-6 py-3.5">Status</th>
+                                        <th class="px-6 py-3.5 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                    @foreach($this->facultyMembers as $faculty)
+                                        @if($faculty->user)
+                                            @php $status = $this->getEvaluationStatus($faculty->user->id, 'downward'); @endphp
+                                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                                                <td class="px-6 py-4">
+                                                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $faculty->full_name }}</div>
+                                                    <div class="text-xs text-zinc-500 font-mono">{{ $faculty->employee_number }}</div>
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                                        {{ $faculty->department?->code ?: 'N/A' }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    @if($status === 'completed')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                                            <flux:icon icon="check-circle" class="size-4" />
+                                                            Completed
+                                                        </span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
+                                                            <flux:icon icon="arrow-path" class="size-4 animate-spin" />
+                                                            Processing...
+                                                        </span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
+                                                            Closed
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                                            Pending
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    @if($status === 'completed')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Done</span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Processing</span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="text-xs text-zinc-400">Unavailable</span>
+                                                    @else
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $faculty->user->id }}, 'downward')">
+                                                            Evaluate
+                                                        </flux:button>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </flux:card>
+            @endif
+
+            <!-- 3. Program Heads Subordinates Evaluations -->
             @if($tab === 'program-heads')
                 <flux:card class="p-6">
-                    <flux:heading size="lg" class="mb-4">Program Head Evaluations (Subordinates)</flux:heading>
+                    <flux:heading size="lg" class="mb-4">Program Head Evaluations</flux:heading>
                     @if($this->programHeads->isEmpty())
                         <div class="text-center py-6 text-zinc-500">No program heads registered in the system.</div>
                     @else
@@ -175,18 +279,24 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <table class="w-full text-left text-sm">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
-                                        <th class="px-6 py-3.5">Name</th>
+                                        <th class="px-6 py-3.5">Program Head</th>
+                                        <th class="px-6 py-3.5">Department</th>
                                         <th class="px-6 py-3.5">Status</th>
                                         <th class="px-6 py-3.5 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
                                     @foreach($this->programHeads as $head)
                                         @if($head->user)
                                             @php $status = $this->getEvaluationStatus($head->user->id, 'downward'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
                                                     {{ $head->full_name }}
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                                        {{ $head->department?->code ?: 'N/A' }}
+                                                    </span>
                                                 </td>
                                                 <td class="px-6 py-4">
                                                     @if($status === 'completed')

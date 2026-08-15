@@ -98,7 +98,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6 text-[#800000]">
+<div class="flex flex-col gap-6 text-[#9b0000]">
     <style>
         /* Dark red theme overrides & focus outline cleanup */
         .login-dark-red input,
@@ -119,8 +119,8 @@ new #[Layout('components.layouts.auth')] class extends Component {
         .login-dark-red input:focus,
         .login-dark-red input:focus-visible,
         .login-dark-red [data-flux-input]:focus-within {
-            border-color: #800000 !important;
-            box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.25) !important;
+            border-color: #9b0000 !important;
+            box-shadow: 0 0 0 2px rgba(155, 0, 0, 0.25) !important;
             border-radius: 0.5rem !important;
         }
         .login-dark-red label,
@@ -128,33 +128,48 @@ new #[Layout('components.layouts.auth')] class extends Component {
         .login-dark-red [data-flux-input] button,
         .login-dark-red [data-flux-input] svg,
         .login-dark-red [data-flux-input] [data-flux-icon] {
-            color: #800000 !important;
+            color: #9b0000 !important;
             font-weight: 600 !important;
         }
         .login-btn-darkred {
-            background-color: #800000 !important;
+            background-color: #9b0000 !important;
             color: #ffffff !important;
         }
         .login-btn-darkred:hover {
-            background-color: #660000 !important;
+            background-color: #7a0000 !important;
             color: #ffffff !important;
         }
+        .dark .login-btn-darkred {
+            background-color: #f89696 !important;
+            color: #171717 !important;
+        }
+        .dark .login-btn-darkred:hover {
+            background-color: #f57575 !important;
+            color: #171717 !important;
+        }
         .back-btn-darkred {
-            color: #800000 !important;
+            color: #9b0000 !important;
         }
         .back-btn-darkred:hover {
-            background-color: rgba(128, 0, 0, 0.08) !important;
-            color: #660000 !important;
+            background-color: rgba(155, 0, 0, 0.08) !important;
+            color: #7a0000 !important;
+        }
+        .dark .back-btn-darkred {
+            color: #f89696 !important;
+        }
+        .dark .back-btn-darkred:hover {
+            background-color: rgba(248, 150, 150, 0.12) !important;
+            color: #f57575 !important;
         }
     </style>
 
     <div class="flex w-full flex-col gap-2 text-center">
-        <h1 class="text-2xl font-bold tracking-tight" style="color: #800000 !important;">{{ __('Log in to your account') }}</h1>
-        <p class="text-center text-sm font-medium" style="color: rgba(128, 0, 0, 0.8) !important;">{{ __('Enter your Student/Employee ID or Email and password below to log in') }}</p>
+        <h1 class="text-2xl font-bold tracking-tight text-[#9b0000] dark:text-[#f89696]">{{ __('Log in to your account') }}</h1>
+        <p class="text-center text-sm font-medium text-zinc-600 dark:text-zinc-400">{{ __('Enter your Student/Employee ID or Email and password below to log in') }}</p>
     </div>
 
     <!-- Session Status -->
-    <x-auth-session-status class="text-center" style="color: #800000 !important;" :status="session('status')" />
+    <x-auth-session-status class="text-center text-[#9b0000] dark:text-[#f89696]" :status="session('status')" />
 
     <form wire:submit="login" class="flex flex-col gap-6 login-dark-red">
         <!-- Identifier -->
@@ -168,7 +183,6 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 autofocus 
                 autocomplete="username" 
                 placeholder="e.g. 2023-07-00483 / example@gmail.com"
-                style="color: #800000 !important;"
             />
         </div>
 
@@ -183,11 +197,10 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 autocomplete="current-password"
                 placeholder="Password"
                 viewable
-                style="color: #800000 !important;"
             />
 
             @if (Route::has('password.request'))
-                <a class="absolute right-0 top-0 text-xs font-semibold underline underline-offset-2 transition-colors z-10" style="color: #800000 !important;" href="{{ route('password.request') }}" wire:navigate>
+                <a class="absolute right-0 top-0 text-xs font-semibold underline underline-offset-2 transition-colors z-10 text-[#9b0000] dark:text-[#f89696]" href="{{ route('password.request') }}" wire:navigate>
                     {{ __('Forgot your password?') }}
                 </a>
             @endif
@@ -195,14 +208,14 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         <!-- Remember Me -->
         <div class="flex items-center gap-2">
-            <flux:checkbox wire:model="remember" label="{{ __('Remember me') }}" class="font-medium" style="accent-color: #800000 !important; color: #800000 !important;" />
+            <flux:checkbox wire:model="remember" label="{{ __('Remember me') }}" class="font-medium" />
         </div>
 
         <div class="flex flex-col gap-3">
-            <button type="submit" class="w-full py-3 px-4 login-btn-darkred font-semibold text-sm rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer" style="background-color: #800000 !important; color: #ffffff !important;">
+            <button type="submit" class="w-full py-3 px-4 login-btn-darkred font-semibold text-sm rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer">
                 <span>{{ __('Log in') }}</span>
             </button>
-            <a href="{{ route('home') }}" class="w-full py-2.5 px-4 back-btn-darkred font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm" style="color: #800000 !important;" wire:navigate>
+            <a href="{{ route('home') }}" class="w-full py-2.5 px-4 back-btn-darkred font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm" wire:navigate>
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>

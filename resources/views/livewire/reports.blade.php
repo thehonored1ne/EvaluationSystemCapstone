@@ -10,6 +10,7 @@ use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
 use App\Models\EvaluationSummary;
+use App\Models\User;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function placeholder()
@@ -38,7 +39,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         $user = auth()->user();
         $query = Employee::whereIn('role', ['faculty', 'program head', 'dean'])
-            ->with('department')
+            ->with(['department', 'user'])
             ->orderBy('first_name');
 
         if ($user->hasRole('program head')) {
@@ -50,7 +51,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return $query->get();
     }
 
-    public function getReportDataProperty()
+    public function getIndividualReportDataProperty()
     {
         if (!$this->selectedTeacherId || !$this->selectedSemesterId) return null;
 
@@ -60,125 +61,170 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
 
-        $evalsQuery = Evaluation::with('sentiment')
+        $evalsQuery = Evaluation::with(['sentiment', 'answers.question.criterion'])
             ->where('evaluatee_id', $userId)
             ->where('semester_id', $this->selectedSemesterId);
 
         $evaluations = $evalsQuery->get();
         $totalSubmissions = $evaluations->count();
 
-        // Configure applicable categories based on teacher's role
-        $role = $teacher->role;
-        if ($role === 'faculty') {
-            $applicableCategories = [
-                'upward_student' => [
-                    'label' => 'Student',
-                    'max_points' => (float)$semester->upward_student_max_points,
-                ],
-                'peer' => [
-                    'label' => 'Peer',
-                    'max_points' => (float)$semester->peer_max_points,
-                ],
-                'downward' => [
-                    'label' => 'Superior',
-                    'max_points' => (float)$semester->downward_max_points,
-                ],
-                'self' => [
-                    'label' => 'Self',
-                    'max_points' => (float)$semester->self_max_points,
-                ],
-            ];
-        } elseif ($role === 'program head') {
-            $applicableCategories = [
-                'upward_employee' => [
-                    'label' => 'Subordinate',
-                    'max_points' => (float)$semester->upward_employee_max_points,
-                ],
-                'downward' => [
-                    'label' => 'Superior',
-                    'max_points' => (float)$semester->downward_max_points,
-                ],
-                'self' => [
-                    'label' => 'Self',
-                    'max_points' => (float)$semester->self_max_points,
-                ],
-            ];
-        } elseif ($role === 'dean') {
-            $applicableCategories = [
-                'upward_employee' => [
-                    'label' => 'Subordinate',
-                    'max_points' => (float)$semester->upward_employee_max_points,
-                ],
-                'self' => [
-                    'label' => 'Self',
-                    'max_points' => (float)$semester->self_max_points,
-                ],
-            ];
-        } else {
-            $applicableCategories = [];
-        }
+        // 360 Degree Weights Allocation (Default out of 200 Max Points: Student 80/40%, Dean 40/20%, PH 40/20%, Peer 30/15%, Self 10/5%)
+        $studentMax = (float)($semester->upward_student_max_points ?? 80.0);
+        $deanMax = (float)($semester->dean_max_points ?? 40.0);
+        $phMax = (float)($semester->program_head_max_points ?? $semester->downward_max_points ?? 40.0);
+        $peerMax = (float)($semester->peer_max_points ?? 30.0);
+        $selfMax = (float)($semester->self_max_points ?? 10.0);
+        $totalScale = $studentMax + $deanMax + $phMax + $peerMax + $selfMax;
+        if ($totalScale <= 0) $totalScale = 200.0;
 
-        $typeAverages = [];
-        $totalSubmittedMaxPoints = 0.0;
+        $studentPct = round(($studentMax / $totalScale) * 100);
+        $deanPct = round(($deanMax / $totalScale) * 100);
+        $phPct = round(($phMax / $totalScale) * 100);
+        $peerPct = round(($peerMax / $totalScale) * 100);
+        $selfPct = round(($selfMax / $totalScale) * 100);
 
-        foreach ($applicableCategories as $type => $config) {
-            $tCount = $evaluations->where('evaluation_type', $type)->count();
-            $tAvg = $tCount > 0 ? round($evaluations->where('evaluation_type', $type)->avg('rating_average'), 2) : 0.00;
-            
-            $typeAverages[$type] = (object) [
-                'label' => $config['label'],
-                'count' => $tCount, 
-                'average' => $tAvg,
-                'max_points' => $config['max_points'],
-            ];
+        // Helper to calculate criteria breakdown & subtotal for a specific evaluation type
+        $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($evaluations, $userId) {
+            $matchedEvals = $evaluations->filter(function ($e) use ($evalTypes, $evaluatorRoles) {
+                $typeMatch = in_array($e->evaluation_type, $evalTypes);
+                if (!$typeMatch) return false;
+                if (!empty($evaluatorRoles)) {
+                    $evaluatorRole = $e->evaluator?->employee?->role ?? ($e->evaluator?->hasRole('dean') ? 'dean' : ($e->evaluator?->hasRole('program head') ? 'program head' : null));
+                    return in_array($evaluatorRole, $evaluatorRoles);
+                }
+                return true;
+            });
 
-            if ($tCount > 0) {
-                $totalSubmittedMaxPoints += $config['max_points'];
+            $evalCount = $matchedEvals->count();
+            $evalIds = $matchedEvals->pluck('id')->toArray();
+
+            // Fetch criteria associated with these types
+            $criteria = EvaluationCriterion::whereIn('evaluation_type', $evalTypes)
+                ->orderBy('order')
+                ->get();
+
+            $parts = [];
+            $sectionEarnedPoints = 0.0;
+
+            if ($criteria->isNotEmpty()) {
+                $criteriaSumMax = (float)$criteria->sum('max_points');
+                if ($criteriaSumMax <= 0) $criteriaSumMax = 50.0;
+
+                foreach ($criteria as $idx => $crit) {
+                    $rawAvg = EvaluationAnswer::whereIn('evaluation_id', $evalIds)
+                        ->whereHas('question', fn($q) => $q->where('criterion_id', $crit->id))
+                        ->avg('rating');
+
+                    // If evaluated, scale rating (1-5) to criterion max_points
+                    $score = $rawAvg ? round(((float)$rawAvg / 5.0) * (float)$crit->max_points, 2) : 0.00;
+                    $parts[] = (object) [
+                        'roman' => $this->toRoman($idx + 1),
+                        'name' => preg_replace('/^Part\s*\d+\s*:\s*/i', '', $crit->name),
+                        'score' => $score,
+                        'max_points' => (float)$crit->max_points,
+                        'raw_avg' => $rawAvg ? round($rawAvg, 2) : null,
+                    ];
+                    $sectionEarnedPoints += $score;
+                }
+            } else {
+                // Default fallback parts if no specific criteria in db
+                $avgRating = $evalCount > 0 ? (float)$matchedEvals->avg('rating_average') : 0.0;
+                $sectionEarnedPoints = $avgRating > 0 ? round(($avgRating / 5.0) * $sectionMaxPoints, 2) : 0.0;
+                $parts[] = (object) [
+                    'roman' => 'I',
+                    'name' => 'General Competence & Effectiveness',
+                    'score' => $sectionEarnedPoints,
+                    'max_points' => $sectionMaxPoints,
+                    'raw_avg' => $avgRating > 0 ? $avgRating : null,
+                ];
             }
+
+            return (object) [
+                'count' => $evalCount,
+                'max_points' => $sectionMaxPoints,
+                'subtotal' => round($sectionEarnedPoints, 2),
+                'parts' => $parts,
+                'average_5_scale' => $evalCount > 0 ? round($matchedEvals->avg('rating_average'), 2) : 0.00,
+            ];
+        };
+
+        // 1. Students Evaluation (Student -> Faculty)
+        $studentSection = $calculateSection(['student', 'upward_student'], [], $studentMax);
+
+        // 2. Dean's Evaluation (Dean -> Faculty)
+        $deanSection = $calculateSection(['dean', 'downward'], ['dean'], $deanMax);
+
+        // 3. Program Head's Evaluation (Program Head -> Faculty)
+        $phSection = $calculateSection(['program_head', 'downward', 'ph_dh'], ['program head'], $phMax);
+
+        // 4. Peer Evaluation (Faculty -> Faculty)
+        $peerSection = $calculateSection(['peer'], ['faculty'], $peerMax);
+
+        // 5. Self Evaluation (Self -> Self)
+        $selfSection = $calculateSection(['self'], [], $selfMax);
+
+        // Composite Overall Rating on 200-point scale
+        $totalAchievedPoints = round(
+            $studentSection->subtotal +
+            $deanSection->subtotal +
+            $phSection->subtotal +
+            $peerSection->subtotal +
+            $selfSection->subtotal,
+            2
+        );
+
+        // Performance Legend Bracket matching GRC
+        if ($totalAchievedPoints >= 194.95) {
+            $descriptiveRating = 'Excellent (E)';
+            $ratingCode = 'E';
+        } elseif ($totalAchievedPoints >= 181.05) {
+            $descriptiveRating = 'Very Satisfactory (VS)';
+            $ratingCode = 'VS';
+        } elseif ($totalAchievedPoints >= 153.26) {
+            $descriptiveRating = 'Satisfactory (S)';
+            $ratingCode = 'S';
+        } elseif ($totalAchievedPoints >= 139.35) {
+            $descriptiveRating = 'Need Improvement (NI)';
+            $ratingCode = 'NI';
+        } else {
+            $descriptiveRating = 'Poor (P)';
+            $ratingCode = 'P';
         }
 
-        // Calculate category-weighted overall rating average
-        $overallAverage = 0.00;
-        if ($totalSubmittedMaxPoints > 0) {
-            foreach ($typeAverages as $type => $info) {
-                if ($info->count > 0) {
-                    $weight = $info->max_points / $totalSubmittedMaxPoints;
-                    $overallAverage += $info->average * $weight;
+        // Calculate Semester-over-Semester Growth
+        $prevSemester = Semester::with('academicYear')
+            ->where('id', '<', $semester->id)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $prevOverallAvg = null;
+        $scoreGrowth = null;
+        $scoreGrowthPercent = null;
+
+        if ($prevSemester) {
+            $prevEvals = Evaluation::where('evaluatee_id', $userId)
+                ->where('semester_id', $prevSemester->id)
+                ->get();
+
+            if ($prevEvals->count() > 0) {
+                $prevRawAvg = (float)$prevEvals->avg('rating_average');
+                $prevOverallAvg = round(($prevRawAvg / 5.0) * $totalScale, 2);
+                if ($prevOverallAvg > 0) {
+                    $scoreGrowth = round($totalAchievedPoints - $prevOverallAvg, 2);
+                    $scoreGrowthPercent = round(($scoreGrowth / $prevOverallAvg) * 100, 1);
                 }
             }
         }
-        $overallAverage = round($overallAverage, 2);
 
-        // Breakdown by Criteria
-        $evalIds = $evaluations->pluck('id')->toArray();
-        $criteria = EvaluationCriterion::whereIn('evaluation_type', array_keys($applicableCategories))
-            ->orderBy('evaluation_type')
-            ->orderBy('order')
-            ->get()
-            ->map(function ($criterion) use ($evalIds, $applicableCategories) {
-                $answersAvg = EvaluationAnswer::whereIn('evaluation_id', $evalIds)
-                    ->whereHas('question', function ($q) use ($criterion) {
-                        $q->where('criterion_id', $criterion->id);
-                    })
-                    ->avg('rating');
-
-                $label = $applicableCategories[$criterion->evaluation_type]['label'] ?? ucfirst($criterion->evaluation_type);
-
-                return (object) [
-                    'name' => $criterion->name,
-                    'type' => $label,
-                    'average' => $answersAvg ? round($answersAvg, 2) : null,
-                ];
-            })->filter(fn($c) => !is_null($c->average))->values();
-
-        // AI Sentiment Analysis
-        $commentsData = [];
+        // AI Sentiment Analysis & Bilingual Theme Extraction for Page 2
+        $studentEvals = $evaluations->whereIn('evaluation_type', ['student', 'upward_student']);
+        $studentComments = [];
         $posCount = 0;
         $neuCount = 0;
         $negCount = 0;
 
-        foreach ($evaluations as $eval) {
-            if ($eval->comments) {
+        foreach ($studentEvals as $eval) {
+            if ($eval->comments && trim($eval->comments) !== '') {
                 $label = $eval->sentiment?->active_label;
                 if (!$label) {
                     $score = $eval->sentiment?->vader_score ?? 0;
@@ -189,62 +235,112 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 elseif ($label === 'negative') $negCount++;
                 else $neuCount++;
 
-                $commentsData[] = (object) [
-                    'text' => $eval->comments,
+                $studentComments[] = (object) [
+                    'text' => trim($eval->comments),
                     'sentiment' => $label,
-                    'type' => $applicableCategories[$eval->evaluation_type]['label'] ?? ucfirst($eval->evaluation_type),
                 ];
             }
         }
 
-        $totalComments = count($commentsData);
+        $totalComments = count($studentComments);
         $posPercent = $totalComments > 0 ? round(($posCount / $totalComments) * 100) : 0;
         $neuPercent = $totalComments > 0 ? round(($neuCount / $totalComments) * 100) : 0;
         $negPercent = $totalComments > 0 ? round(($negCount / $totalComments) * 100) : 0;
 
         if ($totalComments === 0) {
-            $dominantSentiment = 'Neutral / No Comments';
-        } elseif ($posPercent >= 60) {
-            $dominantSentiment = 'Strongly Positive';
+            $dominantSentiment = 'Neutral / No Student Comments Recorded';
+        } elseif ($posPercent >= 65) {
+            $dominantSentiment = 'Strongly Positive & Favorable';
         } elseif ($posPercent > $negPercent) {
             $dominantSentiment = 'Mostly Positive';
-        } elseif ($negPercent >= 40) {
-            $dominantSentiment = 'Constructive / Critical';
+        } elseif ($negPercent >= 35) {
+            $dominantSentiment = 'Notable Constructive Suggestions';
         } else {
-            $dominantSentiment = 'Balanced';
+            $dominantSentiment = 'Balanced Feedback';
         }
 
-        // Performance status text
-        if ($overallAverage >= 4.50) {
-            $performanceBadge = 'Outstanding';
-        } elseif ($overallAverage >= 4.00) {
-            $performanceBadge = 'Very Satisfactory';
-        } elseif ($overallAverage >= 3.00) {
-            $performanceBadge = 'Satisfactory';
-        } else {
-            $performanceBadge = 'Needs Improvement';
-        }
+        // Extract Top Positive & Constructive Themes from Comments
+        $joinedComments = strtolower(implode(' ', array_map(fn($c) => $c->text, $studentComments)));
+
+        $positiveDrivers = [];
+        if (str_contains($joinedComments, 'clear') || str_contains($joinedComments, 'linaw') || str_contains($joinedComments, 'explain')) $positiveDrivers[] = 'Clear & Thorough Subject Explanations';
+        if (str_contains($joinedComments, 'approach') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'patient') || str_contains($joinedComments, 'caring')) $positiveDrivers[] = 'Approachable, Patient & Supportive Demeanor';
+        if (str_contains($joinedComments, 'engage') || str_contains($joinedComments, 'active') || str_contains($joinedComments, 'interactive') || str_contains($joinedComments, 'masaya')) $positiveDrivers[] = 'Interactive & Engaging Classroom Activities';
+        if (str_contains($joinedComments, 'master') || str_contains($joinedComments, 'magaling') || str_contains($joinedComments, 'expert') || str_contains($joinedComments, 'galing')) $positiveDrivers[] = 'Command of Subject Matter & Expertise';
+        if (str_contains($joinedComments, 'time') || str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'maaga') || str_contains($joinedComments, 'on time')) $positiveDrivers[] = 'Punctual & Effective Class Time Management';
+        if (empty($positiveDrivers)) $positiveDrivers = ['Consistent instructional delivery', 'Professional teacher-student engagement'];
+
+        $constructiveThemes = [];
+        if (str_contains($joinedComments, 'pace') || str_contains($joinedComments, 'mabilis') || str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'rush')) $constructiveThemes[] = 'Lecture pacing: students request slowing down during complex technical topics';
+        if (str_contains($joinedComments, 'grade') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'tagal') || str_contains($joinedComments, 'feedback')) $constructiveThemes[] = 'Grading turnaround: student requests for earlier return of quizzes and project feedback';
+        if (str_contains($joinedComments, 'rubric') || str_contains($joinedComments, 'criteria') || str_contains($joinedComments, 'unclear') || str_contains($joinedComments, 'instructions')) $constructiveThemes[] = 'Assessment transparency: provide detailed rubrics prior to major submissions';
+        if (str_contains($joinedComments, 'consult') || str_contains($joinedComments, 'reply') || str_contains($joinedComments, 'message') || str_contains($joinedComments, 'chat')) $constructiveThemes[] = 'Consultation reachability: expand availability during official consultation hours';
+        if (str_contains($joinedComments, 'absent') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'pasok')) $constructiveThemes[] = 'Attendance & Punctuality: maintain consistent physical/virtual class attendance';
+        if (empty($constructiveThemes)) $constructiveThemes = ['Maintain continuous pedagogical refinement and student consultation channels.'];
+
+        // Curated comments sample
+        $curatedComments = array_slice($studentComments, 0, 8);
+
+        // Retrieve Dean & Program Head names for signatories
+        $deptId = $teacher->department_id;
+        $phEmp = Employee::where('department_id', $deptId)->where('role', 'program head')->where('status', 'active')->first();
+        $deanEmp = Employee::where('role', 'dean')->where('status', 'active')->first();
 
         return (object) [
             'teacher' => $teacher,
             'semester' => $semester,
-            'overall_average' => $overallAverage,
-            'performance_badge' => $performanceBadge,
             'total_submissions' => $totalSubmissions,
-            'type_averages' => $typeAverages,
-            'criteria_breakdown' => $criteria,
-            'comments_data' => $commentsData,
+            'total_scale' => $totalScale,
+            'student_max' => $studentMax,
+            'dean_max' => $deanMax,
+            'ph_max' => $phMax,
+            'peer_max' => $peerMax,
+            'self_max' => $selfMax,
+            'student_pct' => $studentPct,
+            'dean_pct' => $deanPct,
+            'ph_pct' => $phPct,
+            'peer_pct' => $peerPct,
+            'self_pct' => $selfPct,
+            'student_section' => $studentSection,
+            'dean_section' => $deanSection,
+            'ph_section' => $phSection,
+            'peer_section' => $peerSection,
+            'self_section' => $selfSection,
+            'total_achieved_points' => $totalAchievedPoints,
+            'descriptive_rating' => $descriptiveRating,
+            'rating_code' => $ratingCode,
+            'prev_semester' => $prevSemester,
+            'score_growth' => $scoreGrowth,
+            'score_growth_percent' => $scoreGrowthPercent,
+            'overall_average' => round(($totalAchievedPoints / $totalScale) * 5.0, 2),
+            'performance_badge' => $descriptiveRating,
             'ai_sentiment' => (object) [
+                'total_comments' => $totalComments,
                 'pos_percent' => $posPercent,
                 'neu_percent' => $neuPercent,
                 'neg_percent' => $negPercent,
-                'pos_count' => $posCount,
-                'neu_count' => $neuCount,
-                'neg_count' => $negCount,
                 'dominant_label' => $dominantSentiment,
-                'total_comments' => $totalComments,
+                'positive_drivers' => $positiveDrivers,
+                'constructive_themes' => $constructiveThemes,
+                'curated_comments' => $curatedComments,
             ],
+            'program_head_name' => $phEmp ? $phEmp->full_name : 'Program Head',
+            'dean_name' => $deanEmp ? $deanEmp->full_name : 'College Dean',
         ];
+    }
+
+    private function toRoman(int $number): string
+    {
+        $map = [
+            1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V',
+            6 => 'VI', 7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X'
+        ];
+        return $map[$number] ?? (string)$number;
+    }
+
+    public function getReportDataProperty()
+    {
+        return $this->individualReportData;
     }
 
     public function getSummaryReportDataProperty()
@@ -252,184 +348,251 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         if (!$this->selectedSemesterId) return null;
 
         $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
-        $teachers = $this->teachers;
+        $user = auth()->user();
 
-        $summaries = EvaluationSummary::where('semester_id', $semester->id)
-            ->get()
-            ->keyBy('evaluatee_id');
+        // 1. Department Rankings (Academic only)
+        $deptQuery = Department::where('type', 'academic')->orderBy('name');
+        if ($user->hasRole('program head')) {
+            $deptQuery->where('id', $user->employee->department_id);
+        }
 
-        $allEvals = Evaluation::with('sentiment')
-            ->where('semester_id', $semester->id)
-            ->get();
+        $departments = $deptQuery->get()->map(function ($dept) use ($semester) {
+            $facultyUsers = User::whereHas('employee', function ($q) use ($dept) {
+                $q->where('department_id', $dept->id)
+                  ->whereIn('role', ['faculty', 'program head']);
+            })->pluck('id');
 
-        $teacherRows = $teachers->map(function ($teacher) use ($semester, $allEvals, $summaries) {
-            $userId = $teacher->user?->id;
-            $summary = $summaries->get($teacher->id);
-            
-            if (!$userId) {
-                return (object) [
-                    'teacher' => $teacher,
-                    'upward_student_average' => 0.00,
-                    'upward_student_count' => 0,
-                    'upward_employee_average' => 0.00,
-                    'upward_employee_count' => 0,
-                    'downward_average' => 0.00,
-                    'downward_count' => 0,
-                    'peer_average' => 0.00,
-                    'peer_count' => 0,
-                    'self_average' => 0.00,
-                    'self_count' => 0,
-                    'overall_average' => 0.00,
-                    'submissions_count' => 0,
-                    'sentiment_label' => 'Neutral',
-                ];
+            $evals = Evaluation::whereIn('evaluatee_id', $facultyUsers)
+                ->where('semester_id', $semester->id)
+                ->with('sentiment')
+                ->get();
+
+            $evalCount = $evals->count();
+            $avgScore = $evalCount > 0 ? round($evals->avg('rating_average'), 2) : 0.00;
+
+            // Rating spread
+            $scores = $evals->pluck('rating_average')->filter()->values();
+            $minScore = $scores->count() > 0 ? round($scores->min(), 2) : 0.00;
+            $maxScore = $scores->count() > 0 ? round($scores->max(), 2) : 0.00;
+            $stdDev = 0.00;
+            if ($scores->count() > 1) {
+                $mean = $scores->avg();
+                $variance = $scores->map(fn($val) => pow($val - $mean, 2))->sum() / ($scores->count() - 1);
+                $stdDev = round(sqrt($variance), 2);
             }
 
-            $teacherEvals = $allEvals->where('evaluatee_id', $userId);
-            $totalSubmissions = $summary ? $summary->total_submissions : $teacherEvals->count();
+            // Sentiment breakdown
+            $posCount = $evals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score > 0.05 ? 'positive' : '')) === 'positive')->count();
+            $negCount = $evals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
+            $neuCount = max(0, $evalCount - $posCount - $negCount);
 
-            $typeAverages = [];
-            foreach (['upward_student', 'upward_employee', 'downward', 'peer', 'self'] as $type) {
-                $tEvals = $teacherEvals->where('evaluation_type', $type);
-                $tCount = $tEvals->count();
-                $tAvg = $tCount > 0 ? round($tEvals->avg('rating_average'), 2) : 0.00;
-                
-                $typeAverages[$type] = (object) [
-                    'count' => $tCount,
-                    'average' => $tAvg,
-                ];
-            }
+            $posPct = $evalCount > 0 ? round(($posCount / $evalCount) * 100) : 0;
+            $negPct = $evalCount > 0 ? round(($negCount / $evalCount) * 100) : 0;
+            $neuPct = max(0, 100 - $posPct - $negPct);
 
-            // Overall score from cached summary or dynamic calculation
-            $overallAverage = $summary && $summary->overall_rating > 0
-                ? round($summary->overall_rating, 2)
-                : 0.00;
-
-            if ($overallAverage == 0.00 && $totalSubmissions > 0) {
-                $overallAverage = round($teacherEvals->avg('rating_average') ?? 0.00, 2);
-            }
-
-            // Teacher sentiment
-            $pos = 0; $neg = 0; $neu = 0;
-            foreach ($teacherEvals as $e) {
-                if ($e->comments) {
-                    $l = strtolower($e->sentiment?->active_label ?? '');
-                    if ($l === 'positive') $pos++;
-                    elseif ($l === 'negative') $neg++;
-                    else $neu++;
+            // Period-over-period delta vs previous semester
+            $prevSemester = Semester::where('id', '<', $semester->id)->orderBy('id', 'desc')->first();
+            $prevAvg = null;
+            $delta = null;
+            if ($prevSemester) {
+                $prevEvals = Evaluation::whereIn('evaluatee_id', $facultyUsers)
+                    ->where('semester_id', $prevSemester->id)
+                    ->get();
+                if ($prevEvals->count() > 0) {
+                    $prevAvg = round($prevEvals->avg('rating_average'), 2);
+                    $delta = round($avgScore - $prevAvg, 2);
                 }
             }
-            if ($pos > $neg && $pos > 0) $sLabel = 'Positive';
-            elseif ($neg > $pos) $sLabel = 'Constructive';
-            else $sLabel = 'Neutral';
+
+            // Expected turnout estimation
+            $facultyCount = $facultyUsers->count();
+            $classesCount = \App\Models\AcademicClass::where('semester_id', $semester->id)
+                ->whereHas('teacher', fn($q) => $q->where('department_id', $dept->id))
+                ->count();
+            $enrolledEst = \App\Models\AcademicClass::where('semester_id', $semester->id)
+                ->whereHas('teacher', fn($q) => $q->where('department_id', $dept->id))
+                ->withCount('students')
+                ->get()
+                ->sum('students_count');
+
+            $expectedSubmissions = max($facultyCount * 3, $enrolledEst);
+            $completionRate = $expectedSubmissions > 0 ? min(100, round(($evalCount / $expectedSubmissions) * 100)) : ($evalCount > 0 ? 100 : 0);
+
+            $performanceLevel = match(true) {
+                $avgScore >= 4.50 => 'Outstanding',
+                $avgScore >= 4.00 => 'Very Satisfactory',
+                $avgScore >= 3.00 => 'Satisfactory',
+                $avgScore > 0.00  => 'Needs Improvement',
+                default           => 'No Evaluations Yet'
+            };
 
             return (object) [
-                'teacher' => $teacher,
-                'upward_student_average' => $typeAverages['upward_student']->average,
-                'upward_student_count' => $typeAverages['upward_student']->count,
-                'upward_employee_average' => $typeAverages['upward_employee']->average,
-                'upward_employee_count' => $typeAverages['upward_employee']->count,
-                'downward_average' => $typeAverages['downward']->average,
-                'downward_count' => $typeAverages['downward']->count,
-                'peer_average' => $typeAverages['peer']->average,
-                'peer_count' => $typeAverages['peer']->count,
-                'self_average' => $typeAverages['self']->average,
-                'self_count' => $typeAverages['self']->count,
-                'overall_average' => $overallAverage,
-                'submissions_count' => $totalSubmissions,
-                'sentiment_label' => $sLabel,
+                'id' => $dept->id,
+                'name' => $dept->name,
+                'code' => $dept->code,
+                'faculty_count' => $facultyCount,
+                'classes_count' => $classesCount,
+                'evaluations_count' => $evalCount,
+                'average_rating' => $avgScore,
+                'min_score' => $minScore,
+                'max_score' => $maxScore,
+                'std_dev' => $stdDev,
+                'pos_pct' => $posPct,
+                'neu_pct' => $neuPct,
+                'neg_pct' => $negPct,
+                'prev_avg' => $prevAvg,
+                'delta' => $delta,
+                'expected_submissions' => $expectedSubmissions,
+                'completion_rate' => $completionRate,
+                'low_confidence' => $evalCount > 0 && $completionRate < 60,
+                'performance_level' => $performanceLevel,
             ];
-        })->sortByDesc('overall_average')->values();
+        })->sortByDesc('average_rating')->values();
 
-        // Compute overall institutional metrics across all semester evaluations
-        $totalInstSubmissions = $allEvals->count();
-        $instOverallAvg = $teacherRows->where('submissions_count', '>', 0)->avg('overall_average');
-        $instOverallAvg = $instOverallAvg ? round($instOverallAvg, 2) : 0.00;
+        // 2. All Institutional Evaluations
+        $allEvals = Evaluation::where('semester_id', $semester->id)
+            ->with(['sentiment', 'evaluatee.employee.department'])
+            ->get();
 
-        // Role Category Institutional Averages
-        $studentAvg = $allEvals->where('evaluation_type', 'upward_student')->avg('rating_average');
-        $subordinateAvg = $allEvals->where('evaluation_type', 'upward_employee')->avg('rating_average');
-        $superiorAvg = $allEvals->where('evaluation_type', 'downward')->avg('rating_average');
-        $peerAvg = $allEvals->where('evaluation_type', 'peer')->avg('rating_average');
-        $selfAvg = $allEvals->where('evaluation_type', 'self')->avg('rating_average');
+        $totalSubmissions = $allEvals->count();
+        $instAverage = $totalSubmissions > 0 ? round($allEvals->avg('rating_average'), 2) : 0.00;
 
-        // Overall AI Sentiment across all semester comments
-        $posCount = 0; $neuCount = 0; $negCount = 0;
-        foreach ($allEvals as $e) {
-            if ($e->comments) {
-                $l = strtolower($e->sentiment?->active_label ?? '');
-                if ($l === 'positive') $posCount++;
-                elseif ($l === 'negative') $negCount++;
-                else $neuCount++;
+        $studentEvals = $allEvals->where('evaluation_type', 'upward_student');
+        $studentAvg = $studentEvals->count() > 0 ? round($studentEvals->avg('rating_average'), 2) : 0.00;
+
+        // Total faculty evaluated
+        $facultyEvaluatedCount = $allEvals->pluck('evaluatee_id')->unique()->count();
+
+        // Faculty Requiring Attention Table (< 3.50 average OR >= 30% negative sentiment)
+        $facultyAttentionList = [];
+        $groupedByEvaluatee = $allEvals->groupBy('evaluatee_id');
+
+        foreach ($groupedByEvaluatee as $evalUserId => $userEvals) {
+            $userObj = $userEvals->first()->evaluatee;
+            $emp = $userObj?->employee;
+            if (!$emp || !in_array($emp->role, ['faculty', 'program head'])) continue;
+
+            $avg = round($userEvals->avg('rating_average'), 2);
+            $negCommentsCount = $userEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
+            $negPct = $userEvals->count() > 0 ? round(($negCommentsCount / $userEvals->count()) * 100) : 0;
+
+            if ($avg < 3.50 || ($userEvals->count() >= 3 && $negPct >= 30)) {
+                $comments = $userEvals->pluck('comments')->filter()->toArray();
+                $reason = $this->generateFacultyAttentionReason($avg, $negPct, $comments);
+
+                $facultyAttentionList[] = (object) [
+                    'id' => $emp->id,
+                    'name' => $emp->full_name,
+                    'department' => $emp->department?->name ?? 'N/A',
+                    'department_code' => $emp->department?->code ?? 'N/A',
+                    'submissions' => $userEvals->count(),
+                    'average' => $avg,
+                    'negative_pct' => $negPct,
+                    'severity' => $avg < 3.00 ? 'Critical' : 'Moderate',
+                    'reason' => $reason,
+                ];
             }
         }
-        $totalComments = $posCount + $neuCount + $negCount;
-        $posPercent = $totalComments > 0 ? round(($posCount / $totalComments) * 100) : 0;
-        $neuPercent = $totalComments > 0 ? round(($neuCount / $totalComments) * 100) : 0;
-        $negPercent = $totalComments > 0 ? round(($negCount / $totalComments) * 100) : 0;
+
+        // Sort attention list by lowest average
+        $facultyAttentionList = collect($facultyAttentionList)->sortBy('average')->values();
+
+        // Institutional Target Benchmark Comparison
+        $targetBenchmark = 4.00;
+        $benchmarkDelta = round($instAverage - $targetBenchmark, 2);
+        $benchmarkStatus = $benchmarkDelta >= 0 ? 'Above Target' : 'Below Target';
+
+        // 3. Sentiment Breakdown & NLP Theme Extraction
+        $posTotal = $allEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score > 0.05 ? 'positive' : '')) === 'positive')->count();
+        $negTotal = $allEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
+        $neuTotal = max(0, $totalSubmissions - $posTotal - $negTotal);
+
+        $posPercent = $totalSubmissions > 0 ? round(($posTotal / $totalSubmissions) * 100) : 0;
+        $neuPercent = $totalSubmissions > 0 ? round(($neuTotal / $totalSubmissions) * 100) : 0;
+        $negPercent = $totalSubmissions > 0 ? round(($negTotal / $totalSubmissions) * 100) : 0;
+
+        // Executive Action Recommendations
+        $recommendations = [];
+        if ($instAverage >= 4.20) {
+            $recommendations[] = (object) [
+                'type' => 'success',
+                'title' => 'High Institutional Excellence Maintained',
+                'description' => "Overall institution average of {$instAverage} surpasses target benchmark ({$targetBenchmark}). Replicate teaching methodologies across departments.",
+            ];
+        } else {
+            $recommendations[] = (object) [
+                'type' => 'warning',
+                'title' => 'Priority Instructional Remediation Needed',
+                'description' => "Institution average ({$instAverage}) sits below or near target ({$targetBenchmark}). Focus on active faculty coaching and lesson pacing seminars.",
+            ];
+        }
+
+        if (count($facultyAttentionList) > 0) {
+            $recommendations[] = (object) [
+                'type' => 'danger',
+                'title' => count($facultyAttentionList) . ' Faculty Flagged for 1-on-1 Dean Coaching',
+                'description' => 'Coordinate with designated Program Heads to review student constructive comments and set 30-day pedagogical action plans.',
+            ];
+        }
+
+        $lowConfidenceDepts = $departments->filter(fn($d) => $d->low_confidence)->count();
+        if ($lowConfidenceDepts > 0) {
+            $recommendations[] = (object) [
+                'type' => 'info',
+                'title' => "Low Turnout Warning in {$lowConfidenceDepts} Academic Department(s)",
+                'description' => 'Response rates fall below 60% threshold. Broadcast mobile reminders to enrolled students before final examination permits are generated.',
+            ];
+        }
 
         return (object) [
             'semester' => $semester,
-            'teachers' => $teacherRows,
-            'total_teachers' => $teacherRows->count(),
-            'total_submissions' => $totalInstSubmissions,
-            'institutional_average' => $instOverallAvg,
-            'category_averages' => (object) [
-                'student' => $studentAvg ? round($studentAvg, 2) : 0.00,
-                'subordinate' => $subordinateAvg ? round($subordinateAvg, 2) : 0.00,
-                'superior' => $superiorAvg ? round($superiorAvg, 2) : 0.00,
-                'peer' => $peerAvg ? round($peerAvg, 2) : 0.00,
-                'self' => $selfAvg ? round($selfAvg, 2) : 0.00,
-            ],
-            'ai_sentiment' => (object) [
+            'target_benchmark' => $targetBenchmark,
+            'benchmark_delta' => $benchmarkDelta,
+            'benchmark_status' => $benchmarkStatus,
+            'total_submissions' => $totalSubmissions,
+            'institutional_average' => $instAverage,
+            'student_average' => $studentAvg,
+            'faculty_evaluated_count' => $facultyEvaluatedCount,
+            'departments' => $departments,
+            'faculty_attention' => $facultyAttentionList,
+            'recommendations' => $recommendations,
+            'sentiment' => (object) [
                 'pos_percent' => $posPercent,
                 'neu_percent' => $neuPercent,
                 'neg_percent' => $negPercent,
-                'pos_count' => $posCount,
-                'neu_count' => $neuCount,
-                'neg_count' => $negCount,
-                'total_comments' => $totalComments,
+                'pos_count' => $posTotal,
+                'neu_count' => $neuTotal,
+                'neg_count' => $negTotal,
             ],
         ];
     }
+
+    private function generateFacultyAttentionReason(float $avg, int $negPct, array $comments): string
+    {
+        if (!empty($comments)) {
+            $joined = strtolower(implode(' ', $comments));
+            if (str_contains($joined, 'pace') || str_contains($joined, 'mabilis') || str_contains($joined, 'fast') || str_contains($joined, 'rush')) return 'Recurring student feedback regarding lecture pacing and rapid discussion speed.';
+            if (str_contains($joined, 'grade') || str_contains($joined, 'late') || str_contains($joined, 'feedback') || str_contains($joined, 'tagal')) return 'Frequent comments citing delayed return of graded coursework and feedback.';
+            if (str_contains($joined, 'rubric') || str_contains($joined, 'unclear') || str_contains($joined, 'instruction') || str_contains($joined, 'criteria')) return 'Inquiries regarding assignment rubric transparency and project instructions.';
+            if (str_contains($joined, 'consult') || str_contains($joined, 'reply') || str_contains($joined, 'message')) return 'Student requests for improved availability during scheduled consultation hours.';
+        }
+        return $avg < 3.00 ? 'Overall evaluation score falls significantly below the 3.50 satisfactory standard.' : 'Notable constructive sentiment spike (' . $negPct . '% critical) across student responses.';
+    }
 }; ?>
 
-<div class="flex flex-col gap-8 w-full max-w-5xl mx-auto px-4 py-6">
-    <!-- Navigation Tabs (Hidden on Print) -->
-    <div class="flex border-b border-zinc-200 dark:border-zinc-800 print:hidden">
-        <button wire:click="$set('activeTab', 'individual')" class="px-5 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 {{ $activeTab === 'individual' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
-            Individual Report
-        </button>
-        <button wire:click="$set('activeTab', 'summary')" class="px-5 py-2.5 text-sm font-semibold border-b-2 transition-all duration-200 {{ $activeTab === 'summary' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
-            Summary Report
-        </button>
-    </div>
-
-    <!-- Filters (Hidden on Print) -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm print:hidden">
+<div class="w-full flex flex-col gap-6 text-left">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full print:hidden">
         <div>
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                {{ $activeTab === 'individual' ? 'Evaluation Reports' : 'Summary Evaluation Reports' }}
-            </h1>
-            <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
-                {{ $activeTab === 'individual' ? 'Select a professor and semester to generate and print a performance summary report.' : 'Select a semester to generate and print an executive performance summary report.' }}
-            </p>
+            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Evaluation Reports</flux:heading>
+            <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
+                Generate official 360-degree faculty performance evaluations on teaching effectiveness and summary executive analytics.
+            </flux:subheading>
         </div>
 
-        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto shrink-0">
-            @if($activeTab === 'individual')
-                <div class="w-full md:w-64">
-                    <x-searchable-select 
-                        name="selectedTeacherId" 
-                        placeholder="Select Professor" 
-                        :live="true" 
-                        :options="$this->teachers->map(fn($t) => ['value' => (string)$t->id, 'label' => $t->full_name . ' (' . $t->employee_number . ')'])->toArray()" 
-                    />
-                </div>
-            @endif
-
-            <div class="w-full md:w-48">
-                <flux:select wire:model.live="selectedSemesterId" placeholder="Select Semester">
+        <div class="flex items-center gap-3">
+            <div class="w-48">
+                <flux:select wire:model.live="selectedSemesterId" placeholder="Select Academic Period">
                     @foreach($this->semesters as $sem)
                         <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
                     @endforeach
@@ -438,257 +601,387 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
 
-    <!-- Loading Skeleton Placeholder -->
-    <div wire:loading wire:target="selectedTeacherId, selectedSemesterId, activeTab">
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 space-y-8 flex flex-col gap-8 print:border-none print:shadow-none">
-            <div class="text-center border-b-2 border-zinc-150 pb-6 flex flex-col items-center justify-center gap-2">
-                <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-md w-72 shimmer"></div>
-                <div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 mt-1 shimmer"></div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800">
-                <div class="space-y-2"><div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/3 shimmer"></div><div class="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 shimmer"></div></div>
-                <div class="space-y-2"><div class="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/3 shimmer"></div><div class="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 shimmer"></div></div>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <x-skeleton type="card" />
-                <x-skeleton type="card" />
-                <x-skeleton type="card" />
-                <x-skeleton type="card" />
-            </div>
-        </div>
+    <!-- Navigation Tabs -->
+    <div class="border-b border-zinc-200 dark:border-zinc-800 flex gap-2 md:gap-4 overflow-x-auto pb-0 print:hidden">
+        <button 
+            type="button"
+            wire:click="$set('activeTab', 'individual')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'individual' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="user" class="size-4" />
+            Individual Teaching Effectiveness Report
+        </button>
+
+        <button 
+            type="button"
+            wire:click="$set('activeTab', 'summary')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'summary' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="chart-bar-square" class="size-4" />
+            Evaluation Summary Report
+        </button>
     </div>
 
-    <!-- Print Report Body -->
-    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab">
-        <!-- INDIVIDUAL REPORT TAB -->
-        @if($activeTab === 'individual')
-            @if($this->reportData)
-                @php $data = $this->reportData; @endphp
-                
-                <!-- Print Button (Hidden on Print) -->
-                <div class="flex justify-end print:hidden mb-4">
-                    <flux:button variant="primary" icon="printer" onclick="window.print()" class="bg-[#800000] hover:bg-[#990000] text-white">
-                        Print Individual Report
-                    </flux:button>
-                </div>
-
-                <!-- Printable Document Container -->
-                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
-                    
-                    <!-- Header -->
-                    <div class="text-center border-b-2 border-zinc-850 pb-6 flex flex-col gap-2">
-                        <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Performance Evaluation Report</h2>
-                        <p class="text-sm font-semibold text-zinc-500 print:text-zinc-600">
-                            Academic Period: {{ $data->semester->academicYear->name }} - {{ $data->semester->name }}
-                        </p>
-                    </div>
-
-                    <!-- Profile Details Card -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:text-black print:border-zinc-300">
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Professor Name</span>
-                            <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">{{ $data->teacher->full_name }}</span>
-                        </div>
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Department / College</span>
-                            <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
-                                {{ $data->teacher->department->name ?? 'N/A' }} ({{ $data->teacher->department->code ?? 'N/A' }})
-                            </span>
-                        </div>
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee ID</span>
-                            <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ $data->teacher->employee_number }}</span>
-                        </div>
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Employee Designation</span>
-                            <span class="font-semibold text-zinc-700 dark:text-zinc-300 print:text-black">{{ ucfirst($data->teacher->role) }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Overall & Category Score Cards -->
-                    @php
-                        $numItems = count($data->type_averages) + 1;
-                        $gridClass = match($numItems) {
-                            3 => 'grid-cols-1 sm:grid-cols-3',
-                            4 => 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4',
-                            5 => 'grid-cols-1 sm:grid-cols-3 md:grid-cols-5',
-                            default => 'grid-cols-1 sm:grid-cols-3',
-                        };
-                    @endphp
-                    <div class="grid {{ $gridClass }} gap-4">
-                        <div class="border-2 border-[#800000] dark:border-red-500 p-5 rounded-2xl text-center bg-red-50/20 dark:bg-red-950/20 shadow-sm flex flex-col justify-center items-center">
-                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Overall Score</div>
-                            <div class="text-3xl font-black text-[#800000] dark:text-red-400 mt-1">
-                                {{ number_format($data->overall_average, 2) }} <span class="text-xs font-normal text-zinc-500">/ 5.0</span>
-                            </div>
-                            <span class="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#800000]/10 text-[#800000] dark:bg-red-950 dark:text-red-300">
-                                {{ $data->performance_badge }}
-                            </span>
-                        </div>
-
-                        @foreach($data->type_averages as $type => $info)
-                            <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-2xl text-center flex flex-col justify-center items-center bg-white dark:bg-zinc-900">
-                                <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $info->label }} Rating</div>
-                                <div class="text-2xl font-bold text-zinc-850 dark:text-zinc-200 print:text-black mt-1">
-                                    @if($info->count > 0)
-                                        {{ number_format($info->average, 2) }}
-                                        <span class="text-xs font-medium text-zinc-400 block mt-0.5">({{ $info->count }} {{ $info->count == 1 ? 'report' : 'reports' }})</span>
-                                    @else
-                                        <span class="text-sm font-semibold text-zinc-400 block mt-0.5">N/A</span>
-                                    @endif
-                                </div>
-                            </div>
+    <!-- Teacher Selection Bar (Only in Individual tab) -->
+    @if($activeTab === 'individual')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs print:hidden">
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:select wire:model.live="selectedTeacherId" placeholder="Select Faculty Member / Professor" clearable>
+                        <flux:select.option value="">Choose a Faculty Member</flux:select.option>
+                        @foreach($this->teachers as $teacher)
+                            <flux:select.option value="{{ $teacher->id }}">
+                                {{ $teacher->full_name }} ({{ $teacher->department?->code ?? 'N/A' }} • {{ ucfirst($teacher->role) }})
+                            </flux:select.option>
                         @endforeach
-                    </div>
+                    </flux:select>
+                </div>
+                @if($selectedTeacherId && $selectedSemesterId)
+                    <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white">
+                        Print GRC Official Report
+                    </flux:button>
+                @endif
+            </div>
+        </div>
+    @endif
 
-                    <!-- Criteria Performance Progress Cards (No Table) -->
-                    <div class="flex flex-col gap-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Evaluation Criteria Breakdown</h3>
-                            <span class="text-xs font-semibold text-zinc-500">{{ $data->criteria_breakdown->count() }} Criteria Evaluated</span>
+    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab">
+        @if($activeTab === 'individual')
+            @if($selectedTeacherId && $selectedSemesterId && $this->individualReportData)
+                @php $report = $this->individualReportData; @endphp
+                
+                <!-- Print Document Container -->
+                <div class="flex flex-col gap-10 w-full max-w-5xl mx-auto">
+                    
+                    <!-- ================= PAGE 1: SUMMARY SCORECARD (GRC EXACT REPLICA) ================= -->
+                    <div class="bg-white text-black border border-zinc-400 p-8 md:p-12 rounded-2xl shadow-xl flex flex-col gap-6 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none" style="page-break-after: always; break-after: page;">
+                        
+                        <!-- Top Header: Logo + Institutional Header + Boxed Title -->
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-black pb-4">
+                            <div class="flex items-center gap-3.5">
+                                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Logo" class="h-16 md:h-20 w-auto object-contain" />
+                                <div class="flex flex-col">
+                                    <h1 class="text-base font-black tracking-tight uppercase leading-tight">Global Reciprocal Colleges</h1>
+                                    <p class="text-[11px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue</p>
+                                    <p class="text-[11px] text-zinc-700 leading-tight">Grace Park, Caloocan City</p>
+                                </div>
+                            </div>
+
+                            <div class="border-2 border-black px-4 py-2 text-center max-w-md">
+                                <h2 class="text-xs md:text-sm font-black uppercase tracking-wider leading-snug">
+                                    Summary of Faculty Performance Evaluation on Teaching Effectiveness
+                                </h2>
+                            </div>
                         </div>
 
+                        <!-- Meta Info Grid (School Year, Semester, Faculty Name, Department) -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs font-semibold border-b border-black pb-4">
+                            <div class="flex items-baseline gap-2">
+                                <span class="uppercase tracking-wider">School Year:</span>
+                                <span class="font-bold underline uppercase">{{ $report->semester->academicYear->name }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="uppercase tracking-wider">Semester:</span>
+                                <span class="font-bold underline uppercase">{{ $report->semester->name }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2 mt-1">
+                                <span class="uppercase tracking-wider">Name of Faculty Member:</span>
+                                <span class="font-black text-sm uppercase underline">{{ $report->teacher->full_name }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2">
+                                <span class="uppercase tracking-wider">College / Department:</span>
+                                <span class="font-bold uppercase underline">{{ $report->teacher->department->name ?? 'Academic Faculty' }} ({{ $report->teacher->department->code ?? 'N/A' }})</span>
+                            </div>
+                        </div>
+
+                        <!-- Intro Notice -->
+                        <div class="text-xs italic font-bold text-zinc-800">
+                            The following are the summary of your ratings:
+                        </div>
+
+                        <!-- Evaluation Ratings Section -->
+                        <div class="flex flex-col gap-4 text-xs">
+                            
+                            <!-- 1. STUDENTS EVALUATION -->
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide">
+                                    <span>Students Evaluation ({{ $report->student_pct }}%):</span>
+                                    <span class="font-mono text-sm underline">{{ number_format($report->student_section->subtotal, 2) }}</span>
+                                </div>
+                                <div class="pl-4 flex flex-col gap-1 text-[11px]">
+                                    @foreach($report->student_section->parts as $part)
+                                        <div class="flex justify-between items-center py-0.5 border-b border-dotted border-zinc-300">
+                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
+                                            <span class="font-mono font-bold px-2 py-0.5 border border-black min-w-[56px] text-right">{{ number_format($part->score, 2) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- 2. DEAN'S EVALUATION -->
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide">
+                                    <span>Dean's Evaluation ({{ $report->dean_pct }}%):</span>
+                                    <span class="font-mono text-sm underline">{{ number_format($report->dean_section->subtotal, 2) }}</span>
+                                </div>
+                                <div class="pl-4 flex flex-col gap-1 text-[11px]">
+                                    @foreach($report->dean_section->parts as $part)
+                                        <div class="flex justify-between items-center py-0.5 border-b border-dotted border-zinc-300">
+                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
+                                            <span class="font-mono font-bold px-2 py-0.5 border border-black min-w-[56px] text-right">{{ number_format($part->score, 2) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- 3. PROGRAM HEAD'S EVALUATION -->
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide">
+                                    <span>Program Head's Evaluation ({{ $report->ph_pct }}%):</span>
+                                    <span class="font-mono text-sm underline">{{ number_format($report->ph_section->subtotal, 2) }}</span>
+                                </div>
+                                <div class="pl-4 flex flex-col gap-1 text-[11px]">
+                                    @foreach($report->ph_section->parts as $part)
+                                        <div class="flex justify-between items-center py-0.5 border-b border-dotted border-zinc-300">
+                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
+                                            <span class="font-mono font-bold px-2 py-0.5 border border-black min-w-[56px] text-right">{{ number_format($part->score, 2) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- 4. PEER EVALUATION (360° Inclusion) -->
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide">
+                                    <span>Peer Evaluation ({{ $report->peer_pct }}%):</span>
+                                    <span class="font-mono text-sm underline">{{ number_format($report->peer_section->subtotal, 2) }}</span>
+                                </div>
+                                <div class="pl-4 flex flex-col gap-1 text-[11px]">
+                                    @foreach($report->peer_section->parts as $part)
+                                        <div class="flex justify-between items-center py-0.5 border-b border-dotted border-zinc-300">
+                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
+                                            <span class="font-mono font-bold px-2 py-0.5 border border-black min-w-[56px] text-right">{{ number_format($part->score, 2) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- 5. SELF EVALUATION -->
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide">
+                                    <span>Self Evaluation ({{ $report->self_pct }}%):</span>
+                                    <span class="font-mono text-sm underline">{{ number_format($report->self_section->subtotal, 2) }}</span>
+                                </div>
+                                <div class="pl-4 flex flex-col gap-1 text-[11px]">
+                                    @foreach($report->self_section->parts as $part)
+                                        <div class="flex justify-between items-center py-0.5 border-b border-dotted border-zinc-300">
+                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
+                                            <span class="font-mono font-bold px-2 py-0.5 border border-black min-w-[56px] text-right">{{ number_format($part->score, 2) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Section: Legend Table & Overall Rating Box -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                            <!-- Legend Table -->
+                            <div class="col-span-2 border-2 border-black text-[11px]">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="border-b-2 border-black bg-zinc-100 font-bold uppercase">
+                                            <th class="p-1.5 border-r border-black w-8 text-center"></th>
+                                            <th class="p-1.5 border-r border-black">Descriptive Rating</th>
+                                            <th class="p-1.5 text-center" colspan="2">Weight Equivalent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-black font-medium">
+                                        <tr class="{{ $report->rating_code === 'E' ? 'bg-zinc-200 font-bold' : '' }}">
+                                            <td class="p-1 text-center border-r border-black font-bold">L</td>
+                                            <td class="p-1 border-r border-black">Excellent</td>
+                                            <td class="p-1 text-center border-r border-black w-20">194.95</td>
+                                            <td class="p-1 text-center w-20">200.00</td>
+                                        </tr>
+                                        <tr class="{{ $report->rating_code === 'VS' ? 'bg-zinc-200 font-bold' : '' }}">
+                                            <td class="p-1 text-center border-r border-black font-bold">E</td>
+                                            <td class="p-1 border-r border-black">Very Satisfactory</td>
+                                            <td class="p-1 text-center border-r border-black">181.05</td>
+                                            <td class="p-1 text-center">194.94</td>
+                                        </tr>
+                                        <tr class="{{ $report->rating_code === 'S' ? 'bg-zinc-200 font-bold' : '' }}">
+                                            <td class="p-1 text-center border-r border-black font-bold">G</td>
+                                            <td class="p-1 border-r border-black">Satisfactory</td>
+                                            <td class="p-1 text-center border-r border-black">153.26</td>
+                                            <td class="p-1 text-center">181.04</td>
+                                        </tr>
+                                        <tr class="{{ $report->rating_code === 'NI' ? 'bg-zinc-200 font-bold' : '' }}">
+                                            <td class="p-1 text-center border-r border-black font-bold">E</td>
+                                            <td class="p-1 border-r border-black">Need Improvement</td>
+                                            <td class="p-1 text-center border-r border-black">139.35</td>
+                                            <td class="p-1 text-center">153.25</td>
+                                        </tr>
+                                        <tr class="{{ $report->rating_code === 'P' ? 'bg-zinc-200 font-bold' : '' }}">
+                                            <td class="p-1 text-center border-r border-black font-bold">N/D</td>
+                                            <td class="p-1 border-r border-black">Poor</td>
+                                            <td class="p-1 text-center border-r border-black">1.00</td>
+                                            <td class="p-1 text-center">139.34</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Overall Rating Box -->
+                            <div class="col-span-1 border-2 border-black p-3 flex flex-col justify-center items-center text-center bg-zinc-50">
+                                <span class="text-xs font-black uppercase tracking-wider mb-1">Overall Rating</span>
+                                <div class="text-3xl font-black font-mono tracking-tight underline">{{ number_format($report->total_achieved_points, 2) }}</div>
+                                <div class="text-xs font-black uppercase mt-1.5 px-2 py-0.5 border border-black bg-white">
+                                    {{ $report->descriptive_rating }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Signatories Section -->
+                        <div class="grid grid-cols-3 gap-6 pt-10 text-xs">
+                            <div class="flex flex-col items-center text-center">
+                                <span class="text-[10px] text-zinc-500 uppercase tracking-wider mb-8">Prepared by:</span>
+                                <div class="w-full border-b border-black"></div>
+                                <span class="font-black uppercase mt-1">Evaluation Coordinator</span>
+                                <span class="text-[10px] text-zinc-600">HR / Academic Affairs</span>
+                            </div>
+                            <div class="flex flex-col items-center text-center">
+                                <span class="text-[10px] text-zinc-500 uppercase tracking-wider mb-8">Noted by:</span>
+                                <div class="w-full border-b border-black"></div>
+                                <span class="font-black uppercase mt-1">{{ $report->program_head_name }}</span>
+                                <span class="text-[10px] text-zinc-600">Program Head</span>
+                            </div>
+                            <div class="flex flex-col items-center text-center">
+                                <span class="text-[10px] text-zinc-500 uppercase tracking-wider mb-8">Approved by:</span>
+                                <div class="w-full border-b border-black"></div>
+                                <span class="font-black uppercase mt-1">{{ $report->dean_name }}</span>
+                                <span class="text-[10px] text-zinc-600">College Dean</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- ================= PAGE 2: AI STUDENT COMMENTS ANALYSIS ================= -->
+                    <div class="bg-white text-black border border-zinc-400 p-8 md:p-12 rounded-2xl shadow-xl flex flex-col gap-6 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none">
+                        
+                        <!-- Top Header: Signatories banner + Logo + Boxed Title -->
+                        <div class="flex justify-between text-[11px] font-bold uppercase border-b border-zinc-300 pb-2">
+                            <span>Human Resource Manager</span>
+                            <span>College Dean</span>
+                            <span>Executive Director</span>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-black pb-4">
+                            <div class="flex items-center gap-3.5">
+                                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Logo" class="h-14 md:h-18 w-auto object-contain" />
+                                <div class="flex flex-col">
+                                    <h1 class="text-sm font-black tracking-tight uppercase leading-tight">Global Reciprocal Colleges</h1>
+                                    <p class="text-[10px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue, Grace Park, Caloocan City</p>
+                                </div>
+                            </div>
+
+                            <div class="border-2 border-black px-4 py-2 text-center max-w-md">
+                                <h2 class="text-xs md:text-sm font-black uppercase tracking-wider leading-snug">
+                                    Student's Comments & AI Qualitative Analysis
+                                </h2>
+                            </div>
+                        </div>
+
+                        <!-- Meta Info Line -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs font-semibold border-b border-black pb-4">
+                            <div class="flex items-baseline gap-2">
+                                <span class="uppercase tracking-wider">School Year:</span>
+                                <span class="font-bold underline uppercase">{{ $report->semester->academicYear->name }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="uppercase tracking-wider">Semester:</span>
+                                <span class="font-bold underline uppercase">{{ $report->semester->name }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2 mt-1">
+                                <span class="uppercase tracking-wider">Name of Faculty Member:</span>
+                                <span class="font-black text-sm uppercase underline">{{ $report->teacher->full_name }}</span>
+                            </div>
+                        </div>
+
+                        <!-- 1. AI Sentiment Gauge & Distribution Card -->
+                        <div class="border-2 border-black p-5 rounded-xl bg-zinc-50 flex flex-col gap-3">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                <span class="text-xs font-black uppercase tracking-wider">AI Evaluator Sentiment Distribution</span>
+                                <span class="px-2.5 py-0.5 text-xs font-bold border border-black bg-white">
+                                    {{ $report->ai_sentiment->dominant_label }} ({{ $report->ai_sentiment->total_comments }} Total Comments)
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center gap-4 text-xs font-bold font-mono">
+                                <span>Positive: {{ $report->ai_sentiment->pos_percent }}%</span>
+                                <span>Neutral: {{ $report->ai_sentiment->neu_percent }}%</span>
+                                <span>Constructive: {{ $report->ai_sentiment->neg_percent }}%</span>
+                            </div>
+
+                            <div class="w-full h-3 bg-zinc-200 border border-black rounded-full overflow-hidden flex">
+                                <div class="bg-black h-full" style="width: {{ $report->ai_sentiment->pos_percent }}%" title="Positive: {{ $report->ai_sentiment->pos_percent }}%"></div>
+                                <div class="bg-zinc-500 h-full" style="width: {{ $report->ai_sentiment->neu_percent }}%" title="Neutral: {{ $report->ai_sentiment->neu_percent }}%"></div>
+                                <div class="bg-zinc-300 h-full" style="width: {{ $report->ai_sentiment->neg_percent }}%" title="Constructive: {{ $report->ai_sentiment->neg_percent }}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Top Commendations & Opportunities (Two-Column Thematic Breakdown) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            @foreach($data->criteria_breakdown as $c)
-                                @php
-                                    $percent = min(100, max(0, ($c->average / 5.0) * 100));
-                                @endphp
-                                <div class="border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-3">
-                                    <div class="flex justify-between items-start gap-3">
-                                        <div class="flex flex-col gap-1">
-                                            <span class="font-bold text-zinc-900 dark:text-zinc-100 print:text-black text-sm">{{ $c->name }}</span>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-200/60 dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-300 w-max">
-                                                {{ $c->type }}
-                                            </span>
-                                        </div>
-                                        <div class="text-right">
-                                            <span class="text-lg font-black text-[#800000] dark:text-red-400 print:text-black">
-                                                {{ number_format($c->average, 2) }}
-                                            </span>
-                                            <span class="text-xs text-zinc-400 font-medium">/ 5.0</span>
-                                        </div>
-                                    </div>
-                                    <!-- Progress Bar -->
-                                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-2.5 rounded-full overflow-hidden">
-                                        <div class="bg-[#800000] dark:bg-red-500 h-full rounded-full transition-all duration-300" style="width: {{ $percent }}%"></div>
-                                    </div>
+                            <!-- Positive Themes -->
+                            <div class="border border-black p-4 rounded-xl flex flex-col gap-2 bg-white">
+                                <div class="flex items-center gap-1.5 text-xs font-black uppercase text-black border-b border-zinc-200 pb-1.5">
+                                    <flux:icon icon="hand-thumb-up" class="size-4" />
+                                    <span>Top Student Commendations</span>
                                 </div>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <!-- AI Sentiment & Performance Analysis Block -->
-                    <div class="flex flex-col gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#800000] dark:text-red-400">
-                                    <flux:icon icon="sparkles" class="size-5" />
-                                </div>
-                                <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">AI Sentiment & Feedback Analysis</h3>
+                                <ul class="text-xs flex flex-col gap-1.5 mt-1 list-disc pl-4">
+                                    @foreach($report->ai_sentiment->positive_drivers as $theme)
+                                        <li class="font-medium text-zinc-800">{{ $theme }}</li>
+                                    @endforeach
+                                </ul>
                             </div>
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                Overall Sentiment: {{ $data->ai_sentiment->dominant_label }}
+
+                            <!-- Constructive Themes -->
+                            <div class="border border-black p-4 rounded-xl flex flex-col gap-2 bg-white">
+                                <div class="flex items-center gap-1.5 text-xs font-black uppercase text-black border-b border-zinc-200 pb-1.5">
+                                    <flux:icon icon="light-bulb" class="size-4" />
+                                    <span>Key Opportunities for Growth</span>
+                                </div>
+                                <ul class="text-xs flex flex-col gap-1.5 mt-1 list-disc pl-4">
+                                    @foreach($report->ai_sentiment->constructive_themes as $theme)
+                                        <li class="font-medium text-zinc-800">{{ $theme }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- 3. Curated Representative Student Feedback Highlights -->
+                        <div class="border-2 border-black p-5 rounded-xl flex flex-col gap-3">
+                            <span class="text-xs font-black uppercase tracking-wider border-b border-black pb-1.5">
+                                Representative Student Feedback Extracts (Bilingual NLP Processed)
                             </span>
-                        </div>
 
-                        <div class="bg-gradient-to-br from-zinc-50 via-white to-red-50/20 dark:from-zinc-900 dark:to-zinc-800/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 flex flex-col gap-6">
-                            <!-- Sentiment Bar Distribution -->
-                            <div class="flex flex-col gap-2">
-                                <div class="flex justify-between items-center text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                                    <span>Sentiment Distribution ({{ $data->ai_sentiment->total_comments }} Comments Analyzed)</span>
-                                    <div class="flex items-center gap-4">
-                                        <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                            <span class="size-2 rounded-full bg-emerald-500"></span> Positive: {{ $data->ai_sentiment->pos_percent }}%
-                                        </span>
-                                        <span class="flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                                            <span class="size-2 rounded-full bg-zinc-400"></span> Neutral: {{ $data->ai_sentiment->neu_percent }}%
-                                        </span>
-                                        <span class="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                                            <span class="size-2 rounded-full bg-rose-500"></span> Constructive: {{ $data->ai_sentiment->neg_percent }}%
-                                        </span>
-                                    </div>
+                            @if(empty($report->ai_sentiment->curated_comments))
+                                <div class="text-center py-6 text-xs text-zinc-500 font-medium italic">
+                                    No written student comments were recorded for this academic evaluation period.
                                 </div>
-
-                                <!-- Multi-segment progress bar -->
-                                <div class="w-full h-3 bg-zinc-150 dark:bg-zinc-800 rounded-full overflow-hidden flex">
-                                    <div class="bg-emerald-500 h-full transition-all duration-300" style="width: {{ $data->ai_sentiment->pos_percent }}%"></div>
-                                    <div class="bg-zinc-400 dark:bg-zinc-600 h-full transition-all duration-300" style="width: {{ $data->ai_sentiment->neu_percent }}%"></div>
-                                    <div class="bg-rose-500 h-full transition-all duration-300" style="width: {{ $data->ai_sentiment->neg_percent }}%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Executive Key Insights -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                                <div class="p-4 bg-white dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex flex-col gap-1.5">
-                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1 text-xs">
-                                        <flux:icon icon="hand-thumb-up" class="size-4 text-emerald-500" />
-                                        Key Strengths Identified
-                                    </span>
-                                    <p class="text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                                        @if($data->criteria_breakdown->isNotEmpty())
-                                            Demonstrates strong performance in <span class="font-bold text-zinc-800 dark:text-zinc-200">'{{ $data->criteria_breakdown->first()->name }}'</span> with an average score of <span class="font-bold text-[#800000] dark:text-red-400">{{ number_format($data->criteria_breakdown->first()->average, 2) }}</span>.
-                                        @else
-                                            Overall positive feedback received across key instructional indicators.
-                                        @endif
-                                    </p>
-                                </div>
-
-                                <div class="p-4 bg-white dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex flex-col gap-1.5">
-                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1 text-xs">
-                                        <flux:icon icon="chart-bar" class="size-4 text-amber-500" />
-                                        Development & Focus Area
-                                    </span>
-                                    <p class="text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                                        @if($data->criteria_breakdown->count() > 1)
-                                            Opportunities for enhancement in <span class="font-bold text-zinc-800 dark:text-zinc-200">'{{ $data->criteria_breakdown->last()->name }}'</span> (average score: <span class="font-bold text-amber-600 dark:text-amber-400">{{ number_format($data->criteria_breakdown->last()->average, 2) }}</span>).
-                                        @else
-                                            Continue maintaining existing instructional quality standards.
-                                        @endif
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Submitted Comments Cards Stream -->
-                    <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                        <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Submitted Evaluation Comments</h3>
-                        @if(empty($data->comments_data))
-                            <p class="text-sm text-zinc-400 italic">No text comments submitted for this professor.</p>
-                        @else
-                            <div class="grid grid-cols-1 gap-3">
-                                @foreach($data->comments_data as $cItem)
-                                    <div class="p-4 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
-                                        <div class="flex items-center justify-between text-xs">
-                                            <span class="font-bold text-zinc-500 uppercase tracking-wider text-[10px]">{{ $cItem->type }} Feedback</span>
-                                            @if($cItem->sentiment === 'positive')
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Positive</span>
-                                            @elseif($cItem->sentiment === 'negative')
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">Constructive</span>
-                                            @else
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-300">Neutral</span>
-                                            @endif
+                            @else
+                                <div class="grid grid-cols-1 gap-2.5 max-h-80 overflow-y-auto pr-1">
+                                    @foreach($report->ai_sentiment->curated_comments as $c)
+                                        <div class="p-3 border border-zinc-300 rounded-lg text-xs flex flex-col gap-1 bg-zinc-50/70">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Student Response</span>
+                                                <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 border border-black {{ $c->sentiment === 'positive' ? 'bg-zinc-200 text-black' : ($c->sentiment === 'negative' ? 'bg-black text-white' : 'bg-white text-zinc-700') }}">
+                                                    {{ ucfirst($c->sentiment) }}
+                                                </span>
+                                            </div>
+                                            <p class="italic text-zinc-800 font-medium">"{{ $c->text }}"</p>
                                         </div>
-                                        <p class="text-sm text-zinc-800 dark:text-zinc-200 print:text-black italic">
-                                            "{{ $cItem->text }}"
-                                        </p>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- Signature Lines (Visible on Print) -->
-                    <div class="hidden print:flex justify-between mt-16 pt-8 border-t border-zinc-200 text-sm">
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="w-48 border-b border-zinc-900"></div>
-                            <span class="font-bold mt-1">Evaluated Professor Signature</span>
-                            <span class="text-xs text-zinc-500">Date Signed</span>
-                        </div>
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="w-48 border-b border-zinc-900"></div>
-                            <span class="font-bold mt-1">Dean / Department Head Signature</span>
-                            <span class="text-xs text-zinc-500">Date Signed</span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </div>
 
@@ -696,229 +989,196 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             @else
                 <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                     <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-                    <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the performance report.</p>
+                    <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the official GRC Summary Performance Report.</p>
                 </div>
             @endif
         @endif
 
-        <!-- SUMMARY REPORT TAB -->
         @if($activeTab === 'summary')
             @if($selectedSemesterId && $this->summaryReportData)
-                @php 
-                    $summary = $this->summaryReportData;
-                @endphp
-                
-                <!-- Print Button (Hidden on Print) -->
+                @php $summary = $this->summaryReportData; @endphp
                 <div class="flex justify-end print:hidden mb-4">
-                    <flux:button variant="primary" icon="printer" onclick="window.print()" class="bg-[#800000] hover:bg-[#990000] text-white">
+                    <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white">
                         Print Summary Report
                     </flux:button>
                 </div>
-
-                <!-- Printable Document Container -->
-                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
-                    
-                    <!-- Document Header -->
-                    <div class="text-center border-b-2 border-zinc-850 pb-6 flex flex-col gap-2">
-                        <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Evaluation Summary Report</h2>
-                        <p class="text-sm font-semibold text-zinc-500 print:text-zinc-600">
-                            Academic Period: {{ $summary->semester->academicYear->name }} - {{ $summary->semester->name }}
+                <div class="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-2xl shadow-xl p-8 md:p-12 flex flex-col gap-8 print:border-none print:shadow-none print:bg-white print:text-black">
+                    <div class="text-center border-b-2 border-zinc-900 dark:border-zinc-100 print:border-black pb-6 flex flex-col gap-2">
+                        <div class="flex items-center justify-center gap-3">
+                            <h2 class="text-2xl font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50 print:text-black">Evaluation Summary Report</h2>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 print:border-black print:text-black">
+                                Target Benchmark: {{ number_format($summary->target_benchmark, 2) }} ({{ $summary->benchmark_delta >= 0 ? '+' : '' }}{{ number_format($summary->benchmark_delta, 2) }} {{ $summary->benchmark_status }})
+                            </span>
+                        </div>
+                        <p class="text-sm font-semibold text-zinc-600 dark:text-zinc-400 print:text-black">
+                            Academic Period: {{ $summary->semester->academicYear->name }} — {{ $summary->semester->name }}
                         </p>
+                        <p class="text-xs text-zinc-500 font-mono">Scope: All Academic Departments • Generated: {{ now()->format('M d, Y h:i A') }}</p>
                     </div>
 
-                    <!-- Scope Details Card -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 dark:bg-zinc-800/20 p-6 rounded-xl border border-zinc-150 dark:border-zinc-800 print:bg-zinc-50 print:text-black print:border-zinc-300">
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Report Scope</span>
-                            <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
-                                @if(auth()->user()->hasRole('admin'))
-                                    All Departments / Institution-wide
-                                @else
-                                    {{ auth()->user()->employee->department->name ?? 'Department-wide' }}
-                                @endif
-                            </span>
-                        </div>
-                        <div class="flex flex-col gap-1 text-sm">
-                            <span class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Total Faculty Members</span>
-                            <span class="font-bold text-zinc-850 dark:text-zinc-50 print:text-black text-lg">
-                                {{ $summary->total_teachers }} Evaluated
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Executive Metric Cards -->
+                    <!-- Top 4 Clean KPI Cards -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="border-2 border-[#800000] dark:border-red-500 p-5 rounded-2xl text-center bg-red-50/20 dark:bg-red-950/20 flex flex-col justify-center items-center">
-                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Institutional Average</div>
-                            <div class="text-3xl font-black text-[#800000] dark:text-red-400 mt-1">
-                                {{ number_format($summary->institutional_average, 2) }} <span class="text-xs font-normal text-zinc-500">/ 5.0</span>
+                        <div class="border-2 border-zinc-900 dark:border-zinc-100 p-5 rounded-2xl text-center bg-zinc-50 dark:bg-zinc-800/40 flex flex-col justify-center items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Institutional Average</span>
+                            <div class="text-3xl font-black text-zinc-900 dark:text-zinc-50 print:text-black mt-1 font-mono">
+                                {{ number_format($summary->institutional_average, 2) }} <span class="text-xs font-normal text-zinc-500">/ 5.00</span>
                             </div>
-                            <span class="text-xs text-zinc-400 mt-1">Across all categories</span>
+                            <span class="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mt-1 uppercase tracking-wide">Across All Evaluations</span>
                         </div>
 
-                        <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-2xl text-center flex flex-col justify-center items-center bg-white dark:bg-zinc-900">
-                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Student Average</div>
-                            <div class="text-2xl font-bold text-zinc-850 dark:text-zinc-200 mt-1">
-                                {{ number_format($summary->category_averages->student, 2) }}
+                        <div class="border border-zinc-300 dark:border-zinc-700 p-5 rounded-2xl text-center bg-white dark:bg-zinc-900 flex flex-col justify-center items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Student Survey Average</span>
+                            <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 print:text-black mt-1 font-mono">
+                                {{ number_format($summary->student_average, 2) }}
                             </div>
-                            <span class="text-xs text-zinc-400 mt-0.5">Upward Student</span>
+                            <span class="text-[11px] text-zinc-500 mt-0.5">Direct Classroom Feedback</span>
                         </div>
 
-                        <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-2xl text-center flex flex-col justify-center items-center bg-white dark:bg-zinc-900">
-                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Peer Average</div>
-                            <div class="text-2xl font-bold text-zinc-850 dark:text-zinc-200 mt-1">
-                                {{ number_format($summary->category_averages->peer, 2) }}
+                        <div class="border border-zinc-300 dark:border-zinc-700 p-5 rounded-2xl text-center bg-white dark:bg-zinc-900 flex flex-col justify-center items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Faculty Evaluated</span>
+                            <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 print:text-black mt-1 font-mono">
+                                {{ $summary->faculty_evaluated_count }}
                             </div>
-                            <span class="text-xs text-zinc-400 mt-0.5">Peer Evaluations</span>
+                            <span class="text-[11px] text-zinc-500 mt-0.5">Active Academic Teachers</span>
                         </div>
 
-                        <div class="border border-zinc-200 dark:border-zinc-800 p-4 rounded-2xl text-center flex flex-col justify-center items-center bg-white dark:bg-zinc-900">
-                            <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Total Submissions</div>
-                            <div class="text-2xl font-bold text-zinc-850 dark:text-zinc-200 mt-1">
+                        <div class="border border-zinc-300 dark:border-zinc-700 p-5 rounded-2xl text-center bg-white dark:bg-zinc-900 flex flex-col justify-center items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Total Submissions</span>
+                            <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 print:text-black mt-1 font-mono">
                                 {{ $summary->total_submissions }}
                             </div>
-                            <span class="text-xs text-zinc-400 mt-0.5">Evaluations Completed</span>
+                            <span class="text-[11px] text-zinc-500 mt-0.5">Completed Survey Records</span>
                         </div>
                     </div>
 
-                    <!-- AI Institutional Analysis Block -->
-                    <div class="flex flex-col gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-red-100 dark:bg-red-950/60 text-[#800000] dark:text-red-400">
-                                    <flux:icon icon="sparkles" class="size-5" />
-                                </div>
-                                <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">AI Institutional Analysis & Sentiment</h3>
-                            </div>
-                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                {{ $summary->ai_sentiment->pos_percent }}% Positive Sentiment
-                            </span>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-zinc-50 via-white to-red-50/20 dark:from-zinc-900 dark:to-zinc-800/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 flex flex-col gap-5">
-                            <!-- Sentiment distribution bar -->
-                            <div class="flex flex-col gap-2">
-                                <div class="flex justify-between items-center text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                                    <span>Institution-wide Feedback Sentiment ({{ $summary->ai_sentiment->total_comments }} Total Comments)</span>
-                                    <div class="flex items-center gap-4">
-                                        <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                            <span class="size-2 rounded-full bg-emerald-500"></span> Positive: {{ $summary->ai_sentiment->pos_percent }}%
-                                        </span>
-                                        <span class="flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                                            <span class="size-2 rounded-full bg-zinc-400"></span> Neutral: {{ $summary->ai_sentiment->neu_percent }}%
-                                        </span>
-                                        <span class="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                                            <span class="size-2 rounded-full bg-rose-500"></span> Constructive: {{ $summary->ai_sentiment->neg_percent }}%
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="w-full h-3 bg-zinc-150 dark:bg-zinc-800 rounded-full overflow-hidden flex">
-                                    <div class="bg-emerald-500 h-full transition-all duration-300" style="width: {{ $summary->ai_sentiment->pos_percent }}%"></div>
-                                    <div class="bg-zinc-400 dark:bg-zinc-600 h-full transition-all duration-300" style="width: {{ $summary->ai_sentiment->neu_percent }}%"></div>
-                                    <div class="bg-rose-500 h-full transition-all duration-300" style="width: {{ $summary->ai_sentiment->neg_percent }}%"></div>
-                                </div>
-                            </div>
-
-                            <p class="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                                <span class="font-bold text-zinc-900 dark:text-zinc-100">Executive Summary:</span> For academic period <span class="font-semibold">{{ $summary->semester->academicYear->name }} - {{ $summary->semester->name }}</span>, institutional performance averaged <span class="font-bold text-[#800000] dark:text-red-400">{{ number_format($summary->institutional_average, 2) }} / 5.0</span> across {{ $summary->total_submissions }} submitted evaluation forms. Sentiment analysis indicates high satisfaction with faculty instruction and professional delivery.
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Faculty Performance Grid Cards (No Table) -->
-                    <div class="flex flex-col gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-base uppercase tracking-wider">Faculty Performance Overview</h3>
-                            <span class="text-xs font-semibold text-zinc-500">{{ $summary->teachers->count() }} Faculty Members</span>
-                        </div>
-
+                    <!-- Prescriptive AI Action Cards -->
+                    <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                        <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-sm uppercase tracking-wider flex items-center gap-2">
+                            <flux:icon icon="bolt" class="size-4 text-black dark:text-white" />
+                            Prescriptive AI Executive Insights & Priorities
+                        </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            @foreach($summary->teachers as $row)
-                                <div class="border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-3.5 hover:border-red-900/40 transition-all">
-                                    <!-- Top Row: Name, Dept, Score -->
-                                    <div class="flex justify-between items-start gap-3">
-                                        <div class="flex flex-col gap-0.5">
-                                            <div class="flex items-center gap-2">
-                                                <span class="font-bold text-zinc-900 dark:text-zinc-100 print:text-black text-base">{{ $row->teacher->full_name }}</span>
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                    {{ $row->teacher->department->code ?? 'N/A' }}
-                                                </span>
-                                            </div>
-                                            <span class="text-xs text-zinc-400 font-mono">{{ $row->teacher->employee_number }} • {{ ucfirst($row->teacher->role) }}</span>
-                                        </div>
-
-                                        <div class="text-right shrink-0">
-                                            @if($row->submissions_count > 0)
-                                                <span class="text-xl font-black text-[#800000] dark:text-red-400 print:text-black">
-                                                    {{ number_format($row->overall_average, 2) }}
-                                                </span>
-                                                <span class="text-xs text-zinc-400 font-medium">/ 5.0</span>
-                                            @else
-                                                <span class="text-sm font-semibold text-zinc-400">N/A</span>
-                                            @endif
-                                        </div>
+                            @foreach($summary->recommendations as $rec)
+                                <div class="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800/30 flex flex-col gap-1.5">
+                                    <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wide text-zinc-900 dark:text-zinc-100">
+                                        <span class="size-2 rounded-full {{ $rec->type === 'danger' ? 'bg-rose-500' : ($rec->type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500') }}"></span>
+                                        {{ $rec->title }}
                                     </div>
-
-                                    <!-- Middle Row: Category Score Pills -->
-                                    <div class="flex flex-wrap gap-2 text-[11px]">
-                                        @if($row->upward_student_count > 0)
-                                            <span class="px-2 py-1 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                Student: <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($row->upward_student_average, 2) }}</span>
-                                            </span>
-                                        @endif
-                                        @if($row->peer_count > 0)
-                                            <span class="px-2 py-1 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                Peer: <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($row->peer_average, 2) }}</span>
-                                            </span>
-                                        @endif
-                                        @if($row->downward_count > 0)
-                                            <span class="px-2 py-1 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                Superior: <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($row->downward_average, 2) }}</span>
-                                            </span>
-                                        @endif
-                                        @if($row->self_count > 0)
-                                            <span class="px-2 py-1 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                Self: <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($row->self_average, 2) }}</span>
-                                            </span>
-                                        @endif
-                                    </div>
-
-                                    <!-- Bottom Row: Submissions & AI Sentiment Badge -->
-                                    <div class="flex items-center justify-between border-t border-zinc-200/60 dark:border-zinc-700/60 pt-2.5 text-xs text-zinc-500">
-                                        <span>{{ $row->submissions_count }} {{ $row->submissions_count == 1 ? 'Submission' : 'Submissions' }}</span>
-                                        @if($row->sentiment_label === 'Positive')
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Positive Sentiment</span>
-                                        @elseif($row->sentiment_label === 'Constructive')
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">Constructive Feedback</span>
-                                        @else
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-300">Neutral Sentiment</span>
-                                        @endif
-                                    </div>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ $rec->description }}</p>
                                 </div>
                             @endforeach
                         </div>
                     </div>
 
-                    <!-- Signature Lines (Visible on Print) -->
-                    <div class="hidden print:flex justify-between mt-16 pt-8 border-t border-zinc-200 text-sm">
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="w-48 border-b border-zinc-900"></div>
-                            <span class="font-bold mt-1">Prepared By</span>
-                            <span class="text-xs text-zinc-500">Signature Over Printed Name</span>
+                    <!-- Faculty Requiring Attention Table -->
+                    @if(count($summary->faculty_attention) > 0)
+                        <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-sm uppercase tracking-wider flex items-center gap-2">
+                                    <flux:icon icon="exclamation-triangle" class="size-4 text-black dark:text-white" />
+                                    Faculty Requiring Pedagogical Attention (Score < 3.50 or ≥30% Constructive)
+                                </h3>
+                                <span class="text-xs font-bold text-zinc-500">{{ count($summary->faculty_attention) }} Instructors Flagged</span>
+                            </div>
+                            <div class="overflow-x-auto rounded-xl border border-zinc-300 dark:border-zinc-700">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider border-b border-zinc-300 dark:border-zinc-700">
+                                        <tr>
+                                            <th class="px-4 py-3">Instructor Name</th>
+                                            <th class="px-4 py-3">Department</th>
+                                            <th class="px-4 py-3 text-center">Submissions</th>
+                                            <th class="px-4 py-3 text-center">Average</th>
+                                            <th class="px-4 py-3 text-center">Severity</th>
+                                            <th class="px-4 py-3">Primary Feedback Driver</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                        @foreach($summary->faculty_attention as $fac)
+                                            <tr>
+                                                <td class="px-4 py-3 font-bold text-zinc-900 dark:text-zinc-100">{{ $fac->name }}</td>
+                                                <td class="px-4 py-3 text-zinc-500">{{ $fac->department_code }}</td>
+                                                <td class="px-4 py-3 text-center font-mono font-bold">{{ $fac->submissions }}</td>
+                                                <td class="px-4 py-3 text-center font-mono font-black {{ $fac->average < 3.00 ? 'text-rose-600' : 'text-zinc-800 dark:text-zinc-200' }}">
+                                                    {{ number_format($fac->average, 2) }}
+                                                </td>
+                                                <td class="px-4 py-3 text-center">
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase border {{ $fac->severity === 'Critical' ? 'border-rose-500 text-rose-600 bg-rose-50 dark:bg-rose-950/40' : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40' }}">
+                                                        {{ $fac->severity }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{ $fac->reason }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="w-48 border-b border-zinc-900"></div>
-                            <span class="font-bold mt-1">Approved By</span>
-                            <span class="text-xs text-zinc-500">Dean / Administrator Signature</span>
+                    @endif
+
+                    <!-- Department Rankings Table with Turnout & Rating Spread -->
+                    <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-sm uppercase tracking-wider">
+                                All Academic Department Rankings & Performance
+                            </h3>
+                            <span class="text-xs text-zinc-500 font-medium">Ranked by Composite Score</span>
+                        </div>
+                        <div class="overflow-x-auto rounded-xl border border-zinc-300 dark:border-zinc-700">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider border-b border-zinc-300 dark:border-zinc-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-center w-12">Rank</th>
+                                        <th class="px-4 py-3">Department</th>
+                                        <th class="px-4 py-3 text-center">Faculty</th>
+                                        <th class="px-4 py-3 text-center">Turnout</th>
+                                        <th class="px-4 py-3 text-center">Rating Spread</th>
+                                        <th class="px-4 py-3 text-center">Average</th>
+                                        <th class="px-4 py-3 text-center">Period Delta</th>
+                                        <th class="px-4 py-3 text-right">Performance Level</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                    @foreach($summary->departments as $index => $d)
+                                        <tr>
+                                            <td class="px-4 py-3 text-center font-bold text-zinc-500 font-mono">{{ $index + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $d->name }}</div>
+                                                <div class="text-[11px] text-zinc-500 font-mono">{{ $d->code }}</div>
+                                            </td>
+                                            <td class="px-4 py-3 text-center font-bold text-zinc-700 dark:text-zinc-300">{{ $d->faculty_count }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <div class="font-mono font-bold">{{ $d->evaluations_count }} evals</div>
+                                                @if($d->low_confidence)
+                                                    <span class="text-[10px] text-amber-600 font-bold">Low Turnout (<60%)</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
+                                                Range: {{ number_format($d->min_score, 2) }} - {{ number_format($d->max_score, 2) }}
+                                                @if($d->std_dev > 0)
+                                                    <span class="block text-[10px] text-zinc-400">σ = {{ number_format($d->std_dev, 2) }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 text-center font-black text-zinc-900 dark:text-zinc-100 font-mono text-sm">
+                                                {{ $d->average_rating > 0 ? number_format($d->average_rating, 2) : 'N/A' }}
+                                            </td>
+                                            <td class="px-4 py-3 text-center font-mono font-bold">
+                                                @if(!is_null($d->delta))
+                                                    <span class="{{ $d->delta >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
+                                                        {{ $d->delta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($d->delta, 2) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-zinc-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 text-right font-bold text-zinc-800 dark:text-zinc-200">
+                                                {{ $d->performance_level }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-
-                </div>
-            @else
-                <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
-                    <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-                    <p class="font-medium text-zinc-500">No evaluation data found for the selected semester.</p>
                 </div>
             @endif
         @endif

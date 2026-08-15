@@ -20,6 +20,7 @@ Accounts used for system authentication.
 - `is_active` (TINYINT, Default: 1)
 - `password` (VARCHAR)
 - `notifications_last_viewed_at` (DATETIME, Nullable)
+- `dismissed_notifications` (JSON, Nullable)
 - `created_at` / `updated_at` (DATETIME, Nullable)
 
 ### `employees`

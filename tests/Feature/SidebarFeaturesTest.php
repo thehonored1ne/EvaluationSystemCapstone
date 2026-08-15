@@ -156,8 +156,8 @@ test('sidebar renders correct evaluator submenus depending on user role', functi
     $response = $this->get('/notifications');
     $response->assertSee('My Evaluations');
     $response->assertSee('Self Evaluation');
+    $response->assertSee('Peer Evaluation');
     $response->assertSee('Supervisor Evaluation');
-    $response->assertDontSee('Peer Evaluation');
     $response->assertDontSee('Overview');
 
     // 4. Dean

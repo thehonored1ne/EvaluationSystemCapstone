@@ -30,6 +30,26 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 15, 2026
+- **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness**: Replicated the official Global Reciprocal Colleges (GRC) 2-page print-ready individual evaluation report format in `reports.blade.php`.
+  - **Page 1**: Replicated the official GRC scorecard featuring the official system logo asset `GRC-o-Evaluation-LOGO.png`, boxed title, Roman numeral criteria breakdown across 5 categories with 360-degree Peer Evaluation integration (40% Student / 80 pts, 20% Dean / 40 pts, 20% Program Head / 40 pts, 15% Peer / 30 pts, 5% Self / 10 pts $\rightarrow$ 200 Max Scale), GRC Legend table (Excellent 194.95-200, Very Satisfactory 181.05-194.94, Satisfactory 153.26-181.04, Need Improvement 139.35-153.25, Poor 1.00-139.34), Overall Rating Box with composite score and performance level, and 3-signatory block (*Prepared by*, *Noted by*, *Approved by*).
+  - **Page 2**: Embedded official big system logo, replaced raw comment text dumps with structured AI qualitative analysis (sentiment distribution gauge, Top Student Commendations, Key Opportunities for Growth, representative bilingual feedback quotes), with signatures omitted so the page is focused exclusively on NLP insights.
+- **Actionable Evaluation Summary Report Redesign (`/reports`)**: Overhauled the high-level Evaluation Summary Report into an actionable executive dashboard featuring:
+  - **KPI Cards**: Institutional Average, Student Average, Total Submissions, and Total Faculty Evaluated.
+  - **Faculty Requiring Attention**: Surfaces instructors below 3.50 rating or with $\ge 30\%$ negative sentiment, displaying severity levels and AI-generated root-cause drivers.
+  - **Turnout & Data Confidence Rates**: Tracks expected vs submitted evaluations per department with low-turnout data confidence warnings (<60%).
+  - **Prescriptive Pedagogical & Operational Recommendations**: 3 structured action cards (Institutional Strength, High-Impact Growth Area, Leadership Next Steps).
+  - **Rating Distribution Spread**: Visual 5-Star to 1-Star histogram.
+  - **Academic Department Leaderboard**: Ranked table with performance badges and dean/head details.
+- **Completion Tracking Modernization across All 7 Standardized Categories (`/manage-evaluations`)**: Upgraded completion monitoring with dedicated tabs for Student, Dean, Program Head, Department Head, Peer, Supervisor, and Self evaluations, multi-criteria filter bars, category context descriptions, and broadcast reminder action logging.
+- **Dean-to-Faculty Evaluation Flow**: Added an **Academic Faculty Evaluations** tab to the Dean Dashboard (`dean/dashboard.blade.php`) and sidebar navlink so Deans can evaluate professors in their academic college.
+- **Reworked Evaluation Weight Score Card & Dynamic Max Points Target (`/admin/evaluation-settings`)**: Added report-specific tab switching (Teaching Effectiveness 40/20/20/15/5 weights, Administrative Staff 360°, and Global Master Targets) with dynamic scale configuration and instant balance calculation.
+- **Color System Audit & Semantic Token Standardization**: Created `docs/color audit.md`, unified primary brand accent `#9b0000` (Light) / `#f89696` (Dark) with hover `#7a0000` / `#f57575`, standard card left borders `border-l-[5px]`, and standardized Call-to-Action (CTA) primary buttons globally.
+- **Global Typography (Lexend)**: Migrated system font family globally to Google Font **Lexend**.
+- **Welcome Page Aesthetic Enhancements**: Updated Log In CTA to high-contrast white button with black text, and updated logo drop shadow to a luminous white glow.
+- **Sidebar Streamlining & Logo Sizing**: Adjusted `<x-app-logo>` to fit expanded sidebar width cleanly, resolved collapsed favicon visibility, and removed redundant profile dropdown and notifications link from the sidebar.
+- **Interactive Navbar Notification Hub**: Built Livewire component `livewire:notification-dropdown` in the top header with **Read All**, **Individual Dismiss** (`✕`), **Clear All**, and persistent database storage (`users.dismissed_notifications`).
+
 ### August 11, 2026
 - **Redesigned Admin Reports Page (`/admin/reports`)**: Eliminated traditional data tables from both Summary and Individual reports in favor of executive scorecards, criteria progress bars (`4.50 / 5.0`), AI Sentiment & Insights Blocks (positive/neutral/constructive sentiment distribution + automated narrative text), submitted comments cards streams, and Faculty Performance Grid Cards with full single-page `window.print()` document export support.
 - **Evaluation Form Draft Persistence (`localStorage`)**: Added reactive `localStorage` draft saving in Alpine (`x-data`) for 1-5 rating answers, comments, and question step across page reloads & dashboard navigation. Enforced `required|string|min:3` comments validation on submit with UI red asterisk `Comments & Suggestions *` and error alert. Updated progress bar line fill to `bg-amber-400 dark:bg-amber-400`.

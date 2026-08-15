@@ -40,10 +40,51 @@
   Student - can evaluate their superior(upward - faculty)
   Staff - can evaluate their superior(upward - program head), can evaluate self(self)
 
+- [X] **GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness (2026-08-15)**:
+  - Replicated exact 2-page print-ready Global Reciprocal Colleges (GRC) evaluation document format in `reports.blade.php`.
+  - Page 1: Official GRC scorecard with big system logo asset `GRC-o-Evaluation-LOGO.png`, Roman numeral criteria parts, 360° Peer Evaluation integration (40% Student, 20% Dean, 20% Program Head, 15% Peer, 5% Self), 200-point GRC Legend table, Overall Rating Box, and official signatures (*Prepared by*, *Noted by*, *Approved by*).
+  - Page 2: AI Student Comments Analysis featuring big system logo, sentiment distribution gauge, bilingual Top Student Commendations & Key Opportunities for Growth, representative student feedback extracts (signatures removed for full NLP focus).
+  - Reworked Evaluation Settings Section 3 with dynamic report tab switching for Individual Teaching Effectiveness, Administrative Staff, and Global Targets.
+  - Enabled College Deans to evaluate academic faculty/professors on `dean/dashboard.blade.php` and sidebar.
 - export/import/template in employees and student data
 
 
-# **New todo:** - [X] Completed
+- [X] **Completion Tracking Modernization across All 7 Standardized Categories (2026-08-15)**:
+  - Aligned all terminologies and tabs across 7 standardized categories: **Student**, **Dean**, **Program Head**, **Department Head**, **Peer**, **Supervisor**, and **Self**.
+  - Added dynamic Category Context descriptions matching Question Setup and Settings rubrics.
+  - Standardized terminology across headers, KPI cards, tables, and search filters (replacing legacy terms like "Professor", "Subordinate", and "Self Appraisals").
+  - Implemented real-time progress calculations for faculty & staff peer evaluations and supervisor ratings.
+  - Added multi-criteria filters (Search, Department, Role, and Status) on each tracking tab.
+  - Added brand `#9b0000` / `#f89696` 5px left-border accents and odometers on KPI cards.
+  - Implemented **Send Reminders** broadcast logging and toast notification.
+
+- [X] **Actionable Evaluation Summary Report Redesign (2026-08-15)**:
+  - Added **Faculty Requiring Attention** table surfacing faculty with ratings < 3.50 or negative sentiment ≥ 30% along with department, submissions, sentiment split, and a one-line AI generated reason/theme.
+  - Implemented **Turnout / Participation & Data Confidence Rates** (expected vs actual submissions per department and institution-wide with low-confidence flags for <60%).
+  - Added **Rating Distribution & Spread** (Min-Max range and standard deviation `σ`) in executive KPIs and department rankings.
+  - Added **Per-Department Sentiment Splits** and **Period-over-Period Deltas** (▲/▼ +X.XX vs last semester) to the Academic Department Rankings leaderboard.
+  - Built **Prescriptive AI Executive Insights** with 4 actionable recommendation cards (Priority Intervention, Benchmark Target, Data Confidence Alert, and Best Practice Commendation).
+  - Extracted bilingual Taglish/English positive drivers and constructive opportunities.
+  - Displayed **Institutional Target Benchmark Context** (`Target Benchmark: 4.00 / 5.00`).
+
+- [X] **Evaluation Questions Setup Modernization (2026-08-15)**:
+  - Standardized all 7 evaluation categories across tabs and modal dropdowns in `manage-questions.blade.php`: **Student**, **Dean**, **Program Head**, **Department Head**, **Peer**, **Supervisor**, and **Self**.
+  - Added live debounce search bar for filtering questions across criteria parts.
+  - Aligned styling with primary brand `#9b0000` / `#f89696`, `border-l-[5px]` cards, Lexend font, dynamic point badges from the active semester, and instant `Flux::toast` notifications.
+
+- [X] **Reports Monochrome Redesign, Semester-over-Semester Growth, Leaderboards & Staff Peer Evaluations (2026-08-15)**:
+  - **Faculty & Department Rankings**: Filtered faculty rankings to teachers only (`role === 'faculty'`), department rankings to academic departments only (`type === 'academic'`), and removed Rankings navigation access for faculty users.
+  - **Questionnaire Setup & Toast Feedback**: Split Program Head and Department Head questionnaire part management cards in Evaluation Settings, maintaining shared weight while permitting distinct parts. Added instant toast confirmation feedback upon saving criteria points and score weights.
+  - **Monochrome & Simplified Reports UI**: Converted Individual and Summary reports to a clean monochrome (black/zinc) design. Added individual & institutional **Semester-over-Semester Growth** calculations vs previous semesters. Summary report now highlights an academic department leaderboard and 1-glance AI insights while removing the cluttered faculty performance overview grid.
+  - **Admin Dashboard Cleanup**: Removed Department Participation Rates card, allowing Recent Submissions Log to take full container width.
+  - **Staff Evaluations**: Staff now evaluates their **Department Head** (supervisor) and **Peer Staff** within the same administrative department, with tabbed dashboard navigation and updated dynamic notifications.
+
+- [X] **Design System, Typography & Interactive Notifications (2026-08-15)**:
+  - Created `docs/color audit.md` and standardized primary brand `#9b0000` / `#f89696`, card left borders `border-l-[5px]`, and CTA buttons across light and dark modes.
+  - Migrated system-wide font family to **Lexend**.
+  - Updated welcome landing page: white background / black text Log In button and luminous white logo glow.
+  - Resized sidebar logo for proper fit, resolved collapsed favicon visibility, and removed redundant profile dropdown and notifications page link from sidebar.
+  - Implemented interactive navbar notification hub (`livewire:notification-dropdown`) with **Read all**, **Individual Dismiss** (`✕`), and **Clear all** features backed by `users.dismissed_notifications` persistence.
 
 - [X] **Evaluation Settings Overhaul & Department Leadership Sync (2026-08-14)**:
   - Added Dean Evaluation Parts (`dean`) and Superior Evaluation Parts (`superior`) to Section 4 in `evaluation-settings.blade.php`.

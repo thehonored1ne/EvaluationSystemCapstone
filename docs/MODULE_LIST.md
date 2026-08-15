@@ -31,10 +31,10 @@ Manages institutional hierarchy, curriculum catalogs, academic periods, and clas
 ## 3. Questionnaire & Evaluation Settings
 Allows administrators to configure evaluation instruments, rating criteria, question banks, and evaluation schedules.
 * **Key Features**:
-  * **Evaluation Weight Score Card**: Configures dynamic max score point targets for all 7 evaluation types (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`), calculating real-time percentage distribution weights with color-coded progress bars and balance indicators
-  * **4-Section Vertical Dashboard**: Structured layout separating System Access Banner, 2-Column Schedule Grid, Evaluation Weight Score Card, and Questionnaire Parts Breakdown
-  * **Evaluation Criteria**: Categorizes evaluation areas (Teaching Effectiveness, Classroom Management, Professionalism, Communication)
-  * **Question Bank**: Rating-scale questions assigned to specific criteria
+  * **Evaluation Weight Score Card & Dynamic Target Points**: Configures dynamic max score point targets with **report-specific tab switching** (`Individual Teaching Effectiveness` 40% Student / 20% Dean / 20% Program Head / 15% Peer / 5% Self, `Administrative Staff 360°`, and `All Categories Global Targets`), real-time percentage distribution weights, color-coded progress bars, and balance indicators.
+  * **4-Section Vertical Dashboard**: Structured layout separating System Access Banner, 2-Column Schedule Grid, Evaluation Weight Score Card, and Questionnaire Parts Breakdown.
+  * **Evaluation Criteria**: Categorizes evaluation areas (Teaching Effectiveness, Classroom Management, Professionalism, Communication).
+  * **Question Bank**: Rating-scale questions assigned to specific criteria with plain-English parts categorization for Department Head, Peer, and Superior evaluations.
 
 ---
 
@@ -60,22 +60,23 @@ Integrates a Python Flask microservice pipeline to analyze textual feedback comm
 ## 6. Evaluation Oversight & Operations
 Provides real-time administrative supervision over active and past evaluation cycles.
 * **Key Features**:
-  * **Completion Tracking Monitoring Dashboard (`/manage-evaluations`)**: Multi-perspective monitoring dashboard featuring 4 metric cards (Total Submissions, Student Progress %, Supervisor Ratings %, Self Appraisals Done), tabs (**Student Upward Progress**, **Supervisor & Executive Ratings**, **Self Appraisals**), search, department filter, completion status filter, and reminder broadcast
-  * Real-time metrics: Total Employees, Total Students, Current Evaluation Progress (expected sum formula), and Pending Submissions odometer counter
-  * Evaluation Period Status panel with clear status banners, explicit date-time windows, real-time schedule indicator badges, and direct action triggers
-  * Sentiment feedback overview aggregated across all evaluators (Students, Faculty, Deans, Program Heads, Staff)
-  * Strict role-relationship anonymized submission log stream (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`)
-  * Multi-level filtering by Department, Program, Class Section, and Evaluation Type
+  * **Completion Tracking Monitoring Dashboard (`/manage-evaluations`)**: Multi-perspective monitoring dashboard featuring 4 metric cards, dedicated tracking tabs across **all 7 standardized categories** (`Student`, `Dean`, `Program Head`, `Department Head`, `Peer`, `Supervisor`, `Self`), search, department filter, role filter, completion status filter, and reminder broadcast logging.
+  * Real-time metrics: Total Employees, Total Students, Current Evaluation Progress (expected sum formula), and Pending Submissions odometer counter.
+  * Evaluation Period Status panel with clear status banners, explicit date-time windows, real-time schedule indicator badges, and direct action triggers.
+  * Sentiment feedback overview aggregated across all evaluators (Students, Faculty, Deans, Program Heads, Staff).
+  * Strict role-relationship anonymized submission log stream (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`).
+  * Multi-level filtering by Department, Program, Class Section, and Evaluation Type.
 
 ---
 
-## 7. Analytics, Results & Rankings
-Translates quantitative ratings and qualitative sentiment insights into visual dashboards, institutional leaderboards, and exportable summaries.
+## 7. Analytics, Results & Reports
+Translates quantitative ratings and qualitative sentiment insights into visual dashboards, institutional leaderboards, and official print-ready summaries.
 * **Key Features**:
-  * **Institutional Performance Rankings Page (`/rankings`)**: Dedicated leaderboard page featuring 4 metric cards (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating), **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes
-  * **Individual Results**: Score breakdowns per faculty member, criteria metrics, and sentiment distribution
-  * **Executive Analytics**: Visual performance trends, rating distribution charts, and department comparisons
-* **Report Generator (`/admin/reports`)**: Printable and exportable performance evaluation summaries featuring table-less executive scorecards, visual criteria progress bars (`4.50 / 5.0`), integrated **AI Sentiment & Insights Blocks** (positive/neutral/constructive sentiment distribution + automated narrative analysis), submitted comments cards streams, and **Faculty Performance Grid Cards** (replacing traditional data tables) with full single-page `window.print()` document export formatting.
+  * **Actionable Evaluation Summary Report (`/reports` - Summary Tab)**: Executive dashboard with KPI cards (Institutional Average, Student Average, Total Submissions, Faculty Evaluated), **Faculty Requiring Attention** (<3.50 rating / $\ge 30\%$ negative sentiment flags with AI-identified root cause), **Turnout & Data Confidence Rates** (<60% low turnout warnings), **Prescriptive Recommendations** (Institutional Strength, High-Impact Growth Area, Leadership Next Steps), **Rating Distribution Spread** (5-Star histogram), and ranked **Academic Department Leaderboard**.
+  * **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness (`/reports` - Individual Tab)**: Exact 2-page print-ready replica of the official Global Reciprocal Colleges (GRC) evaluation document:
+    * **Page 1**: Official GRC system logo, institutional header, boxed title, Roman numeral criteria breakdown across 5 categories with 360-degree Peer Evaluation integration (40% Student / 80 pts, 20% Dean / 40 pts, 20% Program Head / 40 pts, 15% Peer / 30 pts, 5% Self / 10 pts $\rightarrow$ 200 Max Scale), 200-point GRC Legend table, Overall Rating Box with composite score and descriptive rating, and tripartite signatures (*Prepared by*, *Noted by*, *Approved by*).
+    * **Page 2**: Official big system logo, AI Evaluator Sentiment Distribution bar (% Positive, % Neutral, % Constructive) with dominant label, two-column thematic breakdown (**Top Student Commendations** vs **Key Opportunities for Growth**), and curated bilingual representative feedback extracts.
+  * **Institutional Performance Rankings Page (`/rankings`)**: Dedicated leaderboard page featuring 4 metric cards (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating), **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes.
 
 ---
 
@@ -91,10 +92,12 @@ Tailored executive and operational dashboards customized per user role:
 ---
 
 ## 9. Notification System
-Alerts users regarding active evaluation periods, pending tasks, and system announcements.
+Alerts users regarding active evaluation periods, pending evaluation tasks, and system announcements.
 * **Key Features**:
-  * Unread alert badges and deadline reminders
-  * System notification center
+  * **Interactive Navbar Notification Hub (`livewire:notification-dropdown`)**: Livewire component embedded directly in the top header navbar with real-time unread counter badge (`9+` / `new`), smooth scrollable notification feed, and unread accent indicators.
+  * **Read All Action**: One-click action to mark all notifications as read and clear unread badges without leaving the current screen.
+  * **Individual Removal & Clear All**: Hover dismiss button (`✕`) to remove specific notifications and a "Clear all" button to dismiss all current notices with database persistence (`users.dismissed_notifications`).
+  * Dynamic role-based notification calculation for students, faculty, deans, program heads, and department heads.
 
 ---
 

@@ -18,6 +18,7 @@ This file serves as the index for all project documentation. You can tag this fi
 * **[data_dictionary.xlsx](file:///c:/Users/USER/Herd/evaluationsystem/docs/data_dictionary.xlsx)**: Complete Excel Data Dictionary containing individual worksheets for all 24 tables with field specifications and 3-5 sentence explanations.
 * **[API_CONTRACT.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/API_CONTRACT.md)**: Flask API endpoints contract, request payloads, response payloads, and timeout/fallback rules.
 * **[ROLES_PERMISSIONS.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/ROLES_PERMISSIONS.md)**: Detailed permission mappings for all user roles, route guards, and evaluation target matrix boundaries.
+* **[color audit.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/color%20audit.md)**: Comprehensive color audit and semantic design token guide categorized across Light and Dark modes.
 * **[LoginAuth.md](file:///c:/Users/USER/Herd/evaluationsystem/docs/LoginAuth.md)**: Authentication mechanisms and login credentials list for test accounts.
 
 ## Trackers & Backlogs

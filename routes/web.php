@@ -126,7 +126,7 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->name('evaluation-results');
 
     Volt::route('/rankings', 'rankings')
-        ->middleware('role:admin|dean|program head|faculty')
+        ->middleware('role:admin|dean|program head')
         ->name('rankings');
 
     Volt::route('/analytics', 'analytics')

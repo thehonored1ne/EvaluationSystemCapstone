@@ -21,15 +21,19 @@ test('admin dashboard renders admin navbar and footer', function () {
     $response->assertSee('Global Reciprocal Colleges');
 });
 
-test('evaluators see their role navbar badge and footer', function () {
-    $student = User::factory()->create();
-    $student->assignRole('student');
+test('admin can access manage questions component and view categories', function () {
+    Livewire::withoutLazyLoading();
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
 
-    $response = $this->actingAs($student)->get(route('student.dashboard'));
-
-    $response->assertStatus(200);
-    $response->assertDontSee('Logged as Admin');
-    $response->assertSee('Logged as Student');
-    $response->assertSee('Academic Evaluation System');
-    $response->assertSee('Global Reciprocal Colleges');
+    Livewire::actingAs($admin)
+        ->test('admin.manage-questions')
+        ->assertSee('Evaluation Questions Setup')
+        ->assertSee('Student')
+        ->assertSee('Dean')
+        ->assertSee('Program Head')
+        ->assertSee('Department Head')
+        ->assertSee('Peer')
+        ->assertSee('Supervisor')
+        ->assertSee('Self');
 });

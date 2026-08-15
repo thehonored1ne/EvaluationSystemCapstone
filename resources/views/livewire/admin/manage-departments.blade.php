@@ -296,13 +296,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Top Row Essential Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Card 1: Total Departments -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #800000 !important;">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Departments</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalDepartments" /></span>
                 </div>
-                <flux:icon name="building-office-2" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon name="building-office-2" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">All institutional colleges & units</span>
         </div>
@@ -412,7 +412,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     @forelse ($departments as $dept)
                         <tr wire:key="{{ $dept->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Department Code -->
-                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#800000] dark:text-red-400">
+                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696]">
                                 {{ $dept->code }}
                             </td>
                             

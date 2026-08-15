@@ -14,7 +14,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $tab = 'self';
 
     public ?int $selectedEvaluateeUserId = null;
-    public string $selectedEvaluationType = 'peer'; // 'self', 'peer' (uses peer criteria for ph)
+    public string $selectedEvaluationType = 'self';
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -38,14 +38,37 @@ new #[Layout('components.layouts.app')] class extends Component {
         return $this->employee?->department;
     }
 
-    // Program Heads in same department they report to
-    public function getProgramHeadsProperty()
+    // Department Heads in same department they report to (Supervisor)
+    public function getDepartmentHeadsProperty()
     {
         $emp = $this->employee;
         if (!$emp || !$emp->department_id) return collect();
 
-        return Employee::where('role', 'program head')
+        $dept = $this->department;
+        if ($dept && $dept->department_head_id) {
+            $head = Employee::with('user')->find($dept->department_head_id);
+            if ($head && $head->user) {
+                return collect([$head]);
+            }
+        }
+
+        return Employee::where('role', 'department head')
             ->where('department_id', $emp->department_id)
+            ->where('status', 'active')
+            ->with('user')
+            ->get();
+    }
+
+    // Peer Staff in same department
+    public function getPeerStaffProperty()
+    {
+        $emp = $this->employee;
+        if (!$emp || !$emp->department_id) return collect();
+
+        return Employee::where('role', 'staff')
+            ->where('department_id', $emp->department_id)
+            ->where('id', '!=', $emp->id)
+            ->where('status', 'active')
             ->with('user')
             ->get();
     }
@@ -84,7 +107,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4 py-6">
+<div class="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4 py-6 text-left">
     @if(!$showForm)
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
@@ -93,7 +116,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
                     Department: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->department?->name ?? 'Not assigned' }} ({{ $this->department?->code ?? 'N/A' }})</span>
                     @if($this->activeSemester)
-                        | Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} - {{ $this->activeSemester->name }}</span>
+                        | Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} — {{ $this->activeSemester->name }}</span>
                     @endif
                 </p>
             </div>
@@ -124,7 +147,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     @if(!$this->employee?->department_id)
         <div class="p-6 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl">
             <h3 class="font-bold text-lg">Department Assignment Required</h3>
-            <p class="text-sm mt-1">Your employee profile is not assigned to a department. Please ask the administrator to assign your department in the user management page so you can evaluate the Program Heads in your department.</p>
+            <p class="text-sm mt-1">Your employee profile is not assigned to a department. Please ask the administrator to assign your department in the user management page so you can evaluate your Department Head and peer staff.</p>
         </div>
     @endif
 
@@ -180,29 +203,105 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </flux:card>
             @endif
 
-            <!-- 2. Program Head (Supervisor) Evaluation -->
-            @if($tab === 'supervisor')
+            <!-- 2. Peer Evaluation (Staff peers in Department) -->
+            @if($tab === 'peer')
                 <flux:card class="p-6">
-                    <flux:heading size="lg" class="mb-4">Supervisor Evaluation (Program Heads in my Department)</flux:heading>
-                    @if($this->programHeads->isEmpty())
-                        <div class="text-center py-6 text-zinc-500">No Program Heads registered in your department.</div>
+                    <flux:heading size="lg" class="mb-4">Peer Evaluation (Staff in {{ $this->department?->name }})</flux:heading>
+                    @if($this->peerStaff->isEmpty())
+                        <div class="text-center py-6 text-zinc-500">No other staff members registered in your department.</div>
                     @else
                         <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
                             <table class="w-full text-left text-sm">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
                                         <th class="px-6 py-3.5">Name</th>
+                                        <th class="px-6 py-3.5">Employee ID</th>
                                         <th class="px-6 py-3.5">Status</th>
                                         <th class="px-6 py-3.5 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
-                                    @foreach($this->programHeads as $head)
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                    @foreach($this->peerStaff as $peer)
+                                        @if($peer->user)
+                                            @php $status = $this->getEvaluationStatus($peer->user->id, 'peer'); @endphp
+                                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                                                <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
+                                                    {{ $peer->full_name }}
+                                                </td>
+                                                <td class="px-6 py-4 text-xs font-mono text-zinc-500">
+                                                    {{ $peer->employee_number }}
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    @if($status === 'completed')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                                            <flux:icon icon="check-circle" class="size-4" />
+                                                            Completed
+                                                        </span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
+                                                            <flux:icon icon="arrow-path" class="size-4 animate-spin" />
+                                                            Processing...
+                                                        </span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500">
+                                                            Closed
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                                            Pending
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    @if($status === 'completed')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Done</span>
+                                                    @elseif($status === 'processing')
+                                                        <span class="text-xs text-zinc-400 font-semibold">Processing</span>
+                                                    @elseif(!$this->isEvaluationOpen)
+                                                        <span class="text-xs text-zinc-400">Unavailable</span>
+                                                    @else
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $peer->user->id }}, 'peer')">
+                                                            Evaluate
+                                                        </flux:button>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </flux:card>
+            @endif
+
+            <!-- 3. Department Head (Supervisor) Evaluation -->
+            @if($tab === 'supervisor')
+                <flux:card class="p-6">
+                    <flux:heading size="lg" class="mb-4">Supervisor Evaluation (Department Head of {{ $this->department?->name }})</flux:heading>
+                    @if($this->departmentHeads->isEmpty())
+                        <div class="text-center py-6 text-zinc-500">No Department Head assigned to your department.</div>
+                    @else
+                        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+                                    <tr>
+                                        <th class="px-6 py-3.5">Name</th>
+                                        <th class="px-6 py-3.5">Role</th>
+                                        <th class="px-6 py-3.5">Status</th>
+                                        <th class="px-6 py-3.5 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                    @foreach($this->departmentHeads as $head)
                                         @if($head->user)
                                             @php $status = $this->getEvaluationStatus($head->user->id, 'upward_employee'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
                                                     {{ $head->full_name }}
+                                                </td>
+                                                <td class="px-6 py-4 text-xs font-semibold text-zinc-600 dark:text-zinc-400 capitalize">
+                                                    {{ $head->role }}
                                                 </td>
                                                 <td class="px-6 py-4">
                                                     @if($status === 'completed')

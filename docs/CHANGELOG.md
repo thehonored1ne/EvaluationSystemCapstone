@@ -4,6 +4,80 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-15]
+
+### Added
+- **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness**:
+  - **Page 1 (Official GRC Scorecard)**: Exact replica of the Global Reciprocal Colleges (GRC) evaluation document using the official system logo asset `GRC-o-Evaluation-LOGO.png`, boxed title, Roman numeral criteria breakdown (Mastery of Subject Matter, Teaching Skills & Class Management, Personal Traits, Other Factors), 360-degree Peer Evaluation inclusion (40% Student / 20% Dean / 20% Program Head / 15% Peer / 5% Self), 200-point GRC Legend table, Overall Rating Box, and official 3-tier signatures (*Prepared by*, *Noted by*, *Approved by*).
+  - **Page 2 (AI Student Comments Analysis)**: Embedded official GRC big logo, replaced raw comment text dumps with structured AI qualitative analysis (sentiment distribution gauge, Top Student Commendations, Key Opportunities for Growth, representative bilingual feedback quotes), with signatures removed so the page is focused exclusively on NLP insights.
+- **Reworked Evaluation Weight Score Card & Dynamic Max Points Target**:
+  - Added report-specific tab switching in [`evaluation-settings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php):
+    - **Individual Teaching Effectiveness (Faculty 360°)**: Dynamic % weights and point targets for Student (40% / 80 pts), Dean (20% / 40 pts), Program Head (20% / 40 pts), Peer (15% / 30 pts), and Self (5% / 10 pts) against configurable overall max points (200 pts).
+    - **Administrative Staff 360° Report**: Dedicated targets for Department Head, Staff Peer, Subordinate/Client, and Self.
+    - **All Categories (Global Master Targets)**: Global master targets across all 7 evaluation relationship terms.
+- **Dean Evaluation of Academic Faculty (Professors)**:
+  - Enabled College Deans to evaluate academic professors directly through the **Academic Faculty Evaluations** tab on [`dean/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/dean/dashboard.blade.php) and sidebar submenu.
+- **Actionable Evaluation Summary Report Redesign**:
+  - **Faculty Requiring Attention**: Surfaced flagged instructors with rating averages < 3.50 or negative sentiment ≥ 30%, complete with department, submissions count, rating severity (Critical vs Moderate), sentiment split, and a one-line AI generated reason/driver based on student feedback themes.
+  - **Turnout & Data Confidence Rates**: Computed expected vs submitted evaluations per department (using student enrollments, peer matrix, and administrative supervisor evaluations), displaying completion % and low turnout / data confidence warnings (<60%).
+  - **Rating Distribution & Spread**: Displayed Min - Max ranges and standard deviations (`σ`) alongside mean scores in executive KPIs and department leaderboards.
+  - **Per-Department Sentiment Splits & Period Deltas**: Added positive/neutral/constructive sentiment bars and period-over-period delta comparisons (▲/▼ +X.XX vs previous semester) per academic department.
+  - **Prescriptive AI Recommendations**: Added structured actionable takeaway cards covering priority interventions, target benchmark attainment, participation remediation, and best-practice commendations.
+  - **Bilingual Sentiment Theme Extraction**: Tokenized bilingual Taglish/English comments to surface top positive drivers and top constructive opportunities.
+  - **Target Benchmark Context**: Institutional target comparison (`Target Benchmark: 4.00 / 5.00` • `+0.31 Above Target`).
+- **Evaluation Questions Setup Modernization**:
+  - Standardized all 7 evaluation categories across tabs and modal dropdowns in [`manage-questions.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-questions.blade.php): **Student** (Student → Faculty), **Dean** (Dean → Program Head), **Program Head** (Program Head → Faculty), **Department Head** (Department Head → Staff), **Peer** (Faculty → Faculty / Staff → Staff), **Supervisor** (Faculty → PH / Staff → DH / PH/DH → Dean), and **Self** (Self → Self).
+  - Added live search filter to quickly filter questions within any criteria part.
+  - Applied primary brand accent tokens (`#9b0000` / `#f89696`), `border-l-[5px]` card accents, and instant `Flux::toast` notification feedback for question create, update, toggle status, and delete operations.
+  - Automatically loads and displays dynamic criteria point targets per category directly from the active academic semester.
+- **Monochrome Reports Redesign & Semester-over-Semester Growth**:
+  - Rewrote [`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php) UI to use clean, high-contrast monochrome (black/zinc) aesthetics without colorful backgrounds.
+  - Implemented **Semester-over-Semester Growth** indicators in both Individual and Summary reports comparing against the immediately preceding chronological semester.
+  - Added Institutional Academic Department Rankings leaderboard table in the Summary Report showing rank, department name, department head/dean, faculty count, submission count, and average score.
+  - Streamlined AI Qualitative Insights to 1-glance distribution bars with positive/neutral/constructive breakdown and executive summary narrative.
+- **Evaluation Settings Questionnaire Parts Split**:
+  - Split Section 4 Program Head and Department Head questionnaire parts into separate cards in [`evaluation-settings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php) so each role can configure distinct parts while sharing the configured target points.
+  - Added instant toast notification feedback upon saving criteria points and score weights.
+- **Staff Peer Evaluations & Supervisor Routing**:
+  - Added Staff Peer Evaluations (`peer`) for staff evaluating colleagues within the same administrative department.
+  - Corrected staff supervisor routing to evaluate their **Department Head** instead of Program Head.
+  - Updated staff dashboard tabs (`self`, `peer`, `supervisor`) and dynamic notifications in [`User.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php).
+
+### Changed & Fixed
+- **Rankings Scope & Access Restrictions**:
+  - Filtered Faculty Rankings strictly for teachers (`role === 'faculty'`) in [`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php).
+  - Filtered Department Rankings strictly for academic departments (`type === 'academic'`).
+  - Removed Rankings navigation access from faculty role in [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php) and [`routes/web.php`](file:///c:/Users/USER/Herd/evaluationsystem/routes/web.php).
+- **Admin Dashboard Cleanup**:
+  - Removed Department Participation Rates card from [`admin/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php) and expanded Recent Submissions Log to full width.
+- **Color System Audit & Semantic Token Standardization**:
+  - Created [`docs/color audit.md`](file:///c:/Users/USER/Herd/evaluationsystem/docs/color%20audit.md) providing a complete tokenized audit of all primary brand, background, surface, text, border, and status colors across Light Mode and Dark Mode.
+  - Unified primary brand accent tokens across [app.css](file:///c:/Users/USER/Herd/evaluationsystem/resources/css/app.css) and all Livewire views: `#9b0000` (Light) / `#f89696` (Dark) with hover `#7a0000` / `#f57575`.
+  - Standardized all card left accent borders to `border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]`.
+  - Unified all Call-to-Action (CTA) primary buttons:
+    - **Light Mode**: Background `#9b0000`, Text `#ffffff`, Hover `#7a0000`.
+    - **Dark Mode**: Background `#f89696`, Text `#171717`, Hover `#f57575`.
+- **Global Typography Migration (Lexend)**:
+  - Migrated system-wide font family from Inter to Google Font **Lexend** across [app.css](file:///c:/Users/USER/Herd/evaluationsystem/resources/css/app.css), [head.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/partials/head.blade.php), and [welcome.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/welcome.blade.php).
+- **Interactive Navbar Notification Hub & Dismiss/Clear-All Engine**:
+  - Built dedicated Livewire component [notification-dropdown.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/notification-dropdown.blade.php) embedded directly inside [navbar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/navbar.blade.php).
+  - Added **"Read all"** action (`wire:click="markAllAsRead"`) that updates `notifications_last_viewed_at` and clears unread badges with instant toast feedback.
+  - Added **Individual Dismiss** (`✕` button per notification) and **"Clear all"** action (`wire:click="clearAll"`).
+  - Created migration `2026_08_15_152600_add_dismissed_notifications_to_users_table.php` and updated [User.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php) with `dismissNotification()` and `clearAllNotifications()` methods.
+  - Added full test coverage in [NotificationDropdownTest.php](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/NotificationDropdownTest.php).
+
+### Changed & Fixed
+- **Welcome Page Aesthetic Enhancements**:
+  - Changed the Log In / Dashboard button to high-contrast white background with black text (`bg-white text-black hover:bg-zinc-100`).
+  - Updated floating brand logo drop shadow to a luminous white halo (`drop-shadow-[0_4px_25px_rgba(255,255,255,0.55)]`).
+- **Sidebar Sizing & Streamlined Navigation**:
+  - Resized expanded full logo in [app-logo.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/app-logo.blade.php) from fixed 48px (`h-12`) to `h-16 md:h-18 w-full max-w-[220px] object-contain` for a natural fit.
+  - Fixed collapsed sidebar favicon icon visibility in [sidebar.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php).
+  - Removed redundant user profile dropdown from sidebar footer in favor of the navbar quick profile menu.
+  - Removed redundant sidebar "Notifications" link in favor of the comprehensive navbar notification hub.
+
+---
+
 ## [2026-08-14]
 
 ### Added

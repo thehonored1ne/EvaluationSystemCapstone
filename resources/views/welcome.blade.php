@@ -7,7 +7,7 @@
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=playfair-display:400,500,600,700|inter:300,400,500,600" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=playfair-display:400,500,600,700|lexend:300,400,500,600,700" rel="stylesheet" />
     
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -22,7 +22,7 @@
             
             <!-- Brand Logo -->
             <div class="mb-8 flex justify-center">
-                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Online Evaluation Logo" class="h-24 md:h-28 w-auto object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-transform duration-300 hover:scale-105" />
+                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Online Evaluation Logo" class="h-24 md:h-28 w-auto object-contain drop-shadow-[0_4px_25px_rgba(255,255,255,0.55)] transition-transform duration-300 hover:scale-105" />
             </div>
             
             <!-- Subtitle (Inter Font, Elegant light tracking) -->
@@ -34,14 +34,14 @@
             <div>
                 @if (Route::has('login'))
                     @auth
-                        <a href="{{ url('/dashboard') }}" class="inline-flex items-center justify-center px-10 py-4 bg-white text-zinc-950 hover:bg-zinc-100 font-medium tracking-wide rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-white/15 text-sm">
+                        <a href="{{ url('/dashboard') }}" class="inline-flex items-center justify-center px-10 py-4 bg-white text-black hover:bg-zinc-100 font-semibold tracking-wide rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 text-sm gap-2">
                             Go to Dashboard
-                            <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"></path>
                             </svg>
                         </a>
                     @else
-                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-10 py-4 bg-white text-zinc-950 hover:bg-zinc-100 font-medium tracking-wide rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-white/15 text-md font-bold">
+                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-10 py-4 bg-white text-black hover:bg-zinc-100 font-bold tracking-wide rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 text-md">
                             Log In
                         </a>
                     @endauth

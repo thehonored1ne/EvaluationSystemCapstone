@@ -123,13 +123,13 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         <!-- Navigation Tabs -->
         <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
-            <button wire:click="$set('tab', 'self')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'self' ? 'bg-[#800000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+            <button wire:click="$set('tab', 'self')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'self' ? 'bg-[#9b0000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
                 Self Evaluation
             </button>
-            <button wire:click="$set('tab', 'staff')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'staff' ? 'bg-[#800000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+            <button wire:click="$set('tab', 'staff')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'staff' ? 'bg-[#9b0000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
                 Staff Members Evaluation
             </button>
-            <button wire:click="$set('tab', 'dean')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'dean' ? 'bg-[#800000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
+            <button wire:click="$set('tab', 'dean')" class="px-4 py-2 text-sm font-semibold rounded-lg transition-colors {{ $tab === 'dean' ? 'bg-[#9b0000] text-white' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}">
                 Dean Evaluation
             </button>
         </div>

@@ -3,11 +3,11 @@
     <head>
         @include('partials.head')
         <style>
-            /* Active Sidebar Item Dark Red (#800000) Styling */
+            /* Active Sidebar Item Dark Red (#9b0000) Styling */
             [data-flux-sidebar] [data-flux-navlist-item][data-current] {
-                background-color: #800000 !important;
+                background-color: #9b0000 !important;
                 color: #ffffff !important;
-                border-color: #800000 !important;
+                border-color: #9b0000 !important;
             }
             [data-flux-sidebar] [data-flux-navlist-item][data-current] svg,
             [data-flux-sidebar] [data-flux-navlist-item][data-current] span,
@@ -15,7 +15,7 @@
                 color: #ffffff !important;
             }
             [data-flux-sidebar] [data-flux-navlist-item][data-current]:hover {
-                background-color: #990000 !important;
+                background-color: #7a0000 !important;
                 color: #ffffff !important;
             }
 
@@ -28,8 +28,6 @@
                 align-items: center !important;
             }
             body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
-            body.sidebar-is-collapsed [data-flux-sidebar] .px-1.py-2,
-            body.sidebar-is-collapsed [data-flux-sidebar] .px-3.py-2,
             body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
             body.sidebar-is-collapsed [data-flux-sidebar] [data-content],
             body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-text,
@@ -47,20 +45,6 @@
                 margin-left: auto !important;
                 margin-right: auto !important;
             }
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-profile] > span,
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-profile] > div:nth-child(2),
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-profile] > div.ms-auto,
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-profile] svg {
-                display: none !important;
-            }
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-profile] {
-                justify-content: center !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-                width: 2.75rem !important;
-                margin-left: auto !important;
-                margin-right: auto !important;
-            }
         </style>
     </head>
     <body 
@@ -74,23 +58,23 @@
         @toggle-sidebar.window="toggle()" 
         @flux-sidebar-toggle.window="toggle()"
         :class="sidebarCollapsed ? 'sidebar-is-collapsed' : ''"
-        class="min-h-screen bg-white dark:bg-zinc-800"
+        class="min-h-screen bg-[#fafafa] dark:bg-[#252525]"
     >
         <div class="flex min-h-screen w-full">
             <flux:sidebar 
                 sticky 
                 stashable 
-                class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 transition-all duration-200 shrink-0"
+                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] transition-all duration-200 shrink-0"
             >
                 <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
                 <!-- Logo Section: Full logo when expanded, Dark Red GRC Favicon Icon when collapsed -->
-                <a href="{{ route('dashboard') }}" class="flex items-center justify-center px-2 py-1 mb-2 shrink-0" wire:navigate>
-                    <div x-show="!sidebarCollapsed">
-                        <x-app-logo></x-app-logo>
+                <a href="{{ route('dashboard') }}" class="flex items-center justify-center w-full px-1 py-2 mb-2 shrink-0" wire:navigate>
+                    <div x-show="!sidebarCollapsed" class="w-full flex items-center justify-center">
+                        <x-app-logo class="w-full"></x-app-logo>
                     </div>
-                    <div x-show="sidebarCollapsed" x-cloak class="flex items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#800000] dark:text-red-400">
-                        <x-app-logo-icon class="size-7 text-[#800000] dark:text-red-400 fill-current"></x-app-logo-icon>
+                    <div x-show="sidebarCollapsed" x-cloak class="flex items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#f89696]">
+                        <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#f89696] fill-current"></x-app-logo-icon>
                     </div>
                 </a>
 
@@ -122,21 +106,6 @@
                             $user->hasRole('staff') => 'staff.dashboard',
                             default => 'dashboard',
                         };
-
-                        $unreadNotificationsCount = 0;
-                        if ($user) {
-                            if (request()->routeIs('notifications')) {
-                                $unreadNotificationsCount = 0;
-                            } else {
-                                $notifications = $user->getNotifications();
-                                $lastViewed = $user->notifications_last_viewed_at;
-                                foreach ($notifications as $notif) {
-                                    if (!$lastViewed || (isset($notif->created_at) && $notif->created_at->gt($lastViewed))) {
-                                        $unreadNotificationsCount++;
-                                    }
-                                }
-                            }
-                        }
                     @endphp
 
                     <!-- Dashboard (Admin only) -->
@@ -224,7 +193,10 @@
                                 <div x-show="open && !sidebarCollapsed" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
                                     @if($user->hasRole('dean'))
                                         <flux:tooltip content="Self Evaluation" position="right">
-                                            <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>
+                                            <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && (request('tab') === 'self' || !request('tab'))" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>
+                                        </flux:tooltip>
+                                        <flux:tooltip content="Faculty Evaluations" position="right">
+                                            <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'faculty'" wire:navigate class="text-xs" title="Faculty Evaluations">Faculty Evaluations</flux:navlist.item>
                                         </flux:tooltip>
                                         <flux:tooltip content="Program Head Evaluations" position="right">
                                             <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'program-heads'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'program-heads'" wire:navigate class="text-xs" title="Program Head Evaluations">Program Head Evaluations</flux:navlist.item>
@@ -275,7 +247,10 @@
 
                                     @if($user->hasRole('staff'))
                                         <flux:tooltip content="Self Evaluation" position="right">
-                                            <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'self'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'self'" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>
+                                            <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'self'])" :current="request()->routeIs('staff.dashboard') && (request('tab') === 'self' || !request('tab'))" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>
+                                        </flux:tooltip>
+                                        <flux:tooltip content="Peer Evaluation" position="right">
+                                            <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'peer'" wire:navigate class="text-xs" title="Peer Evaluation">Peer Evaluation</flux:navlist.item>
                                         </flux:tooltip>
                                         <flux:tooltip content="Supervisor Evaluation" position="right">
                                             <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'supervisor'" wire:navigate class="text-xs" title="Supervisor Evaluation">Supervisor Evaluation</flux:navlist.item>
@@ -297,7 +272,7 @@
                             </flux:tooltip>
                         @endif
 
-                        @if($user->hasAnyRole(['admin', 'dean', 'program head', 'faculty']))
+                        @if($user->hasAnyRole(['admin', 'dean', 'program head']))
                             <flux:tooltip content="Rankings" position="right">
                                 <flux:navlist.item icon="trophy" :href="route('rankings')" :current="request()->routeIs('rankings')" wire:navigate title="Rankings">Rankings</flux:navlist.item>
                             </flux:tooltip>
@@ -321,66 +296,7 @@
                             </flux:tooltip>
                         </flux:navlist.group>
                     @endif
-
-                    <!-- System (All roles) -->
-                    <flux:navlist.group heading="System" class="grid">
-                        <flux:tooltip content="Notifications" position="right">
-                            <flux:navlist.item icon="bell" :href="route('notifications')" :current="request()->routeIs('notifications')" wire:navigate title="Notifications">
-                                <span class="sidebar-text">Notifications</span>
-                                @if(isset($unreadNotificationsCount) && $unreadNotificationsCount > 0)
-                                    <flux:badge size="sm" color="amber" class="ml-auto flex items-center justify-center font-bold">{{ $unreadNotificationsCount }}</flux:badge>
-                                @endif
-                            </flux:navlist.item>
-                        </flux:tooltip>
-                    </flux:navlist.group>
                 </flux:navlist>
-
-                <flux:spacer />
-
-                <!-- Desktop User Menu -->
-                <flux:dropdown position="bottom" align="start">
-                    <flux:profile
-                        :name="auth()->user()->name"
-                        :initials="auth()->user()->initials()"
-                        icon-trailing="chevrons-up-down"
-                    />
-
-                    <flux:menu class="w-[220px]">
-                        <flux:menu.radio.group>
-                            <div class="p-0 text-sm font-normal">
-                                <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                                    <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                        <span
-                                            class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white"
-                                        >
-                                            {{ auth()->user()->initials() }}
-                                        </span>
-                                    </span>
-
-                                    <div class="grid flex-1 text-left text-sm leading-tight">
-                                        <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                        <span class="truncate text-xs">{{ auth()->user()->email }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </flux:menu.radio.group>
-
-                        <flux:menu.separator />
-
-                        <flux:menu.radio.group>
-                            <flux:menu.item href="/settings/profile" icon="cog" wire:navigate>Settings</flux:menu.item>
-                        </flux:menu.radio.group>
-
-                        <flux:menu.separator />
-
-                        <form method="POST" action="{{ route('logout') }}" class="w-full">
-                            @csrf
-                            <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
-                                {{ __('Log Out') }}
-                            </flux:menu.item>
-                        </form>
-                    </flux:menu>
-                </flux:dropdown>
             </flux:sidebar>
 
             <!-- Main Content Container with Navbar, Page Slot, and Full-Width Footer -->

@@ -16,26 +16,44 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return view('livewire.placeholders.generic-table-skeleton');
     }
 
+    // Standardized Category Tabs: 'student', 'dean', 'program_head', 'department_head', 'peer', 'supervisor', 'self'
     public string $activeTab = 'student';
     public string $search = '';
     public string $selectedDepartmentId = '';
+    public string $selectedRole = 'all';
     public string $selectedStatus = 'all';
 
     public function getActiveSemesterProperty()
     {
-        return Semester::where('is_active', true)->first();
+        return Semester::where('is_active', true)->with('academicYear')->first();
     }
 
     public function getDepartmentsProperty()
     {
-        return Department::orderBy('name')->get();
+        return Department::orderBy('type')->orderBy('name')->get();
     }
 
-    // Reset page when filters change
+    public function selectTab(string $tab)
+    {
+        $this->activeTab = $tab;
+        $this->search = '';
+        $this->selectedStatus = 'all';
+        $this->selectedRole = 'all';
+    }
+
+    public function updatedActiveTab()
+    {
+        $this->search = '';
+        $this->selectedStatus = 'all';
+        $this->selectedRole = 'all';
+    }
+
     public function updatedSearch() { }
     public function updatedSelectedDepartmentId() { }
+    public function updatedSelectedRole() { }
     public function updatedSelectedStatus() { }
 
+    // 1. Student Category (Student -> Faculty)
     public function getClassesProperty()
     {
         $sem = $this->activeSemester;
@@ -84,7 +102,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             ];
         });
 
-        // Filter by search & status
         return $allClasses->filter(function ($c) {
             if ($this->search) {
                 $searchLower = strtolower($this->search);
@@ -92,8 +109,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 $titleMatch = str_contains(strtolower($c->subject?->name ?? ''), $searchLower);
                 $teacherMatch = str_contains(strtolower($c->teacher?->full_name ?? ''), $searchLower);
                 $sectionMatch = str_contains(strtolower($c->section ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($c->department?->name ?? ''), $searchLower) || str_contains(strtolower($c->department?->code ?? ''), $searchLower);
 
-                if (!$codeMatch && !$titleMatch && !$teacherMatch && !$sectionMatch) {
+                if (!$codeMatch && !$titleMatch && !$teacherMatch && !$sectionMatch && !$deptMatch) {
                     return false;
                 }
             }
@@ -106,12 +124,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         });
     }
 
-    public function getSupervisorTrackingProperty()
+    // 2. Dean Category (Dean -> Program Head)
+    public function getDeanTrackingProperty()
     {
         $sem = $this->activeSemester;
         if (!$sem) return collect();
 
-        $query = Employee::whereIn('role', ['dean', 'program head'])
+        $query = Employee::where('role', 'dean')
             ->where('status', 'active')
             ->with(['department', 'user']);
 
@@ -123,10 +142,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $user = $emp->user;
             if (!$user) return null;
 
-            // Target ratees in their department
-            $facultyCount = Employee::where('department_id', $emp->department_id)
-                ->where('role', 'faculty')
-                ->where('id', '!=', $emp->id)
+            // Dean evaluates all active Program Heads
+            $targetCount = Employee::where('role', 'program head')
+                ->where('status', 'active')
                 ->count();
 
             $submittedCount = Evaluation::where('evaluator_id', $user->id)
@@ -134,22 +152,291 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 ->where('evaluation_type', 'downward')
                 ->count();
 
-            $pct = $facultyCount > 0 ? min(100, round(($submittedCount / $facultyCount) * 100)) : 0;
-            $status = ($pct === 100 && $facultyCount > 0) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
+            $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
+            $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
 
             return (object) [
                 'id' => $emp->id,
                 'name' => $emp->full_name,
-                'role' => ucfirst($emp->role),
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => 'Dean',
                 'department' => $emp->department,
-                'target_count' => $facultyCount,
+                'target_label' => 'Program Heads Assigned',
+                'target_count' => $targetCount,
                 'submitted_count' => $submittedCount,
                 'percentage' => $pct,
                 'status' => $status,
             ];
-        })->filter()->values();
+        })->filter(function ($s) {
+            if (!$s) return false;
+            if ($this->search) {
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($s->name), $searchLower);
+                $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+            }
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            return true;
+        })->values();
     }
 
+    // 3. Program Head Category (Program Head -> Faculty)
+    public function getProgramHeadTrackingProperty()
+    {
+        $sem = $this->activeSemester;
+        if (!$sem) return collect();
+
+        $query = Employee::where('role', 'program head')
+            ->where('status', 'active')
+            ->with(['department', 'user']);
+
+        if ($this->selectedDepartmentId) {
+            $query->where('department_id', $this->selectedDepartmentId);
+        }
+
+        return $query->get()->map(function ($emp) use ($sem) {
+            $user = $emp->user;
+            if (!$user) return null;
+
+            // Program Head evaluates Faculty in their department
+            $targetCount = Employee::where('department_id', $emp->department_id)
+                ->where('role', 'faculty')
+                ->where('status', 'active')
+                ->count();
+
+            $submittedCount = Evaluation::where('evaluator_id', $user->id)
+                ->where('semester_id', $sem->id)
+                ->where('evaluation_type', 'downward')
+                ->count();
+
+            $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
+            $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
+
+            return (object) [
+                'id' => $emp->id,
+                'name' => $emp->full_name,
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => 'Program Head',
+                'department' => $emp->department,
+                'target_label' => 'Department Faculty Members',
+                'target_count' => $targetCount,
+                'submitted_count' => $submittedCount,
+                'percentage' => $pct,
+                'status' => $status,
+            ];
+        })->filter(function ($s) {
+            if (!$s) return false;
+            if ($this->search) {
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($s->name), $searchLower);
+                $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+            }
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            return true;
+        })->values();
+    }
+
+    // 4. Department Head Category (Department Head -> Staff)
+    public function getDepartmentHeadTrackingProperty()
+    {
+        $sem = $this->activeSemester;
+        if (!$sem) return collect();
+
+        $query = Employee::where('role', 'department head')
+            ->where('status', 'active')
+            ->with(['department', 'user']);
+
+        if ($this->selectedDepartmentId) {
+            $query->where('department_id', $this->selectedDepartmentId);
+        }
+
+        return $query->get()->map(function ($emp) use ($sem) {
+            $user = $emp->user;
+            if (!$user) return null;
+
+            // Department Head evaluates Staff in their department
+            $targetCount = Employee::where('department_id', $emp->department_id)
+                ->where('role', 'staff')
+                ->where('status', 'active')
+                ->count();
+
+            $submittedCount = Evaluation::where('evaluator_id', $user->id)
+                ->where('semester_id', $sem->id)
+                ->where('evaluation_type', 'downward')
+                ->count();
+
+            $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
+            $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
+
+            return (object) [
+                'id' => $emp->id,
+                'name' => $emp->full_name,
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => 'Department Head',
+                'department' => $emp->department,
+                'target_label' => 'Administrative Staff Members',
+                'target_count' => $targetCount,
+                'submitted_count' => $submittedCount,
+                'percentage' => $pct,
+                'status' => $status,
+            ];
+        })->filter(function ($s) {
+            if (!$s) return false;
+            if ($this->search) {
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($s->name), $searchLower);
+                $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+            }
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            return true;
+        })->values();
+    }
+
+    // 5. Peer Category (Faculty -> Faculty / Staff -> Staff)
+    public function getPeerTrackingProperty()
+    {
+        $sem = $this->activeSemester;
+        if (!$sem) return collect();
+
+        $query = Employee::whereIn('role', ['faculty', 'staff'])
+            ->where('status', 'active')
+            ->with(['department', 'user']);
+
+        if ($this->selectedDepartmentId) {
+            $query->where('department_id', $this->selectedDepartmentId);
+        }
+
+        if ($this->selectedRole !== 'all') {
+            $query->where('role', $this->selectedRole);
+        }
+
+        return $query->get()->map(function ($emp) use ($sem) {
+            $user = $emp->user;
+            if (!$user) return null;
+
+            // Target peers = colleagues in same department with identical role (excluding self)
+            $peerCount = Employee::where('department_id', $emp->department_id)
+                ->where('role', $emp->role)
+                ->where('status', 'active')
+                ->where('id', '!=', $emp->id)
+                ->count();
+
+            $submittedCount = Evaluation::where('evaluator_id', $user->id)
+                ->where('semester_id', $sem->id)
+                ->where('evaluation_type', 'peer')
+                ->count();
+
+            $pct = $peerCount > 0 ? min(100, round(($submittedCount / $peerCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
+            $status = ($peerCount > 0 && $submittedCount >= $peerCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
+
+            return (object) [
+                'id' => $emp->id,
+                'name' => $emp->full_name,
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => ucfirst($emp->role),
+                'department' => $emp->department,
+                'target_count' => $peerCount,
+                'submitted_count' => $submittedCount,
+                'percentage' => $pct,
+                'status' => $status,
+            ];
+        })->filter(function ($p) {
+            if (!$p) return false;
+            if ($this->search) {
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($p->name), $searchLower);
+                $numMatch = str_contains(strtolower($p->employee_number ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($p->department?->name ?? ''), $searchLower) || str_contains(strtolower($p->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+            }
+            if ($this->selectedStatus !== 'all' && $p->status !== $this->selectedStatus) return false;
+            return true;
+        })->values();
+    }
+
+    // 6. Supervisor Category (Faculty -> PH / Staff -> DH / PH/DH -> Dean)
+    public function getSupervisorTrackingProperty()
+    {
+        $sem = $this->activeSemester;
+        if (!$sem) return collect();
+
+        $query = Employee::whereIn('role', ['faculty', 'staff', 'program head', 'department head'])
+            ->where('status', 'active')
+            ->with(['department', 'user']);
+
+        if ($this->selectedDepartmentId) {
+            $query->where('department_id', $this->selectedDepartmentId);
+        }
+
+        if ($this->selectedRole !== 'all') {
+            $query->where('role', $this->selectedRole);
+        }
+
+        $dean = Employee::where('role', 'dean')->where('status', 'active')->first();
+
+        return $query->get()->map(function ($emp) use ($sem, $dean) {
+            $user = $emp->user;
+            if (!$user) return null;
+
+            $supervisorName = 'Unassigned';
+            if ($emp->role === 'faculty') {
+                $ph = Employee::where('department_id', $emp->department_id)->where('role', 'program head')->where('status', 'active')->first();
+                $supervisorName = $ph ? $ph->full_name.' (Program Head)' : 'Program Head';
+            } elseif ($emp->role === 'staff') {
+                $dh = Employee::where('department_id', $emp->department_id)->where('role', 'department head')->where('status', 'active')->first();
+                $supervisorName = $dh ? $dh->full_name.' (Department Head)' : 'Department Head';
+            } elseif (in_array($emp->role, ['program head', 'department head'])) {
+                $supervisorName = $dean ? $dean->full_name.' (Dean)' : 'Dean of Academic Affairs';
+            }
+
+            $submitted = Evaluation::where('evaluator_id', $user->id)
+                ->where('semester_id', $sem->id)
+                ->where('evaluation_type', 'upward_employee')
+                ->exists();
+
+            $eval = $submitted ? Evaluation::where('evaluator_id', $user->id)
+                ->where('semester_id', $sem->id)
+                ->where('evaluation_type', 'upward_employee')
+                ->latest()
+                ->first() : null;
+
+            return (object) [
+                'id' => $emp->id,
+                'name' => $emp->full_name,
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => ucwords($emp->role),
+                'department' => $emp->department,
+                'supervisor_name' => $supervisorName,
+                'submitted' => $submitted,
+                'submitted_at' => $eval?->created_at,
+                'status' => $submitted ? 'completed' : 'pending',
+            ];
+        })->filter(function ($sub) {
+            if (!$sub) return false;
+            if ($this->search) {
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($sub->name), $searchLower);
+                $numMatch = str_contains(strtolower($sub->employee_number ?? ''), $searchLower);
+                $supMatch = str_contains(strtolower($sub->supervisor_name), $searchLower);
+                $deptMatch = str_contains(strtolower($sub->department?->name ?? ''), $searchLower) || str_contains(strtolower($sub->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$supMatch && !$deptMatch) return false;
+            }
+            if ($this->selectedStatus !== 'all' && $sub->status !== $this->selectedStatus) return false;
+            return true;
+        })->values();
+    }
+
+    // 7. Self Category (Self -> Self)
     public function getSelfTrackingProperty()
     {
         $sem = $this->activeSemester;
@@ -160,6 +447,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         if ($this->selectedDepartmentId) {
             $query->where('department_id', $this->selectedDepartmentId);
+        }
+
+        if ($this->selectedRole !== 'all') {
+            $query->where('role', $this->selectedRole);
         }
 
         return $query->get()->map(function ($emp) use ($sem) {
@@ -181,25 +472,40 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             return (object) [
                 'id' => $emp->id,
                 'name' => $emp->full_name,
-                'role' => ucfirst($emp->role),
+                'employee_number' => $emp->employee_number,
+                'role' => $emp->role,
+                'role_label' => ucwords($emp->role),
                 'department' => $emp->department,
                 'submitted' => $submitted,
                 'submitted_at' => $submittedAt,
                 'status' => $submitted ? 'completed' : 'pending',
             ];
         })->filter(function ($e) {
+            if (!$e) return false;
             if ($this->search) {
-                return str_contains(strtolower($e->name), strtolower($this->search));
+                $searchLower = strtolower($this->search);
+                $nameMatch = str_contains(strtolower($e->name), $searchLower);
+                $numMatch = str_contains(strtolower($e->employee_number ?? ''), $searchLower);
+                $deptMatch = str_contains(strtolower($e->department?->name ?? ''), $searchLower) || str_contains(strtolower($e->department?->code ?? ''), $searchLower);
+                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
             }
+            if ($this->selectedStatus !== 'all' && $e->status !== $this->selectedStatus) return false;
             return true;
         })->values();
     }
 
     public function sendReminderToast()
     {
+        $user = auth()->user();
+        if ($user && function_exists('activity')) {
+            activity('evaluations')
+                ->causedBy($user)
+                ->log('Sent evaluation completion reminders across all active pending evaluators.');
+        }
+
         \Flux::toast(
             heading: 'Reminders Broadcasted',
-            text: 'Evaluation submission reminders have been sent to pending evaluators.',
+            text: 'Evaluation submission reminders have been broadcasted to all pending evaluators.',
             variant: 'success'
         );
     }
@@ -209,15 +515,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Header Banner -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
         <div>
-            <flux:heading size="xl" level="1" class="text-left">Completion Tracking</flux:heading>
-            <flux:subheading class="text-left">
-                Real-time evaluation submission progress & completion tracking across all roles.
+            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Completion Tracking</flux:heading>
+            <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
+                Real-time evaluation submission progress & completion tracking across all standardized evaluation categories.
             </flux:subheading>
         </div>
 
         <div class="flex items-center gap-3">
             @if(auth()->user()->hasAnyRole(['admin', 'dean']))
-                <div class="w-48">
+                <div class="w-56">
                     <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments">
                         <flux:select.option value="">All Departments</flux:select.option>
                         @foreach($this->departments as $dept)
@@ -227,7 +533,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             @endif
 
-            <flux:button variant="primary" icon="paper-airplane" wire:click="sendReminderToast" size="sm">
+            <flux:button variant="primary" icon="paper-airplane" wire:click="sendReminderToast" size="sm" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white">
                 Send Reminders
             </flux:button>
         </div>
@@ -235,10 +541,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Active Semester Indicator -->
     @if($this->activeSemester)
-        <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="size-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Active Period</span>
+        <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-xs">
+            <div class="flex items-center gap-2.5">
+                <span class="size-2.5 rounded-full {{ $this->activeSemester->is_evaluation_open ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400' }}"></span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Active Academic Period</span>
                 <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                     A.Y. {{ $this->activeSemester->academicYear->name }} — {{ $this->activeSemester->name }}
                 </span>
@@ -249,7 +555,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     @endif
 
-    <!-- Top 4 Summary Stat Cards (with 5px dark red #800000 left border & odometer) -->
+    <!-- Top 4 Summary Stat Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         @php
             $classes = $this->classes;
@@ -257,9 +563,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $avgStudentProgress = $totalClasses > 0 ? round($classes->sum('percentage') / $totalClasses) : 0;
             $totalSubmissions = Evaluation::where('semester_id', $this->activeSemester?->id)->count();
 
-            $supervisors = $this->supervisorTracking;
-            $superCount = $supervisors->count();
-            $avgSuperProgress = $superCount > 0 ? round($supervisors->sum('percentage') / $superCount) : 0;
+            $phTrack = $this->programHeadTracking;
+            $phCount = $phTrack->count();
+            $avgPhProgress = $phCount > 0 ? round($phTrack->sum('percentage') / $phCount) : 0;
+
+            $peerTrack = $this->peerTracking;
+            $peerCount = $peerTrack->count();
+            $avgPeerProgress = $peerCount > 0 ? round($peerTrack->sum('percentage') / $peerCount) : 0;
 
             $selfTrack = $this->selfTracking;
             $selfTotal = $selfTrack->count();
@@ -268,91 +578,144 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         @endphp
 
         <!-- Card 1: Total Submissions Recorded -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
-            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Submissions Received</span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Submissions</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
                     <x-odometer :value="$totalSubmissions" />
                 </span>
-                <flux:icon icon="clipboard-document-check" class="size-6 text-[#800000] dark:text-red-400" />
+                <flux:icon icon="clipboard-document-check" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-[11px] text-zinc-400">Across all 5 evaluation perspectives</span>
+            <span class="text-[11px] text-zinc-400">Across all 7 standardized categories</span>
         </div>
 
-        <!-- Card 2: Student Evaluation Completion -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
-            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student Progress</span>
+        <!-- Card 2: Student Progress -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student Category Progress</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
                     <x-odometer :value="$avgStudentProgress" suffix="%" />
                 </span>
-                <flux:icon icon="academic-cap" class="size-6 text-indigo-500" />
+                <flux:icon icon="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgStudentProgress }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgStudentProgress }}%"></div>
             </div>
         </div>
 
-        <!-- Card 3: Supervisor Ratings Completion -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
-            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Supervisor Ratings</span>
+        <!-- Card 3: Peer Category Progress -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Peer Category Progress</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                    <x-odometer :value="$avgSuperProgress" suffix="%" />
+                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$avgPeerProgress" suffix="%" />
                 </span>
-                <flux:icon icon="user-group" class="size-6 text-emerald-500" />
+                <flux:icon icon="user-group" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgSuperProgress }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgPeerProgress }}%"></div>
             </div>
         </div>
 
-        <!-- Card 4: Self Appraisals Submitted -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2" style="border-left: 5px solid #800000 !important;">
-            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Self Appraisals Done</span>
+        <!-- Card 4: Self Evaluations Done -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Self Category Done</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-amber-600 dark:text-amber-400">
+                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
                     <x-odometer :value="$selfDone" /> / <x-odometer :value="$selfTotal" />
                 </span>
-                <flux:icon icon="user" class="size-6 text-amber-500" />
+                <flux:icon icon="user" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style="width: {{ $selfPct }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $selfPct }}%"></div>
             </div>
         </div>
     </div>
 
-    <!-- Perspective Navigation Tabs -->
-    <div class="border-b border-zinc-200 dark:border-zinc-800 flex gap-2">
+    <!-- 7 Standardized Category Navigation Tabs (Exact Match to Question Setup) -->
+    <div class="border-b border-zinc-200 dark:border-zinc-800 flex gap-2 md:gap-3 overflow-x-auto pb-0">
         <button 
             type="button"
-            wire:click="$set('activeTab', 'student')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'student' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            wire:click="selectTab('student')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'student' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="academic-cap" class="size-4" />
-            Student Upward Progress
+            Student ({{ $this->classes->count() }} Classes)
         </button>
 
         <button 
             type="button"
-            wire:click="$set('activeTab', 'supervisor')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'supervisor' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            wire:click="selectTab('dean')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'dean' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="building-library" class="size-4" />
+            Dean ({{ $this->deanTracking->count() }})
+        </button>
+
+        <button 
+            type="button"
+            wire:click="selectTab('program_head')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'program_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="briefcase" class="size-4" />
-            Supervisor & Executive Ratings
+            Program Head ({{ $this->programHeadTracking->count() }})
         </button>
 
         <button 
             type="button"
-            wire:click="$set('activeTab', 'self')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'self' ? 'border-[#800000] text-[#800000] dark:border-red-500 dark:text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            wire:click="selectTab('department_head')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'department_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="building-office" class="size-4" />
+            Department Head ({{ $this->departmentHeadTracking->count() }})
+        </button>
+
+        <button 
+            type="button"
+            wire:click="selectTab('peer')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'peer' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="user-group" class="size-4" />
+            Peer ({{ $this->peerTracking->count() }})
+        </button>
+
+        <button 
+            type="button"
+            wire:click="selectTab('supervisor')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'supervisor' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+        >
+            <flux:icon icon="arrow-trending-up" class="size-4" />
+            Supervisor ({{ $this->supervisorTracking->count() }})
+        </button>
+
+        <button 
+            type="button"
+            wire:click="selectTab('self')"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'self' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="user" class="size-4" />
-            Self Appraisals
+            Self ({{ $this->selfTracking->count() }})
         </button>
     </div>
 
-    <!-- TAB 1: Student Upward Class Progress -->
+    <!-- Category Context Subheader Bar -->
+    <div class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+        Evaluation Context: 
+        <span class="font-bold text-zinc-800 dark:text-zinc-200">
+            {{ match($activeTab) {
+                'student' => 'Student evaluates Assigned Faculty Member',
+                'dean' => 'Dean evaluates Program Head',
+                'program_head' => 'Program Head evaluates Department Faculty Member',
+                'department_head' => 'Department Head evaluates Department Staff Member',
+                'peer' => 'Faculty evaluates Faculty Peer / Staff evaluates Staff Peer',
+                'supervisor' => 'Faculty evaluates PH / Staff evaluates DH / PH & DH evaluate Dean',
+                'self' => 'Individual Employee Self Evaluation',
+                default => ucfirst($activeTab)
+            } }}
+        </span>
+    </div>
+
+    <!-- TAB 1: Student Category Progress -->
     @if($activeTab === 'student')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
@@ -361,13 +724,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
-                        placeholder="Search subject, section, or professor..." 
+                        placeholder="Search subject code, title, section, or faculty..." 
                         clearable
                     />
                 </div>
 
                 <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                    <flux:select wire:model.live="selectedStatus" class="w-44">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">100% Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -389,7 +752,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             <tr>
                                 <th class="px-6 py-3.5">Subject & Class</th>
                                 <th class="px-6 py-3.5">Section</th>
-                                <th class="px-6 py-3.5">Professor</th>
+                                <th class="px-6 py-3.5">Faculty Member</th>
                                 <th class="px-6 py-3.5">Department</th>
                                 <th class="px-6 py-3.5">Submissions</th>
                                 <th class="px-6 py-3.5">Completion Rate</th>
@@ -411,7 +774,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                         <div class="text-xs text-zinc-500 font-mono">{{ $c->teacher?->employee_number }}</div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
                                             {{ $c->department?->code ?: 'N/A' }}
                                         </span>
                                     </td>
@@ -421,7 +784,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
-                                                <div class="h-2 rounded-full {{ $c->percentage === 100 ? 'bg-emerald-500' : 'bg-indigo-600' }}" style="width: {{ $c->percentage }}%"></div>
+                                                <div class="h-2 rounded-full {{ $c->percentage === 100 ? 'bg-emerald-500' : 'bg-[#9b0000] dark:bg-[#f89696]' }}" style="width: {{ $c->percentage }}%"></div>
                                             </div>
                                             <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $c->percentage }}%</span>
                                         </div>
@@ -444,72 +807,479 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     @endif
 
-    <!-- TAB 2: Supervisor & Executive Ratings -->
-    @if($activeTab === 'supervisor')
+    <!-- TAB 2: Dean Category Progress -->
+    @if($activeTab === 'dean')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
-            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
-                        <tr>
-                            <th class="px-6 py-3.5">Supervisor Name</th>
-                            <th class="px-6 py-3.5">Role</th>
-                            <th class="px-6 py-3.5">Department</th>
-                            <th class="px-6 py-3.5">Ratings Completed</th>
-                            <th class="px-6 py-3.5">Completion Progress</th>
-                            <th class="px-6 py-3.5 text-right">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                        @forelse($this->supervisorTracking as $sup)
-                            <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
-                                <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
-                                    {{ $sup->name }}
-                                </td>
-                                <td class="px-6 py-4">
-                                    <flux:badge variant="neutral" size="sm" class="font-bold">{{ $sup->role }}</flux:badge>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded">
-                                        {{ $sup->department?->code ?: 'N/A' }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 font-mono font-bold text-zinc-800 dark:text-zinc-200">
-                                    {{ $sup->submitted_count }} / {{ $sup->target_count }}
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
-                                            <div class="h-2 rounded-full bg-emerald-500" style="width: {{ $sup->percentage }}%"></div>
-                                        </div>
-                                        <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $sup->percentage }}%</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    @if($sup->status === 'completed')
-                                        <flux:badge variant="success" size="sm" class="font-bold">Completed</flux:badge>
-                                    @elseif($sup->status === 'in_progress')
-                                        <flux:badge variant="info" size="sm" class="font-bold">In Progress</flux:badge>
-                                    @else
-                                        <flux:badge variant="neutral" size="sm" class="font-bold">Not Started</flux:badge>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-zinc-400">
-                                    No department supervisors found.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search dean name, ID, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Completed</flux:select.option>
+                        <flux:select.option value="in_progress">In Progress</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
             </div>
+
+            <!-- Table -->
+            @if($this->deanTracking->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="building-library" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No dean evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3.5">Dean Name</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Target Evaluatees</th>
+                                <th class="px-6 py-3.5">Program Heads Evaluated</th>
+                                <th class="px-6 py-3.5">Completion Progress</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($this->deanTracking as $dean)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $dean->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $dean->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $dean->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {{ $dean->target_label }}
+                                    </td>
+                                    <td class="px-6 py-4 font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                                        {{ $dean->submitted_count }} / {{ $dean->target_count }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                                                <div class="h-2 rounded-full {{ $dean->percentage === 100 ? 'bg-emerald-500' : 'bg-[#9b0000] dark:bg-[#f89696]' }}" style="width: {{ $dean->percentage }}%"></div>
+                                            </div>
+                                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $dean->percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($dean->status === 'completed')
+                                            <flux:badge variant="success" size="sm" class="font-bold">Completed</flux:badge>
+                                        @elseif($dean->status === 'in_progress')
+                                            <flux:badge variant="info" size="sm" class="font-bold">In Progress</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     @endif
 
-    <!-- TAB 3: Self Appraisals -->
+    <!-- TAB 3: Program Head Category Progress -->
+    @if($activeTab === 'program_head')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search program head name, ID, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Completed</flux:select.option>
+                        <flux:select.option value="in_progress">In Progress</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            @if($this->programHeadTracking->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="briefcase" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No program head evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3.5">Program Head Name</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Target Evaluatees</th>
+                                <th class="px-6 py-3.5">Faculty Evaluated</th>
+                                <th class="px-6 py-3.5">Completion Progress</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($this->programHeadTracking as $ph)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $ph->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $ph->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $ph->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {{ $ph->target_label }}
+                                    </td>
+                                    <td class="px-6 py-4 font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                                        {{ $ph->submitted_count }} / {{ $ph->target_count }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                                                <div class="h-2 rounded-full {{ $ph->percentage === 100 ? 'bg-emerald-500' : 'bg-[#9b0000] dark:bg-[#f89696]' }}" style="width: {{ $ph->percentage }}%"></div>
+                                            </div>
+                                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $ph->percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($ph->status === 'completed')
+                                            <flux:badge variant="success" size="sm" class="font-bold">Completed</flux:badge>
+                                        @elseif($ph->status === 'in_progress')
+                                            <flux:badge variant="info" size="sm" class="font-bold">In Progress</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    <!-- TAB 4: Department Head Category Progress -->
+    @if($activeTab === 'department_head')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search department head name, ID, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Completed</flux:select.option>
+                        <flux:select.option value="in_progress">In Progress</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            @if($this->departmentHeadTracking->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="building-office" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No department head evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3.5">Department Head Name</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Target Evaluatees</th>
+                                <th class="px-6 py-3.5">Staff Evaluated</th>
+                                <th class="px-6 py-3.5">Completion Progress</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($this->departmentHeadTracking as $dh)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $dh->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $dh->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $dh->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {{ $dh->target_label }}
+                                    </td>
+                                    <td class="px-6 py-4 font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                                        {{ $dh->submitted_count }} / {{ $dh->target_count }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                                                <div class="h-2 rounded-full {{ $dh->percentage === 100 ? 'bg-emerald-500' : 'bg-[#9b0000] dark:bg-[#f89696]' }}" style="width: {{ $dh->percentage }}%"></div>
+                                            </div>
+                                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $dh->percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($dh->status === 'completed')
+                                            <flux:badge variant="success" size="sm" class="font-bold">Completed</flux:badge>
+                                        @elseif($dh->status === 'in_progress')
+                                            <flux:badge variant="info" size="sm" class="font-bold">In Progress</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    <!-- TAB 5: Peer Category Progress -->
+    @if($activeTab === 'peer')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search evaluator name, ID, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedRole" class="w-36">
+                        <flux:select.option value="all">All Roles</flux:select.option>
+                        <flux:select.option value="faculty">Faculty</flux:select.option>
+                        <flux:select.option value="staff">Staff</flux:select.option>
+                    </flux:select>
+
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Completed</flux:select.option>
+                        <flux:select.option value="in_progress">In Progress</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            @if($this->peerTracking->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="user-group" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No peer evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3.5">Evaluator Name</th>
+                                <th class="px-6 py-3.5">Role</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Department Peers Evaluated</th>
+                                <th class="px-6 py-3.5">Completion Progress</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($this->peerTracking as $peer)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $peer->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $peer->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <flux:badge variant="neutral" size="sm" class="font-bold">{{ $peer->role_label }}</flux:badge>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $peer->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                                        {{ $peer->submitted_count }} / {{ $peer->target_count }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-24 bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                                                <div class="h-2 rounded-full {{ $peer->percentage === 100 ? 'bg-emerald-500' : 'bg-[#9b0000] dark:bg-[#f89696]' }}" style="width: {{ $peer->percentage }}%"></div>
+                                            </div>
+                                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 font-mono">{{ $peer->percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($peer->status === 'completed')
+                                            <flux:badge variant="success" size="sm" class="font-bold">Completed</flux:badge>
+                                        @elseif($peer->status === 'in_progress')
+                                            <flux:badge variant="info" size="sm" class="font-bold">In Progress</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    <!-- TAB 6: Supervisor Category Progress -->
+    @if($activeTab === 'supervisor')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search employee, ID, supervisor, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedRole" class="w-44">
+                        <flux:select.option value="all">All Roles</flux:select.option>
+                        <flux:select.option value="faculty">Faculty</flux:select.option>
+                        <flux:select.option value="staff">Staff</flux:select.option>
+                        <flux:select.option value="program head">Program Head</flux:select.option>
+                        <flux:select.option value="department head">Department Head</flux:select.option>
+                    </flux:select>
+
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Submitted</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            @if($this->supervisorTracking->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="arrow-trending-up" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No supervisor evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3.5">Employee Name</th>
+                                <th class="px-6 py-3.5">Role</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Designated Supervisor</th>
+                                <th class="px-6 py-3.5">Submission Date</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($this->supervisorTracking as $sub)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $sub->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $sub->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <flux:badge variant="neutral" size="sm" class="font-bold">{{ $sub->role_label }}</flux:badge>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $sub->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 font-medium text-zinc-800 dark:text-zinc-200">
+                                        {{ $sub->supervisor_name }}
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {{ $sub->submitted_at ? $sub->submitted_at->format('M d, Y h:i A') : '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($sub->submitted)
+                                            <flux:badge variant="success" size="sm" class="font-bold">Submitted</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    <!-- TAB 7: Self Category Progress -->
     @if($activeTab === 'self')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
+            <!-- Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 max-w-md">
+                    <flux:input 
+                        icon="magnifying-glass" 
+                        wire:model.live.debounce.300ms="search" 
+                        placeholder="Search employee, ID, or department..." 
+                        clearable
+                    />
+                </div>
+
+                <div class="flex gap-3">
+                    <flux:select wire:model.live="selectedRole" class="w-44">
+                        <flux:select.option value="all">All Roles</flux:select.option>
+                        <flux:select.option value="faculty">Faculty</flux:select.option>
+                        <flux:select.option value="staff">Staff</flux:select.option>
+                        <flux:select.option value="program head">Program Head</flux:select.option>
+                        <flux:select.option value="department head">Department Head</flux:select.option>
+                        <flux:select.option value="dean">Dean</flux:select.option>
+                    </flux:select>
+
+                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                        <flux:select.option value="all">All Statuses</flux:select.option>
+                        <flux:select.option value="completed">Submitted</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
             <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
@@ -525,13 +1295,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         @forelse($this->selfTracking as $self)
                             <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                 <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
-                                    {{ $self->name }}
+                                    <div>{{ $self->name }}</div>
+                                    <div class="text-xs text-zinc-500 font-mono font-normal">{{ $self->employee_number }}</div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <flux:badge variant="neutral" size="sm" class="font-bold">{{ $self->role }}</flux:badge>
+                                    <flux:badge variant="neutral" size="sm" class="font-bold">{{ $self->role_label }}</flux:badge>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="font-bold text-xs uppercase bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded">
+                                    <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
                                         {{ $self->department?->code ?: 'N/A' }}
                                     </span>
                                 </td>
@@ -549,7 +1320,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         @empty
                             <tr>
                                 <td colspan="5" class="px-6 py-8 text-center text-zinc-400">
-                                    No active employees found.
+                                    No employee records found.
                                 </td>
                             </tr>
                         @endforelse

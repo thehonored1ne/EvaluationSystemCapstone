@@ -40,6 +40,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         'password',
         'is_active',
         'notifications_last_viewed_at',
+        'dismissed_notifications',
     ];
 
     /**
@@ -64,6 +65,7 @@ class User extends Authenticatable // implements MustVerifyEmail
             'password' => 'hashed',
             'is_active' => 'boolean',
             'notifications_last_viewed_at' => 'datetime',
+            'dismissed_notifications' => 'array',
         ];
     }
 
@@ -113,19 +115,20 @@ class User extends Authenticatable // implements MustVerifyEmail
     /**
      * Get dynamic notifications for the user.
      */
-    public function getNotifications(): array
+    public function getNotifications(bool $ignoreDismissed = false): array
     {
         $notifications = [];
         $sem = Semester::where('is_active', true)->first();
         if (! $sem) {
             $notifications[] = (object) [
+                'id' => 'no_active_semester',
                 'type' => 'warning',
                 'title' => 'No Active Semester',
                 'description' => 'There is no active academic semester configured. Evaluations are disabled.',
                 'created_at' => $this->created_at ?? now(),
             ];
 
-            return $notifications;
+            return $this->filterDismissedNotifications($notifications, $ignoreDismissed);
         }
 
         // Capped timestamps to ensure notifications are never dated in the future
@@ -151,6 +154,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 $deadlineInfo = ' until '.$sem->evaluation_ends_at->format('F d, Y h:i A');
             }
             $notifications[] = (object) [
+                'id' => 'sem_'.$sem->id.'_open',
                 'type' => 'info',
                 'title' => 'Evaluations are Open',
                 'description' => "The evaluation period for {$sem->academicYear->name} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
@@ -162,6 +166,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 $timeInfo = ' starts at '.$sem->evaluation_starts_at->format('F d, Y h:i A');
             }
             $notifications[] = (object) [
+                'id' => 'sem_'.$sem->id.'_closed',
                 'type' => 'warning',
                 'title' => 'Evaluations are Closed',
                 'description' => "Evaluations for {$sem->academicYear->name} - {$sem->name} are currently locked/closed{$timeInfo}.",
@@ -197,6 +202,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if ($pendingCount > 0 && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'student_pending_'.$sem->id.'_'.$pendingCount,
                     'type' => 'reminder',
                     'title' => 'Pending Professor Evaluations',
                     'description' => "You have {$pendingCount} pending professor evaluation(s) to fill out. Please go to Manage Evaluations.",
@@ -216,6 +222,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'faculty_self_'.$sem->id,
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'You have not submitted your self-evaluation report for this semester yet.',
@@ -240,6 +247,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                 if ($peerPending > 0 && $isEvaluationOpen) {
                     $notifications[] = (object) [
+                        'id' => 'faculty_peer_'.$sem->id.'_'.$peerPending,
                         'type' => 'reminder',
                         'title' => 'Pending Peer Evaluations',
                         'description' => "You have {$peerPending} peer evaluation(s) remaining for faculty members in your department.",
@@ -260,6 +268,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'ph_self_'.$sem->id,
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please fill out your self-evaluation form for this semester.',
@@ -283,6 +292,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                 if ($facPending > 0 && $isEvaluationOpen) {
                     $notifications[] = (object) [
+                        'id' => 'ph_fac_'.$sem->id.'_'.$facPending,
                         'type' => 'reminder',
                         'title' => 'Pending Subordinate Evaluations',
                         'description' => "You have {$facPending} subordinate faculty evaluation(s) remaining in your department.",
@@ -301,6 +311,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'dean_self_'.$sem->id,
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please submit your dean self-evaluation form.',
@@ -319,6 +330,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if ($phPending > 0 && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'dean_ph_'.$sem->id.'_'.$phPending,
                     'type' => 'reminder',
                     'title' => 'Pending Program Head Evaluations',
                     'description' => "You have {$phPending} Program Head evaluation(s) remaining to fill out.",
@@ -338,6 +350,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'staff_self_'.$sem->id,
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please submit your staff self-evaluation report.',
@@ -345,25 +358,57 @@ class User extends Authenticatable // implements MustVerifyEmail
                 ];
             }
 
-            // Program Heads pending
+            // Department Head supervisor evaluation pending
             if ($emp->department_id) {
-                $heads = Employee::where('role', 'program head')
-                    ->where('department_id', $emp->department_id)
-                    ->with('user')
-                    ->get();
+                $dept = $emp->department;
+                $headUser = null;
+                if ($dept && $dept->department_head_id) {
+                    $headEmp = Employee::with('user')->find($dept->department_head_id);
+                    $headUser = $headEmp?->user;
+                } else {
+                    $headEmp = Employee::where('role', 'department head')->where('department_id', $emp->department_id)->first();
+                    $headUser = $headEmp?->user;
+                }
 
-                $headPending = 0;
-                foreach ($heads as $head) {
-                    if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $headPending++;
+                if ($headUser && $headUser->id !== $this->id) {
+                    $headDone = Evaluation::where([
+                        'semester_id' => $sem->id,
+                        'evaluator_id' => $this->id,
+                        'evaluatee_id' => $headUser->id,
+                        'evaluation_type' => 'upward_employee',
+                    ])->exists();
+
+                    if (! $headDone && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'staff_dh_'.$sem->id,
+                            'type' => 'reminder',
+                            'title' => 'Pending Supervisor Evaluation',
+                            'description' => 'You have 1 Department Head supervisor evaluation remaining to submit.',
+                            'created_at' => $notificationTime,
+                        ];
                     }
                 }
 
-                if ($headPending > 0 && $isEvaluationOpen) {
+                // Peer staff evaluations pending
+                $peerStaff = Employee::where('role', 'staff')
+                    ->where('department_id', $emp->department_id)
+                    ->where('id', '!=', $emp->id)
+                    ->with('user')
+                    ->get();
+
+                $peerPending = 0;
+                foreach ($peerStaff as $peer) {
+                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                        $peerPending++;
+                    }
+                }
+
+                if ($peerPending > 0 && $isEvaluationOpen) {
                     $notifications[] = (object) [
+                        'id' => 'staff_peer_'.$sem->id.'_'.$peerPending,
                         'type' => 'reminder',
-                        'title' => 'Pending Supervisor Evaluations',
-                        'description' => "You have {$headPending} supervisor Program Head evaluation(s) remaining.",
+                        'title' => 'Pending Peer Evaluations',
+                        'description' => "You have {$peerPending} peer staff evaluation(s) remaining to submit.",
                         'created_at' => $notificationTime,
                     ];
                 }
@@ -381,6 +426,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if (! $selfEvaluated && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'dh_self_'.$sem->id,
                     'type' => 'reminder',
                     'title' => 'Self Evaluation Incomplete',
                     'description' => 'Please submit your department head self-evaluation report.',
@@ -404,6 +450,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                 if ($staffPending > 0 && $isEvaluationOpen) {
                     $notifications[] = (object) [
+                        'id' => 'dh_staff_'.$sem->id.'_'.$staffPending,
                         'type' => 'reminder',
                         'title' => 'Pending Staff Evaluations',
                         'description' => "You have {$staffPending} staff evaluation(s) remaining in your administrative department.",
@@ -423,6 +470,7 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             if ($deanPending > 0 && $isEvaluationOpen) {
                 $notifications[] = (object) [
+                    'id' => 'dh_dean_'.$sem->id.'_'.$deanPending,
                     'type' => 'reminder',
                     'title' => 'Pending Dean Evaluation',
                     'description' => "You have {$deanPending} Dean evaluation(s) remaining to complete.",
@@ -431,6 +479,51 @@ class User extends Authenticatable // implements MustVerifyEmail
             }
         }
 
-        return $notifications;
+        return $this->filterDismissedNotifications($notifications, $ignoreDismissed);
+    }
+
+    /**
+     * Filter out dismissed notifications if not ignored.
+     */
+    protected function filterDismissedNotifications(array $notifications, bool $ignoreDismissed): array
+    {
+        if ($ignoreDismissed) {
+            return $notifications;
+        }
+
+        $dismissed = $this->dismissed_notifications ?? [];
+        if (empty($dismissed)) {
+            return $notifications;
+        }
+
+        return array_values(array_filter($notifications, function ($notif) use ($dismissed) {
+            return ! in_array($notif->id ?? '', $dismissed);
+        }));
+    }
+
+    /**
+     * Dismiss a specific notification by ID.
+     */
+    public function dismissNotification(string $key): void
+    {
+        $dismissed = $this->dismissed_notifications ?? [];
+        if (! in_array($key, $dismissed)) {
+            $dismissed[] = $key;
+            $this->update(['dismissed_notifications' => $dismissed]);
+        }
+    }
+
+    /**
+     * Dismiss all current notifications.
+     */
+    public function clearAllNotifications(): void
+    {
+        $allNotifs = $this->getNotifications(ignoreDismissed: true);
+        $keys = array_map(fn ($n) => $n->id, $allNotifs);
+        $dismissed = array_values(array_unique(array_merge($this->dismissed_notifications ?? [], $keys)));
+        $this->update([
+            'dismissed_notifications' => $dismissed,
+            'notifications_last_viewed_at' => now(),
+        ]);
     }
 }

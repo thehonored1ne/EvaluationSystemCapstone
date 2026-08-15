@@ -354,7 +354,7 @@ new class extends Component {
     class="max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden"
 >
     <!-- Simple Header: Name & Progress -->
-    <div class="px-6 py-4 bg-[#800000] text-white flex items-center justify-between gap-4">
+    <div class="px-6 py-4 bg-[#9b0000] text-white flex items-center justify-between gap-4">
         <div>
             <h2 class="text-lg md:text-xl font-bold">
                 @if($evaluationType === 'self')
@@ -418,7 +418,7 @@ new class extends Component {
                     @click="goToQuestion({{ $idx }})"
                     class="size-8 rounded-lg text-xs font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border"
                     :class="{
-                        'bg-[#800000] border-[#800000] text-white shadow-sm scale-105': !isReviewStep && currentIndex === {{ $idx }},
+                        'bg-[#9b0000] border-[#9b0000] text-white shadow-sm scale-105': !isReviewStep && currentIndex === {{ $idx }},
                         'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
                         'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400': (!isReviewStep && currentIndex !== {{ $idx }}) && !ratings[{{ $q['id'] }}],
                         'opacity-60': isReviewStep && !ratings[{{ $q['id'] }}]
@@ -440,7 +440,7 @@ new class extends Component {
                 @click="isReviewStep = true"
                 class="h-8 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border"
                 :class="{
-                    'bg-[#800000] border-[#800000] text-white shadow-sm': isReviewStep,
+                    'bg-[#9b0000] border-[#9b0000] text-white shadow-sm': isReviewStep,
                     'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400': !isReviewStep
                 }"
             >
@@ -466,7 +466,7 @@ new class extends Component {
                     >
                         <!-- Question Header Info -->
                         <div class="flex items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
-                            <span class="px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#800000] dark:text-red-400 text-xs font-bold border border-red-900/20">
+                            <span class="px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#f89696] text-xs font-bold border border-red-900/20">
                                 {{ $q['criterion_name'] }}
                             </span>
                             <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400">
@@ -491,8 +491,8 @@ new class extends Component {
                                         @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
                                         class="w-20 h-20 sm:w-16 sm:h-16 md:w-25 md:h-25 aspect-square rounded-2xl border-2 text-xl sm:text-2xl md:text-3xl font-black transition-all duration-200 flex items-center justify-center cursor-pointer select-none shrink-0 shadow-sm"
                                         :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
-                                            ? 'bg-[#800000] border-[#800000] text-white shadow-xl shadow-red-950/50 scale-110 ring-4 ring-red-900/30'
-                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#800000] dark:hover:border-red-500 hover:text-[#800000] dark:hover:text-red-300'"
+                                            ? 'bg-[#9b0000] border-[#9b0000] text-white shadow-xl shadow-red-950/50 scale-110 ring-4 ring-red-900/30'
+                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#f89696] hover:text-[#9b0000] dark:hover:text-[#f89696]'"
                                     >
                                         <span class="leading-none">{{ $ratingVal }}</span>
                                     </button>
@@ -529,7 +529,7 @@ new class extends Component {
                             <button 
                                 type="button" 
                                 @click="nextQuestion()" 
-                                class="px-8 py-3 rounded-xl bg-[#800000] hover:bg-[#990000] text-white text-xs md:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#800000]"
+                                class="px-8 py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] text-xs md:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#f89696]"
                             >
                                 <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
                             </button>
@@ -610,7 +610,7 @@ new class extends Component {
 
                                         <div class="flex items-center gap-2 shrink-0">
                                             <template x-if="ratings[{{ $q->id }}]">
-                                                <span class="px-2 py-0.5 rounded-md bg-[#800000] text-white font-bold text-xs">
+                                                <span class="px-2 py-0.5 rounded-md bg-[#9b0000] text-white font-bold text-xs">
                                                     Score: <span x-text="ratings[{{ $q->id }}]"></span> / 5
                                                 </span>
                                             </template>
@@ -641,7 +641,7 @@ new class extends Component {
                         wire:model.live.debounce.1000ms="comments" 
                         rows="3" 
                         placeholder="Share constructive feedback here (required)..." 
-                        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#800000] focus:ring-1 focus:ring-[#800000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
+                        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#9b0000] focus:ring-1 focus:ring-[#9b0000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
                     ></textarea>
                     @error('comments')
                         <div class="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
@@ -674,10 +674,10 @@ new class extends Component {
                             Reset All
                         </flux:button>
                         <flux:button 
-                            
+                            variant="primary"
                             type="submit" 
                             :disabled="$retryAfter > 0"
-                            class="bg-[#800000] hover:bg-[#990000] border-[#800000] text-white px-6 font-bold cursor-pointer"
+                            class="px-6 font-bold cursor-pointer"
                         >
                             Submit Evaluation
                         </flux:button>
