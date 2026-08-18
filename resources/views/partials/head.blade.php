@@ -7,4 +7,5 @@
 <link href="https://fonts.bunny.net/css?family=lexend:300,400,500,600,700" rel="stylesheet" />
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 @fluxAppearance

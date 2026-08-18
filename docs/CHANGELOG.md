@@ -4,6 +4,41 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-19]
+
+### Added
+- **Admin Dashboard Visual Analytics (Chart.js)**:
+  - Replaced text metric cards with interactive Chart.js bar charts on `/admin/dashboard`:
+    - **Ratings Distribution Chart**: Visual 1 to 5 star frequency breakdown with customized brand colors and responsive scaling.
+    - **Department Average Ratings Chart**: Horizontal bar chart comparing academic department mean ratings against the 5.00 scale.
+  - Implemented modular Alpine.js registration (`Alpine.data('dashboardAnalyticsCharts', ...)`) and `$nextTick()` rendering with automated instance lifecycle destruction to prevent HTML attribute escaping conflicts.
+  - Added global Chart.js CDN script in [`partials/head.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/partials/head.blade.php).
+- **Subjects Bulk Data Operations (Import, Export & Template)**:
+  - Added **Download Template** (CSV) with standardized format headers.
+  - Added **Export Subjects** (CSV) for archiving and external curriculum management.
+  - Added **Import Subjects** supporting CSV and Excel files (`.csv`, `.xlsx`, `.xls`) with header validation, duplicate code detection, and toast feedback notifications.
+- **Evaluation Settings Quick Navigation & Period Management Table**:
+  - Added a clean static Quick Jump Navigation bar linking directly to `#schedule-section`, `#weights-section`, and `#academic-periods-section`.
+  - Converted Academic Years & Semesters management into a paginated table (10 per page) with unified **Add Academic Period** modal.
+
+### Changed & Fixed
+- **Mobile & Desktop Table Responsiveness Standardization**:
+  - Standardized all system tables to full width (`w-full`) on desktop while enforcing minimum width barriers (`min-w-[700px]` to `min-w-[850px]`) and smooth `overflow-x-auto` horizontal scrolling on mobile:
+    - [`manage-departments.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-departments.blade.php): `w-full min-w-[700px]` with custom column layout (`Department Name`, `Department Type`, `Head`, `Members`, `Actions`).
+    - [`manage-subjects.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-subjects.blade.php): `w-full min-w-[750px]`.
+    - [`manage-students.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-students.blade.php): `w-full min-w-[850px]`.
+    - [`manage-programs.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-programs.blade.php): `w-full min-w-[750px]`.
+    - [`manage-classes.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php): `w-full min-w-[850px]`.
+    - [`evaluation-settings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php): `w-full min-w-[750px]`.
+    - [`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php): `w-full min-w-[800px]`.
+- **Evaluation Results Page Overhaul & Multi-Role Query Resolution**:
+  - Fixed query execution on `/evaluation-results` by replacing raw column queries with proper Eloquent relational constraints (`whereHas('employee')` and `whereHas('student')`).
+  - Added multi-role filtering across Deans, Program Heads, Department Heads, Professors, Staff, and Students.
+  - Implemented detailed user submission and received evaluation modal breakdown.
+- **Reports Action Button & Scoping**:
+  - Renamed "Print GRC Report" button to **"Save as PDF"** (`window.print()`).
+  - Scoped department and faculty evaluation selections strictly to academic departments.
+
 ## [2026-08-15]
 
 ### Added

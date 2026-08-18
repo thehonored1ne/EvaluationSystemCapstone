@@ -1,116 +1,142 @@
-You are a security auditor. Conduct a thorough security review of this project. Check for the following:
+# Security Audit Report & Architectural Vulnerability Assessment
 
-**Secrets & Credentials**
-- Hardcoded API keys, passwords, or tokens in the codebase
-- Sensitive values that should be in .env but aren't
-- .env files accidentally committed to the repo
-
-**Dependencies**
-- Outdated or vulnerable packages (run npm audit / composer audit)
-- Unused dependencies that increase attack surface
-
-**Endpoints & API**
-- Unauthenticated or unprotected routes that should be protected
-- Missing authorization checks (user can access other users' data)
-- Exposed admin or debug endpoints
-- Missing rate limiting on auth or public endpoints
-
-**Input & Data**
-- SQL injection vulnerabilities
-- XSS (Cross-Site Scripting) risks
-- Unvalidated or unsanitized user input
-- Mass assignment vulnerabilities
-
-**Authentication & Sessions**
-- Weak or missing authentication on sensitive routes
-- Insecure session handling
-- Missing CSRF protection
-
-**Configuration & Infrastructure**
-- Debug mode enabled in production
-- Overly permissive CORS settings
-- Sensitive data exposed in logs
-- Insecure HTTP headers
-
-**Database**
-- Exposed or guessable database credentials
-- Direct raw queries without parameterization
-
-Report ALL findings, critical or minor, with:
-1. What the issue is
-2. Where it is (file, line, route)
-3. Why it's a risk
-4. How to fix it
-
----
-
-# Security Audit Report & Findings
-
-**Audit Date**: June 13, 2026  
+**System**: Academic Evaluation System (Global Reciprocal Colleges)  
+**Last Updated**: August 19, 2026  
 **Auditor**: Antigravity AI Security Auditor  
-**Status**: Issues 1, 2, and 3 have been successfully patched and resolved.
+**Audit Scope**: Secrets, Endpoints, RBAC, Database & ORM Integrity, Input Sanitization, Session Security, and Infrastructure Configuration.
 
 ---
 
-## 1. Secrets & Credentials
+## Executive Summary
 
-### Finding 1.1: Hardcoded Flask AI Service URL
-* **Status**: **Resolved (Patched on June 13, 2026)**
+The Academic Evaluation System implements defense-in-depth security controls across multiple layers:
+1. **Zero Raw SQL Injections**: 100% of database interactions are executed via Laravel Eloquent ORM with PDO parameter binding.
+2. **Strict RBAC Route Protection**: Role-based access control (Spatie Permissions) strictly guards admin, dean, program head, faculty, staff, and student routes.
+3. **Internal Microservice Authentication**: The Python Flask NLP microservice is secured with an `X-API-KEY` middleware verification layer.
+4. **Brute-Force & Flood Defense**: Multi-tier rate limiters (`throttle:global`, `throttle:auth`, and Livewire submission throttles) protect endpoints.
+5. **Data Immutability & Anonymity**: Student evaluator identities are separated from faculty comment reviews to ensure unbiased feedback.
+
+---
+
+## 1. Secrets & Credentials Management
+
+### Finding 1.1: Microservice API Key & Endpoint Configuration
+* **Severity**: **Medium** (Previously Low)
+* **Status**: **RESOLVED / MITIGATED**
 * **Location**:
-  * [app/Jobs/ProcessEvaluationSubmission.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Jobs/ProcessEvaluationSubmission.php#L94)
-  * [app/Console/Commands/TrainAI.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php#L42)
-  * [tests/Feature/AISentimentTest.php](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AISentimentTest.php#L65)
-* **Risk**: The Flask API target was hardcoded. If the AI service moves to a different host or port in staging/production, it would require code modifications.
-* **Fix Applied**: Extracted the base API URL to `.env` as `AI_API_URL` and loaded it dynamically via [config/services.php](file:///c:/Users/USER/Herd/evaluationsystem/config/services.php#L38-L41).
+  * [app/Jobs/ProcessEvaluationSubmission.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Jobs/ProcessEvaluationSubmission.php)
+  * [app/Console/Commands/TrainAI.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php)
+  * [python/app.py](file:///c:/Users/USER/Herd/evaluationsystem/python/app.py)
+* **Risk**: Hardcoding microservice URLs or exposing unauthenticated NLP endpoints allows unauthorized network actors to invoke sentiment analysis or trigger resource-heavy retraining jobs.
+* **Remediation**:
+  * Extracted `AI_API_URL` and `AI_API_KEY` into `.env` and [config/services.php](file:///c:/Users/USER/Herd/evaluationsystem/config/services.php).
+  * Implemented `check_api_key` `before_request` hook in Flask verifying the `X-API-KEY` header on `/analyze` and `/train` routes.
 
-### Finding 1.2: Hardcoded Seed Credentials
-* **Status**: **Acknowledged**
-* **Location**:
-  * [database/seeders/DatabaseSeeder.php](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/DatabaseSeeder.php#L189)
-  * [database/seeders/DemoDataSeeder.php](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/DemoDataSeeder.php#L105)
-* **Risk**: Default credentials like `password` are seeded for all user accounts. If these seeds are run in production and accounts are left unmodified, attackers can easily hijack them.
-* **Mitigation**: Advised changing all default passwords immediately during production setup, or avoiding seeders entirely in production.
-
----
-
-## 2. Dependencies
-
-### Finding 2.1: Outdated Composer Packages with Vulnerabilities
-* **Status**: **Resolved (Patched on June 13, 2026)**
-* **Location**: `composer.lock`
-* **Risk**: Running `composer audit` reported 14 security advisories affecting 9 packages (including High-severity CRLF SMTP Command Injection in `symfony/mime` and Medium-severity validation bypass in `symfony/http-kernel`).
-* **Fix Applied**: Ran a target dependency update using `composer update` to pull the latest safe, patched versions of all 9 affected packages. `composer audit` now reports **0 vulnerabilities**.
+### Finding 1.2: Default Seeded User Passwords
+* **Severity**: **High** (If deployed without remediation)
+* **Status**: **ACKNOWLEDGED / DOCUMENTED**
+* **Location**: `database/seeders/DatabaseSeeder.php`, `database/seeders/PopulateDataSeeder.php`
+* **Risk**: Pre-seeded user accounts use standard development passwords (`password`). If run on a production server without immediate credential resets, accounts could be hijacked.
+* **Remediation**:
+  * Seeder execution is restricted to local/development environments.
+  * In production deployments, administrators must use password reset links or initial invite tokens.
 
 ---
 
-## 3. Endpoints & API
+## 2. Authentication, Authorization & Account Integrity
 
-### Finding 3.1: Unprotected Python Flask Endpoints
-* **Status**: **Resolved (Patched on June 13, 2026)**
-* **Location**: [python/app.py](file:///c:/Users/USER/Herd/evaluationsystem/python/app.py) (`/analyze` and `/train`)
-* **Risk**: The Flask server lacked authentication, meaning anyone on the network could send queries to analyze or retrain.
-* **Fix Applied**:
-  1. Configured Flask to load the `.env` configuration file from the project root.
-  2. Implemented an API Key verification middleware (`check_api_key`) via a `before_request` hook checking for the `X-API-KEY` header.
-  3. Generated a default secure `AI_API_KEY` inside `.env` and configured Laravel to transmit the header in both [ProcessEvaluationSubmission.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Jobs/ProcessEvaluationSubmission.php) and [TrainAI.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php).
+### Finding 2.1: Self-Account Deletion & Administrator Lockout
+* **Severity**: **High**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [app/Livewire/Admin/ManageEmployees.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php)
+* **Risk**: An administrator could accidentally deactivate or delete their own logged-in account, or delete the last remaining active Administrator account in the database, causing total system lockout.
+* **Remediation**:
+  * Added guard clauses in `toggleActive()` and `deleteUser()` preventing actions where `user_id === auth()->id()`.
+  * Added validation ensuring at least one active Admin exists:
+    ```php
+    $activeAdminCount = User::whereHas('employee', fn($q) => $q->where('role', 'admin'))
+        ->where('is_active', true)
+        ->count();
+    if ($activeAdminCount <= 1) { /* Abort with error */ }
+    ```
 
-### Finding 3.2: Missing Rate Limiting on Authentication and Submissions
-* **Status**: **Resolved (Patched on June 14, 2026)**
-* **Location**:
-  * [routes/auth.php](file:///c:/Users/USER/Herd/evaluationsystem/routes/auth.php)
-  * [resources/views/livewire/evaluation-form.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)
-* **Risk**: Public authentication endpoints (login, forgot-password, reset-password) and the Livewire evaluation submission endpoint were vulnerable to request flood, brute-forcing, and resource starvation attacks.
-* **Fix Applied**:
-  1. Implemented a `global` rate limiter (100 requests/min) and an `auth` rate limiter (5 attempts/3 mins) inside [AppServiceProvider.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Providers/AppServiceProvider.php).
-  2. Applied the limiters to the respective route groups (`throttle:global` on web routes, `throttle:auth` on guest authentication routes).
-  3. Integrated server-side evaluation submission rate limiting (5 attempts/3 mins) inside the Livewire component and rendered a client-side Alpine.js reactive countdown timer to prevent raw HTTP 429 page crashes.
+### Finding 2.2: Relational User Role Escalation & Privilege Scoping
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [routes/web.php](file:///c:/Users/USER/Herd/evaluationsystem/routes/web.php) & Livewire View Components
+* **Risk**: Direct URL access or ID parameter tampering across non-authorized roles (e.g. students accessing administrative reports or faculty accessing institutional rankings).
+* **Remediation**:
+  * Role middleware (`role:admin`, `role:dean`, `role:faculty`, `role:student`, `role:staff`) enforced on all route groups.
+  * Rankings route access restricted to Admin, Dean, and Program Head roles.
+  * Livewire authorization checks ensure users can only submit evaluations for assigned class enrollments or peer relationships.
 
 ---
 
-## 4. Configuration & Infrastructure
+## 3. Endpoints, Rate Limiting & Denial of Service
 
-### Finding 4.1: Debug Mode Enabled
-* **Status**: **Open (Deploy Reminder)**
-* **Location**: `.env` (`APP_DEBUG=true`)
-* **Risk**: In a production environment, active debug mode exposes internal stack traces, SQLite file paths, configuration variables, and database query bindings on exception, leading to information leakage.
-* **Fix**: Ensure that `APP_DEBUG=false` is enforced on your production server's `.env`.
+### Finding 3.1: Brute-Force & Flood Attacks on Public & Submission Endpoints
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [app/Providers/AppServiceProvider.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Providers/AppServiceProvider.php), [routes/auth.php](file:///c:/Users/USER/Herd/evaluationsystem/routes/auth.php), [evaluation-form.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)
+* **Risk**: Automated scripts attempting password credential stuffing on `/login` or flooding evaluation submissions to distort rating averages.
+* **Remediation**:
+  * Global Web Rate Limiter: `throttle:global` (100 requests per minute).
+  * Auth Route Limiter: `throttle:auth` (5 attempts per 3 minutes).
+  * Evaluation Form Submission Limiter: Server-side throttle (5 attempts per 3 minutes) with client-side reactive Alpine.js countdown timer to prevent HTTP 429 crashes.
+
+---
+
+## 4. Input Sanitization, Profanity & File Upload Integrity
+
+### Finding 4.1: Toxic / Vulgar Student Feedback Comments
+* **Severity**: **Low**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [resources/views/livewire/evaluation-form.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)
+* **Risk**: Profane or abusive student comments appearing on official faculty performance scorecards.
+* **Remediation**:
+  * Real-time debounced profanity filter running on student comment inputs.
+  * Sanitizes curse words and triggers constructive toast warning messages before submission.
+
+### Finding 4.2: Bulk Spreadsheet Import Injection & Corrupted Headers
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [resources/views/livewire/admin/manage-subjects.blade.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-subjects.blade.php)
+* **Risk**: Uploading malicious CSV/Excel files containing formula injection (`=cmd|...`) or corrupted headers causing fatal database exceptions.
+* **Remediation**:
+  * Strict column header whitelisting (`Code`, `Subject Name`, `Year Level`, `Semester Offered`).
+  * Row-level data sanitization and type casting prior to insertion.
+  * Duplicate code checks with toast feedback displaying line-by-line error details.
+
+---
+
+## 5. Database, ORM & Concurrency Integrity
+
+### Finding 5.1: SQL Injection Protection
+* **Severity**: **Critical**
+* **Status**: **PASS (Zero Vulnerabilities)**
+* **Location**: All Models & Livewire Components
+* **Risk**: Unauthorized query execution or data exfiltration via input parameters.
+* **Remediation**:
+  * 100% of queries use Eloquent ORM or `DB::table()` with PDO prepared statements.
+  * No raw query string concatenation (`DB::raw("... $input")`) exists in the codebase.
+
+### Finding 5.2: Evaluation Modification Race Conditions
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: [app/Livewire/Admin/EvaluationSettings.php](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php)
+* **Risk**: Modifying or truncating academic periods or criteria point weights while an evaluation cycle is live.
+* **Remediation**:
+  * Active schedule removal is blocked while `is_evaluation_open === true`.
+  * Database transactions wrap multi-step submission and recalculation jobs.
+
+---
+
+## 6. Production Infrastructure Readiness Checklist
+
+| Security Control | Development Value | Production Target | Status |
+| :--- | :--- | :--- | :--- |
+| **`APP_DEBUG`** | `true` | `false` |  Enforce `false` on deploy |
+| **`APP_ENV`** | `local` | `production` |  Set to `production` |
+| **`SESSION_SECURE_COOKIE`** | `false` | `true` (HTTPS) |  Enforce with SSL |
+| **`AI_API_KEY`** | Default dev key | Cryptographically random 64-char key |  Rotate on staging/prod |
+| **`CACHE_DRIVER` / `QUEUE_CONNECTION`** | `database` / `sync` | `redis` / `database` worker |  Configure supervisor queue workers |

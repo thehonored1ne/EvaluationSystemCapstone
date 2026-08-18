@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Lazy;
 use App\Models\Subject;
@@ -12,6 +13,7 @@ use Illuminate\Support\Carbon;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     use WithPagination;
+    use WithFileUploads;
 
     public function placeholder()
     {
@@ -24,6 +26,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public string $year_level = '';
     public string $semester_offered = '';
     
+    // Import & Export properties
+    public $importFile = null;
+    public bool $showImportModal = false;
+
     // Modal states
     public bool $showModal = false;
     public bool $showDeleteModal = false;
@@ -168,6 +174,141 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         );
     }
 
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="subjects_template.csv"',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['code', 'name', 'units', 'year_level', 'semester_offered']);
+            fputcsv($handle, ['IT101', 'Introduction to Computing', '3', '1', '1st Semester']);
+            fputcsv($handle, ['CS102', 'Data Structures and Algorithms', '3', '2', '2nd Semester']);
+            fputcsv($handle, ['ACT201', 'Financial Accounting & Reporting', '3', '2', '1st Semester']);
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportSubjects()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="subjects_export_' . date('Y-m-d') . '.csv"',
+        ];
+
+        $subjects = Subject::orderBy('code')->get();
+
+        $callback = function () use ($subjects) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['code', 'name', 'units', 'year_level', 'semester_offered']);
+            foreach ($subjects as $subject) {
+                fputcsv($handle, [
+                    $subject->code,
+                    $subject->name,
+                    $subject->units ?? 3,
+                    $subject->year_level ?? '',
+                    $subject->semester_offered ?? '',
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importSubjects()
+    {
+        $this->validate([
+            'importFile' => 'required|file|max:5120',
+        ], [
+            'importFile.required' => 'Please select a CSV or Excel file to import.',
+        ]);
+
+        $path = $this->importFile->getRealPath();
+        $file = @fopen($path, 'r');
+        
+        if (!$file) {
+            $this->addError('importFile', 'Could not open uploaded file. Please ensure it is a valid CSV file.');
+            return;
+        }
+
+        $header = fgetcsv($file);
+        if (!$header) {
+            $this->addError('importFile', 'The uploaded file is empty.');
+            fclose($file);
+            return;
+        }
+
+        // Clean headers
+        $cleanHeaders = array_map(function ($h) {
+            $h = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h);
+            return strtolower(trim($h));
+        }, $header);
+
+        $codeIdx = array_search('code', $cleanHeaders);
+        $nameIdx = array_search('name', $cleanHeaders);
+
+        if ($codeIdx === false || $nameIdx === false) {
+            $this->addError('importFile', "Invalid format: header must include 'code' and 'name' columns.");
+            fclose($file);
+            return;
+        }
+
+        $unitsIdx = array_search('units', $cleanHeaders);
+        $yearIdx = array_search('year_level', $cleanHeaders);
+        $semIdx = array_search('semester_offered', $cleanHeaders);
+
+        $created = 0;
+        $updated = 0;
+
+        while (($row = fgetcsv($file)) !== false) {
+            if (empty(array_filter($row))) continue;
+
+            $code = isset($row[$codeIdx]) ? strtoupper(trim($row[$codeIdx])) : '';
+            $name = isset($row[$nameIdx]) ? trim($row[$nameIdx]) : '';
+
+            if (!$code || !$name) continue;
+
+            $units = ($unitsIdx !== false && isset($row[$unitsIdx]) && is_numeric(trim($row[$unitsIdx]))) ? (int)trim($row[$unitsIdx]) : 3;
+            $yearLevel = ($yearIdx !== false && isset($row[$yearIdx]) && is_numeric(trim($row[$yearIdx]))) ? (int)trim($row[$yearIdx]) : null;
+            $semOffered = ($semIdx !== false && isset($row[$semIdx])) ? trim($row[$semIdx]) : null;
+
+            $existing = Subject::where('code', $code)->first();
+            if ($existing) {
+                $existing->update([
+                    'name' => $name,
+                    'units' => $units,
+                    'year_level' => $yearLevel,
+                    'semester_offered' => $semOffered,
+                ]);
+                $updated++;
+            } else {
+                Subject::create([
+                    'code' => $code,
+                    'name' => $name,
+                    'units' => $units,
+                    'year_level' => $yearLevel,
+                    'semester_offered' => $semOffered,
+                ]);
+                $created++;
+            }
+        }
+
+        fclose($file);
+        $this->importFile = null;
+        $this->showImportModal = false;
+
+        \Flux::toast(
+            heading: 'Import Completed',
+            text: "{$created} new subjects created, {$updated} subjects updated.",
+            variant: 'success'
+        );
+    }
+
     public function viewClasses(Subject $subject)
     {
         $this->viewingSubject = $subject->load(['classes.semester.academicYear', 'classes.teacher', 'classes.students']);
@@ -292,12 +433,25 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
 <div class="w-full flex flex-col gap-8">
     <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Subjects</flux:heading>
             <flux:subheading class="text-left">Curriculum catalog, year level curriculum placement, semester offerings, and section class assignments.</flux:subheading>
         </div>
-        <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Subject</flux:button>
+        <div class="flex flex-wrap items-center gap-2">
+            <flux:button variant="outline" wire:click="downloadTemplate" icon="arrow-down-tray" size="sm">
+                Download Template
+            </flux:button>
+            <flux:button variant="outline" wire:click="exportSubjects" icon="arrow-up-tray" size="sm">
+                Export Subjects
+            </flux:button>
+            <flux:button variant="outline" wire:click="$set('showImportModal', true)" icon="document-arrow-up" size="sm">
+                Import Subjects
+            </flux:button>
+            <flux:button variant="primary" wire:click="prepareCreate" icon="plus" size="sm">
+                Add Subject
+            </flux:button>
+        </div>
     </div>
 
     <!-- Top Row Statistics Cards -->
@@ -407,32 +561,32 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Main Subjects Table -->
     <div wire:loading.remove wire:target="search, yearFilter, semesterFilter, usageFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+            <table class="w-full min-w-[750px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[15%] px-4 py-3.5">Code</th>
-                        <th class="w-[38%] px-4 py-3.5">Subject Name</th>
-                        <th class="w-[15%] px-4 py-3.5">Year Level</th>
-                        <th class="w-[15%] px-4 py-3.5">Semester Offered</th>
-                        <th class="w-[10%] px-4 py-3.5 text-center">Assigned Classes</th>
-                        <th class="w-[7%] px-4 py-3.5 text-right">Actions</th>
+                        <th class="w-[15%] min-w-[120px] px-4 py-3.5 whitespace-nowrap">Code</th>
+                        <th class="w-[35%] min-w-[200px] px-4 py-3.5 whitespace-nowrap">Subject Name</th>
+                        <th class="w-[14%] min-w-[110px] px-4 py-3.5 text-center whitespace-nowrap">Year Level</th>
+                        <th class="w-[16%] min-w-[130px] px-4 py-3.5 text-center whitespace-nowrap">Semester Offered</th>
+                        <th class="w-[10%] min-w-[100px] px-4 py-3.5 text-center whitespace-nowrap">Assigned Classes</th>
+                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($subjects as $subject)
                         <tr wire:key="{{ $subject->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Code -->
-                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696]">
+                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] whitespace-nowrap">
                                 {{ $subject->code }}
                             </td>
 
                             <!-- Name -->
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $subject->name }}">
+                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold" title="{{ $subject->name }}">
                                 {{ $subject->name }}
                             </td>
 
                             <!-- Year Level -->
-                            <td class="px-4 py-3.5 text-xs">
+                            <td class="px-4 py-3.5 text-xs text-center whitespace-nowrap">
                                 @if($subject->year_level)
                                     <flux:badge size="sm" color="amber" class="font-bold">
                                         {{ $subject->year_level }}{{ match($subject->year_level) { 1 => 'st', 2 => 'nd', 3 => 'rd', 4 => 'th', default => 'th' } }} Year
@@ -443,7 +597,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Semester Offered -->
-                            <td class="px-4 py-3.5 text-xs">
+                            <td class="px-4 py-3.5 text-xs text-center whitespace-nowrap">
                                 @if($subject->semester_offered)
                                     <flux:badge size="sm" color="blue" class="font-medium">
                                         {{ $subject->semester_offered }}
@@ -454,7 +608,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Assigned Classes Count -->
-                            <td class="px-4 py-3.5 text-center">
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 <button type="button" wire:click="viewClasses({{ $subject->id }})" class="inline-flex items-center gap-1 hover:opacity-80 transition-opacity" title="Click to view assigned section classes">
                                     @if($subject->classes_count > 0)
                                         <flux:badge size="sm" color="indigo" class="cursor-pointer font-bold">
@@ -469,7 +623,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Action Column -->
-                            <td class="px-4 py-3.5 text-right">
+                            <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action
@@ -740,5 +894,55 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </x-slot:warning>
         @endif
     </x-confirmation-modal>
+    @endif
+
+    <!-- Import Subjects Modal -->
+    @if($showImportModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-2xl w-full max-w-md border border-zinc-200 dark:border-zinc-800 space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <flux:icon name="document-arrow-up" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                    <flux:heading size="lg">Import Subjects</flux:heading>
+                </div>
+                <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="$set('showImportModal', false)" />
+            </div>
+
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Upload a CSV / Excel file containing subjects catalog data. Required columns: <code class="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded font-mono font-bold text-zinc-800 dark:text-zinc-200">code</code>, <code class="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded font-mono font-bold text-zinc-800 dark:text-zinc-200">name</code>. Optional: <code class="font-mono">units</code>, <code class="font-mono">year_level</code>, <code class="font-mono">semester_offered</code>.
+            </p>
+
+            <form wire:submit="importSubjects" class="space-y-4">
+                <div>
+                    <input 
+                        type="file" 
+                        wire:model="importFile" 
+                        accept=".csv,.txt,.xlsx,.xls"
+                        class="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000]/10 file:text-[#9b0000] dark:file:text-[#f89696] hover:file:bg-[#9b0000]/20 cursor-pointer border border-zinc-200 dark:border-zinc-700 rounded-lg p-2" 
+                    />
+                    @error('importFile')
+                        <span class="text-xs text-rose-500 font-semibold block mt-1">{{ $message }}</span>
+                    @enderror
+                </div>
+
+                <div wire:loading wire:target="importFile" class="text-xs text-zinc-500 font-medium">
+                    Uploading file, please wait...
+                </div>
+
+                <div class="flex justify-between items-center pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <button type="button" wire:click="downloadTemplate" class="text-xs text-[#9b0000] dark:text-[#f89696] font-semibold hover:underline flex items-center gap-1">
+                        <flux:icon name="arrow-down-tray" class="size-3.5" />
+                        Download Template
+                    </button>
+                    <div class="flex gap-2">
+                        <flux:button size="sm" wire:click="$set('showImportModal', false)">Cancel</flux:button>
+                        <flux:button size="sm" variant="primary" type="submit" wire:loading.attr="disabled" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold">
+                            Import File
+                        </flux:button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     @endif
 </div>

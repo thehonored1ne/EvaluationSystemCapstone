@@ -17,14 +17,14 @@ Handles user authentication, role-based access control, account administration, 
 
 ---
 
-## 2. Academic Structure & Catalog Management
+### 2. Academic Structure & Catalog Management
 Manages institutional hierarchy, curriculum catalogs, academic periods, and class allocations.
 * **Key Features**:
-  * **Dedicated Departments Management Page (`/admin/departments`)**: Features 4 metric cards (5px `#800000` dark red border, `<x-odometer>`), Leader assignment filter (`Assigned Leader`, `Unassigned Leader`), search, sorting modes, and `<flux:dropdown>` actions for department editing and deletion. Supports both Academic Departments (managed by Program Heads) and Administrative Departments (managed by Department Heads). Automatic bidirectional sync with `/admin/employees`.
-  * **Dedicated Academic Programs Management Page (`/admin/programs`)**: Features 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions
-  * Academic Year & Semester scheduling with active-term toggles and schedule removal safeguards
-  * Subject catalog management (`/admin/subjects`) with grouped actions
-  * Class section management (`/admin/classes`) linking subjects, assigned faculty, sections, and programs
+  * **Dedicated Departments Management Page (`/admin/departments`)**: Features 4 metric cards (5px `#9b0000` dark red border, `<x-odometer>`), Head assignment filter (`Assigned Head`, `Unassigned Head`), search, sorting modes, and clean column layout (`Department Name`, `Department Type`, `Head`, `Members`, `Actions`). Supports both Academic Departments and Administrative Departments with automatic bidirectional sync with `/admin/employees`.
+  * **Dedicated Academic Programs Management Page (`/admin/programs`)**: Features 4 metric cards, Department filter, Program Head filter, search, sorting modes, and `<flux:dropdown>` actions.
+  * **Subject Catalog Management (`/admin/subjects`)**: Includes **Download Template** (CSV), **Export Subjects** (CSV), and **Import Subjects** supporting CSV and Excel spreadsheets with header format validation and duplicate checking.
+  * **Class Section Management (`/admin/classes`)**: Links subjects, assigned faculty, sections, schedules, rooms, and programs.
+  * Responsive table styling (`w-full min-w-[700px]` to `min-w-[850px]`) with smooth horizontal scrolling across mobile and full width on desktop.
 
 ---
 
@@ -32,7 +32,8 @@ Manages institutional hierarchy, curriculum catalogs, academic periods, and clas
 Allows administrators to configure evaluation instruments, rating criteria, question banks, and evaluation schedules.
 * **Key Features**:
   * **Evaluation Weight Score Card & Dynamic Target Points**: Configures dynamic max score point targets with **report-specific tab switching** (`Individual Teaching Effectiveness` 40% Student / 20% Dean / 20% Program Head / 15% Peer / 5% Self, `Administrative Staff 360°`, and `All Categories Global Targets`), real-time percentage distribution weights, color-coded progress bars, and balance indicators.
-  * **4-Section Vertical Dashboard**: Structured layout separating System Access Banner, 2-Column Schedule Grid, Evaluation Weight Score Card, and Questionnaire Parts Breakdown.
+  * **Quick Navigation & Modern Stacked Architecture**: Features a static quick jump anchor navigation bar linking directly to `#schedule-section`, `#weights-section`, and `#academic-periods-section` across a vertically stacked card hierarchy (`max-w-7xl mx-auto space-y-8`).
+  * **Academic Periods Management Table**: Dedicated paginated table (10 per page) with unified **Add Academic Period** modal for creating and configuring academic years, semester terms, and evaluation windows.
   * **Evaluation Criteria**: Categorizes evaluation areas (Teaching Effectiveness, Classroom Management, Professionalism, Communication).
   * **Question Bank**: Rating-scale questions assigned to specific criteria with plain-English parts categorization for Department Head, Peer, and Superior evaluations.
 
@@ -72,17 +73,16 @@ Provides real-time administrative supervision over active and past evaluation cy
 ## 7. Analytics, Results & Reports
 Translates quantitative ratings and qualitative sentiment insights into visual dashboards, institutional leaderboards, and official print-ready summaries.
 * **Key Features**:
-  * **Actionable Evaluation Summary Report (`/reports` - Summary Tab)**: Executive dashboard with KPI cards (Institutional Average, Student Average, Total Submissions, Faculty Evaluated), **Faculty Requiring Attention** (<3.50 rating / $\ge 30\%$ negative sentiment flags with AI-identified root cause), **Turnout & Data Confidence Rates** (<60% low turnout warnings), **Prescriptive Recommendations** (Institutional Strength, High-Impact Growth Area, Leadership Next Steps), **Rating Distribution Spread** (5-Star histogram), and ranked **Academic Department Leaderboard**.
-  * **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness (`/reports` - Individual Tab)**: Exact 2-page print-ready replica of the official Global Reciprocal Colleges (GRC) evaluation document:
-    * **Page 1**: Official GRC system logo, institutional header, boxed title, Roman numeral criteria breakdown across 5 categories with 360-degree Peer Evaluation integration (40% Student / 80 pts, 20% Dean / 40 pts, 20% Program Head / 40 pts, 15% Peer / 30 pts, 5% Self / 10 pts $\rightarrow$ 200 Max Scale), 200-point GRC Legend table, Overall Rating Box with composite score and descriptive rating, and tripartite signatures (*Prepared by*, *Noted by*, *Approved by*).
-    * **Page 2**: Official big system logo, AI Evaluator Sentiment Distribution bar (% Positive, % Neutral, % Constructive) with dominant label, two-column thematic breakdown (**Top Student Commendations** vs **Key Opportunities for Growth**), and curated bilingual representative feedback extracts.
-  * **Institutional Performance Rankings Page (`/rankings`)**: Dedicated leaderboard page featuring 4 metric cards (Top Performing Faculty, Highest Rated Department, Faculty Monitored, Institutional Mean Rating), **Faculty Leaderboard** (with 🥇, 🥈, 🥉 medals, composite rating, performance badges), **Department Leaderboard** (ranked department averages), search, department filter, and sort modes.
+  * **Evaluation Results Directory (`/evaluation-results`)**: Paginated directory (10 per page) displaying `Full Name`, `Role`, `Department`, `Total Submissions`, and `Status` (Complete / Incomplete). Features multi-criteria filtering by Role (Dean, Program Head, Department Head, Professor, Staff, Student), Department, Semester, and Search, with a detailed modal breaking down received ratings, submitted evaluations, and evaluator comments.
+  * **Actionable Evaluation Summary Report (`/reports` - Summary Tab)**: Executive dashboard with KPI cards (Institutional Average, Student Average, Total Submissions, Faculty Evaluated), **Faculty Requiring Attention** (<3.50 rating / $\ge 30\%$ negative sentiment flags with AI-identified root cause), **Turnout & Data Confidence Rates** (<60% low turnout warnings), **Prescriptive Recommendations**, **Rating Distribution Spread**, and ranked **Academic Department Leaderboard** with **Save as PDF** (`window.print()`) export.
+  * **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness (`/reports` - Individual Tab)**: Exact 2-page print-ready replica of the official Global Reciprocal Colleges (GRC) evaluation document with 360-degree Peer Evaluation integration (40% Student, 20% Dean, 20% Program Head, 15% Peer, 5% Self $\rightarrow$ 200 Max Scale), GRC Legend, Overall Rating Box, tripartite signatures, and AI qualitative insights page.
+  * **Institutional Performance Rankings Page (`/rankings`)**: Leaderboard page with Top Performing Faculty, Highest Rated Department, and ranked tables.
 
 ---
 
 ## 8. Role-Specific Dashboards
 Tailored executive and operational dashboards customized per user role:
-* **Admin Dashboard**: System-wide statistics, user metrics, and quick action panels
+* **Admin Dashboard**: System-wide statistics, user metrics, **Chart.js visual analytics** (Ratings Distribution & Academic Department Average Comparison), recent submissions feed, and quick action panels.
 * **Dean Dashboard**: College/Department evaluation progress and faculty performance overviews
 * **Program Head Dashboard**: Program-level section tracking and faculty feedback
 * **Faculty Dashboard**: Personal evaluation scores, student feedback summaries, and sentiment metrics

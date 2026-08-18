@@ -432,38 +432,38 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Main Programs Table -->
     <div wire:loading.remove wire:target="search, departmentFilter, headFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+            <table class="w-full min-w-[750px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[15%] px-4 py-3.5">Code</th>
-                        <th class="w-[32%] px-4 py-3.5">Program Name</th>
-                        <th class="w-[20%] px-4 py-3.5">Department</th>
-                        <th class="w-[20%] px-4 py-3.5">Program Head</th>
-                        <th class="w-[7%] px-4 py-3.5 text-center">Students</th>
-                        <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
+                        <th class="w-[15%] min-w-[100px] px-4 py-3.5 whitespace-nowrap">Code</th>
+                        <th class="w-[32%] min-w-[180px] px-4 py-3.5 whitespace-nowrap">Program Name</th>
+                        <th class="w-[20%] min-w-[140px] px-4 py-3.5 whitespace-nowrap">Department</th>
+                        <th class="w-[20%] min-w-[140px] px-4 py-3.5 whitespace-nowrap">Program Head</th>
+                        <th class="w-[8%] min-w-[90px] px-4 py-3.5 text-center whitespace-nowrap">Students</th>
+                        <th class="w-[5%] min-w-[80px] px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($programs as $prog)
                         <tr wire:key="{{ $prog->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Program Code -->
-                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696]">
+                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] whitespace-nowrap">
                                 {{ $prog->code }}
                             </td>
                             
                             <!-- Program Name -->
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $prog->name }}">
+                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold" title="{{ $prog->name }}">
                                 {{ $prog->name }}
                             </td>
 
                             <!-- Department -->
-                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs truncate" title="{{ $prog->department?->name }}">
+                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs whitespace-nowrap" title="{{ $prog->department?->name }}">
                                 <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ $prog->department?->code }}</span>
-                                <span class="text-zinc-500 block truncate">{{ $prog->department?->name }}</span>
+                                <span class="text-zinc-500 block truncate max-w-[180px]">{{ $prog->department?->name }}</span>
                             </td>
 
                             <!-- Program Head -->
-                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs">
+                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs whitespace-nowrap">
                                 @if($prog->programHead)
                                     <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $prog->programHead->formatted_name }}</span>
                                     <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $prog->programHead->employee_number }}</span>
@@ -473,14 +473,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Enrolled Students Count -->
-                            <td class="px-4 py-3.5 text-center">
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 <flux:badge size="sm" color="purple" class="font-bold cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-900 transition-colors" wire:click="manageStudents({{ $prog->id }})" tooltip="Click to manage enrolled students">
                                     {{ $prog->students_count }} {{ Str::plural('Student', $prog->students_count) }}
                                 </flux:badge>
                             </td>
 
                             <!-- Actions -->
-                            <td class="px-4 py-3.5 text-right">
+                            <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action

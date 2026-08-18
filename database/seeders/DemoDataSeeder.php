@@ -128,7 +128,7 @@ class DemoDataSeeder extends Seeder
 
             // Set program_head_id on department if not set yet
             $deptModel = $data['program']->department;
-            if ($deptModel && !$deptModel->program_head_id) {
+            if ($deptModel && ! $deptModel->program_head_id) {
                 $deptModel->update(['program_head_id' => $employee->id]);
             }
 

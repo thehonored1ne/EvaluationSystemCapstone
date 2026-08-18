@@ -11,6 +11,7 @@ use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Evaluation;
 use App\Models\EvaluationSentiment;
+use App\Models\EvaluationAnswer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 
@@ -267,6 +268,44 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $sentimentLabel = 'Neutral';
         }
 
+        // 8. Analytics Visual Distribution & Department Averages
+        $ratingsDist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+        $totalRatingsCount = 0;
+        $deptScores = [];
+
+        if ($activeSemId) {
+            $activeEvalIds = Evaluation::where('semester_id', $activeSemId)->pluck('id')->toArray();
+            if (!empty($activeEvalIds)) {
+                $answers = EvaluationAnswer::whereIn('evaluation_id', $activeEvalIds)
+                    ->select('rating', DB::raw('count(*) as total'))
+                    ->groupBy('rating')
+                    ->pluck('total', 'rating')
+                    ->toArray();
+
+                foreach ($ratingsDist as $rating => $val) {
+                    $ratingsDist[$rating] = $answers[$rating] ?? 0;
+                }
+                $totalRatingsCount = array_sum($ratingsDist);
+            }
+
+            $depts = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+            foreach ($depts as $dept) {
+                $deptEvals = Evaluation::where('semester_id', $activeSemId)
+                    ->whereHas('evaluatee.employee', function ($q) use ($dept) {
+                        $q->where('department_id', $dept->id);
+                    })
+                    ->get();
+                $dCount = $deptEvals->count();
+                $dAvg = $dCount > 0 ? round($deptEvals->avg('rating_average'), 2) : 0.00;
+                $deptScores[] = [
+                    'name' => $dept->name,
+                    'code' => $dept->code,
+                    'average' => $dAvg,
+                    'count' => $dCount,
+                ];
+            }
+        }
+
         $pendingCount = max(0, $expectedCount - $submittedCount);
 
         return [
@@ -287,6 +326,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'sentimentTextClass' => $sentimentTextClass,
             'sentimentBadgeVariant' => $sentimentBadgeVariant,
             'sentimentLabel' => $sentimentLabel,
+            'ratingsDist' => $ratingsDist,
+            'totalRatingsCount' => $totalRatingsCount,
+            'deptScores' => $deptScores,
         ];
     }
 }; ?>
@@ -532,6 +574,67 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
 
+    <!-- Analytics Charts Row: Ratings Distribution & Department Average Comparison -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" x-data="dashboardAnalyticsCharts({
+        ratingsData: [{{ (int)($ratingsDist[5] ?? 0) }}, {{ (int)($ratingsDist[4] ?? 0) }}, {{ (int)($ratingsDist[3] ?? 0) }}, {{ (int)($ratingsDist[2] ?? 0) }}, {{ (int)($ratingsDist[1] ?? 0) }}],
+        deptLabels: {{ json_encode(array_values(array_column($deptScores, 'code'))) }},
+        deptAverages: {{ json_encode(array_values(array_column($deptScores, 'average'))) }}
+    })">
+        <!-- Chart 1: Ratings Distribution -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <flux:icon icon="star" class="size-5 text-amber-500 fill-amber-500" />
+                        Ratings Distribution Chart
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 star scores submitted for this period.</p>
+                </div>
+                <flux:badge variant="neutral" size="sm" class="font-bold">
+                    {{ $totalRatingsCount }} answer{{ $totalRatingsCount === 1 ? '' : 's' }}
+                </flux:badge>
+            </div>
+
+            @if($totalRatingsCount > 0)
+                <div class="h-64 w-full pt-2">
+                    <canvas x-ref="ratingsChart" class="w-full h-full"></canvas>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
+                    <flux:icon name="chart-bar" class="size-8 text-zinc-300 dark:text-zinc-650" />
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No question rating answers recorded for this period.</p>
+                </div>
+            @endif
+        </div>
+
+        <!-- Chart 2: Academic Department Average Ratings Comparison -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <flux:icon icon="building-office-2" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                        Department Average Ratings Chart
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Comparative mean scores across academic departments.</p>
+                </div>
+                <flux:badge variant="neutral" size="sm" class="font-bold">
+                    Scale: 5.00
+                </flux:badge>
+            </div>
+
+            @if(count($deptScores) > 0)
+                <div class="h-64 w-full pt-2">
+                    <canvas x-ref="deptChart" class="w-full h-full"></canvas>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
+                    <flux:icon name="building-office" class="size-8 text-zinc-300 dark:text-zinc-650" />
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No departments configured.</p>
+                </div>
+            @endif
+        </div>
+    </div>
+
     <!-- Bottom Row: Recent Submissions Log -->
     <div class="w-full">
         <!-- Recent Submissions Log -->
@@ -623,7 +726,118 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <div>
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Manage Accounts</span>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Create/edit student & faculty users.</span>
+                </div>
             </flux:card>
         </div>
     </div>
+
+    <script>
+        (function() {
+            const initAlpineData = () => {
+                if (typeof Alpine !== 'undefined') {
+                    Alpine.data('dashboardAnalyticsCharts', (config) => ({
+                        ratingsInstance: null,
+                        deptInstance: null,
+                        ratingsData: config.ratingsData,
+                        deptLabels: config.deptLabels,
+                        deptAverages: config.deptAverages,
+                        init() {
+                            this.$nextTick(() => {
+                                this.renderRatings();
+                                this.renderDept();
+                            });
+                        },
+                        renderRatings() {
+                            if (!this.$refs.ratingsChart || typeof Chart === 'undefined') return;
+                            if (this.ratingsInstance) {
+                                this.ratingsInstance.destroy();
+                            }
+                            this.ratingsInstance = new Chart(this.$refs.ratingsChart.getContext('2d'), {
+                                type: 'bar',
+                                data: {
+                                    labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
+                                    datasets: [{
+                                        data: this.ratingsData,
+                                        backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#71717a'],
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(ctx) {
+                                                    return ctx.raw + ' answers';
+                                                }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            grid: { color: 'rgba(150, 150, 150, 0.1)' },
+                                            ticks: { precision: 0 }
+                                        },
+                                        x: { grid: { display: false } }
+                                    }
+                                }
+                            });
+                        },
+                        renderDept() {
+                            if (!this.$refs.deptChart || typeof Chart === 'undefined' || this.deptLabels.length === 0) return;
+                            if (this.deptInstance) {
+                                this.deptInstance.destroy();
+                            }
+                            this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
+                                type: 'bar',
+                                data: {
+                                    labels: this.deptLabels,
+                                    datasets: [{
+                                        data: this.deptAverages,
+                                        backgroundColor: '#9b0000',
+                                        hoverBackgroundColor: '#7a0000',
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                    }]
+                                },
+                                options: {
+                                    indexAxis: 'y',
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(ctx) {
+                                                    return ctx.raw + ' / 5.00 Rating';
+                                                }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            min: 0,
+                                            max: 5.0,
+                                            grid: { color: 'rgba(150, 150, 150, 0.1)' }
+                                        },
+                                        y: { grid: { display: false } }
+                                    }
+                                }
+                            });
+                        }
+                    }));
+                }
+            };
+
+            if (typeof Alpine !== 'undefined') {
+                initAlpineData();
+            } else {
+                document.addEventListener('alpine:init', initAlpineData);
+            }
+        })();
+    </script>
 </div>

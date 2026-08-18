@@ -544,39 +544,39 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- Main Classes Table -->
     <div wire:loading.remove wire:target="search, filterSemester, filterDepartment, filterSubject, filterTeacher, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+            <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[10%] px-4 py-3.5">Section</th>
-                        <th class="w-[26%] px-4 py-3.5">Subject</th>
-                        <th class="w-[20%] px-4 py-3.5">Assigned Professor</th>
-                        <th class="w-[18%] px-4 py-3.5">Schedule</th>
-                        <th class="w-[12%] px-4 py-3.5">Academic Period</th>
-                        <th class="w-[8%] px-4 py-3.5 text-center">Enrolled</th>
-                        <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
+                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 whitespace-nowrap">Section</th>
+                        <th class="w-[24%] min-w-[170px] px-4 py-3.5 whitespace-nowrap">Subject</th>
+                        <th class="w-[20%] min-w-[160px] px-4 py-3.5 whitespace-nowrap">Assigned Professor</th>
+                        <th class="w-[18%] min-w-[140px] px-4 py-3.5 whitespace-nowrap">Schedule</th>
+                        <th class="w-[14%] min-w-[120px] px-4 py-3.5 whitespace-nowrap">Academic Period</th>
+                        <th class="w-[8%] min-w-[90px] px-4 py-3.5 text-center whitespace-nowrap">Enrolled</th>
+                        <th class="w-[6%] min-w-[80px] px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($classes as $classItem)
                         <tr wire:key="{{ $classItem->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Section -->
-                            <td class="px-4 py-3.5 font-bold text-zinc-900 dark:text-zinc-100">
+                            <td class="px-4 py-3.5 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                                 {{ $classItem->section }}
                             </td>
 
                             <!-- Subject -->
-                            <td class="px-4 py-3.5">
+                            <td class="px-4 py-3.5 whitespace-nowrap">
                                 <span class="font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] block">
                                     {{ $classItem->subject->code }}
                                 </span>
-                                <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block">
+                                <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block max-w-[170px]" title="{{ $classItem->subject->name }}">
                                     {{ $classItem->subject->name }}
                                 </span>
                             </td>
 
                             <!-- Teacher -->
-                            <td class="px-4 py-3.5">
-                                <span class="font-medium text-zinc-900 dark:text-zinc-100 block truncate">
+                            <td class="px-4 py-3.5 whitespace-nowrap">
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100 block truncate max-w-[160px]">
                                     {{ $classItem->teacher->formatted_name ?? $classItem->teacher->full_name }}
                                 </span>
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400 block truncate">
@@ -585,7 +585,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Schedule -->
-                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-300">
+                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
                                 @if($classItem->schedule)
                                     <span class="font-semibold block">{{ $classItem->schedule }}</span>
                                     @if($classItem->room)
@@ -597,7 +597,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Semester -->
-                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                                 <span class="font-semibold block text-zinc-800 dark:text-zinc-200">
                                     {{ $classItem->semester->academicYear->name }}
                                 </span>
@@ -605,7 +605,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Enrolled Count -->
-                            <td class="px-4 py-3.5 text-center">
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 <button type="button" wire:click="manageStudents({{ $classItem->id }})" class="hover:opacity-80 transition-opacity">
                                     @if($classItem->students_count > 0)
                                         <flux:badge size="sm" color="indigo" class="cursor-pointer font-bold">
@@ -620,7 +620,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </td>
 
                             <!-- Actions -->
-                            <td class="px-4 py-3.5 text-right">
+                            <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action

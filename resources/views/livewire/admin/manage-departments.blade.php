@@ -367,10 +367,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
             <!-- Department Leader Assignment Filter -->
             <div>
-                <flux:select wire:model.live="headFilter" class="w-full" placeholder="All Leader Status">
-                    <flux:select.option value="">All Leader Status</flux:select.option>
-                    <flux:select.option value="assigned">Assigned Leader (Head)</flux:select.option>
-                    <flux:select.option value="unassigned">Unassigned Leader</flux:select.option>
+                <flux:select wire:model.live="headFilter" class="w-full" placeholder="All Head Status">
+                    <flux:select.option value="">All Head Status</flux:select.option>
+                    <flux:select.option value="assigned">Assigned Head</flux:select.option>
+                    <flux:select.option value="unassigned">Unassigned Head</flux:select.option>
                 </flux:select>
             </div>
 
@@ -379,9 +379,6 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <flux:select wire:model.live="sortBy" class="w-full">
                     <flux:select.option value="name_asc">Department Name (A to Z)</flux:select.option>
                     <flux:select.option value="name_desc">Department Name (Z to A)</flux:select.option>
-                    <flux:select.option value="code_asc">Code (A to Z)</flux:select.option>
-                    <flux:select.option value="code_desc">Code (Z to A)</flux:select.option>
-                    <flux:select.option value="programs_desc">Most Academic Programs</flux:select.option>
                     <flux:select.option value="faculty_desc">Most Members</flux:select.option>
                 </flux:select>
             </div>
@@ -390,39 +387,32 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Skeleton Loading State -->
     <div wire:loading wire:target="search, headFilter, typeFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
-        <x-skeleton type="table" :rows="5" :cols="6" />
+        <x-skeleton type="table" :rows="5" :cols="5" />
     </div>
 
     <!-- Main Departments Table -->
     <div wire:loading.remove wire:target="search, headFilter, typeFilter, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+            <table class="w-full min-w-[700px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[12%] px-4 py-3.5">Code</th>
-                        <th class="w-[28%] px-4 py-3.5">Department Name</th>
-                        <th class="w-[12%] px-4 py-3.5 text-center">Type</th>
-                        <th class="w-[22%] px-4 py-3.5">Assigned Leader</th>
-                        <th class="w-[10%] px-4 py-3.5 text-center">Programs</th>
-                        <th class="w-[10%] px-4 py-3.5 text-center">Members</th>
-                        <th class="w-[6%] px-4 py-3.5 text-right">Actions</th>
+                        <th class="w-[35%] min-w-[200px] px-4 py-3.5 whitespace-nowrap">Department Name</th>
+                        <th class="w-[18%] min-w-[140px] px-4 py-3.5 text-center whitespace-nowrap">Department Type</th>
+                        <th class="w-[27%] min-w-[180px] px-4 py-3.5 whitespace-nowrap">Head</th>
+                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 text-center whitespace-nowrap">Members</th>
+                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($departments as $dept)
                         <tr wire:key="{{ $dept->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                            <!-- Department Code -->
-                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696]">
-                                {{ $dept->code }}
-                            </td>
-                            
                             <!-- Department Name -->
-                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold truncate" title="{{ $dept->name }}">
+                            <td class="px-4 py-3.5 dark:text-zinc-200 font-semibold" title="{{ $dept->name }}">
                                 {{ $dept->name }}
                             </td>
 
-                            <!-- Type Badge -->
-                            <td class="px-4 py-3.5 text-center">
+                            <!-- Department Type Badge -->
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 @if(($dept->type ?? 'academic') === 'administrative')
                                     <flux:badge size="sm" color="amber" class="font-bold">Administrative</flux:badge>
                                 @else
@@ -430,8 +420,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                 @endif
                             </td>
 
-                            <!-- Assigned Leader -->
-                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs">
+                            <!-- Head -->
+                            <td class="px-4 py-3.5 dark:text-zinc-300 text-xs whitespace-nowrap">
                                 @php
                                     $isAdminType = ($dept->type ?? 'academic') === 'administrative';
                                     $assignedLeader = $isAdminType 
@@ -448,22 +438,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                 @endif
                             </td>
 
-                            <!-- Programs Count -->
-                            <td class="px-4 py-3.5 text-center">
-                                <flux:badge size="sm" color="purple" class="font-bold">
-                                    {{ $dept->programs_count }} {{ Str::plural('Program', $dept->programs_count) }}
-                                </flux:badge>
-                            </td>
-
                             <!-- Members Count -->
-                            <td class="px-4 py-3.5 text-center">
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 <flux:badge size="sm" color="indigo" class="font-bold">
                                     {{ $dept->employees_count }} {{ Str::plural('Member', $dept->employees_count) }}
                                 </flux:badge>
                             </td>
 
                             <!-- Actions -->
-                            <td class="px-4 py-3.5 text-right">
+                            <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action
@@ -485,15 +468,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-zinc-400">
-                                <div class="flex flex-col items-center justify-center gap-2">
-                                    <flux:icon name="building-office-2" class="size-10 text-zinc-300 dark:text-zinc-600" />
-                                    <p class="text-base font-semibold text-zinc-700 dark:text-zinc-300">No departments found</p>
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No departments match your current search or filter criteria.</p>
-                                    <flux:button size="sm" variant="outline" wire:click="clearFilters" class="mt-2">
-                                        Reset Filters
-                                    </flux:button>
-                                </div>
+                            <td colspan="5" class="px-4 py-12 text-center text-zinc-500 dark:text-zinc-400">
+                                <flux:icon name="building-office-2" class="size-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-600" />
+                                No departments found matching your criteria.
                             </td>
                         </tr>
                     @endforelse

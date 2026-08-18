@@ -39,6 +39,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         'employee_id',
         'password',
         'is_active',
+        'show_ai_pipeline',
         'notifications_last_viewed_at',
         'dismissed_notifications',
     ];
@@ -64,6 +65,7 @@ class User extends Authenticatable // implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'show_ai_pipeline' => 'boolean',
             'notifications_last_viewed_at' => 'datetime',
             'dismissed_notifications' => 'array',
         ];

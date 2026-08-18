@@ -281,11 +281,8 @@
 
                     <!-- Analytics & Reports (Admin, Dean, Program Head) -->
                     @if($user->hasAnyRole(['admin', 'dean', 'program head']))
-                        <flux:navlist.group heading="Analytics & Reports" class="grid">
-                            @if($user->hasRole('admin'))
-                                <flux:tooltip content="Analytics" position="right">
-                                    <flux:navlist.item icon="chart-bar" :href="route('analytics')" :current="request()->routeIs('analytics')" wire:navigate title="Analytics">Analytics</flux:navlist.item>
-                                </flux:tooltip>
+                        <flux:navlist.group heading="Reports & Tools" class="grid">
+                            @if($user->hasRole('admin') && ($user->show_ai_pipeline ?? true))
                                 <flux:tooltip content="AI Pipeline" position="right">
                                     <flux:navlist.item icon="beaker" :href="route('admin.ai')" :current="request()->routeIs('admin.ai')" wire:navigate title="AI Pipeline">AI Pipeline</flux:navlist.item>
                                 </flux:tooltip>

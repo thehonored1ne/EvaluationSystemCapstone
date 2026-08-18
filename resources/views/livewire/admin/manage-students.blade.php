@@ -296,48 +296,64 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
     
     <div wire:loading wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full">
-        <x-skeleton type="table" :rows="5" :cols="6" />
+        <x-skeleton type="table" :rows="5" :cols="7" />
     </div>
 
     <div wire:loading.remove wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
-        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700 shadow-2xs">
+            <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800">
                     <tr>
-                        <th class="w-[15%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Student ID</th>
-                        <th class="w-[25%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Full Name</th>
-                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Email</th>
-                        <th class="w-[20%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Programs</th>
-                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">Account Status</th>
-                        <th class="w-[10%] px-4 py-3 font-medium text-gray-900 dark:text-zinc-100 text-right">Action</th>
+                        <th class="w-[14%] min-w-[120px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Student ID</th>
+                        <th class="w-[22%] min-w-[180px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Full Name</th>
+                        <th class="w-[20%] min-w-[160px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Email</th>
+                        <th class="w-[14%] min-w-[130px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Program & Section</th>
+                        <th class="w-[10%] min-w-[100px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Year Level</th>
+                        <th class="w-[10%] min-w-[100px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Account Status</th>
+                        <th class="w-[10%] min-w-[80px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-right whitespace-nowrap">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse ($users as $user)
-                        <tr wire:key="{{ $user->id }}">
-                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs font-semibold">
+                        <tr wire:key="{{ $user->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-colors">
+                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                                 {{ $user->student?->student_number }}
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-300 font-medium">
+                            <td class="px-4 py-3 dark:text-zinc-300 font-medium text-zinc-900 dark:text-zinc-100">
                                 {{ $user->student?->formatted_name ?? $user->name }}
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">
+                            <td class="px-4 py-3 dark:text-zinc-400 text-xs">
                                 {{ $user->email }}
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-300 text-xs">
-                                <span class="font-semibold block">{{ $user->student?->program?->code ?: 'Unassigned' }}</span>
+                            <td class="px-4 py-3 dark:text-zinc-300 text-xs whitespace-nowrap">
+                                <span class="font-bold block text-zinc-900 dark:text-zinc-100">{{ $user->student?->program?->code ?: 'Unassigned' }}</span>
                                 @if($user->student?->section)
-                                    <span class="text-zinc-500 font-mono text-[10px]">{{ $user->student->section }}</span>
+                                    <span class="text-zinc-500 dark:text-zinc-400 font-mono text-[11px] block">{{ $user->student->section }}</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                @php
+                                    $yr = $user->student?->year_level;
+                                    $yrLabel = match((int)$yr) {
+                                        1 => '1st Year',
+                                        2 => '2nd Year',
+                                        3 => '3rd Year',
+                                        4 => '4th Year',
+                                        default => $yr ? "Year {$yr}" : '—'
+                                    };
+                                @endphp
+                                <flux:badge variant="neutral" size="sm" class="font-semibold whitespace-nowrap">
+                                    {{ $yrLabel }}
+                                </flux:badge>
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
                                 <button wire:click="toggleActive({{ $user->id }})" class="cursor-pointer">
                                     <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
                                         {{ $user->is_active ? 'Active' : 'Disabled' }}
                                     </flux:badge>
                                 </button>
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action
@@ -363,7 +379,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
                                 No student accounts found matching your criteria.
                             </td>
                         </tr>

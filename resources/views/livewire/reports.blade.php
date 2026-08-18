@@ -20,6 +20,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public ?int $selectedTeacherId = null;
     public ?int $selectedSemesterId = null;
+    public string $searchTeacher = '';
+    public string $selectedDepartment = '';
     public string $activeTab = 'individual';
 
     public function mount()
@@ -35,10 +37,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return Semester::with('academicYear')->orderBy('id', 'desc')->get();
     }
 
+    public function getDepartmentsProperty()
+    {
+        return Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))
+            ->orderBy('name')
+            ->get();
+    }
+
     public function getTeachersProperty()
     {
         $user = auth()->user();
         $query = Employee::whereIn('role', ['faculty', 'program head', 'dean'])
+            ->whereHas('department', fn($dq) => $dq->whereNull('type')->orWhere('type', 'academic'))
             ->with(['department', 'user'])
             ->orderBy('first_name');
 
@@ -46,6 +56,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('department_id', $user->employee->department_id);
         } elseif ($user->hasRole('dean')) {
             $query->where('department_id', $user->employee->department_id);
+        }
+
+        if ($this->selectedDepartment) {
+            $query->where('department_id', $this->selectedDepartment);
+        }
+
+        if ($this->searchTeacher) {
+            $search = '%' . trim($this->searchTeacher) . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', $search)
+                  ->orWhere('last_name', 'like', $search)
+                  ->orWhere('employee_number', 'like', $search);
+            });
         }
 
         return $query->get();
@@ -351,7 +374,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $user = auth()->user();
 
         // 1. Department Rankings (Academic only)
-        $deptQuery = Department::where('type', 'academic')->orderBy('name');
+        $deptQuery = Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))->orderBy('name');
         if ($user->hasRole('program head')) {
             $deptQuery->where('id', $user->employee->department_id);
         }
@@ -624,23 +647,46 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     <!-- Teacher Selection Bar (Only in Individual tab) -->
     @if($activeTab === 'individual')
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs print:hidden">
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
-                    <flux:select wire:model.live="selectedTeacherId" placeholder="Select Faculty Member / Professor" clearable>
-                        <flux:select.option value="">Choose a Faculty Member</flux:select.option>
-                        @foreach($this->teachers as $teacher)
-                            <flux:select.option value="{{ $teacher->id }}">
-                                {{ $teacher->full_name }} ({{ $teacher->department?->code ?? 'N/A' }} • {{ ucfirst($teacher->role) }})
-                            </flux:select.option>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs print:hidden space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+                <!-- 1. Search Filter -->
+                <div>
+                    <flux:input 
+                        wire:model.live.debounce.300ms="searchTeacher" 
+                        icon="magnifying-glass" 
+                        placeholder="Search name or ID..." 
+                        clearable 
+                    />
+                </div>
+
+                <!-- 2. Department Filter -->
+                <div>
+                    <flux:select wire:model.live="selectedDepartment" placeholder="All Departments" clearable>
+                        <flux:select.option value="">All Departments</flux:select.option>
+                        @foreach($this->departments as $dept)
+                            <flux:select.option value="{{ $dept->id }}">{{ $dept->name }} ({{ $dept->code }})</flux:select.option>
                         @endforeach
                     </flux:select>
                 </div>
-                @if($selectedTeacherId && $selectedSemesterId)
-                    <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white">
-                        Print GRC Official Report
-                    </flux:button>
-                @endif
+
+                <!-- 3. Faculty Member Select & Print Button -->
+                <div class="lg:col-span-2 flex items-center gap-3">
+                    <div class="flex-1 min-w-0">
+                        <flux:select wire:model.live="selectedTeacherId" placeholder="Select Faculty Member / Professor" clearable>
+                            <flux:select.option value="">Choose a Faculty Member ({{ $this->teachers->count() }} found)</flux:select.option>
+                            @foreach($this->teachers as $teacher)
+                                <flux:select.option value="{{ $teacher->id }}">
+                                    {{ $teacher->full_name }} ({{ $teacher->department?->code ?? 'N/A' }} • {{ ucfirst($teacher->role) }})
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    @if($selectedTeacherId && $selectedSemesterId)
+                        <flux:button variant="primary" icon="arrow-down-tray" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white shrink-0 font-bold">
+                            Save as PDF
+                        </flux:button>
+                    @endif
+                </div>
             </div>
         </div>
     @endif

@@ -46,6 +46,16 @@
   - Page 2: AI Student Comments Analysis featuring big system logo, sentiment distribution gauge, bilingual Top Student Commendations & Key Opportunities for Growth, representative student feedback extracts (signatures removed for full NLP focus).
   - Reworked Evaluation Settings Section 3 with dynamic report tab switching for Individual Teaching Effectiveness, Administrative Staff, and Global Targets.
   - Enabled College Deans to evaluate academic faculty/professors on `dean/dashboard.blade.php` and sidebar.
+- [X] **Subjects Bulk Data Import, Export & Template (2026-08-19)**:
+  - Added Download Template (CSV), Export Subjects (CSV), and Import Subjects supporting CSV and Excel files with validation and toast notifications.
+- [X] **Admin Dashboard Visual Analytics (2026-08-19)**:
+  - Converted metrics cards to Chart.js visual charts (Ratings Distribution & Department Average Comparison) with modular Alpine.js integration.
+- [X] **Evaluation Results Directory & Relational Role Query Fix (2026-08-19)**:
+  - Built paginated 10/page directory with multi-role filters (Dean, PH, DH, Professor, Staff, Student) and detailed breakdown modal.
+- [X] **Global Table Responsive Standardization (2026-08-19)**:
+  - Standardized all 8 system tables for 100% full-width desktop view with min-width horizontal scrolling safety on mobile.
+- [X] **Evaluation Settings Quick Navigation & Period Table (2026-08-19)**:
+  - Added static quick jump navigation bar and paginated academic periods table.
 - export/import/template in employees and student data
 
 

@@ -181,28 +181,16 @@ new class extends Component {
             </div>
 
             <!-- Dropdown Footer -->
-            <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 text-center flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 text-center flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-800">
                 <span>{{ count($this->notifications) }} active notification{{ count($this->notifications) === 1 ? '' : 's' }}</span>
-                <div class="flex items-center gap-3">
-                    @if($this->unreadCount > 0)
-                        <button 
-                            type="button" 
-                            wire:click="markAllAsRead" 
-                            class="font-semibold text-[#9b0000] dark:text-[#f89696] hover:underline cursor-pointer"
-                        >
-                            Mark all as read
-                        </button>
-                    @endif
-                    @if(count($this->notifications) > 0)
-                        <button 
-                            type="button" 
-                            wire:click="clearAll" 
-                            class="font-semibold text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:underline cursor-pointer"
-                        >
-                            Clear all
-                        </button>
-                    @endif
-                </div>
+                <a 
+                    href="{{ route('notifications') }}" 
+                    wire:navigate 
+                    class="font-semibold text-[#9b0000] dark:text-[#f89696] hover:underline cursor-pointer flex items-center gap-1"
+                >
+                    <span>View all notifications</span>
+                    <flux:icon icon="arrow-right" class="size-3" />
+                </a>
             </div>
         </flux:menu>
     </flux:dropdown>
