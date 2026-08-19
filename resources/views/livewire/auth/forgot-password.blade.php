@@ -23,22 +23,43 @@ new #[Layout('components.layouts.auth')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header title="Forgot password" description="Enter your email to receive a password reset link" />
+    <x-auth-header title="{{ __('Forgot password') }}" description="{{ __('Enter your email to receive a password reset link') }}" />
 
     <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    <x-auth-session-status class="text-center text-[#7a0000] font-semibold text-sm" :status="session('status')" />
 
-    <form wire:submit="sendPasswordResetLink" class="flex flex-col gap-6">
+    <form wire:submit="sendPasswordResetLink" class="flex flex-col gap-5">
         <!-- Email Address -->
-        <div class="grid gap-2">
-            <flux:input wire:model="email" label="{{ __('Email Address') }}" type="email" name="email" required autofocus placeholder="email@example.com" />
+        <div class="flex flex-col gap-1.5 text-left">
+            <label for="email" class="block text-xs font-bold uppercase tracking-wider text-[#7a0000]">
+                {{ __('Email Address') }}
+            </label>
+            <input 
+                wire:model="email" 
+                id="email"
+                type="email" 
+                name="email" 
+                required 
+                autofocus 
+                autocomplete="email"
+                placeholder="name@grc.edu.ph"
+                class="w-full px-3.5 py-2.5 bg-white text-zinc-900 font-semibold text-sm rounded-xl border border-zinc-300 focus:border-[#9b0000] focus:ring-2 focus:ring-[#9b0000]/25 focus:outline-hidden transition-all placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+            />
+            @error('email')
+                <p class="text-xs text-rose-600 font-semibold">{{ $message }}</p>
+            @enderror
         </div>
 
-        <flux:button variant="primary" type="submit" class="w-full">{{ __('Email password reset link') }}</flux:button>
+        <button 
+            type="submit" 
+            class="w-full py-3 px-4 bg-[#7a0000] hover:bg-[#9b0000] active:bg-[#600000] text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
+        >
+            <span>{{ __('Email password reset link') }}</span>
+        </button>
     </form>
 
-    <div class="space-x-1 text-center text-sm text-zinc-400">
-        Or, return to
-        <x-text-link href="{{ route('login') }}">log in</x-text-link>
+    <div class="space-x-1 text-center text-sm font-medium text-zinc-600">
+        {{ __('Or, return to') }}
+        <a href="{{ route('login') }}" class="font-bold text-[#7a0000] hover:text-[#9b0000] hover:underline" wire:navigate>{{ __('log in') }}</a>
     </div>
 </div>

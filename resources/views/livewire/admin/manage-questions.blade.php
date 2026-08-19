@@ -237,43 +237,43 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             wire:click="selectTab('student')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'student' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Student ({{ $studentPts }} pts)
+            Student
         </button>
         <button 
             wire:click="selectTab('dean')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'dean' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Dean ({{ $deanPts }} pts)
+            Dean
         </button>
         <button 
             wire:click="selectTab('program_head')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'program_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Program Head ({{ $phPts }} pts)
+            Program Head
         </button>
         <button 
             wire:click="selectTab('department_head')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'department_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Department Head ({{ $dhPts }} pts)
+            Department Head
         </button>
         <button 
             wire:click="selectTab('peer')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'peer' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Peer ({{ $peerPts }} pts)
+            Peer
         </button>
         <button 
             wire:click="selectTab('superior')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'superior' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Supervisor ({{ $superiorPts }} pts)
+            Supervisor
         </button>
         <button 
             wire:click="selectTab('self')" 
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'self' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
-            Self ({{ $selfPts }} pts)
+            Self
         </button>
     </div>
 

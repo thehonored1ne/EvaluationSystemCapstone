@@ -148,8 +148,8 @@ class ProcessEvaluationSubmission implements ShouldQueue
                     ? $byType['dean']->avg('weighted_score')
                     : null;
 
-                $phDhAvg = isset($byType['ph_dh']) || isset($byType['downward'])
-                    ? ($byType['ph_dh'] ?? $byType['downward'])->avg('weighted_score')
+                $phDhAvg = isset($byType['program_head']) || isset($byType['ph_dh']) || isset($byType['department_head']) || isset($byType['downward'])
+                    ? ($byType['program_head'] ?? ($byType['ph_dh'] ?? ($byType['department_head'] ?? $byType['downward'])))->avg('weighted_score')
                     : null;
 
                 $peerAvg = isset($byType['peer'])

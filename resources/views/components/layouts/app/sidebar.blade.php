@@ -19,44 +19,47 @@
                 color: #ffffff !important;
             }
 
-            /* Mini Icon-Only Collapsed Sidebar Styles */
-            body.sidebar-is-collapsed [data-flux-sidebar] {
-                width: 4.25rem !important;
-                min-width: 4.25rem !important;
-                padding-left: 0.375rem !important;
-                padding-right: 0.375rem !important;
-                align-items: center !important;
-            }
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
-            body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-content],
-            body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-text,
-            body.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
-            body.sidebar-is-collapsed [data-flux-sidebar] .pl-6 {
-                display: none !important;
-            }
-            body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-item] {
-                justify-content: center !important;
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-                width: 2.75rem !important;
-                height: 2.5rem !important;
-                margin-left: auto !important;
-                margin-right: auto !important;
+            /* Mini Icon-Only Collapsed Sidebar Styles (Desktop Only) */
+            @media (min-width: 1024px) {
+                body.sidebar-is-collapsed [data-flux-sidebar] {
+                    width: 4.25rem !important;
+                    min-width: 4.25rem !important;
+                    padding-left: 0.375rem !important;
+                    padding-right: 0.375rem !important;
+                    align-items: center !important;
+                }
+                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
+                body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
+                body.sidebar-is-collapsed [data-flux-sidebar] [data-content],
+                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-text,
+                body.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
+                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
+                body.sidebar-is-collapsed [data-flux-sidebar] .pl-6 {
+                    display: none !important;
+                }
+                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-item] {
+                    justify-content: center !important;
+                    padding-left: 0 !important;
+                    padding-right: 0 !important;
+                    width: 2.75rem !important;
+                    height: 2.5rem !important;
+                    margin-left: auto !important;
+                    margin-right: auto !important;
+                }
             }
         </style>
     </head>
     <body 
         x-data="{ 
-            sidebarCollapsed: localStorage.getItem('admin_sidebar_collapsed') === 'true',
+            sidebarCollapsed: window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true',
             toggle() {
-                this.sidebarCollapsed = !this.sidebarCollapsed;
-                localStorage.setItem('admin_sidebar_collapsed', this.sidebarCollapsed);
+                if (window.innerWidth >= 1024) {
+                    this.sidebarCollapsed = !this.sidebarCollapsed;
+                    localStorage.setItem('admin_sidebar_collapsed', this.sidebarCollapsed);
+                }
             }
         }" 
         @toggle-sidebar.window="toggle()" 
-        @flux-sidebar-toggle.window="toggle()"
         :class="sidebarCollapsed ? 'sidebar-is-collapsed' : ''"
         class="min-h-screen bg-[#fafafa] dark:bg-[#252525]"
     >
@@ -64,16 +67,18 @@
             <flux:sidebar 
                 sticky 
                 stashable 
-                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] transition-all duration-200 shrink-0"
+                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] transition-all duration-200 shrink-0 print:hidden"
             >
                 <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-                <!-- Logo Section: Full logo when expanded, Dark Red GRC Favicon Icon when collapsed -->
+                <!-- Logo Section: Full logo on mobile and desktop-expanded; Small Icon ONLY when collapsed on desktop (lg:) -->
                 <a href="{{ route('dashboard') }}" class="flex items-center justify-center w-full px-1 py-2 mb-2 shrink-0" wire:navigate>
-                    <div x-show="!sidebarCollapsed" class="w-full flex items-center justify-center">
+                    <!-- Big Logo: Always on Mobile (max-lg), and on Desktop when not collapsed -->
+                    <div class="w-full flex items-center justify-center" :class="{ 'lg:hidden': sidebarCollapsed }">
                         <x-app-logo class="w-full"></x-app-logo>
                     </div>
-                    <div x-show="sidebarCollapsed" x-cloak class="flex items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#f89696]">
+                    <!-- Small Logo Icon: Desktop only, when collapsed -->
+                    <div x-cloak class="hidden items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#f89696]" :class="{ 'lg:flex': sidebarCollapsed }">
                         <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#f89696] fill-current"></x-app-logo-icon>
                     </div>
                 </a>
@@ -83,8 +88,8 @@
                     $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
                 @endphp
 
-                <!-- Active Term Indicator -->
-                <div x-show="!sidebarCollapsed" class="px-2 mb-3">
+                <!-- Active Term Indicator: Always on Mobile, and on Desktop when not collapsed -->
+                <div class="px-2 mb-3" :class="{ 'lg:hidden': sidebarCollapsed }">
                     <div class="flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium tracking-wide text-center">
                         <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 leading-none">Active Term</span>
                         <span class="truncate font-semibold text-xs mt-0.5">
@@ -137,7 +142,7 @@
                                     </flux:navlist.item>
                                 </flux:tooltip>
 
-                                <div x-show="open && !sidebarCollapsed" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
+                                <div x-show="open" :class="{ 'lg:hidden': sidebarCollapsed }" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
                                     <flux:tooltip content="Employees" position="right">
                                         <flux:navlist.item :href="route('admin.employees')" :current="request()->routeIs('admin.employees')" wire:navigate class="text-xs" title="Employees">Employees</flux:navlist.item>
                                     </flux:tooltip>
@@ -190,7 +195,7 @@
                                     </flux:navlist.item>
                                 </flux:tooltip>
 
-                                <div x-show="open && !sidebarCollapsed" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
+                                <div x-show="open" :class="{ 'lg:hidden': sidebarCollapsed }" class="pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
                                     @if($user->hasRole('dean'))
                                         <flux:tooltip content="Self Evaluation" position="right">
                                             <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && (request('tab') === 'self' || !request('tab'))" wire:navigate class="text-xs" title="Self Evaluation">Self Evaluation</flux:navlist.item>

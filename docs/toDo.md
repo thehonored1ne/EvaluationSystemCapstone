@@ -1,26 +1,20 @@
-## Todo
-
-- [X] Implement initial-load lazy-loading (`#[Lazy]`) and premium shimmer skeleton loaders across all remaining admin-facing pages (Deans, Program Heads, Staff, Subjects, Classes, AI Sentiment, Questions, Settings, Evaluations, Results, and Analytics).
-- [X] fix the issue wherein even if i navigate into notification section, the numbered badge beside notifications in the sidebar is still present even if i already read it. check if the issues is just on admin side.
-- [X] dropdown with long list in my app should be searchable also. check all the parts that has this dropdown with long list and make them searchable. before proceeding ask clarifying question first.
-- [X] create a reusable confirmation modal. for every destructive action like delete. make sure this modal also show the item details that is being deleted. also make sure it uses the same style as my app.
-- [X] in manage users. add a delete button in action column on users(deans, program heads, faculty professor, student, staff). make sure that our reusable confirmation modal goes first before deleting.
-- [X] in evaluation settings, it should prevent a the admin from removing the current saved schedules if the evaluation is still open. they should close the schedule first then they can remove it safely. after doing the fix make sure you update the md files thats connected to this fix.
-- [X] add a none option in department filter, so if theres a column with a value of none, i can look for them faster. also in manage students, add a program and year level filter
-- [X] In reports it should include a summary report of the evaluation results and that can be downloadable to pdf. the filter should be school year, semester. lets make this way for now. the summary should show employee number, professor name, department, evaluation type averages (student, peer, self), total submissions, and overall rating average.
-- [X] impliment ai pipeline (vader sentiment analysis with custom lexicon for tagalog,taglish, tfidf, decision tree classification). will use it to analyze comments from the evaluation results. before proceeding ask clarifying question first. put the python code inside folder **python/** and use flask in this. the laravel will call the python via api call. create a plan on how we will do this. make sure it will use the same database connection and models.
-
-- a button that can automatically update the current school year and semester for users (admin,dean, program head, faculty, student, staff).
-
-- [X] a way to train more our ai pipeline for accuracy. for example the ai says the comment is negative, but it is positive. we should be able to correct the ai and retrain it, and the ai will be able to learn from it. we should test our ai with more test data so in the future we can test its accuracy by ground truth test or other testing methods. it should create a confusion matrix to check the accuracy of the ai.
-
-- use redis for queue jobs to improve performance.
-
-- [X] impliment rate limiting with ip ban to our endpoints, ai endpoints etc.
-- [X] Single-Question Interactive Evaluation Wizard (`evaluation-form.blade.php`), Collapsed Mini Sidebar with GRC logo, dark red navbar & active page styling (`#800000`), role badge, notification count badge, and persistent dark mode across full page reloads & SPA transitions (`$flux.appearance`).
-- [X] Redesigned Admin Reports Page (`/admin/reports`): Eliminated traditional tables in both Summary and Individual reports, replacing them with Executive Metric Cards, Criteria Performance Progress Bars, AI Sentiment & Insights Blocks (sentiment breakdown bar + positive/neutral/constructive percentages + executive summary text), Submitted Comments Stream cards, and Faculty Performance Grid Cards with full `window.print()` single-page export support.
-- [X] Evaluation Form Draft Persistence & Required Comments: Added `localStorage` draft saving in Alpine (`x-data`) for 1-5 rating answers, comments, and question step across page reloads & dashboard navigation. Enforced `required|string|min:3` comments validation on submit with UI red asterisk `Comments & Suggestions *` and error alert. Updated progress bar line fill to `bg-amber-400 dark:bg-amber-400`.
-- [X] Evaluator Navbar, Footer & Table Cleanliness: Enabled navbar and footer for all logged-in evaluator roles (`@if(auth()->check())`), fixed notification badge positioning, auto-hid dashboard header banner when evaluation form is open, and cleaned up table cells in all 5 evaluator dashboards to display strictly single-line strings under Name and Subject headers.
+- [X] **Phase 1 Master Dataset Architecture & Seeding (2026-08-19)**:
+  - Populated 124 institutional employees (1 Dean, 11 Department Heads, 4 Program Heads, 50 Faculty Professors, 57 Administrative Staff) across 15 departments (4 Academic, 11 Administrative).
+  - Populated 3,200 active students (800 CCS, 800 COA, 800 COE, 800 CBAE) across 13 academic programs.
+  - Cataloged 176 unique academic subjects and generated 946 section classes with 29,291 student enrollments.
+  - Standardized 130 evaluation questions across 21 parts across all 7 evaluation categories (`upward_student`, `self`, `dean`, `program_head`, `peer`, `department_head`, `upward_employee`).
+  - Calibrated the Teaching Effectiveness formula allocation in evaluation settings (Student 40%/80pts, Dean 20%/40pts, Program Head 20%/40pts, Peer 15%/30pts, Self 5%/10pts $\rightarrow$ 200 Max Scale).
+- [X] **Phase 2 Authentic Evaluation Population & Demonstration Dataset (2026-08-19)**:
+  - Created high-speed batch seeder `EvaluationPhase2Seeder.php` generating 23,056 evaluations, 499,222 question ratings, and 23,056 VADER/Decision Tree sentiment records.
+  - Pre-computed overall scorecards for all 124 employees in `evaluation_summaries`.
+  - Reserved $\approx 20\% - 25\%$ pending evaluation queues across Students, Deans, Program Heads, Faculty, Department Heads, and Staff for live presentation testing.
+  - Authored a multilingual bank of realistic reflections in English, Taglish, and Filipino across 70% positive, 20% neutral/constructive, and 10% negative sentiments.
+- [X] **Authentication UI Overhaul & High-Contrast Design System (2026-08-19)**:
+  - Enforced solid white card background, visible input borders, and high-contrast dark text on login and password reset forms, completely decoupled from dark mode tint conflicts.
+  - Standardized form action buttons and labels to official GRC deep red branding (`#7a0000` / `#9b0000`).
+  - Added interactive password visibility toggle eye icons and case-insensitive login support for email, student number, employee number, and admin aliases.
+- [X] **Evaluation Review Banner & Dark Mode Contrast Fix (2026-08-19)**:
+  - Corrected dark mode color contrast in `evaluation-form.blade.php` summary review completion banners and unanswered question badges.
 
 - need to update the summary result more, lets make a report generation that can be exported to pdf with all the data in the evaluation. create a separate table to store the evaluation results that can be used for reporting purposes. should show individual result and summary result.
 - weights for calculation of overall rating should be customizable per evaluation type by admin. create a section in evaluation settings to configure this. still thinking how this applies
@@ -56,7 +50,20 @@
   - Standardized all 8 system tables for 100% full-width desktop view with min-width horizontal scrolling safety on mobile.
 - [X] **Evaluation Settings Quick Navigation & Period Table (2026-08-19)**:
   - Added static quick jump navigation bar and paginated academic periods table.
-- export/import/template in employees and student data
+- [X] **Scheduled Automated Deadline Reminders & Notification Engine (2026-08-19)**:
+  - Built hourly Artisan command (`evaluations:send-reminders`) supporting milestone tiers (7d, 3d, 24h, 6h) and `--force` execution.
+  - Added dynamic deadline urgency alerts in `User::getNotifications()` and centralized pending count calculations in `User::countPendingEvaluations()`.
+  - Wired **Send Reminders** action in Completion Tracking (`/manage-evaluations`) to trigger broadcast execution with activity logging.
+- [X] **Advanced Leetspeak Profanity Normalizer & Taglish Code-Switching Context Router (2026-08-19)**:
+  - Created `ProfanityFilterService` in Laravel with character substitutions (`@` $\rightarrow$ `a`, `1`/`!` $\rightarrow$ `i`, `0` $\rightarrow$ `o`, `3` $\rightarrow$ `e`, `$` $\rightarrow$ `s`), repetition collapsing, and inter-character space/punctuation stripping (`t a n g a`, `g_a_g_o`).
+  - Added `detect_language_mode` (English vs Taglish) and Taglish idiom & negation normalizer in Python Flask NLP microservice (`python/app.py`).
+  - Added Unit test suite in `tests/Unit/ProfanityFilterTest.php`.
+- [X] **Admin Bulk Operations, Enrollment Roster Management & Student Status Lifecycle (2026-08-19)**:
+  - **Manage Students (`/admin/students`)**: Added Bulk CSV Import with validation & automated User account provisioning, Download CSV Template, Export CSV, and enrollment status filtering (`Regular`, `Irregular`, `LOA`, `Dropped`, `Graduated`, `Inactive`).
+  - **Manage Employees (`/admin/employees`)**: Added Bulk CSV Import supporting all 6 institutional roles (`faculty`, `dean`, `department head`, `program head`, `staff`, `admin`), department code mapping, role sync, and Export CSV.
+  - **Manage Classes (`/admin/classes`)**: Added Bulk Class Schedule & Student Roster Import (CSV), Download Template, Export Class Masterlist CSV with enrolled counts and IDs, and automatic `class_student` pivot linking.
+- [X] **Admin Dashboard Quick System Actions Hub (2026-08-19)**:
+  - Upgraded dashboard quick actions into a responsive 12-action grid covering Completion Tracking, Evaluation Results, Official Reports, Faculty Rankings, Evaluation Settings, Questionnaire Setup, Classes & Rosters, Manage Students, Manage Employees, Subject Catalog, Departments & Programs, and AI Model Training.
 
 
 - [X] **Completion Tracking Modernization across All 7 Standardized Categories (2026-08-15)**:

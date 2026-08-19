@@ -11,3 +11,6 @@ use Illuminate\Support\Facades\Schedule;
 
 // Automatically retrain the AI model daily at midnight
 Schedule::command('ai:train')->daily();
+
+// Automatically check evaluation deadlines and dispatch reminders hourly
+Schedule::command('evaluations:send-reminders')->hourly()->withoutOverlapping();

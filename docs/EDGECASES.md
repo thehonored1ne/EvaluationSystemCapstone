@@ -123,10 +123,9 @@ This document tracks identified edge cases, potential failure modes, security bo
 The following items are non-critical edge cases and potential future iterations to review and enhance over time:
 
 ### 7.1 Advanced Leetspeak & Obfuscated Profanity
-* **Description**: Users attempting to bypass the profanity filter using symbol substitution, spacing, or intentional character interleaving (e.g., `p@ng1t`, `g a l i t`, `t_a_n_g_a`).
-* **Current Behavior**: The current regex-based profanity filter catches standard swear words and common spelling variations, but does not perform character-normalization parsing on arbitrarily obfuscated text.
-* **Recommended Next Step**: Implement a character-mapping normalization step (e.g., replace `@` with `a`, `1`/`!` with `i`, `0` with `o`, strip inter-word whitespace) prior to regex evaluation.
-* **Status**: **Open Enhancement**.
+* **Description**: Users attempting to bypass the profanity filter using symbol substitution, spacing, or intentional character interleaving (e.g., `p@ng1t`, `b0b0`, `t a n g a`, `g_a_g_o`).
+* **Current Behavior**: Handled via `ProfanityFilterService` multi-stage pre-parser mapping symbol substitutions (`@` $\rightarrow$ `a`, `1`/`!` $\rightarrow$ `i`, `0` $\rightarrow$ `o`, `3` $\rightarrow$ `e`, `$` $\rightarrow$ `s`), character repetition collapsing (`taaaangaaa` $\rightarrow$ `tanga`), and inter-character spacing stripping.
+* **Status**: **Handled & Verified**.
 
 ### 7.2 Colloquial Taglish Dataset Expansion
 * **Description**: Idiomatic Taglish feedback expressions containing rare slang, sarcasm, or multi-layered colloquialisms.

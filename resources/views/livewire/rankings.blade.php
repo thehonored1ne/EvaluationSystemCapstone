@@ -268,25 +268,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'faculty')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter & Search Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search faculty name or ID..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex flex-wrap gap-3">
-                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments" class="w-44">
+                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments" class="w-full sm:w-52">
                         <flux:select.option value="">All Departments</flux:select.option>
                         @foreach($this->departments as $dept)
                             <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
                         @endforeach
                     </flux:select>
 
-                    <flux:select wire:model.live="sortBy" class="w-44">
+                    <flux:select wire:model.live="sortBy" class="w-full sm:w-48">
                         <flux:select.option value="highest">Highest Rating First</flux:select.option>
                         <flux:select.option value="lowest">Lowest Rating First</flux:select.option>
                         <flux:select.option value="most_evals">Most Evaluations</flux:select.option>

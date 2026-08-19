@@ -613,9 +613,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </flux:subheading>
         </div>
 
-        <div class="flex items-center gap-3">
-            <div class="w-48">
-                <flux:select wire:model.live="selectedSemesterId" placeholder="Select Academic Period">
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+            <div class="w-full sm:w-56">
+                <flux:select wire:model.live="selectedSemesterId" placeholder="Select Academic Period" class="w-full">
                     @foreach($this->semesters as $sem)
                         <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
                     @endforeach

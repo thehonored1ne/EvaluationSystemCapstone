@@ -33,13 +33,15 @@ Used for real-time sentiment analysis of submitted evaluation comments.
   "comment": "Napakabait at mahusay magturo si ma'am, marami akong natutunan.",
   "vader_score": 0.825,
   "vader_label": "positive",
-  "dt_label": "positive"
+  "dt_label": "positive",
+  "language_mode": "taglish"
 }
 ```
 
 * **`vader_score`**: A decimal value between `-1.0` (negative) and `1.0` (positive) representing compound sentiment valence.
 * **`vader_label`**: Rules-based classification (`positive` / `neutral` / `negative`).
 * **`dt_label`**: Machine learning classification predicted by the Decision Tree classifier.
+* **`language_mode`**: Language classification determined by particle heuristics (`taglish` / `english`).
 
 ---
 

@@ -30,6 +30,19 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 19, 2026
+- **Advanced Leetspeak Profanity Normalization & Taglish Code-Switching Context Router**:
+  - Built `ProfanityFilterService` in Laravel featuring multi-stage symbol substitutions (`@` $\rightarrow$ `a`, `1`/`!` $\rightarrow$ `i`, `0` $\rightarrow$ `o`, `3` $\rightarrow$ `e`, `$` $\rightarrow$ `s`), character repetition collapsing (`taaaangaaa` $\rightarrow$ `tanga`), and inter-character spacing stripping (`t a n g a`, `g_a_g_o`).
+  - Added particle-based language mode detection (`detect_language_mode`) and specialized Taglish multi-word negation & idiom context pre-parsing in Python Flask NLP microservice (`python/app.py`).
+- **Scheduled Automated Deadline Reminders & Notification Automation Engine**:
+  - Implemented background console command `evaluations:send-reminders` (`SendEvaluationDeadlineReminders.php`) scheduled hourly in `routes/console.php` with milestone window triggers (7d, 3d, 24h, 6h).
+  - Added dynamic deadline urgency alerts in `User::getNotifications()` surfacing urgent closing notices in the navbar notification hub and centralized evaluation pending checks in `User::countPendingEvaluations()`.
+  - Integrated Completion Tracking (`manage-evaluations.blade.php`) "Send Reminders" action to execute the reminder engine and log activity.
+- **Admin Dashboard Visual Analytics (Chart.js)**: Replaced text metrics cards with interactive Chart.js bar charts for Ratings Distribution (1 to 5 stars) and Academic Department Mean Rating Comparisons with modular Alpine.js lifecycle management.
+- **Subjects Bulk Data Operations (Import, Export & Template)**: Added CSV/Excel import with header validation, duplicate checking, download CSV template, and CSV export.
+- **Evaluation Settings Quick Navigation & Period Management Table**: Added a static quick jump anchor navigation bar and paginated academic periods table with unified modal.
+- **Responsive Table Standardization & Directory Overhaul**: Standardized all system tables to full width on desktop with min-width horizontal scrolling on mobile, and overhauled `/evaluation-results` directory with multi-role relational querying.
+
 ### August 15, 2026
 - **Official GRC Summary of Faculty Performance Evaluation on Teaching Effectiveness**: Replicated the official Global Reciprocal Colleges (GRC) 2-page print-ready individual evaluation report format in `reports.blade.php`.
   - **Page 1**: Replicated the official GRC scorecard featuring the official system logo asset `GRC-o-Evaluation-LOGO.png`, boxed title, Roman numeral criteria breakdown across 5 categories with 360-degree Peer Evaluation integration (40% Student / 80 pts, 20% Dean / 40 pts, 20% Program Head / 40 pts, 15% Peer / 30 pts, 5% Self / 10 pts $\rightarrow$ 200 Max Scale), GRC Legend table (Excellent 194.95-200, Very Satisfactory 181.05-194.94, Satisfactory 153.26-181.04, Need Improvement 139.35-153.25, Poor 1.00-139.34), Overall Rating Box with composite score and performance level, and 3-signatory block (*Prepared by*, *Noted by*, *Approved by*).

@@ -248,3 +248,34 @@ a[data-variant="primary"]:hover,
     scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
 }
 
+/* ==========================================================================
+   Print & PDF Export Media Rules
+   Hides navigation, header, sidebar, footer, and resets layout for paper printing
+   ========================================================================== */
+@media print {
+    header,
+    nav,
+    footer,
+    [data-flux-header],
+    [data-flux-sidebar],
+    [data-flux-sidebar-toggle],
+    [data-flux-toast-dialog],
+    ui-toast,
+    .print\:hidden {
+        display: none !important;
+    }
+
+    html, body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body > div {
+        display: block !important;
+        min-height: auto !important;
+    }
+}
+

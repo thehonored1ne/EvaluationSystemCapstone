@@ -12,19 +12,14 @@ This document outlines strategic suggestions, architectural improvements, and fe
 * [X] **Subject Catalog Bulk Import / Export**: Added CSV/Excel import with header format validation, duplicate detection, and downloadable template. *(Implemented Aug 2026)*
 * [X] **Single-Question Interactive Evaluation Wizard**: Mobile-friendly 1-question-per-step wizard with auto-advance, rating pills navigator, and comment profanity filter. *(Implemented Aug 2026)*
 * [X] **Multi-Role Activity Logging**: Integrated Spatie Activitylog tracking administrative updates, deletions, and user modifications. *(Implemented Aug 2026)*
-* [X] **Multi-Tier Rate Limiting**: Added `throttle:global`, `throttle:auth`, and Livewire submission throttling with client-side reactive countdown timers. *(Implemented Aug 2026)*
+* [X] **Phase 1 Master Dataset Architecture & Seeding**: Populated 124 employees across 15 departments, 3,200 students across 4 academic colleges, 176 unique subjects, 946 classes, 29,291 enrollments, and 130 standardized evaluation questions across 21 parts with Teaching Effectiveness rubric calibration (200-point scale). *(Implemented Aug 2026)*
+* [X] **Phase 2 Authentic Evaluation Population & Demonstration Dataset**: Generated 23,056 evaluations, 499,222 individual ratings, 23,056 VADER/Decision Tree sentiment records, and 124 employee scorecards, reserving $\approx 20\% - 25\%$ pending evaluation queues for live presentation testing with natural multilingual reflections in English, Taglish, and Filipino. *(Implemented Aug 2026)*
+* [X] **Authentication UI Overhaul & High-Contrast Design System**: Enforced white card background, visible input borders, and dark readable text with official GRC deep red branding (`#7a0000` / `#9b0000`), interactive password toggles, and case-insensitive login. *(Implemented Aug 2026)*
+* [X] **Admin Bulk Operations, Enrollment Rosters & Student Status Lifecycles**: Added Downloadable CSV Templates, Bulk CSV Imports with validation and atomic User provisioning, and Filtered CSV Exports across Students (`/admin/students`), Employees (`/admin/employees`), and Class Roster Assignments (`/admin/classes`). *(Implemented Aug 2026)*
 
 ---
 
 ## 2. User & Data Management Enhancements
-
-### 2.1 Bulk Import & Export for Students and Employees
-* **Description**: Extend the spreadsheet import/export pattern currently in Subjects (`/admin/subjects`) to Students (`/admin/students`) and Employees (`/admin/employees`).
-* **Value**: Enables institutional registrars and HR staff to onboard hundreds of new student enrollments and faculty hires via CSV or Excel (`.xlsx`) spreadsheets at the beginning of each semester.
-* **Key Features**:
-  * Downloadable standard CSV templates with pre-filled sample columns.
-  * Validation checking for duplicate Student IDs / Employee Numbers and valid program/department references.
-  * Bulk export for external institutional reporting.
 
 ### 2.2 Automated Academic Period Rollover Wizard
 * **Description**: A multi-step administrative wizard for closing an academic term and preparing the next.

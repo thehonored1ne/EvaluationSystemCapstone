@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Lazy;
 use App\Models\Semester;
@@ -9,8 +10,12 @@ use App\Models\Department;
 use App\Models\Evaluation;
 use App\Models\Employee;
 use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+    use WithPagination;
+
     public function placeholder()
     {
         return view('livewire.placeholders.generic-table-skeleton');
@@ -22,6 +27,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public string $selectedDepartmentId = '';
     public string $selectedRole = 'all';
     public string $selectedStatus = 'all';
+    public int $perPage = 10;
 
     public function getActiveSemesterProperty()
     {
@@ -39,6 +45,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->search = '';
         $this->selectedStatus = 'all';
         $this->selectedRole = 'all';
+        $this->resetPage();
     }
 
     public function updatedActiveTab()
@@ -46,12 +53,69 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->search = '';
         $this->selectedStatus = 'all';
         $this->selectedRole = 'all';
+        $this->resetPage();
     }
 
-    public function updatedSearch() { }
-    public function updatedSelectedDepartmentId() { }
-    public function updatedSelectedRole() { }
-    public function updatedSelectedStatus() { }
+    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSelectedDepartmentId() { $this->resetPage(); }
+    public function updatedSelectedRole() { $this->resetPage(); }
+    public function updatedSelectedStatus() { $this->resetPage(); }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, mixed> $items
+     */
+    protected function paginateCollection($items, int $perPage = 10): LengthAwarePaginator
+    {
+        $page = $this->getPage();
+        $total = $items->count();
+        $results = $items->forPage($page, $perPage)->values();
+
+        return new LengthAwarePaginator(
+            $results,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => Paginator::resolveCurrentPath(),
+                'pageName' => $this->paginators['page'] ?? 'page',
+            ]
+        );
+    }
+
+    public function getClassesPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->classes, $this->perPage);
+    }
+
+    public function getDeanTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->deanTracking, $this->perPage);
+    }
+
+    public function getProgramHeadTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->programHeadTracking, $this->perPage);
+    }
+
+    public function getDepartmentHeadTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->departmentHeadTracking, $this->perPage);
+    }
+
+    public function getPeerTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->peerTracking, $this->perPage);
+    }
+
+    public function getSupervisorTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->supervisorTracking, $this->perPage);
+    }
+
+    public function getSelfTrackingPaginatedProperty(): LengthAwarePaginator
+    {
+        return $this->paginateCollection($this->selfTracking, $this->perPage);
+    }
 
     // 1. Student Category (Student -> Faculty)
     public function getClassesProperty()
@@ -497,15 +561,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function sendReminderToast()
     {
         $user = auth()->user();
+
+        \Illuminate\Support\Facades\Artisan::call('evaluations:send-reminders', ['--force' => true]);
+
         if ($user && function_exists('activity')) {
             activity('evaluations')
                 ->causedBy($user)
-                ->log('Sent evaluation completion reminders across all active pending evaluators.');
+                ->log('Broadcasted evaluation completion reminders across all pending evaluators via Completion Tracking.');
         }
 
         \Flux::toast(
             heading: 'Reminders Broadcasted',
-            text: 'Evaluation submission reminders have been broadcasted to all pending evaluators.',
+            text: 'Evaluation submission reminders have been processed and broadcasted to all pending evaluators.',
             variant: 'success'
         );
     }
@@ -521,10 +588,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </flux:subheading>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             @if(auth()->user()->hasAnyRole(['admin', 'dean']))
-                <div class="w-56">
-                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments">
+                <div class="w-full sm:w-56">
+                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments" class="w-full">
                         <flux:select.option value="">All Departments</flux:select.option>
                         @foreach($this->departments as $dept)
                             <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
@@ -533,7 +600,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
             @endif
 
-            <flux:button variant="primary" icon="paper-airplane" wire:click="sendReminderToast" size="sm" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white">
+            <flux:button variant="primary" icon="paper-airplane" wire:click="sendReminderToast" size="sm" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white w-full sm:w-auto">
                 Send Reminders
             </flux:button>
         </div>
@@ -719,18 +786,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'student')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search subject code, title, section, or faculty..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedStatus" class="w-44">
+                <div class="w-full sm:w-48">
+                    <flux:select wire:model.live="selectedStatus" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">100% Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -740,7 +808,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </div>
 
             <!-- Table -->
-            @if($classes->isEmpty())
+            @php $classesPaginated = $this->classesPaginated; @endphp
+            @if($classesPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="clipboard-document-list" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No classes match your search or filter criteria.</p>
@@ -760,7 +829,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($classes as $c)
+                            @foreach($classesPaginated as $c)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4">
                                         <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $c->subject?->code }}</div>
@@ -803,6 +872,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $classesPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -811,18 +884,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'dean')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search dean name, ID, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                <div class="w-full sm:w-44">
+                    <flux:select wire:model.live="selectedStatus" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -832,7 +906,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </div>
 
             <!-- Table -->
-            @if($this->deanTracking->isEmpty())
+            @php $deanPaginated = $this->deanTrackingPaginated; @endphp
+            @if($deanPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="building-library" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No dean evaluation records found.</p>
@@ -851,7 +926,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($this->deanTracking as $dean)
+                            @foreach($deanPaginated as $dean)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
                                         <div>{{ $dean->name }}</div>
@@ -890,6 +965,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $deanPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -898,18 +977,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'program_head')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search program head name, ID, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                <div class="w-full sm:w-44">
+                    <flux:select wire:model.live="selectedStatus" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -919,7 +999,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </div>
 
             <!-- Table -->
-            @if($this->programHeadTracking->isEmpty())
+            @php $phPaginated = $this->programHeadTrackingPaginated; @endphp
+            @if($phPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="briefcase" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No program head evaluation records found.</p>
@@ -938,7 +1019,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($this->programHeadTracking as $ph)
+                            @foreach($phPaginated as $ph)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
                                         <div>{{ $ph->name }}</div>
@@ -977,6 +1058,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $phPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -985,18 +1070,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'department_head')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search department head name, ID, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
+                <div class="w-full sm:w-44">
+                    <flux:select wire:model.live="selectedStatus" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -1006,7 +1092,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </div>
 
             <!-- Table -->
-            @if($this->departmentHeadTracking->isEmpty())
+            @php $dhPaginated = $this->departmentHeadTrackingPaginated; @endphp
+            @if($dhPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="building-office" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No department head evaluation records found.</p>
@@ -1025,7 +1112,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($this->departmentHeadTracking as $dh)
+                            @foreach($dhPaginated as $dh)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
                                         <div>{{ $dh->name }}</div>
@@ -1064,6 +1151,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $dhPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -1072,34 +1163,40 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'peer')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search evaluator name, ID, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedRole" class="w-36">
-                        <flux:select.option value="all">All Roles</flux:select.option>
-                        <flux:select.option value="faculty">Faculty</flux:select.option>
-                        <flux:select.option value="staff">Staff</flux:select.option>
-                    </flux:select>
+                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <div class="w-full sm:w-36">
+                        <flux:select wire:model.live="selectedRole" class="w-full">
+                            <flux:select.option value="all">All Roles</flux:select.option>
+                            <flux:select.option value="faculty">Faculty</flux:select.option>
+                            <flux:select.option value="staff">Staff</flux:select.option>
+                        </flux:select>
+                    </div>
 
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
-                        <flux:select.option value="all">All Statuses</flux:select.option>
-                        <flux:select.option value="completed">Completed</flux:select.option>
-                        <flux:select.option value="in_progress">In Progress</flux:select.option>
-                        <flux:select.option value="pending">Pending</flux:select.option>
-                    </flux:select>
+                    <div class="w-full sm:w-44">
+                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                            <flux:select.option value="all">All Statuses</flux:select.option>
+                            <flux:select.option value="completed">Completed</flux:select.option>
+                            <flux:select.option value="in_progress">In Progress</flux:select.option>
+                            <flux:select.option value="pending">Pending</flux:select.option>
+                        </flux:select>
+                    </div>
                 </div>
             </div>
 
             <!-- Table -->
-            @if($this->peerTracking->isEmpty())
+            @php $peerPaginated = $this->peerTrackingPaginated; @endphp
+            @if($peerPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="user-group" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No peer evaluation records found.</p>
@@ -1118,7 +1215,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($this->peerTracking as $peer)
+                            @foreach($peerPaginated as $peer)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
                                         <div>{{ $peer->name }}</div>
@@ -1157,6 +1254,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $peerPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -1165,35 +1266,41 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'supervisor')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search employee, ID, supervisor, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedRole" class="w-44">
-                        <flux:select.option value="all">All Roles</flux:select.option>
-                        <flux:select.option value="faculty">Faculty</flux:select.option>
-                        <flux:select.option value="staff">Staff</flux:select.option>
-                        <flux:select.option value="program head">Program Head</flux:select.option>
-                        <flux:select.option value="department head">Department Head</flux:select.option>
-                    </flux:select>
+                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <div class="w-full sm:w-48">
+                        <flux:select wire:model.live="selectedRole" class="w-full">
+                            <flux:select.option value="all">All Roles</flux:select.option>
+                            <flux:select.option value="faculty">Faculty</flux:select.option>
+                            <flux:select.option value="staff">Staff</flux:select.option>
+                            <flux:select.option value="program head">Program Head</flux:select.option>
+                            <flux:select.option value="department head">Department Head</flux:select.option>
+                        </flux:select>
+                    </div>
 
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
-                        <flux:select.option value="all">All Statuses</flux:select.option>
-                        <flux:select.option value="completed">Submitted</flux:select.option>
-                        <flux:select.option value="pending">Pending</flux:select.option>
-                    </flux:select>
+                    <div class="w-full sm:w-44">
+                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                            <flux:select.option value="all">All Statuses</flux:select.option>
+                            <flux:select.option value="completed">Submitted</flux:select.option>
+                            <flux:select.option value="pending">Pending</flux:select.option>
+                        </flux:select>
+                    </div>
                 </div>
             </div>
 
             <!-- Table -->
-            @if($this->supervisorTracking->isEmpty())
+            @php $supPaginated = $this->supervisorTrackingPaginated; @endphp
+            @if($supPaginated->isEmpty())
                 <div class="text-center py-10 text-zinc-400">
                     <flux:icon icon="arrow-trending-up" class="size-10 mx-auto mb-2 text-zinc-300" />
                     <p class="text-sm font-semibold">No supervisor evaluation records found.</p>
@@ -1212,7 +1319,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                            @foreach($this->supervisorTracking as $sub)
+                            @foreach($supPaginated as $sub)
                                 <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
                                     <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
                                         <div>{{ $sub->name }}</div>
@@ -1244,6 +1351,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </tbody>
                     </table>
                 </div>
+
+                <div>
+                    {{ $supPaginated->links() }}
+                </div>
             @endif
         </div>
     @endif
@@ -1252,81 +1363,92 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @if($activeTab === 'self')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <!-- Filter Bar -->
-            <div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                <div class="flex-1 max-w-md">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+                <div class="flex-1 w-full sm:max-w-md">
                     <flux:input 
                         icon="magnifying-glass" 
                         wire:model.live.debounce.300ms="search" 
                         placeholder="Search employee, ID, or department..." 
                         clearable
+                        class="w-full"
                     />
                 </div>
 
-                <div class="flex gap-3">
-                    <flux:select wire:model.live="selectedRole" class="w-44">
-                        <flux:select.option value="all">All Roles</flux:select.option>
-                        <flux:select.option value="faculty">Faculty</flux:select.option>
-                        <flux:select.option value="staff">Staff</flux:select.option>
-                        <flux:select.option value="program head">Program Head</flux:select.option>
-                        <flux:select.option value="department head">Department Head</flux:select.option>
-                        <flux:select.option value="dean">Dean</flux:select.option>
-                    </flux:select>
+                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <div class="w-full sm:w-48">
+                        <flux:select wire:model.live="selectedRole" class="w-full">
+                            <flux:select.option value="all">All Roles</flux:select.option>
+                            <flux:select.option value="faculty">Faculty</flux:select.option>
+                            <flux:select.option value="staff">Staff</flux:select.option>
+                            <flux:select.option value="program head">Program Head</flux:select.option>
+                            <flux:select.option value="department head">Department Head</flux:select.option>
+                            <flux:select.option value="dean">Dean</flux:select.option>
+                        </flux:select>
+                    </div>
 
-                    <flux:select wire:model.live="selectedStatus" class="w-40">
-                        <flux:select.option value="all">All Statuses</flux:select.option>
-                        <flux:select.option value="completed">Submitted</flux:select.option>
-                        <flux:select.option value="pending">Pending</flux:select.option>
-                    </flux:select>
+                    <div class="w-full sm:w-44">
+                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                            <flux:select.option value="all">All Statuses</flux:select.option>
+                            <flux:select.option value="completed">Submitted</flux:select.option>
+                            <flux:select.option value="pending">Pending</flux:select.option>
+                        </flux:select>
+                    </div>
                 </div>
             </div>
 
-            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
-                        <tr>
-                            <th class="px-6 py-3.5">Employee Name</th>
-                            <th class="px-6 py-3.5">Role</th>
-                            <th class="px-6 py-3.5">Department</th>
-                            <th class="px-6 py-3.5">Submission Date</th>
-                            <th class="px-6 py-3.5 text-right">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                        @forelse($this->selfTracking as $self)
-                            <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
-                                <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
-                                    <div>{{ $self->name }}</div>
-                                    <div class="text-xs text-zinc-500 font-mono font-normal">{{ $self->employee_number }}</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <flux:badge variant="neutral" size="sm" class="font-bold">{{ $self->role_label }}</flux:badge>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
-                                        {{ $self->department?->code ?: 'N/A' }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                                    {{ $self->submitted_at ? $self->submitted_at->format('M d, Y h:i A') : '—' }}
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    @if($self->submitted)
-                                        <flux:badge variant="success" size="sm" class="font-bold">Submitted</flux:badge>
-                                    @else
-                                        <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
+            @php $selfPaginated = $this->selfTrackingPaginated; @endphp
+            @if($selfPaginated->isEmpty())
+                <div class="text-center py-10 text-zinc-400">
+                    <flux:icon icon="user" class="size-10 mx-auto mb-2 text-zinc-300" />
+                    <p class="text-sm font-semibold">No employee self evaluation records found.</p>
+                </div>
+            @else
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
                             <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-zinc-400">
-                                    No employee records found.
-                                </td>
+                                <th class="px-6 py-3.5">Employee Name</th>
+                                <th class="px-6 py-3.5">Role</th>
+                                <th class="px-6 py-3.5">Department</th>
+                                <th class="px-6 py-3.5">Submission Date</th>
+                                <th class="px-6 py-3.5 text-right">Status</th>
                             </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @foreach($selfPaginated as $self)
+                                <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100">
+                                        <div>{{ $self->name }}</div>
+                                        <div class="text-xs text-zinc-500 font-mono font-normal">{{ $self->employee_number }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <flux:badge variant="neutral" size="sm" class="font-bold">{{ $self->role_label }}</flux:badge>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-xs uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            {{ $self->department?->code ?: 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {{ $self->submitted_at ? $self->submitted_at->format('M d, Y h:i A') : '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($self->submitted)
+                                            <flux:badge variant="success" size="sm" class="font-bold">Submitted</flux:badge>
+                                        @else
+                                            <flux:badge variant="neutral" size="sm" class="font-bold">Pending</flux:badge>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div>
+                    {{ $selfPaginated->links() }}
+                </div>
+            @endif
         </div>
     @endif
 </div>

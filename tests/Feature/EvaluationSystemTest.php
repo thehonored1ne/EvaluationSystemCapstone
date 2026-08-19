@@ -130,8 +130,8 @@ test('evaluation form comment filters out curse words', function () {
         'evaluatee' => $this->facUser2,
         'evaluationType' => 'peer',
     ])
-        ->set('comments', 'This is a gago and bbaliw class.')
-        ->assertSet('comments', 'This is a and b class.');
+        ->set('comments', 'This is a gago and baliw class.')
+        ->assertSet('comments', 'This is a and class.');
 });
 
 test('evaluation form requires comments before submission', function () {

@@ -1,52 +1,100 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
+use App\Models\Program;
+use App\Models\Student;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Lazy;
-use App\Models\User;
-use App\Models\Student;
-use App\Models\Program;
+use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] #[Lazy] class extends Component
+{
+    use WithFileUploads;
+    use WithPagination;
+
     public function placeholder()
     {
         return view('livewire.placeholders.manage-students-skeleton');
     }
 
-    use WithPagination;
-
     // Fields for Create/Edit Modal
     public string $email = '';
+
     public bool $showModal = false;
+
     public ?User $editingUser = null;
+
     public bool $showDeleteModal = false;
+
     public ?User $deletingUser = null;
 
     // Student specific
     public string $student_number = '';
+
     public string $first_name = '';
+
     public string $middle_name = '';
+
     public string $last_name = '';
+
     public string $suffix = '';
+
     public string $program_id = '';
+
     public string $year_level = '';
+
     public string $section = '';
+
+    public string $status = 'regular';
+
+    // Import properties
+    public $importFile = null;
+
+    public bool $showImportModal = false;
 
     // Filters
     public string $selectedProgramId = '';
+
     public string $selectedYearLevel = '';
+
+    public string $statusFilter = '';
+
     public string $search = '';
+
     public string $sortDirection = 'asc'; // 'asc' (A-Z) or 'desc' (Z-A)
 
-    public function updatedSelectedProgramId() { $this->resetPage(); }
-    public function updatedSelectedYearLevel() { $this->resetPage(); }
-    public function updatedSortDirection() { $this->resetPage(); }
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSelectedProgramId()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedYearLevel()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSortDirection()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     public function clearFilters()
     {
-        $this->reset(['search', 'selectedProgramId', 'selectedYearLevel', 'sortDirection']);
+        $this->reset(['search', 'selectedProgramId', 'selectedYearLevel', 'statusFilter', 'sortDirection']);
         $this->resetPage();
     }
 
@@ -54,8 +102,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     {
         $this->reset([
             'email', 'editingUser',
-            'student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'program_id', 'year_level', 'section'
+            'student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'program_id', 'year_level', 'section', 'status',
         ]);
+        $this->status = 'regular';
         $this->showModal = true;
     }
 
@@ -79,16 +128,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             });
         }
 
+        if ($this->statusFilter) {
+            $query->whereHas('student', function ($q) {
+                $q->where('status', $this->statusFilter);
+            });
+        }
+
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('student', function ($sub) {
-                      $sub->where('student_number', 'like', '%' . $this->search . '%')
-                          ->orWhere('first_name', 'like', '%' . $this->search . '%')
-                          ->orWhere('last_name', 'like', '%' . $this->search . '%')
-                          ->orWhere('section', 'like', '%' . $this->search . '%');
-                  });
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('student', function ($sub) {
+                        $sub->where('student_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('last_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('section', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 
@@ -111,30 +166,33 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'program_id' => 'required|exists:programs,id',
             'year_level' => 'required|integer|between:1,4',
             'section' => 'nullable|string|max:255',
+            'status' => 'required|string|in:regular,irregular,loa,dropped,graduated,inactive',
             'email' => 'required|email|unique:users,email',
         ]);
 
-        $student = Student::create([
-            'student_number' => $this->student_number,
-            'first_name' => $this->first_name,
-            'middle_name' => $this->middle_name ?: null,
-            'last_name' => $this->last_name,
-            'suffix' => $this->suffix ?: null,
-            'program_id' => $this->program_id,
-            'year_level' => $this->year_level,
-            'section' => $this->section ?: null,
-            'status' => 'regular',
-        ]);
+        DB::transaction(function () {
+            $student = Student::create([
+                'student_number' => trim($this->student_number),
+                'first_name' => trim($this->first_name),
+                'middle_name' => $this->middle_name ? trim($this->middle_name) : null,
+                'last_name' => trim($this->last_name),
+                'suffix' => $this->suffix ? trim($this->suffix) : null,
+                'program_id' => $this->program_id,
+                'year_level' => $this->year_level,
+                'section' => $this->section ? trim($this->section) : null,
+                'status' => $this->status,
+            ]);
 
-        $user = User::create([
-            'name' => $student->formatted_name,
-            'email' => $this->email,
-            'student_id' => $student->id,
-            'password' => bcrypt('password'),
-            'is_active' => true,
-        ]);
+            $user = User::create([
+                'name' => $student->formatted_name,
+                'email' => strtolower(trim($this->email)),
+                'student_id' => $student->id,
+                'password' => Hash::make('password'),
+                'is_active' => true,
+            ]);
 
-        $user->assignRole('student');
+            $user->assignRole('student');
+        });
 
         $this->showModal = false;
         \Flux::toast(
@@ -154,9 +212,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $this->middle_name = $user->student->middle_name ?? '';
         $this->last_name = $user->student->last_name ?? '';
         $this->suffix = $user->student->suffix ?? '';
-        $this->program_id = $user->student->program_id ?? '';
-        $this->year_level = $user->student->year_level ?? '';
+        $this->program_id = (string) ($user->student->program_id ?? '');
+        $this->year_level = (string) ($user->student->year_level ?? '');
         $this->section = $user->student->section ?? '';
+        $this->status = $user->student->status ?? 'regular';
 
         $this->showModal = true;
     }
@@ -164,7 +223,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     public function updateUser()
     {
         $this->validate([
-            'student_number' => 'required|string|unique:students,student_number,' . $this->editingUser->student_id,
+            'student_number' => 'required|string|unique:students,student_number,'.$this->editingUser->student_id,
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -172,24 +231,28 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'program_id' => 'required|exists:programs,id',
             'year_level' => 'required|integer|between:1,4',
             'section' => 'nullable|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $this->editingUser->id,
+            'status' => 'required|string|in:regular,irregular,loa,dropped,graduated,inactive',
+            'email' => 'required|email|unique:users,email,'.$this->editingUser->id,
         ]);
 
-        $this->editingUser->student->update([
-            'student_number' => $this->student_number,
-            'first_name' => $this->first_name,
-            'middle_name' => $this->middle_name ?: null,
-            'last_name' => $this->last_name,
-            'suffix' => $this->suffix ?: null,
-            'program_id' => $this->program_id,
-            'year_level' => $this->year_level,
-            'section' => $this->section ?: null,
-        ]);
+        DB::transaction(function () {
+            $this->editingUser->student->update([
+                'student_number' => trim($this->student_number),
+                'first_name' => trim($this->first_name),
+                'middle_name' => $this->middle_name ? trim($this->middle_name) : null,
+                'last_name' => trim($this->last_name),
+                'suffix' => $this->suffix ? trim($this->suffix) : null,
+                'program_id' => $this->program_id,
+                'year_level' => $this->year_level,
+                'section' => $this->section ? trim($this->section) : null,
+                'status' => $this->status,
+            ]);
 
-        $this->editingUser->update([
-            'name' => $this->editingUser->student->fresh()->formatted_name,
-            'email' => $this->email,
-        ]);
+            $this->editingUser->update([
+                'name' => $this->editingUser->student->fresh()->formatted_name,
+                'email' => strtolower(trim($this->email)),
+            ]);
+        });
 
         $this->showModal = false;
         \Flux::toast(
@@ -201,7 +264,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function toggleActive(User $user)
     {
-        $user->is_active = !$user->is_active;
+        $user->is_active = ! $user->is_active;
         $user->save();
 
         \Flux::toast(
@@ -219,9 +282,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function deleteUser()
     {
-        if (!$this->deletingUser) return;
+        if (! $this->deletingUser) {
+            return;
+        }
 
-        \Illuminate\Support\Facades\DB::transaction(function () {
+        DB::transaction(function () {
             $student = $this->deletingUser->student;
             $this->deletingUser->delete();
             if ($student) {
@@ -238,21 +303,261 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             variant: 'success'
         );
     }
+
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="students_template.csv"',
+        ];
+
+        $columns = ['student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'program_code', 'year_level', 'section', 'status'];
+
+        $callback = function () use ($columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+            // Sample sample row
+            fputcsv($file, ['2026-01-0001', 'Juan', 'Protacio', 'Dela Cruz', '', 'juan.delacruz@grc.edu.ph', 'BSIT', '1', 'BSIT-1A', 'regular']);
+            fputcsv($file, ['2026-01-0002', 'Maria', 'Clara', 'Santos', '', 'maria.santos@grc.edu.ph', 'BSA', '2', 'BSA-2A', 'regular']);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportStudents()
+    {
+        $query = User::query()->whereHas('student')->with('student.program');
+
+        if ($this->selectedProgramId === 'none') {
+            $query->whereHas('student', fn ($q) => $q->whereNull('program_id'));
+        } elseif ($this->selectedProgramId) {
+            $query->whereHas('student', fn ($q) => $q->where('program_id', $this->selectedProgramId));
+        }
+
+        if ($this->selectedYearLevel) {
+            $query->whereHas('student', fn ($q) => $q->where('year_level', $this->selectedYearLevel));
+        }
+
+        if ($this->statusFilter) {
+            $query->whereHas('student', fn ($q) => $q->where('status', $this->statusFilter));
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('student', function ($sub) {
+                        $sub->where('student_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('last_name', 'like', '%'.$this->search.'%');
+                    });
+            });
+        }
+
+        $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
+        $students = $query->orderBy('name', $orderDirection)->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="students_export_'.now()->format('Ymd_His').'.csv"',
+        ];
+
+        $callback = function () use ($students) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Student Number', 'First Name', 'Middle Name', 'Last Name', 'Suffix', 'Email', 'Program Code', 'Program Name', 'Year Level', 'Section', 'Status', 'Account Status']);
+
+            foreach ($students as $user) {
+                $s = $user->student;
+                fputcsv($file, [
+                    $s?->student_number ?? '',
+                    $s?->first_name ?? '',
+                    $s?->middle_name ?? '',
+                    $s?->last_name ?? '',
+                    $s?->suffix ?? '',
+                    $user->email,
+                    $s?->program?->code ?? 'None',
+                    $s?->program?->name ?? 'None',
+                    $s?->year_level ?? '',
+                    $s?->section ?? '',
+                    $s?->status ?? 'regular',
+                    $user->is_active ? 'Active' : 'Disabled',
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importStudents()
+    {
+        $this->validate([
+            'importFile' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
+        ]);
+
+        $path = $this->importFile->getRealPath();
+        $ext = strtolower($this->importFile->getClientOriginalExtension());
+
+        $rows = [];
+        if (in_array($ext, ['csv', 'txt'])) {
+            $file = fopen($path, 'r');
+            $header = fgetcsv($file);
+            if (! $header) {
+                $this->addError('importFile', 'The CSV file is empty or corrupted.');
+
+                return;
+            }
+
+            // Normalize headers
+            $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '_'], '', $h))), $header);
+
+            while (($row = fgetcsv($file)) !== false) {
+                if (array_filter($row)) {
+                    $rows[] = $row;
+                }
+            }
+            fclose($file);
+        } else {
+            // Fallback for CSV
+            $this->addError('importFile', 'Please upload a valid CSV file.');
+
+            return;
+        }
+
+        if (empty($rows)) {
+            $this->addError('importFile', 'No data rows found in the uploaded file.');
+
+            return;
+        }
+
+        // Cache programs by code and name
+        $programs = Program::all();
+        $programsByCode = $programs->keyBy(fn ($p) => strtoupper(trim($p->code)));
+
+        $addedCount = 0;
+        $updatedCount = 0;
+        $defaultPassword = Hash::make('password');
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $index => $row) {
+                $studentNumber = trim($row[0] ?? '');
+                $firstName = trim($row[1] ?? '');
+                $middleName = trim($row[2] ?? '') ?: null;
+                $lastName = trim($row[3] ?? '');
+                $suffix = trim($row[4] ?? '') ?: null;
+                $email = strtolower(trim($row[5] ?? ''));
+                $progCode = strtoupper(trim($row[6] ?? ''));
+                $yearLevel = (int) trim($row[7] ?? '1');
+                $section = trim($row[8] ?? '') ?: null;
+                $status = strtolower(trim($row[9] ?? 'regular')) ?: 'regular';
+
+                if (! $studentNumber || ! $firstName || ! $lastName) {
+                    continue; // Skip invalid row
+                }
+
+                // If email empty, autogenerate
+                if (! $email) {
+                    $email = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $firstName).'.'.preg_replace('/[^a-zA-Z0-9]/', '', $lastName).'@grc.edu.ph');
+                }
+
+                $program = $programsByCode->get($progCode);
+                $programId = $program ? $program->id : null;
+
+                $validStatus = in_array($status, ['regular', 'irregular', 'loa', 'dropped', 'graduated', 'inactive']) ? $status : 'regular';
+                $validYear = ($yearLevel >= 1 && $yearLevel <= 4) ? $yearLevel : 1;
+
+                $student = Student::where('student_number', $studentNumber)->first();
+                if ($student) {
+                    $student->update([
+                        'first_name' => $firstName,
+                        'middle_name' => $middleName,
+                        'last_name' => $lastName,
+                        'suffix' => $suffix,
+                        'program_id' => $programId ?? $student->program_id,
+                        'year_level' => $validYear,
+                        'section' => $section ?? $student->section,
+                        'status' => $validStatus,
+                    ]);
+
+                    if ($student->user) {
+                        $student->user->update([
+                            'name' => $student->fresh()->formatted_name,
+                        ]);
+                    }
+                    $updatedCount++;
+                } else {
+                    $student = Student::create([
+                        'student_number' => $studentNumber,
+                        'first_name' => $firstName,
+                        'middle_name' => $middleName,
+                        'last_name' => $lastName,
+                        'suffix' => $suffix,
+                        'program_id' => $programId,
+                        'year_level' => $validYear,
+                        'section' => $section,
+                        'status' => $validStatus,
+                    ]);
+
+                    $user = User::create([
+                        'name' => $student->formatted_name,
+                        'email' => $email,
+                        'student_id' => $student->id,
+                        'password' => $defaultPassword,
+                        'is_active' => true,
+                    ]);
+
+                    $user->assignRole('student');
+                    $addedCount++;
+                }
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->addError('importFile', 'Import error on line '.($index + 2).': '.$e->getMessage());
+
+            return;
+        }
+
+        $this->reset(['importFile']);
+        $this->showImportModal = false;
+
+        \Flux::toast(
+            heading: 'Import Successful',
+            text: "Processed students: {$addedCount} added, {$updatedCount} updated.",
+            variant: 'success'
+        );
+    }
 }; ?>
 
 <div class="w-full flex flex-col gap-6">
-    <div class="flex justify-between items-center">
-        <flux:heading size="xl" level="1">Manage Students</flux:heading>
-        <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Create Student</flux:button>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <flux:heading size="xl" level="1">Manage Students</flux:heading>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Directory and enrollment lifecycle management for student accounts.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportStudents">
+                Export CSV
+            </flux:button>
+            <flux:button variant="outline" icon="arrow-up-tray" wire:click="$set('showImportModal', true)">
+                Import Students
+            </flux:button>
+            <flux:button variant="primary" wire:click="prepareCreate" icon="plus">
+                Create Student
+            </flux:button>
+        </div>
     </div>
     
     <!-- Filters Bar -->
     <div class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-gray-200 dark:border-zinc-700">
-        <div class="flex-1 w-full min-w-[300px]">
+        <div class="flex-1 w-full min-w-[260px]">
             <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or student ID..." />
         </div>
         
-        <div class="w-full md:w-64">
+        <div class="w-full md:w-52">
             <flux:select wire:model.live="selectedProgramId" placeholder="Filter by Program">
                 <flux:select.option value="">All Programs</flux:select.option>
                 <flux:select.option value="none">Unassigned (None)</flux:select.option>
@@ -262,7 +567,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             </flux:select>
         </div>
 
-        <div class="w-full md:w-48">
+        <div class="w-full md:w-40">
             <flux:select wire:model.live="selectedYearLevel" placeholder="Filter by Year Level">
                 <flux:select.option value="">All Year Levels</flux:select.option>
                 <flux:select.option value="1">1st Year</flux:select.option>
@@ -271,9 +576,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <flux:select.option value="4">4th Year</flux:select.option>
             </flux:select>
         </div>
+
+        <div class="w-full md:w-44">
+            <flux:select wire:model.live="statusFilter" placeholder="Filter by Status">
+                <flux:select.option value="">All Statuses</flux:select.option>
+                <flux:select.option value="regular">Regular</flux:select.option>
+                <flux:select.option value="irregular">Irregular</flux:select.option>
+                <flux:select.option value="loa">Leave of Absence (LOA)</flux:select.option>
+                <flux:select.option value="dropped">Dropped</flux:select.option>
+                <flux:select.option value="graduated">Graduated</flux:select.option>
+                <flux:select.option value="inactive">Inactive</flux:select.option>
+            </flux:select>
+        </div>
         
         <div class="flex items-center gap-2">
-            <!-- Filter Icon Dropdown (A-Z / Z-A) -->
             <flux:dropdown align="end">
                 <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
                     {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
@@ -289,28 +605,28 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </flux:menu>
             </flux:dropdown>
 
-            @if($search || $selectedProgramId || $selectedYearLevel || $sortDirection !== 'asc')
+            @if($search || $selectedProgramId || $selectedYearLevel || $statusFilter || $sortDirection !== 'asc')
                 <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
             @endif
         </div>
     </div>
     
-    <div wire:loading wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full">
+    <div wire:loading wire:target="search, selectedProgramId, selectedYearLevel, statusFilter, sortDirection, gotoPage, nextPage, previousPage" class="w-full">
         <x-skeleton type="table" :rows="5" :cols="7" />
     </div>
 
-    <div wire:loading.remove wire:target="search, selectedProgramId, selectedYearLevel, sortDirection, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+    <div wire:loading.remove wire:target="search, selectedProgramId, selectedYearLevel, statusFilter, sortDirection, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700 shadow-2xs">
             <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800">
                     <tr>
                         <th class="w-[14%] min-w-[120px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Student ID</th>
-                        <th class="w-[22%] min-w-[180px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Full Name</th>
-                        <th class="w-[20%] min-w-[160px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Email</th>
+                        <th class="w-[20%] min-w-[170px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Full Name</th>
+                        <th class="w-[18%] min-w-[150px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Email</th>
                         <th class="w-[14%] min-w-[130px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Program & Section</th>
-                        <th class="w-[10%] min-w-[100px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Year Level</th>
-                        <th class="w-[10%] min-w-[100px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Account Status</th>
-                        <th class="w-[10%] min-w-[80px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-right whitespace-nowrap">Action</th>
+                        <th class="w-[10%] min-w-[90px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Year</th>
+                        <th class="w-[12%] min-w-[110px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Enrollment Status</th>
+                        <th class="w-[12%] min-w-[90px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-right whitespace-nowrap">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
@@ -347,11 +663,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                 </flux:badge>
                             </td>
                             <td class="px-4 py-3 text-center whitespace-nowrap">
-                                <button wire:click="toggleActive({{ $user->id }})" class="cursor-pointer">
-                                    <flux:badge variant="{{ $user->is_active ? 'success' : 'danger' }}" size="sm">
-                                        {{ $user->is_active ? 'Active' : 'Disabled' }}
-                                    </flux:badge>
-                                </button>
+                                @php
+                                    $st = $user->student?->status ?? 'regular';
+                                    $stBadge = match($st) {
+                                        'regular' => ['variant' => 'success', 'label' => 'Regular'],
+                                        'irregular' => ['variant' => 'warning', 'label' => 'Irregular'],
+                                        'loa' => ['variant' => 'neutral', 'label' => 'LOA'],
+                                        'dropped' => ['variant' => 'danger', 'label' => 'Dropped'],
+                                        'graduated' => ['variant' => 'primary', 'label' => 'Graduated'],
+                                        default => ['variant' => 'neutral', 'label' => ucfirst($st)]
+                                    };
+                                @endphp
+                                <flux:badge :variant="$stBadge['variant']" size="sm" class="font-bold">
+                                    {{ $stBadge['label'] }}
+                                </flux:badge>
                             </td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <flux:dropdown align="end">
@@ -400,7 +725,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
                     {{ $editingUser ? 'Edit Student Account' : 'Create New Student Account' }}
                 </h2>
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">Fill in student details and academic program assignment below.</p>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">Fill in student details, enrollment status, and academic program assignment.</p>
             </div>
 
             <form wire:submit="{{ $editingUser ? 'updateUser' : 'createUser' }}" class="space-y-4">
@@ -416,9 +741,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                 <flux:input wire:model="email" label="Email Address" type="email" required />
 
-                <flux:input wire:model="student_number" label="Student Number" type="text" placeholder="e.g. 2026-00001" required />
+                <flux:input wire:model="student_number" label="Student Number" type="text" placeholder="e.g. 2026-01-0001" required />
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Academic Program</label>
                         <select wire:model="program_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
@@ -441,6 +766,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                         </select>
                         @error('year_level') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Enrollment Status</label>
+                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                            <option value="regular">Regular</option>
+                            <option value="irregular">Irregular</option>
+                            <option value="loa">Leave of Absence (LOA)</option>
+                            <option value="dropped">Dropped</option>
+                            <option value="graduated">Graduated</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                        @error('status') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
                 </div>
 
                 <flux:input wire:model="section" label="Section (Optional)" type="text" placeholder="e.g. BSIT-3A" />
@@ -449,6 +787,49 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     <flux:button variant="ghost" wire:click="$set('showModal', false)">Cancel</flux:button>
                     <flux:button variant="primary" type="submit">
                         {{ $editingUser ? 'Save Changes' : 'Create Student' }}
+                    </flux:button>
+                </div>
+            </form>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Import Students Modal -->
+    <flux:modal wire:model="showImportModal" class="min-w-[520px]">
+        <div class="space-y-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Students</h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing new student admissions and enrollment rosters.</p>
+                </div>
+                <flux:button size="sm" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
+                    Download Template
+                </flux:button>
+            </div>
+
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-800/30 text-xs space-y-2">
+                <span class="font-bold text-zinc-800 dark:text-zinc-200 block">CSV File Format Requirements:</span>
+                <ul class="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-1">
+                    <li>Required Columns: <code class="font-mono text-zinc-900 dark:text-zinc-100 font-bold">student_number, first_name, last_name</code></li>
+                    <li>Optional Columns: <code class="font-mono text-zinc-700 dark:text-zinc-300">middle_name, suffix, email, program_code, year_level, section, status</code></li>
+                    <li>Existing student numbers will update profile information; new student numbers will automatically provision User login accounts (default password: <code class="font-mono font-bold">password</code>).</li>
+                </ul>
+            </div>
+
+            <form wire:submit="importStudents" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-2">Select Spreadsheet (.CSV)</label>
+                    <input type="file" wire:model="importFile" accept=".csv,text/csv" class="w-full text-xs text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000] file:text-white hover:file:bg-[#7a0000] cursor-pointer" required />
+                    @error('importFile') <span class="text-xs text-rose-500 mt-1 block font-semibold">{{ $message }}</span> @enderror
+                </div>
+
+                <div wire:loading wire:target="importFile" class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                    Uploading and verifying file...
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                    <flux:button variant="ghost" wire:click="$set('showImportModal', false)">Cancel</flux:button>
+                    <flux:button variant="primary" type="submit" wire:loading.attr="disabled">
+                        Upload & Import
                     </flux:button>
                 </div>
             </form>

@@ -1,6 +1,54 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Access to an undefined property App\\Models\\AcademicClass\:\:\$teacher\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Employee\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Semester\:\:\$academicYear\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$employee\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Relation ''employee'' is not found in App\\Models\\User model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Relation ''students'' is not found in App\\Models\\AcademicClass model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Relation ''teacher'' is not found in App\\Models\\AcademicClass model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
+			message: '#^Relation ''user'' is not found in App\\Models\\Employee model\.$#'
+			identifier: larastan.relationExistence
+			count: 5
+			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
+
+		-
 			message: '#^Access to an undefined property App\\Models\\Evaluation\:\:\$sentiment\.$#'
 			identifier: property.notFound
 			count: 1
@@ -33,25 +81,31 @@ parameters:
 		-
 			message: '#^Access to an undefined property App\\Models\\AcademicClass\:\:\$teacher\.$#'
 			identifier: property.notFound
-			count: 1
+			count: 2
 			path: app/Models/User.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\Employee\:\:\$user\.$#'
 			identifier: property.notFound
-			count: 6
+			count: 12
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Employee\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Employee\>\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 1
 			path: app/Models/User.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\Semester\:\:\$academicYear\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 3
 			path: app/Models/User.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\User\:\:\$employee\.$#'
 			identifier: property.notFound
-			count: 5
+			count: 10
 			path: app/Models/User.php
 
 		-
@@ -61,19 +115,25 @@ parameters:
 			path: app/Models/User.php
 
 		-
+			message: '#^Parameter \#2 \$haystack of function in_array expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/User.php
+
+		-
 			message: '#^Relation ''students'' is not found in App\\Models\\AcademicClass model\.$#'
 			identifier: larastan.relationExistence
-			count: 1
+			count: 2
 			path: app/Models/User.php
 
 		-
 			message: '#^Relation ''teacher'' is not found in App\\Models\\AcademicClass model\.$#'
 			identifier: larastan.relationExistence
-			count: 1
+			count: 2
 			path: app/Models/User.php
 
 		-
 			message: '#^Relation ''user'' is not found in App\\Models\\Employee model\.$#'
 			identifier: larastan.relationExistence
-			count: 6
+			count: 12
 			path: app/Models/User.php

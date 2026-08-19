@@ -200,9 +200,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @if($this->facultyMembers->isEmpty())
                         <div class="text-center py-8 text-zinc-500">No active faculty members found in this academic unit.</div>
                     @else
-                        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+                        <div class="overflow-auto max-h-[500px] rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <table class="w-full text-left text-sm min-w-[500px]">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10 shadow-2xs">
                                     <tr>
                                         <th class="px-6 py-3.5">Faculty Member</th>
                                         <th class="px-6 py-3.5">Department</th>
@@ -275,9 +275,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @if($this->programHeads->isEmpty())
                         <div class="text-center py-6 text-zinc-500">No program heads registered in the system.</div>
                     @else
-                        <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+                        <div class="overflow-auto max-h-[500px] rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <table class="w-full text-left text-sm min-w-[500px]">
+                                <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10 shadow-2xs">
                                     <tr>
                                         <th class="px-6 py-3.5">Program Head</th>
                                         <th class="px-6 py-3.5">Department</th>

@@ -585,10 +585,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="star" class="size-5 text-amber-500 fill-amber-500" />
+                        <flux:icon name="chart-bar" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
                         Ratings Distribution Chart
                     </h3>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 star scores submitted for this period.</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 rating scores submitted for this period.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     {{ $totalRatingsCount }} answer{{ $totalRatingsCount === 1 ? '' : 's' }}
@@ -685,159 +685,274 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     <!-- Quick Actions Panel -->
-    <div class="flex flex-col gap-4 mt-2">
-        <flux:heading size="lg">Quick System Actions</flux:heading>
+    <div class="flex flex-col gap-6 mt-2">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+                <flux:heading size="lg">Quick System Actions</flux:heading>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Click any shortcut below to navigate directly to evaluation tracking, user management, and academic settings.</p>
+            </div>
+        </div>
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <flux:card href="/admin/evaluation-settings" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-                <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
-                    <flux:icon name="cog" class="size-5" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- 1. Track Evaluation Turnout -->
+            <a href="/manage-evaluations" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="chart-pie" class="size-5" />
                 </div>
-                <div>
-                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Configure Settings</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Manage schedules and criteria.</span>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Track Evaluation Turnout</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">View category completion progress and send reminder alerts.</span>
                 </div>
-            </flux:card>
+            </a>
 
-            <flux:card href="/reports" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-                <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
-                    <flux:icon name="chart-bar" class="size-5" />
+            <!-- 2. View Completed Evaluations -->
+            <a href="/evaluation-results" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="clipboard-document-list" class="size-5" />
                 </div>
-                <div>
-                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Evaluation Reports</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Generate summary PDF reports.</span>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">View Completed Evaluations</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Check individual submissions and detailed rating scores.</span>
                 </div>
-            </flux:card>
+            </a>
 
-            <flux:card href="/admin/questions" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-                <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
+            <!-- 3. Generate GRC Reports -->
+            <a href="/reports" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="printer" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Generate GRC Reports</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">View official 2-page print scorecards and AI comment summaries.</span>
+                </div>
+            </a>
+
+            <!-- 4. View Rankings & Leaderboards -->
+            <a href="/rankings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="trophy" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Department & Faculty Rankings</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Compare college department averages and professor rankings.</span>
+                </div>
+            </a>
+
+            <!-- 5. Set Evaluation Schedule & Dates -->
+            <a href="/admin/evaluation-settings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="cog-6-tooth" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Evaluation Schedule & Settings</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Open/close evaluation periods and set score weight percentages.</span>
+                </div>
+            </a>
+
+            <!-- 6. Edit Evaluation Questions -->
+            <a href="/admin/questions" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                     <flux:icon name="document-text" class="size-5" />
                 </div>
-                <div>
-                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Edit Questionnaires</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Customize evaluation queries.</span>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Edit Evaluation Questions</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, edit, or reorder questions for all 7 evaluation types.</span>
                 </div>
-            </flux:card>
+            </a>
 
-            <flux:card href="/admin/students" class="p-5 flex items-start gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition duration-150 cursor-pointer shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-                <div class="p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 dark:text-zinc-400">
-                    <flux:icon name="user" class="size-5" />
+            <!-- 7. Manage Classes & Rosters -->
+            <a href="/admin/classes" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="queue-list" class="size-5" />
                 </div>
-                <div>
-                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">Manage Accounts</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block font-medium">Create/edit student & faculty users.</span>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Classes & Rosters</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Assign teachers, schedules, and enroll students into sections.</span>
                 </div>
-            </flux:card>
+            </a>
+
+            <!-- 8. Manage Student Accounts -->
+            <a href="/admin/students" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="academic-cap" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Student Accounts</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit, or update student profiles and statuses.</span>
+                </div>
+            </a>
+
+            <!-- 9. Manage Employee Accounts -->
+            <a href="/admin/employees" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="users" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Employee Accounts</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit faculty, dean, head, and staff accounts.</span>
+                </div>
+            </a>
+
+            <!-- 10. Manage Subject Catalog -->
+            <a href="/admin/subjects" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="book-open" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Subject Catalog</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit academic course subjects and unit credits.</span>
+                </div>
+            </a>
+
+            <!-- 11. Manage Academic Departments -->
+            <a href="/admin/departments" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="building-office-2" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Departments</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Configure colleges, administrative offices, and assign heads.</span>
+                </div>
+            </a>
+
+            <!-- 12. Manage Academic Programs -->
+            <a href="/admin/programs" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <flux:icon name="academic-cap" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Academic Programs</span>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Setup degree programs (BSIT, BSA, etc.) and program heads.</span>
+                </div>
+            </a>
         </div>
     </div>
 
     <script>
-        (function() {
-            const initAlpineData = () => {
-                if (typeof Alpine !== 'undefined') {
-                    Alpine.data('dashboardAnalyticsCharts', (config) => ({
-                        ratingsInstance: null,
-                        deptInstance: null,
-                        ratingsData: config.ratingsData,
-                        deptLabels: config.deptLabels,
-                        deptAverages: config.deptAverages,
-                        init() {
-                            this.$nextTick(() => {
-                                this.renderRatings();
-                                this.renderDept();
-                            });
+        window.dashboardAnalyticsCharts = function(config) {
+            return {
+                ratingsInstance: null,
+                deptInstance: null,
+                ratingsData: config?.ratingsData || [],
+                deptLabels: config?.deptLabels || [],
+                deptAverages: config?.deptAverages || [],
+                init() {
+                    this.$nextTick(() => {
+                        this.renderAll();
+                    });
+
+                    window.addEventListener('flux:appearance:changed', () => {
+                        this.renderAll();
+                    });
+                },
+                renderAll() {
+                    if (typeof Chart === 'undefined') {
+                        setTimeout(() => this.renderAll(), 100);
+                        return;
+                    }
+                    this.renderRatings();
+                    this.renderDept();
+                },
+                renderRatings() {
+                    if (!this.$refs.ratingsChart || typeof Chart === 'undefined') return;
+                    if (this.ratingsInstance) {
+                        this.ratingsInstance.destroy();
+                        this.ratingsInstance = null;
+                    }
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const textColor = isDark ? '#d4d4d8' : '#3f3f46';
+                    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+                    this.ratingsInstance = new Chart(this.$refs.ratingsChart.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: ['Rating 5', 'Rating 4', 'Rating 3', 'Rating 2', 'Rating 1'],
+                            datasets: [{
+                                data: this.ratingsData,
+                                backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#71717a'],
+                                borderRadius: 6,
+                                borderSkipped: false,
+                            }]
                         },
-                        renderRatings() {
-                            if (!this.$refs.ratingsChart || typeof Chart === 'undefined') return;
-                            if (this.ratingsInstance) {
-                                this.ratingsInstance.destroy();
-                            }
-                            this.ratingsInstance = new Chart(this.$refs.ratingsChart.getContext('2d'), {
-                                type: 'bar',
-                                data: {
-                                    labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
-                                    datasets: [{
-                                        data: this.ratingsData,
-                                        backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#71717a'],
-                                        borderRadius: 6,
-                                        borderSkipped: false,
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: { display: false },
-                                        tooltip: {
-                                            callbacks: {
-                                                label: function(ctx) {
-                                                    return ctx.raw + ' answers';
-                                                }
-                                            }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(ctx) {
+                                            return Number(ctx.raw).toLocaleString() + ' answers';
                                         }
-                                    },
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true,
-                                            grid: { color: 'rgba(150, 150, 150, 0.1)' },
-                                            ticks: { precision: 0 }
-                                        },
-                                        x: { grid: { display: false } }
                                     }
                                 }
-                            });
-                        },
-                        renderDept() {
-                            if (!this.$refs.deptChart || typeof Chart === 'undefined' || this.deptLabels.length === 0) return;
-                            if (this.deptInstance) {
-                                this.deptInstance.destroy();
-                            }
-                            this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
-                                type: 'bar',
-                                data: {
-                                    labels: this.deptLabels,
-                                    datasets: [{
-                                        data: this.deptAverages,
-                                        backgroundColor: '#9b0000',
-                                        hoverBackgroundColor: '#7a0000',
-                                        borderRadius: 6,
-                                        borderSkipped: false,
-                                    }]
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: gridColor },
+                                    ticks: { precision: 0, color: textColor }
                                 },
-                                options: {
-                                    indexAxis: 'y',
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: { display: false },
-                                        tooltip: {
-                                            callbacks: {
-                                                label: function(ctx) {
-                                                    return ctx.raw + ' / 5.00 Rating';
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        x: {
-                                            min: 0,
-                                            max: 5.0,
-                                            grid: { color: 'rgba(150, 150, 150, 0.1)' }
-                                        },
-                                        y: { grid: { display: false } }
-                                    }
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: textColor }
                                 }
-                            });
+                            }
                         }
-                    }));
+                    });
+                },
+                renderDept() {
+                    if (!this.$refs.deptChart || typeof Chart === 'undefined' || !this.deptLabels || this.deptLabels.length === 0) return;
+                    if (this.deptInstance) {
+                        this.deptInstance.destroy();
+                        this.deptInstance = null;
+                    }
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const textColor = isDark ? '#d4d4d8' : '#3f3f46';
+                    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+                    this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: this.deptLabels,
+                            datasets: [{
+                                data: this.deptAverages,
+                                backgroundColor: isDark ? '#f89696' : '#9b0000',
+                                hoverBackgroundColor: isDark ? '#fca5a5' : '#7a0000',
+                                borderRadius: 6,
+                                borderSkipped: false,
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(ctx) {
+                                            return Number(ctx.raw).toFixed(2) + ' / 5.00 Rating';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    min: 0,
+                                    max: 5.0,
+                                    grid: { color: gridColor },
+                                    ticks: { color: textColor }
+                                },
+                                y: {
+                                    grid: { display: false },
+                                    ticks: { color: textColor }
+                                }
+                            }
+                        }
+                    });
                 }
             };
-
-            if (typeof Alpine !== 'undefined') {
-                initAlpineData();
-            } else {
-                document.addEventListener('alpine:init', initAlpineData);
-            }
-        })();
+        };
     </script>
 </div>

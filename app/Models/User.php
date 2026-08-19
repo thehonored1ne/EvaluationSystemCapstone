@@ -162,6 +162,30 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'description' => "The evaluation period for {$sem->academicYear->name} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
                 'created_at' => $notificationTime,
             ];
+
+            // 1.1 Deadline approaching urgency notification (if within 72 hours)
+            if ($sem->evaluation_ends_at) {
+                $hoursLeft = (int) $now->diffInHours($sem->evaluation_ends_at, false);
+                if ($hoursLeft >= 0 && $hoursLeft <= 72) {
+                    $urgencyTier = match (true) {
+                        $hoursLeft <= 6 => '6h',
+                        $hoursLeft <= 24 => '24h',
+                        default => '3d',
+                    };
+                    $urgencyLabel = match ($urgencyTier) {
+                        '6h' => 'Urgent: Closing in '.max(1, $hoursLeft).' hour(s)',
+                        '24h' => 'Important: Closing in '.max(1, $hoursLeft).' hours',
+                        default => 'Closing Soon in '.ceil($hoursLeft / 24).' days',
+                    };
+                    $notifications[] = (object) [
+                        'id' => 'sem_'.$sem->id.'_deadline_'.$urgencyTier,
+                        'type' => 'warning',
+                        'title' => 'Evaluation Deadline Approaching',
+                        'description' => "Evaluations for {$sem->academicYear->name} - {$sem->name} will close on {$sem->evaluation_ends_at->format('F d, Y h:i A')} ({$urgencyLabel}).",
+                        'created_at' => $notificationTime,
+                    ];
+                }
+            }
         } else {
             $timeInfo = '';
             if ($sem->evaluation_starts_at) {
@@ -527,5 +551,162 @@ class User extends Authenticatable // implements MustVerifyEmail
             'dismissed_notifications' => $dismissed,
             'notifications_last_viewed_at' => now(),
         ]);
+    }
+
+    /**
+     * Count pending evaluations for this user in the specified (or active) semester.
+     */
+    public function countPendingEvaluations(?Semester $sem = null): int
+    {
+        $sem = $sem ?? Semester::where('is_active', true)->first();
+        if (! $sem) {
+            return 0;
+        }
+
+        $pending = 0;
+
+        if ($this->hasRole('student') && $this->student_id) {
+            $classes = AcademicClass::where('semester_id', $sem->id)
+                ->whereHas('students', fn ($q) => $q->where('students.id', $this->student_id))
+                ->with('teacher.user')
+                ->get();
+
+            foreach ($classes as $class) {
+                if ($class->teacher && $class->teacher->user) {
+                    $exists = Evaluation::where([
+                        'semester_id' => $sem->id,
+                        'evaluator_id' => $this->id,
+                        'evaluatee_id' => $class->teacher->user->id,
+                        'class_id' => $class->id,
+                    ])->exists();
+
+                    if (! $exists) {
+                        $pending++;
+                    }
+                }
+            }
+        }
+
+        if ($this->hasRole('faculty') && $this->employee) {
+            $emp = $this->employee;
+
+            // Self evaluation
+            $selfDone = Evaluation::where([
+                'semester_id' => $sem->id,
+                'evaluator_id' => $this->id,
+                'evaluatee_id' => $this->id,
+                'evaluation_type' => 'self',
+            ])->exists();
+
+            if (! $selfDone) {
+                $pending++;
+            }
+
+            // Peer evaluations in same department
+            if ($emp->department_id) {
+                $peers = Employee::where('role', 'faculty')
+                    ->where('department_id', $emp->department_id)
+                    ->where('id', '!=', $emp->id)
+                    ->where('status', 'active')
+                    ->with('user')
+                    ->get();
+
+                foreach ($peers as $peer) {
+                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                        $pending++;
+                    }
+                }
+            }
+        }
+
+        if ($this->hasRole('program head') && $this->employee) {
+            $emp = $this->employee;
+
+            // Self
+            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
+                $pending++;
+            }
+
+            // Subordinate faculty
+            if ($emp->department_id) {
+                $faculty = Employee::where('role', 'faculty')
+                    ->where('department_id', $emp->department_id)
+                    ->where('status', 'active')
+                    ->with('user')
+                    ->get();
+
+                foreach ($faculty as $fac) {
+                    if ($fac->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $fac->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                        $pending++;
+                    }
+                }
+            }
+        }
+
+        if ($this->hasRole('dean') && $this->employee) {
+            // Self
+            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
+                $pending++;
+            }
+
+            // Program heads
+            $heads = Employee::where('role', 'program head')->where('status', 'active')->with('user')->get();
+            foreach ($heads as $head) {
+                if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                    $pending++;
+                }
+            }
+        }
+
+        if ($this->hasRole('staff') && $this->employee) {
+            $emp = $this->employee;
+
+            // Self
+            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
+                $pending++;
+            }
+
+            // Peer staff in department
+            if ($emp->department_id) {
+                $peerStaff = Employee::where('role', 'staff')
+                    ->where('department_id', $emp->department_id)
+                    ->where('id', '!=', $emp->id)
+                    ->where('status', 'active')
+                    ->with('user')
+                    ->get();
+
+                foreach ($peerStaff as $peer) {
+                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                        $pending++;
+                    }
+                }
+            }
+        }
+
+        if ($this->hasRole('department head') && $this->employee) {
+            $emp = $this->employee;
+
+            // Self
+            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
+                $pending++;
+            }
+
+            // Staff in dept
+            if ($emp->department_id) {
+                $staff = Employee::where('role', 'staff')
+                    ->where('department_id', $emp->department_id)
+                    ->where('status', 'active')
+                    ->with('user')
+                    ->get();
+
+                foreach ($staff as $st) {
+                    if ($st->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $st->user->id, 'evaluation_type' => 'downward'])->exists()) {
+                        $pending++;
+                    }
+                }
+            }
+        }
+
+        return $pending;
     }
 }

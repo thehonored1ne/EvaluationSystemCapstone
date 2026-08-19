@@ -7,19 +7,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2026-08-19]
 
 ### Added
-- **Admin Dashboard Visual Analytics (Chart.js)**:
-  - Replaced text metric cards with interactive Chart.js bar charts on `/admin/dashboard`:
-    - **Ratings Distribution Chart**: Visual 1 to 5 star frequency breakdown with customized brand colors and responsive scaling.
-    - **Department Average Ratings Chart**: Horizontal bar chart comparing academic department mean ratings against the 5.00 scale.
-  - Implemented modular Alpine.js registration (`Alpine.data('dashboardAnalyticsCharts', ...)`) and `$nextTick()` rendering with automated instance lifecycle destruction to prevent HTML attribute escaping conflicts.
-  - Added global Chart.js CDN script in [`partials/head.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/partials/head.blade.php).
-- **Subjects Bulk Data Operations (Import, Export & Template)**:
-  - Added **Download Template** (CSV) with standardized format headers.
-  - Added **Export Subjects** (CSV) for archiving and external curriculum management.
-  - Added **Import Subjects** supporting CSV and Excel files (`.csv`, `.xlsx`, `.xls`) with header validation, duplicate code detection, and toast feedback notifications.
-- **Evaluation Settings Quick Navigation & Period Management Table**:
-  - Added a clean static Quick Jump Navigation bar linking directly to `#schedule-section`, `#weights-section`, and `#academic-periods-section`.
-  - Converted Academic Years & Semesters management into a paginated table (10 per page) with unified **Add Academic Period** modal.
+- **Phase 1 Master Dataset Architecture & Seeding**:
+  - Populated 124 institutional employees (1 Dean, 11 Department Heads, 4 Program Heads, 50 Faculty Professors, and 57 Administrative Staff) across 15 departments (4 Academic: CCS, COA, COE, CBAE; 11 Administrative: Accounting, Admission, Clinic, General Service, Guidance, IT Office, Library, OSA, Registrar, RCE, Scholarship).
+  - Populated 3,200 active student records distributed evenly (800 CCS, 800 COA, 800 COE, 800 CBAE) across 13 academic degree programs.
+  - Cataloged 176 unique academic subjects and generated 946 section classes with 29,291 student enrollments.
+  - Standardized 130 evaluation questions across 21 rubric parts for all 7 evaluation types (`upward_student`, `self`, `dean`, `program_head`, `peer`, `department_head`, `upward_employee`).
+  - Calibrated the Teaching Effectiveness formula allocation in evaluation settings (Student 40%/80pts, Dean 20%/40pts, Program Head 20%/40pts, Peer 15%/30pts, Self 5%/10pts $\rightarrow$ 200 Max Scale).
+- **Phase 2 Authentic Evaluation Population & Demonstration Dataset**:
+  - Implemented high-performance batch seeder [`EvaluationPhase2Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/EvaluationPhase2Seeder.php) generating 23,056 evaluations, 499,222 individual question ratings, and 23,056 VADER/Decision Tree sentiment records in under 30 seconds.
+  - Aggregated overall performance scorecards for all 124 employees in the `evaluation_summaries` table.
+  - Reserved $\approx 20\% - 25\%$ pending evaluation queues across Students, Deans, Program Heads, Faculty, Department Heads, and Staff to enable live, end-to-end presentation demonstrations.
+  - Authored a rich multilingual bank of authentic student and employee reflections in English, Taglish, and Filipino across 70% positive, 20% neutral/constructive, and 10% negative sentiments.
+
+- **Admin Bulk Operations, Enrollment Roster Management & Student Status Lifecycle**:
+  - **Manage Students (`/admin/students`)**: Added Download CSV Template, Bulk CSV Import with automatic `User` account generation and program resolution, Export Filtered Students (CSV), and enrollment status filters (`Regular`, `Irregular`, `LOA`, `Dropped`, `Graduated`, `Inactive`).
+  - **Manage Employees (`/admin/employees`)**: Added Download CSV Template, Bulk CSV Import across all 6 roles (`faculty`, `dean`, `department head`, `program head`, `staff`, `admin`), automatic role assignment and department sync, and Export Filtered Employees (CSV).
+  - **Manage Classes & Rosters (`/admin/classes`)**: Added Download CSV Template, Bulk Class Schedule and Student Roster Import (CSV) with automatic section creation and `class_student` pivot linking, and Export Class Masterlist (CSV).
+  - **Automated Feature Verification**: Added test suite [`AdminBulkOperationsTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminBulkOperationsTest.php) verifying CSV download templates, exports, imports, and multi-student roster allocations.
+
+- **Admin Dashboard Quick System Actions Hub**:
+  - Converted quick action cards to fully functional `<a href="..." wire:navigate>` single-page navigation links with smooth hover animations and GRC red accents (`border-l-[#9b0000]`).
+  - Removed the AI Model & Training button in favor of straightforward, direct operational actions:
+    1. **Track Evaluation Turnout** (`/manage-evaluations`)
+    2. **View Completed Evaluations** (`/evaluation-results`)
+    3. **Generate GRC Reports** (`/reports`)
+    4. **Department & Faculty Rankings** (`/rankings`)
+    5. **Evaluation Schedule & Settings** (`/admin/evaluation-settings`)
+    6. **Edit Evaluation Questions** (`/admin/questions`)
+    7. **Manage Classes & Rosters** (`/admin/classes`)
+    8. **Manage Student Accounts** (`/admin/students`)
+    9. **Manage Employee Accounts** (`/admin/employees`)
+    10. **Manage Subject Catalog** (`/admin/subjects`)
+    11. **Manage Departments** (`/admin/departments`)
+    12. **Manage Academic Programs** (`/admin/programs`)
+
+### Changed & Fixed
+- **Authentication & Login Form Design System Overhaul**:
+  - Completely isolated the auth login container card from dark-mode override conflicts.
+  - Enforced a solid white card background, visible input borders (`border border-zinc-300 focus:border-[#9b0000]`), and dark high-contrast readable text (`text-zinc-900 font-semibold`).
+  - Standardized form action buttons and labels to official GRC deep red branding (`bg-[#7a0000] hover:bg-[#9b0000]` and `text-[#7a0000] font-bold`).
+  - Added integrated interactive password visibility toggle eye icons.
+  - Case-insensitive credential lookup supporting emails, student IDs, employee IDs, and standard administrator aliases (`admin`, `ADMIN-001`, `dion.areglo1234@gmail.com`).
+- **Evaluation Form Review & Banner Dark Mode Contrast**:
+  - Fixed low-contrast text on completion banners and status badges in [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php), ensuring vibrant emerald tones and clear badge outlines across dark mode themes.
+- **Evaluation Questions Setup Navigation**:
+  - Removed points annotation (`(XX pts)`) from tab headers in [`manage-questions.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-questions.blade.php) to accommodate context-dependent reporting rubrics.
 
 ### Changed & Fixed
 - **Mobile & Desktop Table Responsiveness Standardization**:

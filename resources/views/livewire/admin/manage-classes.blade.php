@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Lazy;
 use App\Models\AcademicClass;
@@ -12,14 +13,20 @@ use App\Models\Student;
 use App\Models\Department;
 use App\Models\Program;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     use WithPagination;
+    use WithFileUploads;
 
     public function placeholder()
     {
         return view('livewire.placeholders.generic-table-skeleton');
     }
+
+    // Import properties
+    public $importFile = null;
+    public bool $showImportModal = false;
 
     // Filter properties
     public string $search = '';
@@ -400,6 +407,211 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return $query->orderBy('last_name')->limit(50)->get();
     }
 
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="classes_and_roster_template.csv"',
+        ];
+
+        $columns = ['subject_code', 'teacher_employee_number', 'section', 'schedule', 'room', 'student_numbers_comma_separated'];
+
+        $callback = function () use ($columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+            // Sample rows
+            fputcsv($file, ['CC101', 'FAC-001', 'BSIT-1A', 'MWF 08:00 AM - 09:30 AM', 'CL-1', '2026-01-0001, 2026-01-0002, 2026-01-0003']);
+            fputcsv($file, ['ACT101', 'FAC-002', 'BSA-1A', 'TTH 10:00 AM - 11:30 AM', 'Room 302', '2026-02-0001, 2026-02-0002']);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportClasses()
+    {
+        $query = AcademicClass::query()
+            ->with(['subject', 'teacher.department', 'semester.academicYear', 'students'])
+            ->withCount('students');
+
+        if ($this->filterSemester) {
+            $query->where('semester_id', $this->filterSemester);
+        }
+        if ($this->filterDepartment) {
+            $query->whereHas('teacher', fn ($q) => $q->where('department_id', $this->filterDepartment));
+        }
+        if ($this->filterSubject) {
+            $query->where('subject_id', $this->filterSubject);
+        }
+        if ($this->filterTeacher) {
+            $query->where('teacher_id', $this->filterTeacher);
+        }
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('section', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('subject', fn ($sub) => $sub->where('code', 'like', '%'.$this->search.'%')->orWhere('name', 'like', '%'.$this->search.'%'))
+                    ->orWhereHas('teacher', fn ($emp) => $emp->where('first_name', 'like', '%'.$this->search.'%')->orWhere('last_name', 'like', '%'.$this->search.'%'));
+            });
+        }
+
+        $classes = $query->orderBy('id', 'desc')->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="classes_export_'.now()->format('Ymd_His').'.csv"',
+        ];
+
+        $callback = function () use ($classes) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Section', 'Subject Code', 'Subject Name', 'Professor ID', 'Professor Name', 'Department', 'Schedule', 'Room', 'Academic Period', 'Enrolled Count', 'Enrolled Student IDs']);
+
+            foreach ($classes as $c) {
+                $studentIds = $c->students->pluck('student_number')->filter()->implode(', ');
+                fputcsv($file, [
+                    $c->section,
+                    $c->subject->code ?? '',
+                    $c->subject->name ?? '',
+                    $c->teacher->employee_number ?? '',
+                    $c->teacher->formatted_name ?? $c->teacher->full_name ?? '',
+                    $c->teacher->department->code ?? '',
+                    $c->schedule ?? '',
+                    $c->room ?? '',
+                    ($c->semester->academicYear->name ?? '').' - '.($c->semester->name ?? ''),
+                    $c->students_count,
+                    $studentIds,
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importClasses()
+    {
+        $this->validate([
+            'importFile' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $activeSemester = Semester::where('is_active', true)->first();
+        if (! $activeSemester) {
+            $this->addError('importFile', 'No active semester found. Please set an active semester first in Settings.');
+
+            return;
+        }
+
+        $path = $this->importFile->getRealPath();
+        $file = fopen($path, 'r');
+        $header = fgetcsv($file);
+        if (! $header) {
+            $this->addError('importFile', 'The CSV file is empty or corrupted.');
+
+            return;
+        }
+
+        $rows = [];
+        while (($row = fgetcsv($file)) !== false) {
+            if (array_filter($row)) {
+                $rows[] = $row;
+            }
+        }
+        fclose($file);
+
+        if (empty($rows)) {
+            $this->addError('importFile', 'No data rows found in the uploaded file.');
+
+            return;
+        }
+
+        $subjectsByCode = Subject::all()->keyBy(fn ($s) => strtoupper(trim($s->code)));
+        $teachersByNum = Employee::whereIn('role', ['faculty', 'program head'])->get()->keyBy(fn ($e) => strtoupper(trim($e->employee_number)));
+        $studentsByNum = Student::all()->keyBy(fn ($s) => strtoupper(trim($s->student_number)));
+
+        $classesAdded = 0;
+        $classesUpdated = 0;
+        $enrollmentsAdded = 0;
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $index => $row) {
+                $subjCode = strtoupper(trim($row[0] ?? ''));
+                $teacherNum = strtoupper(trim($row[1] ?? ''));
+                $section = strtoupper(trim($row[2] ?? ''));
+                $schedule = trim($row[3] ?? '') ?: null;
+                $room = trim($row[4] ?? '') ?: null;
+                $studentNumsStr = trim(implode(',', array_slice($row, 5)));
+
+                if (! $subjCode || ! $teacherNum || ! $section) {
+                    continue; // Skip invalid row
+                }
+
+                $subject = $subjectsByCode->get($subjCode);
+                $teacher = $teachersByNum->get($teacherNum);
+
+                if (! $subject || ! $teacher) {
+                    continue; // Skip if subject or teacher not found
+                }
+
+                $class = AcademicClass::where([
+                    'semester_id' => $activeSemester->id,
+                    'subject_id' => $subject->id,
+                    'section' => $section,
+                ])->first();
+
+                if ($class) {
+                    $class->update([
+                        'teacher_id' => $teacher->id,
+                        'schedule' => $schedule ?? $class->schedule,
+                        'room' => $room ?? $class->room,
+                    ]);
+                    $classesUpdated++;
+                } else {
+                    $class = AcademicClass::create([
+                        'semester_id' => $activeSemester->id,
+                        'subject_id' => $subject->id,
+                        'teacher_id' => $teacher->id,
+                        'section' => $section,
+                        'schedule' => $schedule,
+                        'room' => $room,
+                    ]);
+                    $classesAdded++;
+                }
+
+                // If student numbers are provided, sync enrollment
+                if ($studentNumsStr) {
+                    $studentNums = array_filter(array_map('trim', explode(',', $studentNumsStr)));
+                    $studentIdsToSync = [];
+                    foreach ($studentNums as $sNum) {
+                        $st = $studentsByNum->get(strtoupper($sNum));
+                        if ($st) {
+                            $studentIdsToSync[] = $st->id;
+                        }
+                    }
+                    if (! empty($studentIdsToSync)) {
+                        $class->students()->syncWithoutDetaching($studentIdsToSync);
+                        $enrollmentsAdded += count($studentIdsToSync);
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->addError('importFile', 'Import error on line '.($index + 2).': '.$e->getMessage());
+
+            return;
+        }
+
+        $this->reset(['importFile']);
+        $this->showImportModal = false;
+
+        \Flux::toast(
+            heading: 'Classes & Rosters Imported',
+            text: "Processed classes: {$classesAdded} created, {$classesUpdated} updated. Enrolled {$enrollmentsAdded} student allocations.",
+            variant: 'success'
+        );
+    }
+
     public function with(): array
     {
         $query = AcademicClass::query()
@@ -472,12 +684,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 }; ?>
 
 <div class="w-full flex flex-col gap-6">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <flux:heading size="xl" level="1">Manage Classes & Enrollment</flux:heading>
             <flux:subheading class="text-left mt-1">Class section allocations, professor assignments, student enrollment, and scheduling.</flux:subheading>
         </div>
-        <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Class</flux:button>
+        <div class="flex items-center gap-2 flex-wrap">
+            <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportClasses">
+                Export CSV
+            </flux:button>
+            <flux:button variant="outline" icon="arrow-up-tray" wire:click="$set('showImportModal', true)">
+                Import Classes
+            </flux:button>
+            <flux:button variant="primary" wire:click="prepareCreate" icon="plus">
+                Add Class
+            </flux:button>
+        </div>
     </div>
     
     <!-- Search & Advanced Filter Controls Bar (Inline Flex + 2x2/4-across Grid) -->
@@ -923,4 +1145,47 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
     @endif
+
+    <!-- Bulk Import Classes & Rosters Modal -->
+    <flux:modal wire:model="showImportModal" class="min-w-[520px]">
+        <div class="space-y-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Classes & Rosters</h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing section schedules and student ID allocations for the active semester.</p>
+                </div>
+                <flux:button size="sm" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
+                    Download Template
+                </flux:button>
+            </div>
+
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-800/30 text-xs space-y-2">
+                <span class="font-bold text-zinc-800 dark:text-zinc-200 block">CSV File Format Requirements:</span>
+                <ul class="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-1">
+                    <li>Required Columns: <code class="font-mono text-zinc-900 dark:text-zinc-100 font-bold">subject_code, teacher_employee_number, section</code></li>
+                    <li>Optional Columns: <code class="font-mono text-zinc-700 dark:text-zinc-300">schedule, room, student_numbers_comma_separated</code></li>
+                    <li>In the <code class="font-mono">student_numbers_comma_separated</code> column, list enrolled student IDs separated by commas (e.g. <code class="font-mono">2026-01-0001, 2026-01-0002</code>).</li>
+                </ul>
+            </div>
+
+            <form wire:submit="importClasses" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-2">Select Spreadsheet (.CSV)</label>
+                    <input type="file" wire:model="importFile" accept=".csv,text/csv" class="w-full text-xs text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000] file:text-white hover:file:bg-[#7a0000] cursor-pointer" required />
+                    @error('importFile') <span class="text-xs text-rose-500 mt-1 block font-semibold">{{ $message }}</span> @enderror
+                </div>
+
+                <div wire:loading wire:target="importFile" class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                    Uploading and verifying file...
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                    <flux:button variant="ghost" wire:click="$set('showImportModal', false)">Cancel</flux:button>
+                    <flux:button variant="primary" type="submit" wire:loading.attr="disabled">
+                        Upload & Import
+                    </flux:button>
+                </div>
+            </form>
+        </div>
+    </flux:modal>
 </div>

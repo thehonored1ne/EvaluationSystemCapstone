@@ -4,15 +4,17 @@
     $roleName = ucwords(str_replace(['_', '-'], ' ', $roleRaw));
 @endphp
 
-<flux:header class="border-b border-red-900/40 bg-[#9b0000] text-white shadow-md">
+<flux:header class="border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden">
     <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
     <div class="flex items-center gap-2">
         <button 
             type="button" 
             x-data
-            @click.prevent.stop="$dispatch('toggle-sidebar')" 
+            @click="if (window.innerWidth >= 1024) { $dispatch('toggle-sidebar'); } else { $dispatch('flux-sidebar-toggle'); }" 
+            data-flux-sidebar-toggle
             class="cursor-pointer p-2 rounded-lg text-white hover:bg-white/10 transition-colors shrink-0"
             title="Toggle Sidebar"
+            aria-label="Toggle Sidebar"
         >
             <flux:icon icon="bars-2" class="size-5" />
         </button>

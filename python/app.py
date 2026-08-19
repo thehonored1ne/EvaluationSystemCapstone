@@ -90,11 +90,52 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 VECTORIZER_PATH = os.path.join(MODEL_DIR, "vectorizer.pkl")
 CLASSIFIER_PATH = os.path.join(MODEL_DIR, "classifier.pkl")
 
-# Helper: get VADER compound score and sentiment label
+# Common Tagalog grammatical particles and high-frequency lexical markers
+TAGALOG_MARKERS = {
+    "ang", "ng", "mga", "sa", "si", "ni", "kay", "po", "opo",
+    "kasi", "naman", "ba", "ay", "yung", "ung", "na", "pa",
+    "mas", "sobrang", "medyo", "hindi", "di", "wala", "huwag",
+    "magaling", "mabait", "mahusay", "madali", "mahirap", "nakakainis",
+    "maayos", "ayos", "kulang", "sobra", "masipag", "tamad", "maganda"
+}
+
+def detect_language_mode(text):
+    if not text or not text.strip():
+        return "english"
+    words = [w.lower().strip(".,!?;:()[]\"'") for w in text.split()]
+    if not words:
+        return "english"
+    tagalog_count = sum(1 for w in words if w in TAGALOG_MARKERS)
+    ratio = tagalog_count / len(words)
+    return "taglish" if ratio >= 0.10 else "english"
+
+def preprocess_taglish_context(text):
+    """
+    Normalizes complex Tagalog multi-word idioms and contextual negations for VADER.
+    """
+    if not text:
+        return text
+    t = text.lower()
+    # Handle multi-word double negatives and diminished idioms
+    t = t.replace("di naman masama", "maayos")
+    t = t.replace("hindi naman masama", "maayos")
+    t = t.replace("di gaano masama", "katamtaman")
+    t = t.replace("hindi gaano masama", "katamtaman")
+    t = t.replace("di masyadong magaling", "medyo kulang")
+    t = t.replace("hindi masyadong magaling", "medyo kulang")
+    t = t.replace("walang kwenta", "napakatinding pagkukulang")
+    t = t.replace("wala kang kwenta", "napakatinding pagkukulang")
+    return t
+
+# Helper: get VADER compound score and sentiment label with language context routing
 def get_vader_sentiment(text):
     if not text or not text.strip():
-        return 0.0, "neutral"
-    scores = sia.polarity_scores(text)
+        return 0.0, "neutral", "english"
+    
+    lang_mode = detect_language_mode(text)
+    processed_text = preprocess_taglish_context(text) if lang_mode == "taglish" else text
+    
+    scores = sia.polarity_scores(processed_text)
     compound = scores['compound']
     if compound >= 0.05:
         label = "positive"
@@ -102,7 +143,7 @@ def get_vader_sentiment(text):
         label = "negative"
     else:
         label = "neutral"
-    return compound, label
+    return compound, label, lang_mode
 
 # Helper: Load Decision Tree and TF-IDF models
 def load_models():
@@ -141,7 +182,7 @@ def analyze():
     results = []
 
     for text, rating in zip(comments, ratings):
-        vader_score, vader_label = get_vader_sentiment(text)
+        vader_score, vader_label, lang_mode = get_vader_sentiment(text)
         
         # Predict using Decision Tree if available (features: TF-IDF of text + Rating value)
         if vectorizer and classifier and text and text.strip():
@@ -160,7 +201,8 @@ def analyze():
             "comment": text,
             "vader_score": vader_score,
             "vader_label": vader_label,
-            "dt_label": dt_label
+            "dt_label": dt_label,
+            "language_mode": lang_mode
         })
 
     if single_mode:
@@ -189,7 +231,7 @@ def train():
                 db_training_samples.append((comment, manual_label, rating))
             else:
                 # Run VADER
-                _, vader_label = get_vader_sentiment(comment)
+                _, vader_label, _ = get_vader_sentiment(comment)
                 # Agreement Gate
                 if rating >= 4.2 and vader_label == "negative":
                     # Discard conflict
@@ -205,7 +247,7 @@ def train():
             comment = c.strip()
             if not comment:
                 continue
-            _, vader_label = get_vader_sentiment(comment)
+            _, vader_label, _ = get_vader_sentiment(comment)
             db_training_samples.append((comment, vader_label, 3.0))
 
     # Load seed data from Excel

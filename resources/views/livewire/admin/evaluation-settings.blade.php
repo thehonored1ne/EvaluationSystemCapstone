@@ -619,7 +619,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     }
 }; ?>
 
-<div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-left">
+<div class="w-full flex flex-col gap-6 text-left">
     <!-- Header Section -->
     <div class="flex justify-between items-center w-full">
         <div>
@@ -629,18 +629,18 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     <!-- Quick Navigation Anchor Bar (Static) -->
-    <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-wrap items-center gap-3">
-        <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Quick Navigation:</span>
+    <div class="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-wrap items-center gap-2 sm:gap-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 w-full sm:w-auto">Quick Navigation:</span>
         <a href="#schedule-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="clock" class="size-3.5" />
+            <flux:icon icon="clock" class="size-3.5 shrink-0" />
             Schedule Window
         </a>
         <a href="#weights-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="scale" class="size-3.5" />
+            <flux:icon icon="scale" class="size-3.5 shrink-0" />
             Evaluation Weights & Criteria
         </a>
         <a href="#academic-periods-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="calendar" class="size-3.5" />
+            <flux:icon icon="calendar" class="size-3.5 shrink-0" />
             Academic Years & Semesters
         </a>
     </div>
@@ -652,27 +652,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @endif
 
     <!-- SECTION 1: Active Evaluation Status & Toggle Control Banner -->
-    <div id="status-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 w-full">
-        <div class="flex items-center gap-4">
-            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-900">
-                <flux:icon icon="bolt" class="size-7" />
+    <div id="status-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 w-full">
+        <div class="flex items-start sm:items-center gap-3 sm:gap-4">
+            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-900 shrink-0">
+                <flux:icon icon="bolt" class="size-6 sm:size-7" />
             </div>
             <div>
-                <div class="flex items-center gap-3">
-                    <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">System Access Status</h2>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">System Access Status</h2>
                     @if($this->activeSemester)
                         @php $status = $this->activeSemester->evaluation_status; @endphp
                         @if($status === 'active')
-                            <flux:badge variant="success" size="sm" class="font-bold">Open & Active</flux:badge>
+                            <flux:badge variant="success" size="sm" class="font-bold shrink-0">Open & Active</flux:badge>
                         @elseif($status === 'scheduled')
-                            <flux:badge variant="warning" size="sm" class="font-bold">Scheduled</flux:badge>
+                            <flux:badge variant="warning" size="sm" class="font-bold shrink-0">Scheduled</flux:badge>
                         @elseif($status === 'expired')
-                            <flux:badge variant="danger" size="sm" class="font-bold">Expired</flux:badge>
+                            <flux:badge variant="danger" size="sm" class="font-bold shrink-0">Expired</flux:badge>
                         @else
-                            <flux:badge variant="danger" size="sm" class="font-bold">Closed / Locked</flux:badge>
+                            <flux:badge variant="danger" size="sm" class="font-bold shrink-0">Closed / Locked</flux:badge>
                         @endif
                     @else
-                        <flux:badge variant="neutral" size="sm">No Active Semester</flux:badge>
+                        <flux:badge variant="neutral" size="sm" class="shrink-0">No Active Semester</flux:badge>
                     @endif
                 </div>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
@@ -686,11 +686,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         @if($this->activeSemester)
-            <div class="flex flex-col items-end gap-2 w-full md:w-auto">
+            <div class="flex flex-col items-stretch sm:items-end gap-2 w-full md:w-auto shrink-0">
                 <flux:button 
                     variant="{{ $this->activeSemester->is_evaluation_open ? 'danger' : 'primary' }}" 
                     wire:click="toggleEvaluation"
-                    class="w-full md:w-auto font-bold"
+                    class="w-full sm:w-auto font-bold justify-center"
                 >
                     {{ $this->activeSemester->is_evaluation_open ? 'Close Evaluation System' : 'Open Evaluation System' }}
                 </flux:button>
@@ -702,11 +702,11 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     <!-- SECTION 2: Evaluation Window Schedule -->
-    <div id="schedule-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full">
+    <div id="schedule-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-4 sm:gap-6 w-full">
         <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
             <div>
                 <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="clock" class="size-5 text-indigo-500" />
+                    <flux:icon icon="clock" class="size-5 text-indigo-500 shrink-0" />
                     Set Evaluation Schedule Dates
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Automate system opening and closing date/time windows for active evaluations.</p>
@@ -736,7 +736,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 @enderror
 
                 <div class="flex justify-end pt-2">
-                    <flux:button type="submit" variant="outline" size="sm" icon="calendar">
+                    <flux:button type="submit" variant="outline" size="sm" icon="calendar" class="w-full sm:w-auto justify-center">
                         Save Schedule Window
                     </flux:button>
                 </div>
@@ -747,7 +747,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <div class="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
-                            <flux:icon icon="calendar-days" class="size-4" />
+                            <flux:icon icon="calendar-days" class="size-4 shrink-0" />
                             Current Saved Schedule
                         </span>
                         @if($this->activeSemester->is_evaluation_open)
@@ -820,38 +820,38 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @endphp
 
     <!-- SECTION 3: UNIFIED Evaluation Weights & Questionnaire Parts Setup -->
-    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
         
         <!-- Section Header -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="adjustments-horizontal" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
+                <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <flux:icon icon="adjustments-horizontal" class="size-5 sm:size-6 text-[#9b0000] dark:text-[#f89696] shrink-0" />
                     Evaluation Weights & Questionnaire Parts Allocation
                 </h2>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
                     Configure overall scale, target percentage weights, and specific questionnaire criteria parts directly for each category.
                 </p>
             </div>
 
-            <div class="flex items-center gap-3 self-start sm:self-auto">
-                <flux:badge variant="{{ $isTeBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 self-start sm:self-auto">
+                <flux:badge variant="{{ $isTeBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold shrink-0">
                     Weights: {{ $teWeights }}% / {{ $maxWeight }}%
                 </flux:badge>
-                <flux:badge variant="{{ $allBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold">
+                <flux:badge variant="{{ $allBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold shrink-0">
                     {{ $allBalanced ? 'Report Formula Balanced' : 'Action Required' }}
                 </flux:badge>
             </div>
         </div>
 
         <!-- Tab Navigation Switcher -->
-        <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-2 md:gap-4 overflow-x-auto pb-0">
+        <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-2 md:gap-4 overflow-x-auto pb-0 -mx-1 px-1 sm:mx-0 sm:px-0">
             <button 
                 type="button"
                 wire:click="$set('weightsReportTab', 'teaching_effectiveness')" 
                 class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'teaching_effectiveness' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
-                <flux:icon icon="academic-cap" class="size-4" />
+                <flux:icon icon="academic-cap" class="size-4 shrink-0" />
                 Individual Teaching Effectiveness (Faculty 360°)
             </button>
             <button 
@@ -859,7 +859,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 wire:click="$set('weightsReportTab', 'global_targets')" 
                 class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'global_targets' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
-                <flux:icon icon="adjustments-vertical" class="size-4" />
+                <flux:icon icon="adjustments-vertical" class="size-4 shrink-0" />
                 All Categories & Extended Roles (Global Master)
             </button>
         </div>
@@ -870,35 +870,35 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             @if($weightsReportTab === 'teaching_effectiveness')
                 
                 <!-- Top Controls: Overall Scale & Editable Target Weight % -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
                     <div class="space-y-1">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-[#9b0000] dark:text-[#f89696] flex items-center gap-1.5">
-                            <flux:icon icon="document-text" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="document-text" class="size-4 text-[#9b0000] dark:text-[#f89696] shrink-0" />
                             Official GRC Faculty Teaching Effectiveness Scale
                         </span>
-                        <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium">
+                        <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium leading-relaxed">
                             Adjusting overall target points or max weight % dynamically recalculates the exact point targets for the 5 categories.
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-4 w-full md:w-auto shrink-0">
-                        <div class="w-32">
-                            <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Overall Scale</label>
+                    <div class="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-4 w-full md:w-auto shrink-0">
+                        <div class="col-span-1 sm:w-28 md:w-32">
+                            <label class="block text-[11px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Overall Scale</label>
                             <div class="flex items-center gap-1.5">
-                                <flux:input type="number" wire:model.live="overallMaxTarget" min="1" class="font-bold text-sm" />
-                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">pts</span>
+                                <flux:input type="number" wire:model.live="overallMaxTarget" min="1" class="font-bold text-sm w-full" />
+                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold shrink-0">pts</span>
                             </div>
                         </div>
 
-                        <div class="w-32">
-                            <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Target Sum %</label>
+                        <div class="col-span-1 sm:w-28 md:w-32">
+                            <label class="block text-[11px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Target Sum %</label>
                             <div class="flex items-center gap-1.5">
-                                <flux:input type="number" wire:model.live="maxWeightPercent" min="1" max="100" class="font-bold text-sm" />
-                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold">%</span>
+                                <flux:input type="number" wire:model.live="maxWeightPercent" min="1" max="100" class="font-bold text-sm w-full" />
+                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold shrink-0">%</span>
                             </div>
                         </div>
 
-                        <div class="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 text-center min-w-[120px] shadow-2xs">
+                        <div class="col-span-2 sm:col-span-1 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 text-center min-w-[110px] shadow-2xs flex sm:flex-col items-center justify-between sm:justify-center">
                             <span class="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block tracking-wider mb-0.5">Current Sum</span>
                             <span class="text-xl font-mono font-extrabold {{ $isTeBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">{{ $teWeights }}%</span>
                         </div>
@@ -912,26 +912,29 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 @enderror
 
                 <!-- 5 Unified Category Cards (Weight Target + Questionnaire Parts) -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
                     
                     <!-- 1. Student Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">1. Student Evaluation</h3>
-                                    <flux:badge variant="{{ $isStudentBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                    <flux:badge variant="{{ $isStudentBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
                                         {{ $totals['combined_student'] ?? 0 }} / {{ $tStudent }} pts
                                     </flux:badge>
                                 </div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Students evaluate assigned Professor per class</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Students evaluate assigned Professor per class</p>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <div class="w-20">
-                                    <flux:input type="number" wire:model.live="studentWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="studentWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                                 </div>
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                             </div>
                         </div>
 
@@ -943,27 +946,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @foreach($this->criteria->whereIn('evaluation_type', ['student', 'upward_student']) as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -975,23 +978,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- 2. Dean Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">2. Dean's Evaluation</h3>
-                                    <flux:badge variant="{{ $isDeanBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                    <flux:badge variant="{{ $isDeanBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
                                         {{ $totals['dean'] ?? 0 }} / {{ $tDean }} pts
                                     </flux:badge>
                                 </div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">College Dean evaluates Faculty Member</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">College Dean evaluates Faculty Member</p>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <div class="w-20">
-                                    <flux:input type="number" wire:model.live="deanWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="deanWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                                 </div>
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                             </div>
                         </div>
 
@@ -1003,27 +1009,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @forelse($this->criteria->where('evaluation_type', 'dean') as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -1037,23 +1043,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- 3. Program Head Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">3. Program Head's Evaluation</h3>
-                                    <flux:badge variant="{{ $isPhBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                    <flux:badge variant="{{ $isPhBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
                                         {{ $totals['combined_program_head'] ?? 0 }} / {{ $tPhDh }} pts
                                     </flux:badge>
                                 </div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Program Head evaluates Department Faculty</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Program Head evaluates Department Faculty</p>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <div class="w-20">
-                                    <flux:input type="number" wire:model.live="phDhWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="phDhWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                                 </div>
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                             </div>
                         </div>
 
@@ -1065,27 +1074,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @forelse($this->criteria->whereIn('evaluation_type', ['program_head', 'ph_dh']) as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -1099,23 +1108,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- 4. Peer Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">4. Peer Evaluation</h3>
-                                    <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                    <flux:badge variant="{{ $isPeerBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
                                         {{ $totals['peer'] ?? 0 }} / {{ $tPeer }} pts
                                     </flux:badge>
                                 </div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Faculty evaluates Department Peer Faculty</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Faculty evaluates Department Peer Faculty</p>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <div class="w-20">
-                                    <flux:input type="number" wire:model.live="peerWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="peerWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                                 </div>
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                             </div>
                         </div>
 
@@ -1127,27 +1139,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @foreach($this->criteria->where('evaluation_type', 'peer') as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -1159,23 +1171,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- 5. Self Evaluation Card (Spans full width on large screens) -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4 lg:col-span-2">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4 lg:col-span-2">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">5. Self Evaluation</h3>
-                                    <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold">
+                                    <flux:badge variant="{{ $isSelfBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
                                         {{ $totals['self'] ?? 0 }} / {{ $tSelf }} pts
                                     </flux:badge>
                                 </div>
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Faculty Member evaluates Self</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Faculty Member evaluates Self</p>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <div class="w-20">
-                                    <flux:input type="number" wire:model.live="selfWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="selfWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                                 </div>
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
                             </div>
                         </div>
 
@@ -1188,27 +1203,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($this->criteria->where('evaluation_type', 'self') as $criterion)
-                                    <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                        <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                        <div class="flex-1 min-w-0 pr-2">
                                             <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                             <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-18 flex items-center gap-1">
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                                 <flux:input 
                                                     type="number" 
                                                     wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                     min="0" 
                                                     class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                                 />
-                                                <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                                <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                             </div>
                                             <flux:button 
                                                 size="xs" 
                                                 variant="ghost" 
                                                 icon="trash" 
                                                 wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                                class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                                class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                             />
                                         </div>
                                     </div>
@@ -1226,17 +1241,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
             <!-- TAB 2: All Categories & Extended Roles (Global Master) -->
             @if($weightsReportTab === 'global_targets')
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-start">
                     
                     <!-- Department Head Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
                             <div>
                                 <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Department Head Eval</h3>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Dept Head evaluates Administrative Staff</p>
                             </div>
-                            <div class="w-20">
-                                <flux:input type="number" wire:model.live="departmentHeadMaxTarget" min="0" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Max Target:</span>
+                                <div class="w-20 sm:w-24">
+                                    <flux:input type="number" wire:model.live="departmentHeadMaxTarget" min="0" class="text-right font-bold text-xs" />
+                                </div>
                             </div>
                         </div>
 
@@ -1247,27 +1265,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @forelse($this->criteria->whereIn('evaluation_type', ['department_head', 'downward']) as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -1278,14 +1296,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- Superior Evaluation Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
                             <div>
                                 <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Superior Evaluation</h3>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Faculty → PH, Staff → DH, PH/DH → Dean</p>
                             </div>
-                            <div class="w-20">
-                                <flux:input type="number" wire:model.live="superiorWeightTarget" min="0" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Max Target:</span>
+                                <div class="w-20 sm:w-24">
+                                    <flux:input type="number" wire:model.live="superiorWeightTarget" min="0" class="text-right font-bold text-xs" />
+                                </div>
                             </div>
                         </div>
 
@@ -1296,27 +1317,27 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                             </div>
 
                             @forelse($this->criteria->whereIn('evaluation_type', ['superior', 'upward_employee']) as $criterion)
-                                <div class="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                    <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
                                         <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
                                         <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-18 flex items-center gap-1">
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
                                             <flux:input 
                                                 type="number" 
                                                 wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
                                                 min="0" 
                                                 class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
                                             />
-                                            <span class="text-[11px] text-zinc-600 dark:text-zinc-300 font-bold">pts</span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
                                         <flux:button 
                                             size="xs" 
                                             variant="ghost" 
                                             icon="trash" 
                                             wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
                                         />
                                     </div>
                                 </div>
@@ -1327,14 +1348,17 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <!-- Staff Max Target Card -->
-                    <div class="p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
-                        <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-3">
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
                             <div>
                                 <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">Staff Evaluation Target</h3>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Staff Peer & Self Evaluation scale</p>
                             </div>
-                            <div class="w-20">
-                                <flux:input type="number" wire:model.live="staffMaxTarget" min="0" class="text-right font-bold text-xs" />
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Max Target:</span>
+                                <div class="w-20 sm:w-24">
+                                    <flux:input type="number" wire:model.live="staffMaxTarget" min="0" class="text-right font-bold text-xs" />
+                                </div>
                             </div>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -1346,19 +1370,19 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             @endif
 
             <!-- Save Action & Status Strip -->
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-6">
-                <div>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-6">
+                <div class="space-y-0.5">
                     <span class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider block">Scoring Balance Status</span>
-                    <span class="text-sm font-extrabold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                    <span class="text-xs sm:text-sm font-extrabold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
                         {{ $allBalanced ? '✓ All 5 criteria categories are balanced with target score points' : '⚠️ Please balance individual part points to equal category target points before opening' }}
                     </span>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 shrink-0">
                     <flux:button 
                         type="submit" 
                         variant="primary" 
-                        class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold"
+                        class="w-full sm:w-auto !bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold justify-center"
                     >
                         Save Points & Score Weights
                     </flux:button>
@@ -1369,16 +1393,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     </div>
 
     <!-- SECTION 4: Academic Years & Semesters Paginated Table -->
-    <div id="academic-periods-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6 w-full">
+    <div id="academic-periods-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-4 sm:gap-6 w-full">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4 gap-4">
             <div>
                 <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="calendar" class="size-5 text-indigo-500" />
+                    <flux:icon icon="calendar" class="size-5 text-indigo-500 shrink-0" />
                     Academic Years & Semesters
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Catalog of institutional academic years and semester evaluation periods.</p>
             </div>
-            <flux:button size="sm" variant="primary" icon="plus" wire:click="openAddPeriodModal">
+            <flux:button size="sm" variant="primary" icon="plus" wire:click="openAddPeriodModal" class="w-full sm:w-auto justify-center">
                 Add Academic Period
             </flux:button>
         </div>
