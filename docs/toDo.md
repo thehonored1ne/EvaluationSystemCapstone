@@ -1,3 +1,17 @@
+- [X] **Mobile Responsive UI Overhaul & Sidebar Polish (2026-08-19)**:
+  - Fixed mobile sidebar toggle button (`flux-sidebar-toggle`) and forced full GRC institutional logo on mobile devices.
+  - Optimized Account Settings (Profile, Password, Appearance, Training) for fluid 1-column mobile layouts.
+  - Standardized filter dropdown widths across Rankings, Completion Tracking, and Reports (`w-full sm:w-auto`).
+  - Polished Notification dropdown on mobile with `whitespace-nowrap` on action buttons and responsive width.
+- [X] **Completion Tracking Pagination across All 7 Categories (2026-08-19)**:
+  - Added Livewire pagination (`WithPagination`) across all 7 tracking tabs in `manage-evaluations.blade.php`.
+- [X] **PDF & Print Clean Export (2026-08-19)**:
+  - Hid Admin Navbar, Sidebar, Footer, and UI chrome when saving reports as PDF (`print:hidden` and `@media print` rules).
+- [X] **Evaluator Dashboard Tables Scrollability (2026-08-19)**:
+  - Enabled smooth vertical and horizontal scrolling (`overflow-auto max-h-[500px]`, `sticky top-0 z-10` header) across Student, Faculty, Staff, Dean, Department Head, and Program Head dashboards.
+- [X] **Evaluation Form Mobile UI & Submit Button (2026-08-19)**:
+  - Fixed clipped Submit button (`Su...`) and review controls in `evaluation-form.blade.php` (`flex-col-reverse sm:flex-row`).
+  - Replaced rating buttons layout with responsive 5-column grid (`grid grid-cols-5`) to eliminate clipping on mobile view.
 - [X] **Phase 1 Master Dataset Architecture & Seeding (2026-08-19)**:
   - Populated 124 institutional employees (1 Dean, 11 Department Heads, 4 Program Heads, 50 Faculty Professors, 57 Administrative Staff) across 15 departments (4 Academic, 11 Administrative).
   - Populated 3,200 active students (800 CCS, 800 COA, 800 COE, 800 CBAE) across 13 academic programs.

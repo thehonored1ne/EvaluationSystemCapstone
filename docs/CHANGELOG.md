@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2026-08-19]
 
+### Added & Optimized
+- **Mobile Responsive UI Overhaul & Navigation Polish**:
+  - **Sidebar Toggle & Branding**: Fixed the mobile sidebar toggle button (`$dispatch('flux-sidebar-toggle')` on mobile view vs `$dispatch('toggle-sidebar')` on desktop). Enforced the full GRC institutional logo on mobile sidebars while preserving the icon-only view exclusively for desktop mini collapsed state (`lg:flex` with `sidebar-is-collapsed`).
+  - **Account Settings Mobile UI**: Updated Profile, Password, Appearance, and Training / AI Model Settings (`/settings/*`) to fluid 1-column layouts on mobile viewports, preventing overflowing form cards and misaligned submit buttons.
+  - **Evaluation Settings Mobile Optimization**: Optimized the Evaluation Weights & Questionnaire Parts Allocation cards in [`evaluation-settings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/evaluation-settings.blade.php), correcting horizontal overflow and desktop margin alignment for criteria points.
+  - **Mobile Filter Dropdowns**: Standardized filter dropdown widths across Rankings (`/rankings`), Completion Tracking (`/manage-evaluations`), and Reports (`/reports`) to full width on mobile devices (`w-full sm:w-auto` / `w-full sm:w-56`).
+  - **Notification Dropdown Mobile Polish**: Refined [`notification-dropdown.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/notification-dropdown.blade.php) with `whitespace-nowrap` on "Read all" / "Clear all" actions, responsive dropdown widths (`w-[calc(100vw-1.5rem)] sm:w-96 max-w-[24rem]`), non-truncating notification title wraps, and visible touch dismiss buttons.
+
+- **Completion Tracking Pagination Across All 7 Categories**:
+  - Connected Livewire `WithPagination` across all 7 evaluation tracking tabs on [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php) (`Student`, `Dean`, `Program Head`, `Department Head`, `Peer`, `Supervisor`, and `Self`).
+  - Appended dedicated pagination links (`{{ $paginated->links() }}`) below each category table for seamless navigation across large faculty and class cohorts.
+
+- **Clean PDF & Print Export (Navbar & UI Chrome Exclusion)**:
+  - Applied `print:hidden` to `<x-admin.navbar />` in [`navbar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/navbar.blade.php), `<flux:sidebar>` in [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), and `<footer>` in [`footer.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/footer.blade.php).
+  - Added global `@media print` rules in [`app.css`](file:///c:/Users/USER/Herd/evaluationsystem/resources/css/app.css) ensuring no navigation headers, dark-mode badges, user avatars, or UI buttons leak onto printed or exported PDF evaluation reports.
+
+- **Evaluator Dashboard Tables Scrollability**:
+  - Updated tables across all evaluator dashboards ([`student/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/student/dashboard.blade.php), [`faculty/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/faculty/dashboard.blade.php), [`staff/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/staff/dashboard.blade.php), [`dean/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/dean/dashboard.blade.php), [`department-head/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/department-head/dashboard.blade.php), [`program-head/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/program-head/dashboard.blade.php)) with `overflow-auto max-h-[500px]`, sticky headers (`sticky top-0 z-10`), and minimum column widths to enable smooth horizontal and vertical scrolling on mobile devices.
+
+- **Evaluation Form Mobile UI & Submit Button Optimization**:
+  - Redesigned the review & submission action controls in [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php) to responsive `flex-col-reverse sm:flex-row`, eliminating button clipping (`Su...`).
+  - Switched the 1–5 rating buttons container to a responsive 5-column grid (`grid grid-cols-5 w-full max-w-xs sm:max-w-md`), ensuring buttons 1 and 5 never overflow or clip outside mobile screens.
+  - Added horizontal scrollability (`overflow-x-auto`) to the question number pill navigator bar.
+
 ### Added
 - **Phase 1 Master Dataset Architecture & Seeding**:
   - Populated 124 institutional employees (1 Dean, 11 Department Heads, 4 Program Heads, 50 Faculty Professors, and 57 Administrative Staff) across 15 departments (4 Academic: CCS, COA, COE, CBAE; 11 Administrative: Accounting, Admission, Clinic, General Service, Guidance, IT Office, Library, OSA, Registrar, RCE, Scholarship).

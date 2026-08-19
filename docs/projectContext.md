@@ -31,6 +31,15 @@ A role-based evaluation system with the following active portals:
 ## Milestones & Summary of Work Done
 
 ### August 19, 2026
+- **Mobile Responsive UI, Navigation & Component Polish**:
+  - Fixed mobile sidebar toggle button (`flux-sidebar-toggle`), displaying the full GRC institutional logo on mobile views while maintaining mini icon mode exclusively for desktop collapsed sidebars.
+  - Updated Account Settings (Profile, Password, Appearance, Training) and Evaluation Settings to responsive 1-column layouts with aligned action buttons.
+  - Standardized filter dropdown widths across Rankings, Completion Tracking, and Reports (`w-full sm:w-auto`).
+  - Polished Notification dropdown on mobile with `whitespace-nowrap` on action buttons and fluid responsive width.
+- **Completion Tracking Pagination Across All 7 Categories**: Connected Livewire `WithPagination` across all 7 evaluation tracking tabs on `/manage-evaluations` with dedicated pagination links.
+- **Clean PDF & Print Export (Navbar & UI Chrome Exclusion)**: Applied `print:hidden` to `<x-admin.navbar />`, `<flux:sidebar>`, and `<footer>` with global `@media print` rules to prevent UI headers, avatars, and buttons from appearing on exported PDF evaluation reports.
+- **Evaluator Dashboard Tables Scrollability**: Added `overflow-auto max-h-[500px]`, `sticky top-0 z-10` headers, and min-widths across all evaluator dashboards (Student, Faculty, Staff, Dean, Department Head, Program Head).
+- **Evaluation Form Mobile UI & Submit Button Optimization**: Redesigned the review and submission action controls in `evaluation-form.blade.php` to responsive `flex-col-reverse sm:flex-row`, eliminating button clipping, and switched 1–5 rating buttons to a responsive 5-column grid (`grid grid-cols-5`) to eliminate clipping on mobile view.
 - **Advanced Leetspeak Profanity Normalization & Taglish Code-Switching Context Router**:
   - Built `ProfanityFilterService` in Laravel featuring multi-stage symbol substitutions (`@` $\rightarrow$ `a`, `1`/`!` $\rightarrow$ `i`, `0` $\rightarrow$ `o`, `3` $\rightarrow$ `e`, `$` $\rightarrow$ `s`), character repetition collapsing (`taaaangaaa` $\rightarrow$ `tanga`), and inter-character spacing stripping (`t a n g a`, `g_a_g_o`).
   - Added particle-based language mode detection (`detect_language_mode`) and specialized Taglish multi-word negation & idiom context pre-parsing in Python Flask NLP microservice (`python/app.py`).
