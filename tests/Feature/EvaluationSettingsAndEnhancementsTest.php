@@ -70,6 +70,36 @@ test('training settings component renders and toggles show_ai_pipeline', functio
     $response->assertSee('AI Pipeline');
 });
 
+test('training settings is inaccessible to non-admin users and hidden in settings nav', function () {
+    // Create a student user
+    $studentUser = User::create([
+        'name' => 'Student User',
+        'email' => 'student.test@grc.edu.ph',
+        'password' => 'password',
+    ]);
+    $studentUser->assignRole('student');
+
+    // 1. Settings page for student should not contain Training nav link
+    $this->actingAs($studentUser);
+    $response = $this->get('/settings/profile');
+    $response->assertOk();
+    $response->assertDontSee('Training');
+
+    // 2. Direct access to /settings/training route should be forbidden (403)
+    $response = $this->get('/settings/training');
+    $response->assertForbidden();
+
+    // 3. Admin user visiting /settings/profile should see Training nav link
+    $this->actingAs($this->adminUser);
+    $adminResponse = $this->get('/settings/profile');
+    $adminResponse->assertOk();
+    $adminResponse->assertSee('Training');
+
+    // 4. Admin user accessing /settings/training route should succeed (200)
+    $adminTrainingResponse = $this->get('/settings/training');
+    $adminTrainingResponse->assertOk();
+});
+
 test('evaluation settings saves weights and points with editable max weight percentage', function () {
     $this->actingAs($this->adminUser);
 
@@ -138,4 +168,30 @@ test('admin dashboard renders evaluation analytics visual charts', function () {
         ->test('admin.dashboard')
         ->assertSee('Ratings Distribution')
         ->assertSee('Department Average Ratings');
+});
+
+test('admin can edit questionnaire part name and max points via modal', function () {
+    $this->actingAs($this->adminUser);
+
+    $criterion = EvaluationCriterion::create([
+        'evaluation_type' => 'student',
+        'name' => 'Original Part Name',
+        'max_points' => 25.0,
+        'order' => 1,
+    ]);
+
+    Livewire::withoutLazyLoading()
+        ->test('admin.evaluation-settings')
+        ->call('openEditCriterionModal', $criterion->id)
+        ->assertSet('showEditCriterionModal', true)
+        ->assertSet('editCriterionName', 'Original Part Name')
+        ->assertSet('editCriterionMaxPoints', '25')
+        ->set('editCriterionName', 'Updated Mastery Part')
+        ->set('editCriterionMaxPoints', '30')
+        ->call('updateCriterion')
+        ->assertSet('showEditCriterionModal', false)
+        ->assertHasNoErrors();
+
+    expect($criterion->fresh()->name)->toBe('Updated Mastery Part');
+    expect((float) $criterion->fresh()->max_points)->toBe(30.0);
 });

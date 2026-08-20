@@ -9,6 +9,7 @@ new class extends Component {
 
     public function mount(): void
     {
+        abort_unless(auth()->user()?->hasRole('admin'), 403);
         $user = Auth::user();
         $this->showAiPipeline = (bool) ($user->show_ai_pipeline ?? true);
     }
@@ -32,6 +33,10 @@ new class extends Component {
         try {
             $exitCode = \Illuminate\Support\Facades\Artisan::call('ai:train');
             $output = \Illuminate\Support\Facades\Artisan::output();
+
+            activity('admin')
+                ->causedBy(auth()->user())
+                ->log('Retrained AI Sentiment Model (Decision Tree & VADER Lexicon)');
 
             \Flux::toast(
                 heading: 'AI Training Complete',

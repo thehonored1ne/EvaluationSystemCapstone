@@ -34,12 +34,13 @@ The Academic Evaluation System implements defense-in-depth security controls acr
 
 ### Finding 1.2: Default Seeded User Passwords
 * **Severity**: **High** (If deployed without remediation)
-* **Status**: **ACKNOWLEDGED / DOCUMENTED**
-* **Location**: `database/seeders/DatabaseSeeder.php`, `database/seeders/PopulateDataSeeder.php`
+* **Status**: **RESOLVED / MITIGATED**
+* **Location**: `database/seeders/DatabaseSeeder.php`, `database/seeders/PopulateDataSeeder.php`, `resources/views/livewire/default-password-modal.blade.php`
 * **Risk**: Pre-seeded user accounts use standard development passwords (`password`). If run on a production server without immediate credential resets, accounts could be hijacked.
 * **Remediation**:
+  * Added automated `isUsingDefaultPassword()` detection and a prominent Livewire security modal (`default-password-modal.blade.php`) that alerts users upon login until they change their password.
+  * In production deployments, administrators are guided to encourage immediate credential resets.
   * Seeder execution is restricted to local/development environments.
-  * In production deployments, administrators must use password reset links or initial invite tokens.
 
 ---
 

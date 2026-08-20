@@ -1,3 +1,30 @@
+- [X] **Questionnaire Parts Edit & Action Dropdown (2026-08-20)**:
+  - Replaced the standalone trash icon on all Questionnaire Parts rows in `evaluation-settings.blade.php` with an action dropdown (`flux:dropdown`) containing **`Edit Part`** and **`Delete Part`**.
+  - Added an interactive **Edit Questionnaire Part Modal** allowing admins to rename criteria parts and update max point allocations without deleting existing questions.
+  - Added automated test coverage in `EvaluationSettingsAndEnhancementsTest.php`.
+- [X] **Admin Dashboard Full-Coverage Audit Log & Activity Stream (2026-08-20)**:
+  - Added a dedicated **Audit Log** card sitting side-by-side with the **Recent Submissions Log** in a responsive 2-column grid with fixed card heights (`h-[480px]`) and smooth scrollable content (`overflow-y-auto pr-2`).
+  - Integrated Spatie `LogsActivity` across all system models (`User`, `Employee`, `Student`, `Subject`, `AcademicClass`, `Department`, `Program`, `Semester`, `AcademicYear`, `EvaluationQuestion`, `EvaluationCriterion`).
+  - Added explicit activity tracking for bulk CSV imports (Employees, Students, Classes/Rosters), AI model retraining, and deadline reminder broadcasts.
+  - Implemented natural language activity formatters (e.g. *"Created user account for Maria Clara (maria@grc.edu.ph)"*, *"Added new department: College of Computer Studies (CCS)"*, *"Bulk imported 45 new students via CSV"*).
+  - Filtered out internal background timestamp noise (`notifications_last_viewed_at`, `dismissed_notifications`, `password_changed_at`, `remember_token`, `updated_at`).
+  - Added comprehensive automated test coverage in `ActivityLogTest.php`.
+- [X] **Recent Submissions Log Role Mapping Polish (2026-08-20)**:
+  - Fixed evaluator relationship mapping in `admin/dashboard.blade.php` so Dean evaluating Professor or Program Head properly displays the badge title **`Dean Evaluation`** instead of falling back to generic `Evaluation`.
+  - Added support for Department Head evaluations (`"Department Head Evaluation"`).
+- [X] **Training & AI Controls Admin Role Protection (2026-08-20)**:
+  - Restricted Account Settings Training navigation link (`layout.blade.php`), route middleware (`routes/web.php` with `role:admin`), and component mount guard to admin users only.
+  - Added automated test cases in `EvaluationSettingsAndEnhancementsTest.php`.
+- [X] **Bulk Import Modal UI Polish (2026-08-20)**:
+  - Repositioned Download Template button next to spreadsheet upload input across Employee, Student, and Class management modals to eliminate overlap with modal close button.
+- [X] **Evaluator Dashboard Progress Counter Badges (2026-08-20)**:
+  - Positioned `X/Y evaluated` progress badges on the far right of card headings across all 6 evaluator portals (Student, Faculty, Dean, Program Head, Department Head, Staff).
+- [X] **Default Password Security Warning Modal (2026-08-20)**:
+  - Added database column `password_changed_at` to `users` table and `User::isUsingDefaultPassword()` detection method.
+  - Built Livewire security advisory modal (`default-password-modal.blade.php`) notifying users using default credentials (`password`) with quick navigation to `/settings/password`.
+  - Added "Later" snooze and "Don't show again during this session" options with session-based dismissal tracking.
+  - Ensured the modal re-appears upon future logins and permanently resolves once the user updates their password.
+  - Added full feature test suite in `DefaultPasswordModalTest.php`.
 - [X] **Mobile Responsive UI Overhaul & Sidebar Polish (2026-08-19)**:
   - Fixed mobile sidebar toggle button (`flux-sidebar-toggle`) and forced full GRC institutional logo on mobile devices.
   - Optimized Account Settings (Profile, Password, Appearance, Training) for fluid 1-column mobile layouts.

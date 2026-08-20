@@ -317,6 +317,7 @@
             </div>
         </div>
 
+        <livewire:default-password-modal />
         <flux:toast />
         @fluxScripts
     </body>

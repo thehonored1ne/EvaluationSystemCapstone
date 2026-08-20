@@ -69,6 +69,30 @@ new #[Layout('components.layouts.app')] class extends Component {
         return Evaluation::getStatus(auth()->id(), $evaluateeUserId, $sem->id, null, $type);
     }
 
+    public function getSelfEvaluatedProperty(): bool
+    {
+        $status = $this->getEvaluationStatus(auth()->id(), 'self');
+        return in_array($status, ['completed', 'processing']);
+    }
+
+    public function getEvaluatedFacultyCountProperty(): int
+    {
+        return $this->facultyMembers->filter(function ($fac) {
+            if (!$fac->user) return false;
+            $status = $this->getEvaluationStatus($fac->user->id, 'downward');
+            return in_array($status, ['completed', 'processing']);
+        })->count();
+    }
+
+    public function getEvaluatedProgramHeadsCountProperty(): int
+    {
+        return $this->programHeads->filter(function ($head) {
+            if (!$head->user) return false;
+            $status = $this->getEvaluationStatus($head->user->id, 'downward');
+            return in_array($status, ['completed', 'processing']);
+        })->count();
+    }
+
     public function selectTarget($evaluateeUserId, $type)
     {
         if (!$this->isEvaluationOpen) {
@@ -151,7 +175,12 @@ new #[Layout('components.layouts.app')] class extends Component {
             <!-- 1. Self Evaluation -->
             @if($tab === 'self')
                 <flux:card class="p-6">
-                    <flux:heading size="lg" class="mb-4">Self Evaluation</flux:heading>
+                    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <flux:heading size="lg">Self Evaluation</flux:heading>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                            <span class="text-[#9b0000] dark:text-[#f89696] font-extrabold mr-1">{{ $this->selfEvaluated ? '1/1' : '0/1' }}</span> evaluated
+                        </span>
+                    </div>
                     <div class="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-150 dark:border-zinc-800">
                         <div>
                             <div class="font-bold text-zinc-800 dark:text-zinc-200">My Self Evaluation</div>
@@ -187,14 +216,16 @@ new #[Layout('components.layouts.app')] class extends Component {
             <!-- 2. Faculty Members Evaluations (Academic Professors) -->
             @if($tab === 'faculty')
                 <flux:card class="p-6">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
                         <div>
                             <flux:heading size="lg">Academic Faculty Evaluations</flux:heading>
                             <p class="text-xs text-zinc-500 mt-0.5">Evaluate professors on teaching effectiveness and academic performance.</p>
                         </div>
-                        <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
-                            {{ $this->facultyMembers->count() }} Professors
-                        </span>
+                        @if($this->facultyMembers->isNotEmpty())
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                                <span class="text-[#9b0000] dark:text-[#f89696] font-extrabold mr-1">{{ $this->evaluatedFacultyCount }}/{{ $this->facultyMembers->count() }}</span> evaluated
+                            </span>
+                        @endif
                     </div>
 
                     @if($this->facultyMembers->isEmpty())
@@ -271,7 +302,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             <!-- 3. Program Heads Subordinates Evaluations -->
             @if($tab === 'program-heads')
                 <flux:card class="p-6">
-                    <flux:heading size="lg" class="mb-4">Program Head Evaluations</flux:heading>
+                    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <flux:heading size="lg">Program Head Evaluations</flux:heading>
+                        @if($this->programHeads->isNotEmpty())
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                                <span class="text-[#9b0000] dark:text-[#f89696] font-extrabold mr-1">{{ $this->evaluatedProgramHeadsCount }}/{{ $this->programHeads->count() }}</span> evaluated
+                            </span>
+                        @endif
+                    </div>
                     @if($this->programHeads->isEmpty())
                         <div class="text-center py-6 text-zinc-500">No program heads registered in the system.</div>
                     @else

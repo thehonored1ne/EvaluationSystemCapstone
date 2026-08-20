@@ -19,6 +19,7 @@ Accounts used for system authentication.
 - `employee_id` (INT, FK -> `employees.id`, Nullable, Cascade Delete)
 - `is_active` (TINYINT, Default: 1)
 - `password` (VARCHAR)
+- `password_changed_at` (DATETIME, Nullable)
 - `notifications_last_viewed_at` (DATETIME, Nullable)
 - `dismissed_notifications` (JSON, Nullable)
 - `created_at` / `updated_at` (DATETIME, Nullable)

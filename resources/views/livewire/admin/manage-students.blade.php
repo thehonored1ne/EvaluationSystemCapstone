@@ -524,6 +524,10 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component
         $this->reset(['importFile']);
         $this->showImportModal = false;
 
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->log("Bulk imported {$addedCount} new students and updated {$updatedCount} student records via CSV");
+
         \Flux::toast(
             heading: 'Import Successful',
             text: "Processed students: {$addedCount} added, {$updatedCount} updated.",
@@ -796,14 +800,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component
     <!-- Bulk Import Students Modal -->
     <flux:modal wire:model="showImportModal" class="min-w-[520px]">
         <div class="space-y-6">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Students</h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing new student admissions and enrollment rosters.</p>
-                </div>
-                <flux:button size="sm" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
-                    Download Template
-                </flux:button>
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Students</h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing new student admissions and enrollment rosters.</p>
             </div>
 
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50/50 dark:bg-zinc-800/30 text-xs space-y-2">
@@ -817,7 +816,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component
 
             <form wire:submit="importStudents" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-2">Select Spreadsheet (.CSV)</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white">Select Spreadsheet (.CSV)</label>
+                        <flux:button size="xs" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
+                            Download Template
+                        </flux:button>
+                    </div>
                     <input type="file" wire:model="importFile" accept=".csv,text/csv" class="w-full text-xs text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000] file:text-white hover:file:bg-[#7a0000] cursor-pointer" required />
                     @error('importFile') <span class="text-xs text-rose-500 mt-1 block font-semibold">{{ $message }}</span> @enderror
                 </div>

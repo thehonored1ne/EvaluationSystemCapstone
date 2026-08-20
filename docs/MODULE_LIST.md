@@ -13,7 +13,9 @@ Handles user authentication, role-based access control, account administration, 
   * Formatted full names (`Last Name, First Name Middle Name Suffix`) with `suffix` database column support
   * Self-account protection preventing active logged-in admin (`auth()->id()`) from self-disabling or self-deletion (`YOU` badge)
   * System safeguard preventing the deactivation or deletion of the last remaining active Administrator account
+  * **Default Password Security Advisory Modal**: Automated system modal detecting default credentials (`password`), prompting users with direct navigation to `/settings/password`, and providing a non-intrusive session snooze ("Remind Me Later") that re-triggers on subsequent logins until resolved.
   * User profile, security password updates, and interface theme settings
+  * **Role-Restricted Settings**: Training & AI Controls tab (`/settings/training`) is strictly restricted to Administrator accounts and hidden from students, faculty, and other non-admin roles.
 
 ---
 
@@ -65,6 +67,7 @@ Provides real-time administrative supervision over active and past evaluation cy
   * Real-time metrics: Total Employees, Total Students, Current Evaluation Progress (expected sum formula), and Pending Submissions odometer counter.
   * Evaluation Period Status panel with clear status banners, explicit date-time windows, real-time schedule indicator badges, and direct action triggers.
   * Sentiment feedback overview aggregated across all evaluators (Students, Faculty, Deans, Program Heads, Staff).
+  * **Admin Audit Log Stream**: Chronological history on the Admin Dashboard displaying all administrative operations (created, updated, deleted) with colored event badges, affected entity details, responsible admin causer name, and timestamps.
   * Strict role-relationship anonymized submission log stream (`Student Evaluation`, `Self Evaluation`, `Dean Evaluation`, `Program Head Evaluation`, `Peer Evaluation`, `Supervisor Evaluation`, `Staff Evaluation`).
   * Multi-level filtering by Department, Program, Class Section, and Evaluation Type.
 
@@ -81,13 +84,14 @@ Translates quantitative ratings and qualitative sentiment insights into visual d
 ---
 
 ## 8. Role-Specific Dashboards
-Tailored executive and operational dashboards customized per user role:
+Tailored executive and operational dashboards customized per user role with real-time evaluation progress counter badges (`X/Y evaluated` with `#9b0000` / `#f89696` highlighting):
 * **Admin Dashboard**: System-wide statistics, user metrics, **Chart.js visual analytics** (Ratings Distribution & Academic Department Average Comparison), recent submissions feed, and quick action panels.
-* **Dean Dashboard**: College/Department evaluation progress and faculty performance overviews
-* **Program Head Dashboard**: Program-level section tracking and faculty feedback
-* **Faculty Dashboard**: Personal evaluation scores, student feedback summaries, and sentiment metrics
-* **Student Dashboard**: Active evaluations list, completion status, and evaluation forms
-* **Staff Dashboard**: Staff-specific portal tools and active schedules
+* **Dean Dashboard**: Self evaluation (`0/1` or `1/1 evaluated`), Academic Faculty evaluations progress (`X/Y evaluated`), and Program Head evaluations progress (`X/Y evaluated`).
+* **Program Head Dashboard**: Self evaluation (`0/1` or `1/1 evaluated`), Dean upward evaluation (`0/1` or `1/1 evaluated`), and subordinate faculty evaluations progress (`X/Y evaluated`).
+* **Department Head Dashboard**: Self evaluation (`0/1` or `1/1 evaluated`), Dean upward evaluation (`0/1` or `1/1 evaluated`), and administrative staff evaluations progress (`X/Y evaluated`).
+* **Faculty Dashboard**: Self evaluation (`0/1` or `1/1 evaluated`), peer faculty evaluations progress (`X/Y evaluated`), and program head supervisor evaluation (`X/Y evaluated`).
+* **Student Dashboard**: Active enrolled classes with live progress counter (`X/Y evaluated`), teacher profiles, and completion status.
+* **Staff Dashboard**: Self evaluation (`0/1` or `1/1 evaluated`), peer staff evaluations progress (`X/Y evaluated`), and department head supervisor evaluation (`0/1` or `1/1 evaluated`).
 
 ---
 

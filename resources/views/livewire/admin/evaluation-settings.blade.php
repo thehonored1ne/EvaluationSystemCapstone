@@ -16,9 +16,13 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         return view('livewire.placeholders.evaluation-settings-skeleton');
     }
 
-    // Criterion Delete
+    // Criterion Delete & Edit
     public bool $showDeleteCriterionModal = false;
     public ?EvaluationCriterion $deletingCriterion = null;
+    public bool $showEditCriterionModal = false;
+    public ?EvaluationCriterion $editingCriterion = null;
+    public string $editCriterionName = '';
+    public string $editCriterionMaxPoints = '';
 
     // Unified Academic Period creation
     public bool $showPeriodModal = false;
@@ -485,6 +489,46 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         session()->flash('status', "Evaluation criterion created successfully.");
     }
 
+    public function openEditCriterionModal($id)
+    {
+        $this->editingCriterion = EvaluationCriterion::findOrFail($id);
+        $this->editCriterionName = $this->editingCriterion->name;
+        $this->editCriterionMaxPoints = (string)$this->editingCriterion->max_points;
+        $this->showEditCriterionModal = true;
+    }
+
+    public function updateCriterion()
+    {
+        $this->validate([
+            'editCriterionName' => 'required|string|max:255',
+            'editCriterionMaxPoints' => 'required|numeric|min:0|max:1000',
+        ]);
+
+        if ($this->editingCriterion) {
+            $exists = EvaluationCriterion::where('evaluation_type', $this->editingCriterion->evaluation_type)
+                ->where('name', $this->editCriterionName)
+                ->where('id', '!=', $this->editingCriterion->id)
+                ->exists();
+
+            if ($exists) {
+                $this->addError('editCriterionName', 'This criterion name already exists for this evaluation type.');
+                return;
+            }
+
+            $this->editingCriterion->update([
+                'name' => $this->editCriterionName,
+                'max_points' => (float)$this->editCriterionMaxPoints,
+            ]);
+
+            $this->criteriaPoints[$this->editingCriterion->id] = (float)$this->editCriterionMaxPoints;
+
+            $this->showEditCriterionModal = false;
+            $this->editingCriterion = null;
+            $this->loadPoints();
+            session()->flash('status', "Questionnaire part updated successfully.");
+        }
+    }
+
     public function confirmDeleteCriterion($id)
     {
         $this->deletingCriterion = EvaluationCriterion::findOrFail($id);
@@ -632,15 +676,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <div class="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-wrap items-center gap-2 sm:gap-3">
         <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 w-full sm:w-auto">Quick Navigation:</span>
         <a href="#schedule-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="clock" class="size-3.5 shrink-0" />
+            
             Schedule Window
         </a>
         <a href="#weights-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="scale" class="size-3.5 shrink-0" />
+            
             Evaluation Weights & Criteria
         </a>
         <a href="#academic-periods-section" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-[#9b0000] hover:text-white dark:hover:bg-[#9b0000] transition-colors flex items-center gap-1.5">
-            <flux:icon icon="calendar" class="size-3.5 shrink-0" />
+            
             Academic Years & Semesters
         </a>
     </div>
@@ -654,9 +698,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     <!-- SECTION 1: Active Evaluation Status & Toggle Control Banner -->
     <div id="status-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 w-full">
         <div class="flex items-start sm:items-center gap-3 sm:gap-4">
-            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-900 shrink-0">
-                <flux:icon icon="bolt" class="size-6 sm:size-7" />
-            </div>
+
             <div>
                 <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                     <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">System Access Status</h2>
@@ -706,7 +748,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
             <div>
                 <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="clock" class="size-5 text-indigo-500 shrink-0" />
+                    
                     Set Evaluation Schedule Dates
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Automate system opening and closing date/time windows for active evaluations.</p>
@@ -826,7 +868,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
                 <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="adjustments-horizontal" class="size-5 sm:size-6 text-[#9b0000] dark:text-[#f89696] shrink-0" />
+                    
                     Evaluation Weights & Questionnaire Parts Allocation
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
@@ -852,7 +894,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'teaching_effectiveness' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
                 <flux:icon icon="academic-cap" class="size-4 shrink-0" />
-                Individual Teaching Effectiveness (Faculty 360°)
+                Individual Teaching Effectiveness
             </button>
             <button 
                 type="button"
@@ -860,7 +902,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'global_targets' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
                 <flux:icon icon="adjustments-vertical" class="size-4 shrink-0" />
-                All Categories & Extended Roles (Global Master)
+                All Categories & Extended Roles
             </button>
         </div>
 
@@ -873,7 +915,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
                     <div class="space-y-1">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-[#9b0000] dark:text-[#f89696] flex items-center gap-1.5">
-                            <flux:icon icon="document-text" class="size-4 text-[#9b0000] dark:text-[#f89696] shrink-0" />
+                            
                             Official GRC Faculty Teaching Effectiveness Scale
                         </span>
                         <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium leading-relaxed">
@@ -961,13 +1003,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @endforeach
@@ -1024,13 +1075,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @empty
@@ -1089,13 +1149,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @empty
@@ -1154,13 +1223,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @endforeach
@@ -1218,13 +1296,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                                 />
                                                 <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                             </div>
-                                            <flux:button 
-                                                size="xs" 
-                                                variant="ghost" 
-                                                icon="trash" 
-                                                wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                                class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                            />
+                                            <flux:dropdown align="end">
+                                                <flux:button 
+                                                    size="xs" 
+                                                    variant="ghost" 
+                                                    icon="ellipsis-vertical" 
+                                                    class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                                />
+                                                <flux:menu>
+                                                    <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                        Edit Part
+                                                    </flux:menu.item>
+                                                    <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                        Delete Part
+                                                    </flux:menu.item>
+                                                </flux:menu>
+                                            </flux:dropdown>
                                         </div>
                                     </div>
                                 @endforeach
@@ -1280,13 +1367,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @empty
@@ -1332,13 +1428,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                             />
                                             <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
                                         </div>
-                                        <flux:button 
-                                            size="xs" 
-                                            variant="ghost" 
-                                            icon="trash" 
-                                            wire:click="confirmDeleteCriterion({{ $criterion->id }})"
-                                            class="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 shrink-0"
-                                        />
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </div>
                             @empty
@@ -1397,7 +1502,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4 gap-4">
             <div>
                 <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <flux:icon icon="calendar" class="size-5 text-indigo-500 shrink-0" />
+                    
                     Academic Years & Semesters
                 </h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Catalog of institutional academic years and semester evaluation periods.</p>
@@ -1588,8 +1693,57 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </flux:select>
 
                 <div class="flex justify-end gap-2 mt-6">
-                    <flux:button size="sm" wire:click="$set('showCriterionModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" type="button" wire:click="$set('showCriterionModal', false)">Cancel</flux:button>
                     <flux:button size="sm" variant="primary" type="submit">Create Part</flux:button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- Edit Questionnaire Part / Criterion Modal -->
+    @if($showEditCriterionModal && $editingCriterion)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-700 pb-3">
+                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Edit Questionnaire Part #{{ $editingCriterion->order }}</h3>
+                <button type="button" wire:click="$set('showEditCriterionModal', false)" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-lg">✕</button>
+            </div>
+
+            <form wire:submit="updateCriterion" class="space-y-4">
+                <div>
+                    <flux:input 
+                        wire:model="editCriterionName" 
+                        label="Part / Criterion Name" 
+                        placeholder="e.g. Mastery of Subject Matter" 
+                        required 
+                    />
+                    @error('editCriterionName')
+                        <p class="text-xs text-rose-500 mt-1 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <flux:input 
+                        type="number"
+                        wire:model="editCriterionMaxPoints" 
+                        label="Max Points Allocation" 
+                        min="0" 
+                        required 
+                    />
+                    @error('editCriterionMaxPoints')
+                        <p class="text-xs text-rose-500 mt-1 font-semibold">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 p-3 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                    <span class="font-bold block text-zinc-800 dark:text-zinc-200">Evaluation Category:</span>
+                    <p class="capitalize font-mono">{{ str_replace('_', ' ', $editingCriterion->evaluation_type) }}</p>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button size="sm" type="button" wire:click="$set('showEditCriterionModal', false)">Cancel</flux:button>
+                    <flux:button size="sm" variant="primary" type="submit" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold">Save Changes</flux:button>
                 </div>
             </form>
         </div>

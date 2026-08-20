@@ -12,6 +12,7 @@ use App\Models\Department;
 use App\Models\Evaluation;
 use App\Models\EvaluationSentiment;
 use App\Models\EvaluationAnswer;
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 
@@ -167,7 +168,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $evals = Evaluation::where('semester_id', $activeSemId)
                 ->with(['evaluator.employee', 'evaluator.student', 'evaluatee.employee', 'evaluatee.student', 'class.subject'])
                 ->latest()
-                ->take(5)
+                ->take(20)
                 ->get();
 
             foreach ($evals as $eval) {
@@ -179,7 +180,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     $role = strtolower($eval->evaluator->employee->role);
                     $evaluatorRole = match($role) {
                         'dean' => 'Dean',
-                        'program head' => 'Program Head',
+                        'program head', 'program_head' => 'Program Head',
+                        'department head', 'department_head' => 'Department Head',
                         'faculty' => 'Professor',
                         'staff' => 'Staff',
                         default => 'Employee'
@@ -194,7 +196,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     $role = strtolower($eval->evaluatee->employee->role);
                     $evaluateeRole = match($role) {
                         'dean' => 'Dean',
-                        'program head' => 'Program Head',
+                        'program head', 'program_head' => 'Program Head',
+                        'department head', 'department_head' => 'Department Head',
                         'faculty' => 'Professor',
                         'staff' => 'Staff',
                         default => 'Employee'
@@ -210,16 +213,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 } elseif ($evaluatorRole === 'Student') {
                     $label = 'Student Evaluation';
                     $description = 'Student evaluates Professor';
-                } elseif ($evaluatorRole === 'Dean' && $evaluateeRole === 'Program Head') {
+                } elseif ($evaluatorRole === 'Dean') {
                     $label = 'Dean Evaluation';
-                    $description = 'Dean evaluates Program Head';
-                } elseif ($evaluatorRole === 'Program Head' && $evaluateeRole === 'Professor') {
+                    $description = "Dean evaluates {$evaluateeRole}";
+                } elseif ($evaluatorRole === 'Program Head' && in_array($evaluateeRole, ['Professor', 'Faculty'])) {
                     $label = 'Program Head Evaluation';
                     $description = 'Program Head evaluates Professor';
+                } elseif ($evaluatorRole === 'Department Head') {
+                    $label = 'Department Head Evaluation';
+                    $description = "Department Head evaluates {$evaluateeRole}";
                 } elseif ($evaluatorRole === 'Professor' && $evaluateeRole === 'Professor') {
                     $label = 'Peer Evaluation';
                     $description = 'Professor evaluates Professor';
-                } elseif ($type === 'upward_employee' || ($evaluatorRole === 'Program Head' && $evaluateeRole === 'Dean') || ($evaluatorRole === 'Professor' && $evaluateeRole === 'Program Head') || ($evaluatorRole === 'Staff' && in_array($evaluateeRole, ['Dean', 'Program Head']))) {
+                } elseif ($evaluatorRole === 'Staff' && $evaluateeRole === 'Staff') {
+                    $label = 'Peer Evaluation';
+                    $description = 'Staff evaluates Staff';
+                } elseif ($type === 'upward_employee' || ($evaluatorRole === 'Program Head' && $evaluateeRole === 'Dean') || ($evaluatorRole === 'Professor' && $evaluateeRole === 'Program Head') || ($evaluatorRole === 'Staff' && in_array($evaluateeRole, ['Dean', 'Program Head', 'Department Head']))) {
                     $label = 'Supervisor Evaluation';
                     $description = "{$evaluatorRole} evaluates {$evaluateeRole}";
                 } elseif ($evaluateeRole === 'Staff') {
@@ -229,7 +238,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     $label = match($type) {
                         'upward_student' => 'Student Evaluation',
                         'peer' => 'Peer Evaluation',
-                        'downward' => 'Downward Evaluation',
+                        'dean' => 'Dean Evaluation',
+                        'downward' => 'Supervisor Evaluation',
                         'upward_employee' => 'Supervisor Evaluation',
                         default => 'Evaluation'
                     };
@@ -306,6 +316,176 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             }
         }
 
+        // 9. Admin Audit Log Activities (Activities performed by Admins or system operations)
+        $auditLogs = [];
+        $activities = Activity::with(['causer.roles', 'causer.employee'])
+            ->where(function ($q) {
+                $q->whereHasMorph('causer', [User::class], function ($sub) {
+                    $sub->whereHas('roles', fn ($r) => $r->where('name', 'admin'))
+                        ->orWhereHas('employee', fn ($e) => $e->where('role', 'admin'));
+                })->orWhereNull('causer_id');
+            })
+            ->latest()
+            ->take(30)
+            ->get();
+
+        foreach ($activities as $act) {
+            $event = strtolower($act->event ?? $act->description ?? 'action');
+            $subjectClass = class_basename($act->subject_type ?? '');
+            $props = $act->properties ?? [];
+            $attributes = $props['attributes'] ?? [];
+            $old = $props['old'] ?? [];
+
+            // Ignore activity entries that ONLY touched internal background columns or have no changes
+            $ignoredKeys = ['notifications_last_viewed_at', 'dismissed_notifications', 'password_changed_at', 'remember_token', 'updated_at', 'created_at'];
+            $meaningfulAttrKeys = array_diff(array_keys($attributes), $ignoredKeys);
+            $meaningfulOldKeys = array_diff(array_keys($old), $ignoredKeys);
+
+            // If it's a model update with no meaningful business attributes changed and no custom description, skip it
+            if ($event === 'updated' && empty($meaningfulAttrKeys) && in_array($act->description, ['updated', 'created', 'deleted', null])) {
+                continue;
+            }
+
+            // Check if this is a custom logged system message (e.g. bulk import, reminder broadcast, AI training)
+            if ($act->description && !in_array($act->description, ['created', 'updated', 'deleted', 'custom'])) {
+                $eventTitle = 'System Operation';
+                $eventLabel = 'OPERATION';
+                $detailStr = $act->description;
+                $badgeClass = 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200 dark:border-purple-800';
+                $colorDot = 'bg-purple-500';
+            } else {
+                $subjectLabel = match($subjectClass) {
+                    'User' => 'User Account',
+                    'Employee' => 'Employee Record',
+                    'Student' => 'Student Record',
+                    'Department' => 'Department',
+                    'Program' => 'Academic Program',
+                    'AcademicClass' => 'Class Section',
+                    'Subject' => 'Subject',
+                    'EvaluationQuestion' => 'Evaluation Question',
+                    'EvaluationCriterion' => 'Evaluation Criterion',
+                    'Evaluation' => 'Evaluation Record',
+                    'Semester' => 'Evaluation Period & Schedule',
+                    'AcademicYear' => 'Academic Year',
+                    default => $subjectClass ?: 'System Record',
+                };
+
+                $eventLabel = strtoupper($event);
+                $eventTitle = match($event) {
+                    'created' => "Created {$subjectLabel}",
+                    'updated' => "Updated {$subjectLabel}",
+                    'deleted' => "Deleted {$subjectLabel}",
+                    default => ucfirst($event) . " {$subjectLabel}",
+                };
+
+                $badgeClass = match($event) {
+                    'created' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+                    'updated' => 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border border-sky-200 dark:border-sky-800',
+                    'deleted' => 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800',
+                    default => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700',
+                };
+
+                $colorDot = match($event) {
+                    'created' => 'bg-emerald-500',
+                    'updated' => 'bg-sky-500',
+                    'deleted' => 'bg-rose-500',
+                    default => 'bg-[#9b0000] dark:bg-[#f89696]',
+                };
+
+                // Natural human-readable action description
+                if ($subjectClass === 'User') {
+                    $name = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'User';
+                    $email = $attributes['email'] ?? $old['email'] ?? $act->subject?->email ?? '';
+                    if ($event === 'created') {
+                        $detailStr = "Created user account for {$name}" . ($email ? " ({$email})" : '');
+                    } elseif ($event === 'deleted') {
+                        $detailStr = "Deleted user account for {$name}" . ($email ? " ({$email})" : '');
+                    } elseif (isset($attributes['is_active'])) {
+                        $statusText = $attributes['is_active'] ? 'Enabled' : 'Disabled';
+                        $detailStr = "{$statusText} login access for user account {$name}";
+                    } elseif (isset($attributes['show_ai_pipeline'])) {
+                        $vis = $attributes['show_ai_pipeline'] ? 'visible' : 'hidden';
+                        $detailStr = "Toggled AI Pipeline sidebar navigation to {$vis}";
+                    } else {
+                        $detailStr = "Updated user account profile for {$name}" . ($email ? " ({$email})" : '');
+                    }
+                } elseif ($subjectClass === 'Employee') {
+                    $empNum = $attributes['employee_number'] ?? $old['employee_number'] ?? $act->subject?->employee_number ?? '';
+                    $name = trim(($attributes['first_name'] ?? $old['first_name'] ?? '') . ' ' . ($attributes['last_name'] ?? $old['last_name'] ?? '')) ?: ($act->subject?->full_name ?? 'Employee');
+                    $role = ucfirst($attributes['role'] ?? $old['role'] ?? $act->subject?->role ?? 'Staff');
+                    if ($event === 'created') {
+                        $detailStr = "Registered new {$role}: {$name}" . ($empNum ? " (ID: {$empNum})" : '');
+                    } elseif ($event === 'deleted') {
+                        $detailStr = "Deleted {$role} record for {$name}" . ($empNum ? " (ID: {$empNum})" : '');
+                    } else {
+                        $detailStr = "Updated {$role} details for {$name}" . ($empNum ? " (ID: {$empNum})" : '');
+                    }
+                } elseif ($subjectClass === 'Student') {
+                    $studNum = $attributes['student_number'] ?? $old['student_number'] ?? $act->subject?->student_number ?? '';
+                    $name = trim(($attributes['first_name'] ?? $old['first_name'] ?? '') . ' ' . ($attributes['last_name'] ?? $old['last_name'] ?? '')) ?: ($act->subject?->full_name ?? 'Student');
+                    if ($event === 'created') {
+                        $detailStr = "Enrolled new student: {$name}" . ($studNum ? " (SN: {$studNum})" : '');
+                    } elseif ($event === 'deleted') {
+                        $detailStr = "Deleted student record for {$name}" . ($studNum ? " (SN: {$studNum})" : '');
+                    } else {
+                        $detailStr = "Updated student profile for {$name}" . ($studNum ? " (SN: {$studNum})" : '');
+                    }
+                } elseif ($subjectClass === 'Department') {
+                    $name = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'Department';
+                    $code = $attributes['code'] ?? $old['code'] ?? $act->subject?->code ?? '';
+                    $detailStr = ($event === 'created' ? 'Added new department: ' : ($event === 'deleted' ? 'Deleted department: ' : 'Updated department: ')) . "{$name}" . ($code ? " ({$code})" : '');
+                } elseif ($subjectClass === 'Program') {
+                    $name = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'Academic Program';
+                    $code = $attributes['code'] ?? $old['code'] ?? $act->subject?->code ?? '';
+                    $detailStr = ($event === 'created' ? 'Added new academic program: ' : ($event === 'deleted' ? 'Deleted program: ' : 'Updated program: ')) . "{$name}" . ($code ? " ({$code})" : '');
+                } elseif ($subjectClass === 'AcademicClass') {
+                    $section = $attributes['section'] ?? $old['section'] ?? $act->subject?->section ?? 'Section';
+                    $detailStr = ($event === 'created' ? 'Created class section: ' : ($event === 'deleted' ? 'Deleted class section: ' : 'Updated class section: ')) . "{$section}";
+                } elseif ($subjectClass === 'Subject') {
+                    $code = $attributes['code'] ?? $old['code'] ?? $act->subject?->code ?? '';
+                    $title = $attributes['title'] ?? $old['title'] ?? $act->subject?->title ?? 'Subject';
+                    $detailStr = ($event === 'created' ? 'Added new subject: ' : ($event === 'deleted' ? 'Deleted subject: ' : 'Updated subject: ')) . "{$code} - {$title}";
+                } elseif ($subjectClass === 'EvaluationQuestion') {
+                    $qText = $attributes['question_text'] ?? $old['question_text'] ?? $act->subject?->question_text ?? '';
+                    $snippet = $qText ? '"' . \Illuminate\Support\Str::limit($qText, 45) . '"' : 'Evaluation question';
+                    $detailStr = ($event === 'created' ? 'Added question: ' : ($event === 'deleted' ? 'Deleted question: ' : 'Modified question: ')) . $snippet;
+                } elseif ($subjectClass === 'EvaluationCriterion') {
+                    $cName = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'Criterion';
+                    $detailStr = ($event === 'created' ? 'Created evaluation criterion: ' : ($event === 'deleted' ? 'Deleted criterion: ' : 'Updated criterion: ')) . "{$cName}";
+                } elseif ($subjectClass === 'Semester') {
+                    $name = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'Semester';
+                    if (isset($attributes['is_evaluation_open'])) {
+                        $state = $attributes['is_evaluation_open'] ? 'Opened' : 'Closed';
+                        $detailStr = "{$state} active evaluation window for {$name}";
+                    } elseif (isset($attributes['evaluation_starts_at']) || isset($attributes['evaluation_ends_at'])) {
+                        $detailStr = "Configured evaluation schedule dates for {$name}";
+                    } elseif (isset($attributes['student_weight']) || isset($attributes['overall_max_points'])) {
+                        $detailStr = "Updated evaluation criteria weights & max points for {$name}";
+                    } else {
+                        $detailStr = "Updated semester settings for {$name}";
+                    }
+                } elseif ($subjectClass === 'AcademicYear') {
+                    $name = $attributes['name'] ?? $old['name'] ?? $act->subject?->name ?? 'Academic Year';
+                    $detailStr = ($event === 'created' ? 'Created academic year: ' : ($event === 'deleted' ? 'Deleted academic year: ' : 'Updated academic year: ')) . "{$name}";
+                } else {
+                    $detailStr = "Administrative operation on {$subjectLabel}" . ($act->subject_id ? " (ID #{$act->subject_id})" : '');
+                }
+            }
+
+            $causerName = $act->causer?->name ?? 'System Administrator';
+
+            $auditLogs[] = [
+                'title' => $eventTitle,
+                'event' => $eventLabel,
+                'description' => $detailStr,
+                'causer' => $causerName,
+                'badge_class' => $badgeClass,
+                'color_dot' => $colorDot,
+                'time' => $act->created_at ? $act->created_at->diffForHumans() : 'Recently',
+                'full_time' => $act->created_at ? $act->created_at->format('M d, Y h:i:s A') : '',
+            ];
+        }
+
         $pendingCount = max(0, $expectedCount - $submittedCount);
 
         return [
@@ -329,6 +509,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'ratingsDist' => $ratingsDist,
             'totalRatingsCount' => $totalRatingsCount,
             'deptScores' => $deptScores,
+            'auditLogs' => $auditLogs,
         ];
     }
 }; ?>
@@ -585,7 +766,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon name="chart-bar" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                        
                         Ratings Distribution Chart
                     </h3>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 rating scores submitted for this period.</p>
@@ -612,7 +793,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        <flux:icon icon="building-office-2" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                        
                         Department Average Ratings Chart
                     </h3>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Comparative mean scores across academic departments.</p>
@@ -635,52 +816,126 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
     </div>
 
-    <!-- Bottom Row: Recent Submissions Log -->
-    <div class="w-full">
-        <!-- Recent Submissions Log -->
-        <flux:card class="p-6 flex flex-col gap-4 shadow-xs w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <!-- Side-by-Side Row: Admin Audit Log & Recent Submissions Log -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- 1. Audit Log -->
+        <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                    Recent Submissions Log
-                </h3>
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        
+                        Audit Log
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Chronological history of admin updates and system operations.</p>
+                </div>
+                <flux:badge variant="neutral" size="sm" class="font-bold">
+                    {{ count($auditLogs) }} activities
+                </flux:badge>
             </div>
 
-            @if(count($recentSubmissions) > 0)
-                <div class="flow-root">
-                    <ul class="-mb-8">
-                        @foreach($recentSubmissions as $index => $sub)
-                            <li>
-                                <div class="relative pb-6">
-                                    @if($index < count($recentSubmissions) - 1)
-                                        <span class="absolute top-4 left-3 -ml-px h-full w-0.5 bg-zinc-200 dark:bg-zinc-800" aria-hidden="true"></span>
-                                    @endif
-                                    <div class="relative flex space-x-3">
-                                        <div>
-                                            <span class="h-6 w-6 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
-                                                <span class="h-2 w-2 rounded-full bg-[#9b0000] dark:bg-[#f89696]"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
-                                            <div class="text-xs text-zinc-700 dark:text-zinc-300">
-                                                <span class="font-extrabold text-zinc-900 dark:text-zinc-100 block text-xs">{{ $sub['label'] }}</span>
-                                                <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-0.5">{{ $sub['description'] }}</span>
+            <div class="flex-1 overflow-y-auto pr-2 mt-4 space-y-4">
+                @if(count($auditLogs) > 0)
+                    <div class="flow-root">
+                        <ul class="-mb-8">
+                            @foreach($auditLogs as $index => $log)
+                                <li>
+                                    <div class="relative pb-6">
+                                        @if($index < count($auditLogs) - 1)
+                                            <span class="absolute top-4 left-3 -ml-px h-full w-0.5 bg-zinc-200 dark:bg-zinc-800" aria-hidden="true"></span>
+                                        @endif
+                                        <div class="relative flex space-x-3">
+                                            <div>
+                                                <span class="h-6 w-6 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
+                                                    <span class="h-2 w-2 rounded-full {{ $log['color_dot'] }}"></span>
+                                                </span>
                                             </div>
-                                            <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
-                                                {{ $sub['time'] }}
+                                            <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
+                                                <div class="text-xs text-zinc-700 dark:text-zinc-300">
+                                                    <div class="flex items-center gap-2 flex-wrap">
+                                                        <span class="font-extrabold text-zinc-900 dark:text-zinc-100 text-xs">{{ $log['title'] }}</span>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $log['badge_class'] }}">
+                                                            {{ $log['event'] }}
+                                                        </span>
+                                                    </div>
+                                                    <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-1">{{ $log['description'] }}</span>
+                                                    @if(!empty($log['causer']))
+                                                        <span class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 block">
+                                                            Performed by <span class="font-semibold text-zinc-600 dark:text-zinc-400">{{ $log['causer'] }}</span>
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
+                                                    <span title="{{ $log['full_time'] }}">{{ $log['time'] }}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </li>
-                        @endforeach
-                    </ul>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center text-center p-6 h-full gap-2">
+                        <flux:icon name="clock" class="size-9 text-zinc-300 dark:text-zinc-650" />
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400">No administrator activity logs recorded yet.</p>
+                    </div>
+                @endif
+            </div>
+        </flux:card>
+
+        <!-- 2. Recent Submissions Log -->
+        <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        
+                        Recent Submissions Log
+                    </h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Live incoming evaluation responses in active semester.</p>
                 </div>
-            @else
-                <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
-                    <flux:icon name="inbox" class="size-9 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No submissions recorded for this active semester.</p>
-                </div>
-            @endif
+                <flux:badge variant="neutral" size="sm" class="font-bold">
+                    {{ count($recentSubmissions) }} submissions
+                </flux:badge>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 mt-4 space-y-4">
+                @if(count($recentSubmissions) > 0)
+                    <div class="flow-root">
+                        <ul class="-mb-8">
+                            @foreach($recentSubmissions as $index => $sub)
+                                <li>
+                                    <div class="relative pb-6">
+                                        @if($index < count($recentSubmissions) - 1)
+                                            <span class="absolute top-4 left-3 -ml-px h-full w-0.5 bg-zinc-200 dark:bg-zinc-800" aria-hidden="true"></span>
+                                        @endif
+                                        <div class="relative flex space-x-3">
+                                            <div>
+                                                <span class="h-6 w-6 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
+                                                    <span class="h-2 w-2 rounded-full bg-[#9b0000] dark:bg-[#f89696]"></span>
+                                                </span>
+                                            </div>
+                                            <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
+                                                <div class="text-xs text-zinc-700 dark:text-zinc-300">
+                                                    <span class="font-extrabold text-zinc-900 dark:text-zinc-100 block text-xs">{{ $sub['label'] }}</span>
+                                                    <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-0.5">{{ $sub['description'] }}</span>
+                                                </div>
+                                                <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
+                                                    {{ $sub['time'] }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center text-center p-6 h-full gap-2">
+                        <flux:icon name="inbox" class="size-9 text-zinc-300 dark:text-zinc-650" />
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400">No submissions recorded for this active semester.</p>
+                    </div>
+                @endif
+            </div>
         </flux:card>
     </div>
 

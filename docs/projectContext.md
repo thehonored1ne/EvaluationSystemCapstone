@@ -30,6 +30,12 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 20, 2026
+- **Default Password Security Advisory Modal**:
+  - Implemented automatic detection of users operating with default credentials (`Hash::check('password', $this->password)`) and tracked explicit updates via `password_changed_at`.
+  - Created Livewire security advisory modal (`default-password-modal.blade.php`) integrated into the global authenticated layout with direct "Change Password Now" navigation to `/settings/password`.
+  - Added session-based dismissal controls ("Later" snooze, "Don't show again this session") ensuring users are reminded upon each login until their password is changed.
+
 ### August 19, 2026
 - **Mobile Responsive UI, Navigation & Component Polish**:
   - Fixed mobile sidebar toggle button (`flux-sidebar-toggle`), displaying the full GRC institutional logo on mobile views while maintaining mini icon mode exclusively for desktop collapsed sidebars.

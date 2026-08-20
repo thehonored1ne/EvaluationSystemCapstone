@@ -40,6 +40,24 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->get();
     }
 
+    public function getEvaluatedCountProperty(): int
+    {
+        $classes = $this->enrolledClasses;
+        if ($classes->isEmpty()) {
+            return 0;
+        }
+
+        return $classes->filter(function ($class) {
+            $teacherUserId = $class->teacher?->user?->id;
+            if (!$teacherUserId) {
+                return false;
+            }
+
+            $status = $this->getClassEvaluationStatus($class->id, $teacherUserId);
+            return in_array($status, ['completed', 'processing']);
+        })->count();
+    }
+
     public function getClassEvaluationStatus($classId, $teacherUserId)
     {
         $sem = $this->activeSemester;
@@ -131,7 +149,14 @@ new #[Layout('components.layouts.app')] class extends Component {
     @else
         <div class="grid grid-cols-1 gap-6">
             <flux:card class="p-6">
-                <flux:heading size="lg" class="mb-4">My Enrolled Classes & Professors</flux:heading>
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <flux:heading size="lg">My Enrolled Classes & Professors</flux:heading>
+                    @if($this->enrolledClasses->isNotEmpty())
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                            <span class="text-[#9b0000] dark:text-[#f89696] font-extrabold mr-1">{{ $this->evaluatedCount }}/{{ $this->enrolledClasses->count() }}</span> evaluated
+                        </span>
+                    @endif
+                </div>
                 
                 @if($this->enrolledClasses->isEmpty())
                     <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">

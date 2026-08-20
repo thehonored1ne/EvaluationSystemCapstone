@@ -4,7 +4,9 @@
             <flux:navlist.item href="{{ route('settings.profile') }}" :current="request()->routeIs('settings.profile')" wire:navigate>Profile</flux:navlist.item>
             <flux:navlist.item href="{{ route('settings.password') }}" :current="request()->routeIs('settings.password')" wire:navigate>Password</flux:navlist.item>
             <flux:navlist.item href="{{ route('settings.appearance') }}" :current="request()->routeIs('settings.appearance')" wire:navigate>Appearance</flux:navlist.item>
-            <flux:navlist.item href="{{ route('settings.training') }}" :current="request()->routeIs('settings.training')" wire:navigate>Training</flux:navlist.item>
+            @if(auth()->check() && auth()->user()->hasRole('admin'))
+                <flux:navlist.item href="{{ route('settings.training') }}" :current="request()->routeIs('settings.training')" wire:navigate>Training</flux:navlist.item>
+            @endif
         </flux:navlist>
     </div>
 

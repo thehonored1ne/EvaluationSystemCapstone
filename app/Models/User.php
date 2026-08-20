@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -22,8 +23,8 @@ class User extends Authenticatable // implements MustVerifyEmail
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty()
-            ->logExcept(['password', 'remember_token'])
-            ->dontLogIfAttributesChangedOnly(['password', 'remember_token'])
+            ->logExcept(['password', 'remember_token', 'notifications_last_viewed_at', 'dismissed_notifications', 'password_changed_at', 'updated_at'])
+            ->dontLogIfAttributesChangedOnly(['password', 'remember_token', 'notifications_last_viewed_at', 'dismissed_notifications', 'password_changed_at', 'updated_at'])
             ->useLogName('user');
     }
 
@@ -38,6 +39,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         'student_id',
         'employee_id',
         'password',
+        'password_changed_at',
         'is_active',
         'show_ai_pipeline',
         'notifications_last_viewed_at',
@@ -64,11 +66,24 @@ class User extends Authenticatable // implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_changed_at' => 'datetime',
             'is_active' => 'boolean',
             'show_ai_pipeline' => 'boolean',
             'notifications_last_viewed_at' => 'datetime',
             'dismissed_notifications' => 'array',
         ];
+    }
+
+    /**
+     * Check if the user is currently using the system default password.
+     */
+    public function isUsingDefaultPassword(): bool
+    {
+        if ($this->password_changed_at !== null) {
+            return false;
+        }
+
+        return Hash::check('password', $this->password);
     }
 
     /**
