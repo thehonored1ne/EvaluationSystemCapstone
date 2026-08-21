@@ -1,4 +1,36 @@
-<div align="center">
+# GRC 360 Degree Evaluation System
+
+A role-based academic evaluation platform with an integrated AI sentiment analysis pipeline to evaluate faculty performance, process 360-degree institutional appraisals, and classify qualitative feedback in English and Tagalog/Taglish.
+
+[![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
+[![Livewire Volt](<https://img.shields.io/badge/Livewire-Volt%20v1.6-4E56A6?style=flat-square&logo=livewire&logoColor=white>)](https://livewire.laravel.com/docs/volt)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Python](<https://img.shields.io/badge/Python-3.11%2B%20%7C%20Flask-3776AB?style=flat-square&logo=python&logoColor=white>)](https://python.org)
+[![Scikit-Learn](<https://img.shields.io/badge/Scikit--Learn-Decision%20Tree-F7931E?style=flat-square&logo=scikit-learn&logoColor=white>)](https://scikit-learn.org)
+[![NLTK VADER](<https://img.shields.io/badge/NLTK-VADER%20NLP-1572B6?style=flat-square&logo=natural-language-processing&logoColor=white>)](https://www.nltk.org)
+[![Pest](<https://img.shields.io/badge/Tested%20with-Pest%203.x-00D1B2?style=flat-square&logo=pest&logoColor=white>)](https://pestphp.com)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+
+---
+
+## 📑 Table of Contents
+
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [System Architecture](#-system-architecture)
+- [Tech Stack](#-tech-stack)
+- [Quick Start](#-quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Step-by-Step Installation](#step-by-step-installation)
+- [Running the Application](#-running-the-application)
+- [User Roles &amp; Demo Credentials](#-user-roles--demo-credentials)
+- [AI Sentiment Engine](#-ai-sentiment-engine)
+- [Artisan Commands](#-artisan-commands)
+- [Code Quality &amp; Testing](#-code-quality--testing)
+- [Project Structure](#-project-structure)
+- [License](#-license)
+
+---
 
 ## 📌 Overview
 
@@ -13,6 +45,11 @@ Equipped with a **customized bilingual Tagalog-Taglish & English NLP pipeline**,
 ### 👥 360° Multi-Role Evaluation Hierarchy
 
 * **7 Specialized Roles**: System Administrator, College Dean, Department Head, Program Head, Faculty Professor, Student, and Administrative Staff.
+* **Weighted Evaluation Breakdown**:
+  * **Students (40%)**: Upward classroom instruction, methodology, and learning delivery evaluations.
+  * **Superiors / Deans & Program Heads (40%)**: Administrative adherence, leadership, and curricular competence.
+  * **Peers (15%)**: Departmental collaboration, teamwork, and collegiality.
+  * **Self-Evaluation (5%)**: Personal reflection, professional growth, and academic milestones.
 
 ### 🤖 Hybrid AI Sentiment Analysis Pipeline
 
@@ -39,7 +76,7 @@ Equipped with a **customized bilingual Tagalog-Taglish & English NLP pipeline**,
 
 ```mermaid
 graph TD
-    User([End User / Browser]) <-->|HTTPS / Inertia & Volt UI| LaravelApp[Laravel 12 Core App]
+    User([End User / Browser]) <-->|HTTPS / Livewire Volt UI| LaravelApp[Laravel 12 Core App]
   
     subgraph Backend Services
         LaravelApp <-->|Eloquent ORM| Database[(SQLite / MySQL Database)]
@@ -281,7 +318,3 @@ evaluationsystem/
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-<div align="center">
-  <sub>Built with ❤️ for Modern Higher Education Performance Management</sub>
-</div>
