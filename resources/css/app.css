@@ -1,3 +1,11 @@
+@import '@fontsource/lexend/400.css';
+@import '@fontsource/lexend/500.css';
+@import '@fontsource/lexend/600.css';
+@import '@fontsource/lexend/700.css';
+@import '@fontsource/playfair-display/400.css';
+@import '@fontsource/playfair-display/600.css';
+@import '@fontsource/playfair-display/700.css';
+
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
@@ -41,6 +49,28 @@
         --color-accent-content: #f89696;
         --color-accent-foreground: #171717;
     }
+}
+
+/* Global Sidebar Group Headings High-Contrast Accessibility */
+ui-sidebar .text-zinc-400,
+[data-flux-sidebar] .text-zinc-400,
+ui-sidebar [data-flux-navlist-group-heading],
+[data-flux-sidebar] [data-flux-navlist-group-heading] {
+    color: #525252 !important;
+    font-weight: 700 !important;
+}
+
+.dark ui-sidebar .text-zinc-400,
+.dark [data-flux-sidebar] .text-zinc-400,
+.dark ui-sidebar [data-flux-navlist-group-heading],
+.dark [data-flux-sidebar] [data-flux-navlist-group-heading] {
+    color: #e4e4e7 !important;
+    font-weight: 700 !important;
+}
+
+/* Global x-cloak safeguard */
+[x-cloak] {
+    display: none !important;
 }
 
 @layer base {

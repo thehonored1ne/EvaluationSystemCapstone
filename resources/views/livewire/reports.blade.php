@@ -740,7 +740,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         <!-- Top Header: Logo + Institutional Header + Boxed Title -->
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-black pb-2 print:pb-1.5">
                             <div class="flex items-center gap-3">
-                                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Logo" class="h-12 sm:h-14 md:h-16 w-auto object-contain" />
+                                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Logo" class="h-12 sm:h-14 md:h-16 w-auto object-contain" />
                                 <div class="flex flex-col">
                                     <p class="text-[10.5px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue</p>
                                     <p class="text-[10.5px] text-zinc-700 leading-tight">Grace Park, Caloocan City</p>
@@ -956,7 +956,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-black pb-4">
                             <div class="flex items-center gap-3.5">
-                                <img src="{{ asset('GRC-o-Evaluation-LOGO.png') }}" alt="Global Reciprocal Colleges Logo" class="h-14 md:h-18 w-auto object-contain" />
+                                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Logo" class="h-14 md:h-18 w-auto object-contain" />
                                 <div class="flex flex-col">
                                     <h1 class="text-sm font-black tracking-tight uppercase leading-tight">Global Reciprocal Colleges</h1>
                                     <p class="text-[10px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue, Grace Park, Caloocan City</p>

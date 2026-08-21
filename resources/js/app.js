@@ -1,4 +1,4 @@
-// Global chart helper for Admin Dashboard
+// Global chart helper for Admin Dashboard (dynamically lazy-loads Chart.js on demand)
 window.dashboardAnalyticsCharts = function(config) {
     return {
         ratingsInstance: null,
@@ -6,20 +6,39 @@ window.dashboardAnalyticsCharts = function(config) {
         ratingsData: config?.ratingsData || [],
         deptLabels: config?.deptLabels || [],
         deptAverages: config?.deptAverages || [],
-        init() {
+        isDarkMode() {
+            return document.documentElement.classList.contains('dark');
+        },
+        async init() {
+            if (typeof window.Chart === 'undefined') {
+                const { default: Chart } = await import('chart.js/auto');
+                window.Chart = Chart;
+            }
+
             this.$nextTick(() => {
                 this.renderAll();
             });
 
-            // Re-render when appearance changes (light/dark mode toggle)
+            // Re-render instantly whenever dark/light class is toggled on <html>
+            if (window.MutationObserver) {
+                const observer = new MutationObserver(() => {
+                    this.renderAll();
+                });
+                observer.observe(document.documentElement, {
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
+            }
+
+            // Also listen to Flux appearance change events
             window.addEventListener('flux:appearance:changed', () => {
-                this.renderAll();
+                setTimeout(() => this.renderAll(), 50);
             });
         },
-        renderAll() {
-            if (typeof Chart === 'undefined') {
-                setTimeout(() => this.renderAll(), 100);
-                return;
+        async renderAll() {
+            if (typeof window.Chart === 'undefined') {
+                const { default: Chart } = await import('chart.js/auto');
+                window.Chart = Chart;
             }
             this.renderRatings();
             this.renderDept();
@@ -30,9 +49,9 @@ window.dashboardAnalyticsCharts = function(config) {
                 this.ratingsInstance.destroy();
                 this.ratingsInstance = null;
             }
-            const isDark = document.documentElement.classList.contains('dark');
-            const textColor = isDark ? '#d4d4d8' : '#3f3f46';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+            const isDark = this.isDarkMode();
+            const textColor = isDark ? '#f4f4f5' : '#18181b';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
 
             this.ratingsInstance = new Chart(this.$refs.ratingsChart.getContext('2d'), {
                 type: 'bar',
@@ -40,7 +59,7 @@ window.dashboardAnalyticsCharts = function(config) {
                     labels: ['Rating 5', 'Rating 4', 'Rating 3', 'Rating 2', 'Rating 1'],
                     datasets: [{
                         data: this.ratingsData,
-                        backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#71717a'],
+                        backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#52525b'],
                         borderRadius: 6,
                         borderSkipped: false,
                     }]
@@ -62,11 +81,18 @@ window.dashboardAnalyticsCharts = function(config) {
                         y: {
                             beginAtZero: true,
                             grid: { color: gridColor },
-                            ticks: { precision: 0, color: textColor }
+                            ticks: { 
+                                precision: 0, 
+                                color: textColor,
+                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' }
+                            }
                         },
                         x: {
                             grid: { display: false },
-                            ticks: { color: textColor }
+                            ticks: { 
+                                color: textColor,
+                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' }
+                            }
                         }
                     }
                 }
@@ -78,9 +104,9 @@ window.dashboardAnalyticsCharts = function(config) {
                 this.deptInstance.destroy();
                 this.deptInstance = null;
             }
-            const isDark = document.documentElement.classList.contains('dark');
-            const textColor = isDark ? '#d4d4d8' : '#3f3f46';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+            const isDark = this.isDarkMode();
+            const textColor = isDark ? '#f4f4f5' : '#18181b';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
 
             this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
                 type: 'bar',
@@ -113,11 +139,17 @@ window.dashboardAnalyticsCharts = function(config) {
                             min: 0,
                             max: 5.0,
                             grid: { color: gridColor },
-                            ticks: { color: textColor }
+                            ticks: { 
+                                color: textColor,
+                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' }
+                            }
                         },
                         y: {
                             grid: { display: false },
-                            ticks: { color: textColor }
+                            ticks: { 
+                                color: textColor,
+                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' }
+                            }
                         }
                     }
                 }

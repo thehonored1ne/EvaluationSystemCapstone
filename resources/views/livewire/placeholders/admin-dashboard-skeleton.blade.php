@@ -90,8 +90,44 @@
 
     <!-- Chart.js Visual Analytics Row (2 Charts) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <x-skeleton type="chart" />
-        <x-skeleton type="chart" />
+        <!-- Chart 1 Skeleton -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[400px]">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        Ratings Distribution Chart
+                    </h3>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Frequency of 1 to 5 rating scores submitted for this period.</p>
+                </div>
+                <div class="h-6 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-full shimmer"></div>
+            </div>
+            <div class="h-64 flex items-end justify-between gap-3 pt-6 px-2">
+                <div class="h-[75%] w-full bg-zinc-200 dark:bg-zinc-800 rounded-t-md shimmer"></div>
+                <div class="h-[55%] w-full bg-zinc-200 dark:bg-zinc-800 rounded-t-md shimmer"></div>
+                <div class="h-[35%] w-full bg-zinc-200 dark:bg-zinc-800 rounded-t-md shimmer"></div>
+                <div class="h-[20%] w-full bg-zinc-200 dark:bg-zinc-800 rounded-t-md shimmer"></div>
+                <div class="h-[10%] w-full bg-zinc-200 dark:bg-zinc-800 rounded-t-md shimmer"></div>
+            </div>
+        </div>
+
+        <!-- Chart 2 Skeleton -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[400px]">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        Department Average Ratings Chart
+                    </h3>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Comparative mean scores across academic departments.</p>
+                </div>
+                <div class="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full shimmer"></div>
+            </div>
+            <div class="h-64 flex flex-col justify-around pt-4 px-2 space-y-3">
+                <div class="h-6 w-[88%] bg-zinc-200 dark:bg-zinc-800 rounded-r-md shimmer"></div>
+                <div class="h-6 w-[92%] bg-zinc-200 dark:bg-zinc-800 rounded-r-md shimmer"></div>
+                <div class="h-6 w-[85%] bg-zinc-200 dark:bg-zinc-800 rounded-r-md shimmer"></div>
+                <div class="h-6 w-[78%] bg-zinc-200 dark:bg-zinc-800 rounded-r-md shimmer"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Section 5: Recent Submissions & Admin Audit Log (Exact h-[480px]) -->

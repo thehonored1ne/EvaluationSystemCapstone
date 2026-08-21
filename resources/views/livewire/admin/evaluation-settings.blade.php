@@ -116,6 +116,26 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
     }
 
+    public function resetToDefaultWeights(): void
+    {
+        $this->overallMaxTarget = '200';
+        $this->maxWeightPercent = '100';
+        $this->studentWeightTarget = '40';
+        $this->deanWeightTarget = '20';
+        $this->phDhWeightTarget = '20';
+        $this->peerWeightTarget = '15';
+        $this->selfWeightTarget = '5';
+        $this->superiorWeightTarget = '20';
+
+        $this->upwardStudentMaxTarget = '80';
+        $this->deanMaxTarget = '40';
+        $this->programHeadMaxTarget = '40';
+        $this->peerMaxTarget = '30';
+        $this->selfMaxTarget = '10';
+
+        session()->flash('status', 'Weights and point targets restored to standard GRC preset (40% / 20% / 20% / 15% / 5%).');
+    }
+
     public function getAcademicYearsProperty()
     {
         return AcademicYear::with('semesters')->orderBy('name', 'desc')->get();
@@ -911,18 +931,23 @@ new #[Layout('components.layouts.app')] class extends Component {
             <!-- TAB 1: Individual Teaching Effectiveness (Faculty 360°) -->
             @if($weightsReportTab === 'teaching_effectiveness')
                 
-                <!-- Top Controls: Overall Scale & Editable Target Weight % -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
-                    <div class="space-y-1">
-                        <span class="text-xs font-extrabold uppercase tracking-wider text-[#9b0000] dark:text-[#f89696] flex items-center gap-1.5">
-                            
-                            Official GRC Faculty Teaching Effectiveness Scale
-                        </span>
-                        <p class="text-xs text-zinc-600 dark:text-zinc-300 font-medium leading-relaxed">
-                            Adjusting overall target points or max weight % dynamically recalculates the exact point targets for the 5 categories.
-                        </p>
+                <!-- Top Controls: Overall Scale, Target Sum %, & Reset Preset -->
+                <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <!-- Left: Quick Reset Preset -->
+                    <div class="flex items-center gap-2">
+                        <flux:button 
+                            type="button" 
+                            wire:click="resetToDefaultWeights" 
+                            variant="subtle" 
+                            size="sm" 
+                            icon="arrow-path" 
+                            class="font-semibold text-xs border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-[#9b0000] dark:hover:text-[#f89696] shadow-2xs"
+                        >
+                            Reset to GRC Standard (40-20-20-15-5)
+                        </flux:button>
                     </div>
 
+                    <!-- Right: Overall Scale, Target Sum %, Current Sum -->
                     <div class="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-4 w-full md:w-auto shrink-0">
                         <div class="col-span-1 sm:w-28 md:w-32">
                             <label class="block text-[11px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Overall Scale</label>

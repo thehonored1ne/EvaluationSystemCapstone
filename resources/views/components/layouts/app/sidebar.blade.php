@@ -19,6 +19,18 @@
                 color: #ffffff !important;
             }
 
+            /* Sidebar Group Headings High-Contrast Accessibility */
+            [data-flux-sidebar] [data-flux-navlist-group-heading],
+            [data-flux-sidebar] [data-flux-navlist-group-heading] div {
+                color: #52525b !important;
+                font-weight: 700 !important;
+            }
+            .dark [data-flux-sidebar] [data-flux-navlist-group-heading],
+            .dark [data-flux-sidebar] [data-flux-navlist-group-heading] div {
+                color: #d4d4d8 !important;
+                font-weight: 700 !important;
+            }
+
             /* Mini Icon-Only Collapsed Sidebar Styles (Desktop Only) */
             @media (min-width: 1024px) {
                 body.sidebar-is-collapsed [data-flux-sidebar] {
@@ -318,6 +330,7 @@
         </div>
 
         <livewire:default-password-modal />
+        <x-terms-modal />
         <flux:toast />
         @fluxScripts
     </body>

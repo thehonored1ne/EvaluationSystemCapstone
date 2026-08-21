@@ -579,6 +579,21 @@ new class extends Component {
                     @enderror
                 </div>
 
+                <!-- Terms & Privacy Confirmation Notice -->
+                <div class="p-3.5 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-xl flex items-start gap-2.5 text-xs text-zinc-600 dark:text-zinc-300">
+                    <flux:icon icon="shield-check" class="size-4.5 text-[#9b0000] dark:text-[#f89696] shrink-0 mt-0.5" />
+                    <div class="leading-relaxed">
+                        By submitting this evaluation, you confirm that your feedback is constructive, truthful, and adheres to institutional guidelines. All evaluation responses are processed in accordance with the 
+                        <button 
+                            type="button" 
+                            @click="$dispatch('open-terms-modal')" 
+                            class="font-bold underline text-[#9b0000] dark:text-[#f89696] hover:opacity-80 transition-opacity cursor-pointer inline-flex items-center gap-0.5"
+                        >
+                            Terms of Use & Privacy Policy
+                        </button>.
+                    </div>
+                </div>
+
                 <!-- Review Action Controls -->
                 <div class="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-5 mt-2">
                     <flux:button 

@@ -564,7 +564,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Employees</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold uppercase block tracking-wider">Total Employees</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$employeeCount" /></span>
                 </div>
                 <flux:icon name="users" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
@@ -576,7 +576,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Students</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold uppercase block tracking-wider">Total Students</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$studentCount" /></span>
                 </div>
                 <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
@@ -588,7 +588,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Current Evaluation Progress</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold uppercase block tracking-wider">Current Evaluation Progress</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$progressPercent" suffix="%" /></span>
                 </div>
                 <flux:icon name="check-circle" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
@@ -596,7 +596,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 mt-3 overflow-hidden">
                 <div class="h-3 rounded-full transition-all duration-500 bg-[#9b0000] dark:bg-[#f89696]" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium block mt-2">
+            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-medium block mt-2">
                 {{ $submittedCount }} of {{ $expectedCount }} expected evaluations submitted
             </span>
         </div>
@@ -605,12 +605,12 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-start">
                 <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Pending Submissions</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold uppercase block tracking-wider">Pending Submissions</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$pendingCount" /></span>
                 </div>
                 <flux:icon name="clock" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Awaiting evaluator completion</span>
+            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-medium mt-2">Awaiting evaluator completion</span>
         </div>
     </div>
 
@@ -623,7 +623,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                         Evaluation Period Status
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Shows whether student & employee evaluation forms can be submitted right now.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Shows whether student & employee evaluation forms can be submitted right now.</p>
                 </div>
             </div>
 
@@ -669,19 +669,19 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <span class="text-rose-700 dark:text-rose-400 font-semibold">{{ $scheduleMessage }}</span>
                                 @else
                                     <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
-                                    <span class="text-zinc-600 dark:text-zinc-400 font-semibold">{{ $scheduleMessage }}</span>
+                                    <span class="text-zinc-700 dark:text-zinc-300 font-semibold">{{ $scheduleMessage }}</span>
                                 @endif
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                             <div>
-                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Evaluation Opens (Start)</span>
+                                <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider block">Evaluation Opens (Start)</span>
                                 <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
                                     {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
                                 </span>
                             </div>
                             <div>
-                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Evaluation Closes (End)</span>
+                                <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider block">Evaluation Closes (End)</span>
                                 <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block mt-1">
                                     {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
                                 </span>
@@ -698,7 +698,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             @else
                 <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
                     <flux:icon name="exclamation-circle" class="size-10 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No active academic period configured.</p>
+                    <p class="text-sm text-zinc-700 dark:text-zinc-300 font-medium">No active academic period configured.</p>
                     <flux:button href="/admin/evaluation-settings" variant="primary" size="sm" class="mt-2">
                         Set Active Period & Schedule
                     </flux:button>
@@ -713,7 +713,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                         Overall Evaluation Feedback
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Simple summary of comments submitted across all evaluators.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Simple summary of comments submitted across all evaluators.</p>
                 </div>
             </div>
 
@@ -732,7 +732,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <!-- Big Summary Box -->
                     <div class="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Overall Sentiment</p>
+                            <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Overall Sentiment</p>
                             <p class="text-lg font-extrabold text-zinc-900 dark:text-zinc-100 mt-0.5">
                                 @if($posPct >= 50)
                                     😊 Mostly Positive Feedback ({{ $posPct }}%)
@@ -743,7 +743,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 @endif
                             </p>
                         </div>
-                        <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
                             {{ $total }} total reviews
                         </span>
                     </div>
@@ -776,7 +776,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             @else
                 <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
                     <flux:icon name="adjustments-horizontal" class="size-10 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 font-medium">No evaluation feedback comments available yet.</p>
+                    <p class="text-sm text-zinc-700 dark:text-zinc-300 font-medium">No evaluation feedback comments available yet.</p>
                 </div>
             @endif
         </div>
@@ -795,7 +795,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Ratings Distribution Chart
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 rating scores submitted for this period.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Frequency of 1 to 5 rating scores submitted for this period.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     {{ $totalRatingsCount }} answer{{ $totalRatingsCount === 1 ? '' : 's' }}
@@ -809,7 +809,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             @else
                 <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
                     <flux:icon name="chart-bar" class="size-8 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No question rating answers recorded for this period.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">No question rating answers recorded for this period.</p>
                 </div>
             @endif
         </div>
@@ -821,7 +821,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Department Average Ratings Chart
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Comparative mean scores across academic departments.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Comparative mean scores across academic departments.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     Scale: 5.00
@@ -835,7 +835,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             @else
                 <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
                     <flux:icon name="building-office" class="size-8 text-zinc-300 dark:text-zinc-650" />
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">No departments configured.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">No departments configured.</p>
                 </div>
             @endif
         </div>
@@ -844,13 +844,13 @@ new #[Layout('components.layouts.app')] class extends Component {
     <!-- Side-by-Side Row: Admin Audit Log & Recent Submissions Log -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- 1. Audit Log -->
-        <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Audit Log
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Chronological history of admin updates and system operations.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Chronological history of admin updates and system operations.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     {{ count($auditLogs) }} activities
@@ -881,14 +881,14 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                             {{ $log['event'] }}
                                                         </span>
                                                     </div>
-                                                    <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-1">{{ $log['description'] }}</span>
+                                                    <span class="font-medium text-zinc-700 dark:text-zinc-300 block mt-1">{{ $log['description'] }}</span>
                                                     @if(!empty($log['causer']))
-                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block">
+                                                        <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block">
                                                             Performed by <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $log['causer'] }}</span>
                                                         </span>
                                                     @endif
                                                 </div>
-                                                <div class="text-right text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400 font-semibold pt-1">
+                                                <div class="text-right text-xs whitespace-nowrap text-zinc-700 dark:text-zinc-300 font-semibold pt-1">
                                                     <span title="{{ $log['full_time'] }}">{{ $log['time'] }}</span>
                                                 </div>
                                             </div>
@@ -901,20 +901,20 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @else
                     <div class="flex flex-col items-center justify-center text-center p-6 h-full gap-2">
                         <flux:icon name="clock" class="size-9 text-zinc-300 dark:text-zinc-650" />
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400">No administrator activity logs recorded yet.</p>
+                        <p class="text-xs text-zinc-700 dark:text-zinc-300">No administrator activity logs recorded yet.</p>
                     </div>
                 @endif
             </div>
-        </flux:card>
+        </div>
 
         <!-- 2. Recent Submissions Log -->
-        <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Recent Submissions Log
                     </h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Live incoming evaluation responses in active semester.</p>
+                    <p class="text-xs text-zinc-700 dark:text-zinc-300">Live incoming evaluation responses in active semester.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     {{ count($recentSubmissions) }} submissions
@@ -940,9 +940,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             <div class="flex-1 min-w-0 pt-0.5 flex justify-between space-x-4">
                                                 <div class="text-xs text-zinc-700 dark:text-zinc-300">
                                                     <span class="font-extrabold text-zinc-900 dark:text-zinc-100 block text-xs">{{ $sub['label'] }}</span>
-                                                    <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-0.5">{{ $sub['description'] }}</span>
+                                                    <span class="font-medium text-zinc-700 dark:text-zinc-300 block mt-0.5">{{ $sub['description'] }}</span>
                                                 </div>
-                                                <div class="text-right text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400 font-semibold pt-1">
+                                                <div class="text-right text-xs whitespace-nowrap text-zinc-700 dark:text-zinc-300 font-semibold pt-1">
                                                     {{ $sub['time'] }}
                                                 </div>
                                             </div>
@@ -955,11 +955,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @else
                     <div class="flex flex-col items-center justify-center text-center p-6 h-full gap-2">
                         <flux:icon name="inbox" class="size-9 text-zinc-300 dark:text-zinc-650" />
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400">No submissions recorded for this active semester.</p>
+                        <p class="text-xs text-zinc-700 dark:text-zinc-300">No submissions recorded for this active semester.</p>
                     </div>
                 @endif
             </div>
-        </flux:card>
+        </div>
     </div>
 
     <!-- Quick Actions Panel -->
@@ -967,7 +967,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div>
                 <flux:heading size="lg">Quick System Actions</flux:heading>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Click any shortcut below to navigate directly to evaluation tracking, user management, and academic settings.</p>
+                <p class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5">Click any shortcut below to navigate directly to evaluation tracking, user management, and academic settings.</p>
             </div>
         </div>
         
@@ -979,7 +979,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Track Evaluation Turnout</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">View category completion progress and send reminder alerts.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">View category completion progress and send reminder alerts.</span>
                 </div>
             </a>
 
@@ -990,7 +990,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">View Completed Evaluations</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Check individual submissions and detailed rating scores.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Check individual submissions and detailed rating scores.</span>
                 </div>
             </a>
 
@@ -1001,7 +1001,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Generate GRC Reports</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">View official 2-page print scorecards and AI comment summaries.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">View official 2-page print scorecards and AI comment summaries.</span>
                 </div>
             </a>
 
@@ -1012,7 +1012,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Department & Faculty Rankings</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Compare college department averages and professor rankings.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Compare college department averages and professor rankings.</span>
                 </div>
             </a>
 
@@ -1023,7 +1023,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Evaluation Schedule & Settings</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Open/close evaluation periods and set score weight percentages.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Open/close evaluation periods and set score weight percentages.</span>
                 </div>
             </a>
 
@@ -1034,7 +1034,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Edit Evaluation Questions</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, edit, or reorder questions for all 7 evaluation types.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Add, edit, or reorder questions for all 7 evaluation types.</span>
                 </div>
             </a>
 
@@ -1045,7 +1045,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Classes & Rosters</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Assign teachers, schedules, and enroll students into sections.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Assign teachers, schedules, and enroll students into sections.</span>
                 </div>
             </a>
 
@@ -1056,7 +1056,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Student Accounts</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit, or update student profiles and statuses.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Add, import CSV, edit, or update student profiles and statuses.</span>
                 </div>
             </a>
 
@@ -1067,7 +1067,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Employee Accounts</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit faculty, dean, head, and staff accounts.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Add, import CSV, edit faculty, dean, head, and staff accounts.</span>
                 </div>
             </a>
 
@@ -1078,7 +1078,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Subject Catalog</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, import CSV, edit academic course subjects and unit credits.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Add, import CSV, edit academic course subjects and unit credits.</span>
                 </div>
             </a>
 
@@ -1089,7 +1089,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Departments</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Configure colleges, administrative offices, and assign heads.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Configure colleges, administrative offices, and assign heads.</span>
                 </div>
             </a>
 
@@ -1100,137 +1100,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <div class="min-w-0">
                     <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Academic Programs</span>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block line-clamp-2">Setup degree programs (BSIT, BSA, etc.) and program heads.</span>
+                    <span class="text-xs text-zinc-700 dark:text-zinc-300 mt-0.5 block line-clamp-2">Setup degree programs (BSIT, BSA, etc.) and program heads.</span>
                 </div>
             </a>
         </div>
     </div>
-
-    <script>
-        window.dashboardAnalyticsCharts = function(config) {
-            return {
-                ratingsInstance: null,
-                deptInstance: null,
-                ratingsData: config?.ratingsData || [],
-                deptLabels: config?.deptLabels || [],
-                deptAverages: config?.deptAverages || [],
-                init() {
-                    this.$nextTick(() => {
-                        this.renderAll();
-                    });
-
-                    window.addEventListener('flux:appearance:changed', () => {
-                        this.renderAll();
-                    });
-                },
-                renderAll() {
-                    if (typeof Chart === 'undefined') {
-                        setTimeout(() => this.renderAll(), 100);
-                        return;
-                    }
-                    this.renderRatings();
-                    this.renderDept();
-                },
-                renderRatings() {
-                    if (!this.$refs.ratingsChart || typeof Chart === 'undefined') return;
-                    if (this.ratingsInstance) {
-                        this.ratingsInstance.destroy();
-                        this.ratingsInstance = null;
-                    }
-                    const isDark = document.documentElement.classList.contains('dark');
-                    const textColor = isDark ? '#d4d4d8' : '#3f3f46';
-                    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
-
-                    this.ratingsInstance = new Chart(this.$refs.ratingsChart.getContext('2d'), {
-                        type: 'bar',
-                        data: {
-                            labels: ['Rating 5', 'Rating 4', 'Rating 3', 'Rating 2', 'Rating 1'],
-                            datasets: [{
-                                data: this.ratingsData,
-                                backgroundColor: ['#9b0000', '#b91c1c', '#f59e0b', '#ef4444', '#71717a'],
-                                borderRadius: 6,
-                                borderSkipped: false,
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(ctx) {
-                                            return Number(ctx.raw).toLocaleString() + ' answers';
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    grid: { color: gridColor },
-                                    ticks: { precision: 0, color: textColor }
-                                },
-                                x: {
-                                    grid: { display: false },
-                                    ticks: { color: textColor }
-                                }
-                            }
-                        }
-                    });
-                },
-                renderDept() {
-                    if (!this.$refs.deptChart || typeof Chart === 'undefined' || !this.deptLabels || this.deptLabels.length === 0) return;
-                    if (this.deptInstance) {
-                        this.deptInstance.destroy();
-                        this.deptInstance = null;
-                    }
-                    const isDark = document.documentElement.classList.contains('dark');
-                    const textColor = isDark ? '#d4d4d8' : '#3f3f46';
-                    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
-
-                    this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
-                        type: 'bar',
-                        data: {
-                            labels: this.deptLabels,
-                            datasets: [{
-                                data: this.deptAverages,
-                                backgroundColor: isDark ? '#f89696' : '#9b0000',
-                                hoverBackgroundColor: isDark ? '#fca5a5' : '#7a0000',
-                                borderRadius: 6,
-                                borderSkipped: false,
-                            }]
-                        },
-                        options: {
-                            indexAxis: 'y',
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(ctx) {
-                                            return Number(ctx.raw).toFixed(2) + ' / 5.00 Rating';
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    min: 0,
-                                    max: 5.0,
-                                    grid: { color: gridColor },
-                                    ticks: { color: textColor }
-                                },
-                                y: {
-                                    grid: { display: false },
-                                    ticks: { color: textColor }
-                                }
-                            }
-                        }
-                    });
-                }
-            };
-        };
-    </script>
 </div>
+
