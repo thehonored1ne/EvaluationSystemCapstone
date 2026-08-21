@@ -30,6 +30,13 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 21, 2026
+- **System-Wide 1:1 Skeleton Loader & Shimmer Animation Overhaul**:
+  - Upgraded shimmer sweep animation in `app.css` with GPU hardware acceleration (`will-change: transform`, `transform: translateZ(0)`), enhanced dark-mode contrast, and reduced-motion accessibility.
+  - Expanded `<x-skeleton>` component primitives with dedicated presets: `stat-card` (with 5px left-border `#9b0000` / `#f89696`), `chart`, `table` with proportional columns, `badge`, `button`, and `wizard`.
+  - Rebuilt all admin placeholders to match their real pages 1:1, eliminating Cumulative Layout Shift (CLS): Admin Dashboard, Evaluation Settings (4-section layout), Reports & Analytics, Manage AI, Manage Departments, Manage Programs, Manage Classes, Manage Subjects, Manage Employees, Manage Students, Manage Questions, Completion Tracking, Evaluation Results, and Rankings.
+  - Added Livewire `#[Lazy]` and dedicated 1:1 skeleton placeholders across all evaluator role portals: Student Dashboard (enrolled classes cards grid) and Faculty, Dean, Program Head, Department Head, Staff dashboards (progress badges, tabs, and tables).
+
 ### August 20, 2026
 - **Default Password Security Advisory Modal**:
   - Implemented automatic detection of users operating with default credentials (`Hash::check('password', $this->password)`) and tracked explicit updates via `password_changed_at`.

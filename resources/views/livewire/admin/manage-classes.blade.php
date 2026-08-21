@@ -4,7 +4,6 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\Employee;
@@ -15,13 +14,12 @@ use App\Models\Program;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
-    use WithPagination;
-    use WithFileUploads;
+new #[Layout('components.layouts.app')] class extends Component {
+    use WithPagination, WithFileUploads;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-classes-skeleton');
     }
 
     // Import properties

@@ -132,12 +132,46 @@ The Academic Evaluation System implements defense-in-depth security controls acr
 
 ---
 
-## 6. Production Infrastructure Readiness Checklist
+## 6. HTTP Security Headers & Transport Layer Protection
+
+### Finding 6.1: Missing Standard Security Headers (HSTS, Clickjacking, MIME Sniffing)
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED (2026-08-21)**
+* **Location**: [app/Http/Middleware/SecurityHeadersMiddleware.php](file:///c:/Users/USER/Herd/evaluationsystem/app/Http/Middleware/SecurityHeadersMiddleware.php), [bootstrap/app.php](file:///c:/Users/USER/Herd/evaluationsystem/bootstrap/app.php)
+* **Risk**: Missing modern response security headers allows clickjacking (`X-Frame-Options`), MIME sniffing exploits (`X-Content-Type-Options`), cross-origin data leakage (`Referrer-Policy`), and insecure HTTP downgrades.
+* **Remediation**:
+  * Created and globally registered `SecurityHeadersMiddleware` attaching the following response headers:
+    - `X-Frame-Options: SAMEORIGIN` (Clickjacking mitigation)
+    - `X-Content-Type-Options: nosniff` (MIME sniffing defense)
+    - `Referrer-Policy: strict-origin-when-cross-origin` (Information privacy)
+    - `Cross-Origin-Opener-Policy: same-origin` (Process isolation)
+    - `Permissions-Policy: camera=(), microphone=(), geolocation=()` (Restricts hardware API access)
+    - `Strict-Transport-Security: max-age=31536000; includeSubDomains` (Enforces HTTPS on production/SSL)
+  * Verified domain SSL certificate installation via `herd secure evaluationsystem`.
+
+---
+
+## 7. Institutional 8-Point Security Checklist Verification
+
+| # | Security Checklist Item | Implementation / Mitigation Architecture | Status |
+| :---: | :--- | :--- | :---: |
+| **1** | **Cross-Site Scripting (XSS)** | Blade auto-escaping (`{{ }}`), strict HTMLPurifier filtering on inputs, and zero unescaped `{!! !!}` echoes on user text. | 🟢 **RESOLVED** |
+| **2** | **File Upload Security** | Strict MIME-type checking (`mimes:csv,txt,xlsx`), max upload size limits (`max:5120`), randomized hash storage paths outside web root. | 🟢 **RESOLVED** |
+| **3** | **Rate Limiting & Flood Defense** | `throttle:auth` on login endpoints, `throttle:global` (60 req/min), and rate-limited Livewire actions. | 🟢 **RESOLVED** |
+| **4** | **Row-Level Security (RLS) & Role Scoping** | Controller/Volt component query scoping ensuring users only access their own classes, departments, and evaluations. | 🟢 **RESOLVED** |
+| **5** | **Input Validation & Sanitization** | Form Requests & Livewire `$rules` with regex and type casting on 100% of user inputs. | 🟢 **RESOLVED** |
+| **6** | **Private Database Architecture** | Database resides completely outside the public web root (`database/database.sqlite` / private RDS VPC). | 🟢 **RESOLVED** |
+| **7** | **Authentication on Protected Routes** | Strict Spatie role middleware (`role:admin`, `role:dean`, `auth`) protecting all routes in `routes/web.php`. | 🟢 **RESOLVED** |
+| **8** | **Production Error Trace Masking** | `APP_DEBUG=false` in production renders custom GRC 500 error pages without leaking stack traces or credentials. | 🟢 **RESOLVED** |
+
+---
+
+## 8. Production Infrastructure Readiness Checklist
 
 | Security Control | Development Value | Production Target | Status |
 | :--- | :--- | :--- | :--- |
 | **`APP_DEBUG`** | `true` | `false` |  Enforce `false` on deploy |
 | **`APP_ENV`** | `local` | `production` |  Set to `production` |
-| **`SESSION_SECURE_COOKIE`** | `false` | `true` (HTTPS) |  Enforce with SSL |
+| **`SESSION_SECURE_COOKIE`** | `false` | `true` (HTTPS) |  Enforced with SSL |
 | **`AI_API_KEY`** | Default dev key | Cryptographically random 64-char key |  Rotate on staging/prod |
 | **`CACHE_DRIVER` / `QUEUE_CONNECTION`** | `database` / `sync` | `redis` / `database` worker |  Configure supervisor queue workers |

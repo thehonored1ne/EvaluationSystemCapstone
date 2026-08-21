@@ -3,7 +3,6 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\AcademicClass;
 use App\Models\Department;
@@ -13,12 +12,12 @@ use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-evaluations-skeleton');
     }
 
     // Standardized Category Tabs: 'student', 'dean', 'program_head', 'department_head', 'peer', 'supervisor', 'self'
@@ -84,66 +83,84 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function getClassesPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->classes, $this->perPage);
+        return $this->activeTab === 'student' ? $this->paginateCollection($this->classes, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getDeanTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->deanTracking, $this->perPage);
+        return $this->activeTab === 'dean' ? $this->paginateCollection($this->deanTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getProgramHeadTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->programHeadTracking, $this->perPage);
+        return $this->activeTab === 'program_head' ? $this->paginateCollection($this->programHeadTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getDepartmentHeadTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->departmentHeadTracking, $this->perPage);
+        return $this->activeTab === 'department_head' ? $this->paginateCollection($this->departmentHeadTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getPeerTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->peerTracking, $this->perPage);
+        return $this->activeTab === 'peer' ? $this->paginateCollection($this->peerTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getSupervisorTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->supervisorTracking, $this->perPage);
+        return $this->activeTab === 'supervisor' ? $this->paginateCollection($this->supervisorTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     public function getSelfTrackingPaginatedProperty(): LengthAwarePaginator
     {
-        return $this->paginateCollection($this->selfTracking, $this->perPage);
+        return $this->activeTab === 'self' ? $this->paginateCollection($this->selfTracking, $this->perPage) : new LengthAwarePaginator([], 0, $this->perPage);
     }
 
     // 1. Student Category (Student -> Faculty)
     public function getClassesProperty()
     {
+        if ($this->activeTab !== 'student') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $user = auth()->user();
         $query = AcademicClass::where('semester_id', $sem->id)
-            ->with(['subject', 'teacher.department', 'students']);
+            ->with(['subject', 'teacher.department']);
 
-        if ($user->hasRole('program head') && $user->employee) {
+        if ($user?->hasRole('program head') && $user->employee) {
             $deptId = $user->employee->department_id;
-            $query->whereHas('teacher', fn($q) => $q->where('department_id', $deptId));
-        } elseif ($user->hasRole('dean') && $user->employee) {
+            $query->whereHas('teacher', fn ($q) => $q->where('department_id', $deptId));
+        } elseif ($user?->hasRole('dean') && $user->employee) {
             $deptId = $this->selectedDepartmentId ?: $user->employee->department_id;
             if ($deptId) {
-                $query->whereHas('teacher', fn($q) => $q->where('department_id', $deptId));
+                $query->whereHas('teacher', fn ($q) => $q->where('department_id', $deptId));
             }
-        } elseif ($user->hasRole('admin')) {
+        } elseif ($user?->hasRole('admin')) {
             if ($this->selectedDepartmentId) {
-                $query->whereHas('teacher', fn($q) => $q->where('department_id', $this->selectedDepartmentId));
+                $query->whereHas('teacher', fn ($q) => $q->where('department_id', $this->selectedDepartmentId));
             }
         }
 
-        $allClasses = $query->get()->map(function ($class) {
-            $enrolled = $class->students->count();
-            $evaluated = Evaluation::where('class_id', $class->id)->count();
+        $enrolledMap = DB::table('class_student')
+            ->selectRaw('class_id, count(*) as count')
+            ->groupBy('class_id')
+            ->pluck('count', 'class_id');
+
+        $evaluatedMap = DB::table('evaluations')
+            ->where('semester_id', $sem->id)
+            ->whereNotNull('class_id')
+            ->selectRaw('class_id, count(*) as count')
+            ->groupBy('class_id')
+            ->pluck('count', 'class_id');
+
+        $allClasses = $query->get()->map(function ($class) use ($enrolledMap, $evaluatedMap) {
+            $enrolled = (int) ($enrolledMap[$class->id] ?? 0);
+            $evaluated = (int) ($evaluatedMap[$class->id] ?? 0);
             $percentage = $enrolled > 0 ? min(100, round(($evaluated / $enrolled) * 100)) : 0;
 
             $status = 'pending';
@@ -175,7 +192,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 $sectionMatch = str_contains(strtolower($c->section ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($c->department?->name ?? ''), $searchLower) || str_contains(strtolower($c->department?->code ?? ''), $searchLower);
 
-                if (!$codeMatch && !$titleMatch && !$teacherMatch && !$sectionMatch && !$deptMatch) {
+                if (! $codeMatch && ! $titleMatch && ! $teacherMatch && ! $sectionMatch && ! $deptMatch) {
                     return false;
                 }
             }
@@ -191,8 +208,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // 2. Dean Category (Dean -> Program Head)
     public function getDeanTrackingProperty()
     {
+        if ($this->activeTab !== 'dean') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::where('role', 'dean')
             ->where('status', 'active')
@@ -202,20 +225,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($sem) {
+        $targetCount = Employee::where('role', 'program head')->where('status', 'active')->count();
+        $submittedMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'downward')
+            ->selectRaw('evaluator_id, count(*) as count')
+            ->groupBy('evaluator_id')
+            ->pluck('count', 'evaluator_id');
+
+        return $query->get()->map(function ($emp) use ($targetCount, $submittedMap) {
             $user = $emp->user;
-            if (!$user) return null;
+            if (! $user) {
+                return null;
+            }
 
-            // Dean evaluates all active Program Heads
-            $targetCount = Employee::where('role', 'program head')
-                ->where('status', 'active')
-                ->count();
-
-            $submittedCount = Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'downward')
-                ->count();
-
+            $submittedCount = (int) ($submittedMap[$user->id] ?? 0);
             $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
             $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
 
@@ -233,15 +256,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'status' => $status,
             ];
         })->filter(function ($s) {
-            if (!$s) return false;
+            if (! $s) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($s->name), $searchLower);
                 $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
@@ -249,8 +279,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // 3. Program Head Category (Program Head -> Faculty)
     public function getProgramHeadTrackingProperty()
     {
+        if ($this->activeTab !== 'program_head') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::where('role', 'program head')
             ->where('status', 'active')
@@ -260,20 +296,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($sem) {
+        $deptFacultyCountMap = Employee::where('role', 'faculty')
+            ->where('status', 'active')
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
+        $submittedMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'downward')
+            ->selectRaw('evaluator_id, count(*) as count')
+            ->groupBy('evaluator_id')
+            ->pluck('count', 'evaluator_id');
+
+        return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $submittedMap) {
             $user = $emp->user;
-            if (!$user) return null;
+            if (! $user) {
+                return null;
+            }
 
-            // Program Head evaluates Faculty in their department
-            $targetCount = Employee::where('department_id', $emp->department_id)
-                ->where('role', 'faculty')
-                ->where('status', 'active')
-                ->count();
-
-            $submittedCount = Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'downward')
-                ->count();
+            $targetCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
+            $submittedCount = (int) ($submittedMap[$user->id] ?? 0);
 
             $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
             $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
@@ -292,15 +334,22 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'status' => $status,
             ];
         })->filter(function ($s) {
-            if (!$s) return false;
+            if (! $s) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($s->name), $searchLower);
                 $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
@@ -308,8 +357,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // 4. Department Head Category (Department Head -> Staff)
     public function getDepartmentHeadTrackingProperty()
     {
+        if ($this->activeTab !== 'department_head') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::where('role', 'department head')
             ->where('status', 'active')
@@ -319,20 +374,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($sem) {
+        $deptStaffCountMap = Employee::where('role', 'staff')
+            ->where('status', 'active')
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
+        $submittedMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'downward')
+            ->selectRaw('evaluator_id, count(*) as count')
+            ->groupBy('evaluator_id')
+            ->pluck('count', 'evaluator_id');
+
+        return $query->get()->map(function ($emp) use ($deptStaffCountMap, $submittedMap) {
             $user = $emp->user;
-            if (!$user) return null;
+            if (! $user) {
+                return null;
+            }
 
-            // Department Head evaluates Staff in their department
-            $targetCount = Employee::where('department_id', $emp->department_id)
-                ->where('role', 'staff')
-                ->where('status', 'active')
-                ->count();
-
-            $submittedCount = Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'downward')
-                ->count();
+            $targetCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
+            $submittedCount = (int) ($submittedMap[$user->id] ?? 0);
 
             $pct = $targetCount > 0 ? min(100, round(($submittedCount / $targetCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
             $status = ($targetCount > 0 && $submittedCount >= $targetCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
@@ -351,24 +412,37 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'status' => $status,
             ];
         })->filter(function ($s) {
-            if (!$s) return false;
+            if (! $s) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($s->name), $searchLower);
                 $numMatch = str_contains(strtolower($s->employee_number ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($s->department?->name ?? ''), $searchLower) || str_contains(strtolower($s->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $s->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
 
-    // 5. Peer Category (Faculty -> Faculty / Staff -> Staff)
+    // 5. Peer Category (Faculty -> Faculty Peer, Staff -> Staff Peer)
     public function getPeerTrackingProperty()
     {
+        if ($this->activeTab !== 'peer') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::whereIn('role', ['faculty', 'staff'])
             ->where('status', 'active')
@@ -382,21 +456,29 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('role', $this->selectedRole);
         }
 
-        return $query->get()->map(function ($emp) use ($sem) {
+        $deptRoleCountMap = Employee::whereIn('role', ['faculty', 'staff'])
+            ->where('status', 'active')
+            ->select(['department_id', 'role'])
+            ->get()
+            ->groupBy(fn ($e) => $e->department_id.'_'.$e->role)
+            ->map
+            ->count();
+
+        $submittedMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'peer')
+            ->selectRaw('evaluator_id, count(*) as count')
+            ->groupBy('evaluator_id')
+            ->pluck('count', 'evaluator_id');
+
+        return $query->get()->map(function ($emp) use ($deptRoleCountMap, $submittedMap) {
             $user = $emp->user;
-            if (!$user) return null;
+            if (! $user) {
+                return null;
+            }
 
-            // Target peers = colleagues in same department with identical role (excluding self)
-            $peerCount = Employee::where('department_id', $emp->department_id)
-                ->where('role', $emp->role)
-                ->where('status', 'active')
-                ->where('id', '!=', $emp->id)
-                ->count();
-
-            $submittedCount = Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'peer')
-                ->count();
+            $totalInGroup = (int) ($deptRoleCountMap[$emp->department_id.'_'.$emp->role] ?? 0);
+            $peerCount = max(0, $totalInGroup - 1);
+            $submittedCount = (int) ($submittedMap[$user->id] ?? 0);
 
             $pct = $peerCount > 0 ? min(100, round(($submittedCount / $peerCount) * 100)) : ($submittedCount > 0 ? 100 : 0);
             $status = ($peerCount > 0 && $submittedCount >= $peerCount) ? 'completed' : ($submittedCount > 0 ? 'in_progress' : 'pending');
@@ -414,24 +496,37 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'status' => $status,
             ];
         })->filter(function ($p) {
-            if (!$p) return false;
+            if (! $p) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($p->name), $searchLower);
                 $numMatch = str_contains(strtolower($p->employee_number ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($p->department?->name ?? ''), $searchLower) || str_contains(strtolower($p->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $p->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $p->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
 
-    // 6. Supervisor Category (Faculty -> PH / Staff -> DH / PH/DH -> Dean)
+    // 6. Supervisor Category (Upward: Faculty -> PH, Staff -> DH, PH & DH -> Dean)
     public function getSupervisorTrackingProperty()
     {
+        if ($this->activeTab !== 'supervisor') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::whereIn('role', ['faculty', 'staff', 'program head', 'department head'])
             ->where('status', 'active')
@@ -446,32 +541,32 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         }
 
         $dean = Employee::where('role', 'dean')->where('status', 'active')->first();
+        $phMap = Employee::where('role', 'program head')->where('status', 'active')->get()->keyBy('department_id');
+        $dhMap = Employee::where('role', 'department head')->where('status', 'active')->get()->keyBy('department_id');
+        $evalMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'upward_employee')
+            ->get()
+            ->keyBy('evaluator_id');
 
-        return $query->get()->map(function ($emp) use ($sem, $dean) {
+        return $query->get()->map(function ($emp) use ($dean, $phMap, $dhMap, $evalMap) {
             $user = $emp->user;
-            if (!$user) return null;
+            if (! $user) {
+                return null;
+            }
 
             $supervisorName = 'Unassigned';
             if ($emp->role === 'faculty') {
-                $ph = Employee::where('department_id', $emp->department_id)->where('role', 'program head')->where('status', 'active')->first();
+                $ph = $phMap[$emp->department_id] ?? null;
                 $supervisorName = $ph ? $ph->full_name.' (Program Head)' : 'Program Head';
             } elseif ($emp->role === 'staff') {
-                $dh = Employee::where('department_id', $emp->department_id)->where('role', 'department head')->where('status', 'active')->first();
+                $dh = $dhMap[$emp->department_id] ?? null;
                 $supervisorName = $dh ? $dh->full_name.' (Department Head)' : 'Department Head';
             } elseif (in_array($emp->role, ['program head', 'department head'])) {
                 $supervisorName = $dean ? $dean->full_name.' (Dean)' : 'Dean of Academic Affairs';
             }
 
-            $submitted = Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'upward_employee')
-                ->exists();
-
-            $eval = $submitted ? Evaluation::where('evaluator_id', $user->id)
-                ->where('semester_id', $sem->id)
-                ->where('evaluation_type', 'upward_employee')
-                ->latest()
-                ->first() : null;
+            $eval = $evalMap[$user->id] ?? null;
+            $submitted = $eval !== null;
 
             return (object) [
                 'id' => $emp->id,
@@ -486,16 +581,23 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'status' => $submitted ? 'completed' : 'pending',
             ];
         })->filter(function ($sub) {
-            if (!$sub) return false;
+            if (! $sub) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($sub->name), $searchLower);
                 $numMatch = str_contains(strtolower($sub->employee_number ?? ''), $searchLower);
                 $supMatch = str_contains(strtolower($sub->supervisor_name), $searchLower);
                 $deptMatch = str_contains(strtolower($sub->department?->name ?? ''), $searchLower) || str_contains(strtolower($sub->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$supMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $supMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $sub->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $sub->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
@@ -503,8 +605,14 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     // 7. Self Category (Self -> Self)
     public function getSelfTrackingProperty()
     {
+        if ($this->activeTab !== 'self') {
+            return collect();
+        }
+
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $query = Employee::where('status', 'active')
             ->with(['department', 'user']);
@@ -517,21 +625,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('role', $this->selectedRole);
         }
 
-        return $query->get()->map(function ($emp) use ($sem) {
-            $user = $emp->user;
-            $submitted = false;
-            $submittedAt = null;
+        $selfEvalMap = Evaluation::where('semester_id', $sem->id)
+            ->where('evaluation_type', 'self')
+            ->get()
+            ->keyBy('evaluator_id');
 
-            if ($user) {
-                $eval = Evaluation::where('evaluator_id', $user->id)
-                    ->where('semester_id', $sem->id)
-                    ->where('evaluation_type', 'self')
-                    ->first();
-                if ($eval) {
-                    $submitted = true;
-                    $submittedAt = $eval->created_at;
-                }
-            }
+        return $query->get()->map(function ($emp) use ($selfEvalMap) {
+            $user = $emp->user;
+            $eval = $user ? ($selfEvalMap[$user->id] ?? null) : null;
+            $submitted = $eval !== null;
 
             return (object) [
                 'id' => $emp->id,
@@ -541,19 +643,26 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'role_label' => ucwords($emp->role),
                 'department' => $emp->department,
                 'submitted' => $submitted,
-                'submitted_at' => $submittedAt,
+                'submitted_at' => $eval?->created_at,
                 'status' => $submitted ? 'completed' : 'pending',
             ];
         })->filter(function ($e) {
-            if (!$e) return false;
+            if (! $e) {
+                return false;
+            }
             if ($this->search) {
                 $searchLower = strtolower($this->search);
                 $nameMatch = str_contains(strtolower($e->name), $searchLower);
                 $numMatch = str_contains(strtolower($e->employee_number ?? ''), $searchLower);
                 $deptMatch = str_contains(strtolower($e->department?->name ?? ''), $searchLower) || str_contains(strtolower($e->department?->code ?? ''), $searchLower);
-                if (!$nameMatch && !$numMatch && !$deptMatch) return false;
+                if (! $nameMatch && ! $numMatch && ! $deptMatch) {
+                    return false;
+                }
             }
-            if ($this->selectedStatus !== 'all' && $e->status !== $this->selectedStatus) return false;
+            if ($this->selectedStatus !== 'all' && $e->status !== $this->selectedStatus) {
+                return false;
+            }
+
             return true;
         })->values();
     }
@@ -576,6 +685,88 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             variant: 'success'
         );
     }
+
+    public function getSummaryStatsProperty(): array
+    {
+        $semId = $this->activeSemester?->id;
+        if (! $semId) {
+            return [
+                'totalSubmissions' => 0,
+                'avgStudentProgress' => 0,
+                'avgPeerProgress' => 0,
+                'selfDone' => 0,
+                'selfTotal' => 0,
+                'selfPct' => 0,
+            ];
+        }
+
+        $totalSubmissions = Evaluation::where('semester_id', $semId)->count();
+
+        $enrolledSum = \Illuminate\Support\Facades\DB::table('class_student')
+            ->join('classes', 'classes.id', '=', 'class_student.class_id')
+            ->where('classes.semester_id', $semId)
+            ->count();
+
+        $evaluatedSum = Evaluation::where('semester_id', $semId)
+            ->whereNotNull('class_id')
+            ->count();
+
+        $avgStudentProgress = $enrolledSum > 0 ? min(100, round(($evaluatedSum / $enrolledSum) * 100)) : 0;
+
+        $totalPeerTarget = max(1, Employee::whereIn('role', ['faculty', 'staff'])->where('status', 'active')->count() * 2);
+        $submittedPeerCount = Evaluation::where('semester_id', $semId)->where('evaluation_type', 'peer')->count();
+        $avgPeerProgress = $totalPeerTarget > 0 ? min(100, round(($submittedPeerCount / $totalPeerTarget) * 100)) : 0;
+
+        $totalEmployees = Employee::where('status', 'active')->count();
+        $submittedSelfCount = Evaluation::where('semester_id', $semId)->where('evaluation_type', 'self')->count();
+        $selfPct = $totalEmployees > 0 ? min(100, round(($submittedSelfCount / $totalEmployees) * 100)) : 0;
+
+        return [
+            'totalSubmissions' => $totalSubmissions,
+            'avgStudentProgress' => $avgStudentProgress,
+            'avgPeerProgress' => $avgPeerProgress,
+            'selfDone' => $submittedSelfCount,
+            'selfTotal' => $totalEmployees,
+            'selfPct' => $selfPct,
+        ];
+    }
+
+    public function getCategoryCountsProperty(): array
+    {
+        $semId = $this->activeSemester?->id;
+        if (! $semId) {
+            return [
+                'student' => 0,
+                'dean' => 0,
+                'program_head' => 0,
+                'department_head' => 0,
+                'peer' => 0,
+                'supervisor' => 0,
+                'self' => 0,
+            ];
+        }
+
+        $classQuery = AcademicClass::where('semester_id', $semId);
+        if ($this->selectedDepartmentId) {
+            $classQuery->whereHas('teacher', fn ($q) => $q->where('department_id', $this->selectedDepartmentId));
+        }
+
+        $roleCounts = Employee::where('status', 'active')
+            ->when($this->selectedDepartmentId, fn ($q) => $q->where('department_id', $this->selectedDepartmentId))
+            ->selectRaw('role, count(*) as count')
+            ->groupBy('role')
+            ->pluck('count', 'role');
+
+        return [
+            'student' => $classQuery->count(),
+            'dean' => (int) ($roleCounts['dean'] ?? 0),
+            'program_head' => (int) ($roleCounts['program head'] ?? 0),
+            'department_head' => (int) ($roleCounts['department head'] ?? 0),
+            'peer' => (int) (($roleCounts['faculty'] ?? 0) + ($roleCounts['staff'] ?? 0)),
+            'supervisor' => (int) (($roleCounts['faculty'] ?? 0) + ($roleCounts['staff'] ?? 0) + ($roleCounts['program head'] ?? 0) + ($roleCounts['department head'] ?? 0)),
+            'self' => (int) $roleCounts->sum(),
+        ];
+    }
 }; ?>
 
 <div class="w-full flex flex-col gap-6 text-left">
@@ -589,9 +780,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         </div>
 
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-            @if(auth()->user()->hasAnyRole(['admin', 'dean']))
+            @if(auth()->user()?->hasAnyRole(['admin', 'dean']))
                 <div class="w-full sm:w-56">
-                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments" class="w-full">
+                    <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments" aria-label="Filter evaluations by department" class="w-full">
                         <flux:select.option value="">All Departments</flux:select.option>
                         @foreach($this->departments as $dept)
                             <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
@@ -623,33 +814,16 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
     @endif
 
     <!-- Top 4 Summary Stat Cards -->
+    @php
+        $stats = $this->summaryStats;
+    @endphp
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        @php
-            $classes = $this->classes;
-            $totalClasses = $classes->count();
-            $avgStudentProgress = $totalClasses > 0 ? round($classes->sum('percentage') / $totalClasses) : 0;
-            $totalSubmissions = Evaluation::where('semester_id', $this->activeSemester?->id)->count();
-
-            $phTrack = $this->programHeadTracking;
-            $phCount = $phTrack->count();
-            $avgPhProgress = $phCount > 0 ? round($phTrack->sum('percentage') / $phCount) : 0;
-
-            $peerTrack = $this->peerTracking;
-            $peerCount = $peerTrack->count();
-            $avgPeerProgress = $peerCount > 0 ? round($peerTrack->sum('percentage') / $peerCount) : 0;
-
-            $selfTrack = $this->selfTracking;
-            $selfTotal = $selfTrack->count();
-            $selfDone = $selfTrack->where('submitted', true)->count();
-            $selfPct = $selfTotal > 0 ? round(($selfDone / $selfTotal) * 100) : 0;
-        @endphp
-
         <!-- Card 1: Total Submissions Recorded -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Submissions</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$totalSubmissions" />
+                    <x-odometer :value="$stats['totalSubmissions']" />
                 </span>
                 <flux:icon icon="clipboard-document-check" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
@@ -661,12 +835,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student Category Progress</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$avgStudentProgress" suffix="%" />
+                    <x-odometer :value="$stats['avgStudentProgress']" suffix="%" />
                 </span>
                 <flux:icon icon="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgStudentProgress }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $stats['avgStudentProgress'] }}%"></div>
             </div>
         </div>
 
@@ -675,12 +849,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Peer Category Progress</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$avgPeerProgress" suffix="%" />
+                    <x-odometer :value="$stats['avgPeerProgress']" suffix="%" />
                 </span>
                 <flux:icon icon="user-group" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $avgPeerProgress }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $stats['avgPeerProgress'] }}%"></div>
             </div>
         </div>
 
@@ -689,17 +863,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Self Category Done</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$selfDone" /> / <x-odometer :value="$selfTotal" />
+                    <x-odometer :value="$stats['selfDone']" /> / <x-odometer :value="$stats['selfTotal']" />
                 </span>
                 <flux:icon icon="user" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $selfPct }}%"></div>
+                <div class="bg-[#9b0000] dark:bg-[#f89696] h-1.5 rounded-full transition-all duration-300" style="width: {{ $stats['selfPct'] }}%"></div>
             </div>
         </div>
     </div>
 
     <!-- 7 Standardized Category Navigation Tabs (Exact Match to Question Setup) -->
+    @php
+        $catCounts = $this->categoryCounts;
+    @endphp
     <div class="border-b border-zinc-200 dark:border-zinc-800 flex gap-2 md:gap-3 overflow-x-auto pb-0">
         <button 
             type="button"
@@ -707,7 +884,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'student' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="academic-cap" class="size-4" />
-            Student ({{ $this->classes->count() }} Classes)
+            Student ({{ $catCounts['student'] }} Classes)
         </button>
 
         <button 
@@ -716,7 +893,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'dean' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="building-library" class="size-4" />
-            Dean ({{ $this->deanTracking->count() }})
+            Dean ({{ $catCounts['dean'] }})
         </button>
 
         <button 
@@ -725,7 +902,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'program_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="briefcase" class="size-4" />
-            Program Head ({{ $this->programHeadTracking->count() }})
+            Program Head ({{ $catCounts['program_head'] }})
         </button>
 
         <button 
@@ -734,7 +911,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'department_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="building-office" class="size-4" />
-            Department Head ({{ $this->departmentHeadTracking->count() }})
+            Department Head ({{ $catCounts['department_head'] }})
         </button>
 
         <button 
@@ -743,7 +920,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'peer' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="user-group" class="size-4" />
-            Peer ({{ $this->peerTracking->count() }})
+            Peer ({{ $catCounts['peer'] }})
         </button>
 
         <button 
@@ -752,7 +929,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'supervisor' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="arrow-trending-up" class="size-4" />
-            Supervisor ({{ $this->supervisorTracking->count() }})
+            Supervisor ({{ $catCounts['supervisor'] }})
         </button>
 
         <button 
@@ -761,7 +938,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'self' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="user" class="size-4" />
-            Self ({{ $this->selfTracking->count() }})
+            Self ({{ $catCounts['self'] }})
         </button>
     </div>
 
@@ -798,7 +975,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
 
                 <div class="w-full sm:w-48">
-                    <flux:select wire:model.live="selectedStatus" class="w-full">
+                    <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">100% Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -896,7 +1073,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
 
                 <div class="w-full sm:w-44">
-                    <flux:select wire:model.live="selectedStatus" class="w-full">
+                    <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -989,7 +1166,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
 
                 <div class="w-full sm:w-44">
-                    <flux:select wire:model.live="selectedStatus" class="w-full">
+                    <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -1082,7 +1259,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 </div>
 
                 <div class="w-full sm:w-44">
-                    <flux:select wire:model.live="selectedStatus" class="w-full">
+                    <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                         <flux:select.option value="all">All Statuses</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -1176,7 +1353,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                 <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <div class="w-full sm:w-36">
-                        <flux:select wire:model.live="selectedRole" class="w-full">
+                        <flux:select wire:model.live="selectedRole" aria-label="Filter by employee role" class="w-full">
                             <flux:select.option value="all">All Roles</flux:select.option>
                             <flux:select.option value="faculty">Faculty</flux:select.option>
                             <flux:select.option value="staff">Staff</flux:select.option>
@@ -1184,7 +1361,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <div class="w-full sm:w-44">
-                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                        <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                             <flux:select.option value="all">All Statuses</flux:select.option>
                             <flux:select.option value="completed">Completed</flux:select.option>
                             <flux:select.option value="in_progress">In Progress</flux:select.option>
@@ -1279,7 +1456,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                 <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="selectedRole" class="w-full">
+                        <flux:select wire:model.live="selectedRole" aria-label="Filter by employee role" class="w-full">
                             <flux:select.option value="all">All Roles</flux:select.option>
                             <flux:select.option value="faculty">Faculty</flux:select.option>
                             <flux:select.option value="staff">Staff</flux:select.option>
@@ -1289,7 +1466,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <div class="w-full sm:w-44">
-                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                        <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                             <flux:select.option value="all">All Statuses</flux:select.option>
                             <flux:select.option value="completed">Submitted</flux:select.option>
                             <flux:select.option value="pending">Pending</flux:select.option>
@@ -1376,7 +1553,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
                 <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="selectedRole" class="w-full">
+                        <flux:select wire:model.live="selectedRole" aria-label="Filter by employee role" class="w-full">
                             <flux:select.option value="all">All Roles</flux:select.option>
                             <flux:select.option value="faculty">Faculty</flux:select.option>
                             <flux:select.option value="staff">Staff</flux:select.option>
@@ -1387,7 +1564,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                     </div>
 
                     <div class="w-full sm:w-44">
-                        <flux:select wire:model.live="selectedStatus" class="w-full">
+                        <flux:select wire:model.live="selectedStatus" aria-label="Filter by evaluation status" class="w-full">
                             <flux:select.option value="all">All Statuses</flux:select.option>
                             <flux:select.option value="completed">Submitted</flux:select.option>
                             <flux:select.option value="pending">Pending</flux:select.option>

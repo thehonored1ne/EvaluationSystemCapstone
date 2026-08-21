@@ -5,12 +5,12 @@
             <span class="opacity-60">•</span>
             <span>Global Reciprocal Colleges</span>
         </div>
-        <div class="flex items-center justify-center gap-3 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium">
+        <div class="flex items-center justify-center gap-3 text-zinc-600 dark:text-zinc-300 text-xs font-medium">
             <span class="inline-flex items-center gap-1.5">
                 <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 System Operational
             </span>
-            <span class="opacity-50">•</span>
+            <span class="opacity-70">•</span>
             <span>v1.0.0</span>
         </div>
     </div>

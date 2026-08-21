@@ -4,20 +4,19 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Subject;
 use App\Models\AcademicClass;
 use App\Models\Semester;
 use App\Models\Employee;
 use Illuminate\Support\Carbon;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
     use WithFileUploads;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-subjects-skeleton');
     }
 
     // Form properties for Subject CRUD

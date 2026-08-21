@@ -2,13 +2,13 @@
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Layout;
 use App\Models\AcademicYear;
 use App\Models\Semester;
 use App\Models\EvaluationCriterion;
-use Livewire\Attributes\Layout;
+use App\Models\EvaluationQuestion;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
 
     public function placeholder()

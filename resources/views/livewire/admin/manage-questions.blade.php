@@ -1,16 +1,15 @@
 <?php
 
 use Livewire\Volt\Component;
-use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Layout;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationQuestion;
 use App\Models\Semester;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-questions-skeleton');
     }
 
     // Current Active Tab: 'student', 'dean', 'program_head', 'department_head', 'peer', 'superior', 'self'

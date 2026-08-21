@@ -6,20 +6,19 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component
+new #[Layout('components.layouts.app')] class extends Component
 {
     use WithFileUploads;
     use WithPagination;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-employees-skeleton');
     }
 
     // Filter properties
@@ -137,17 +136,20 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
 
+        $roleCounts = Employee::selectRaw('role, count(*) as count')->groupBy('role')->pluck('count', 'role');
+        $allCount = (int) $roleCounts->sum();
+
         return [
             'users' => $query->with(['employee.department', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
             'departments' => Department::orderBy('name')->get(),
             'counts' => [
-                'all' => User::whereHas('employee')->count(),
-                'admin' => User::whereHas('employee', fn ($q) => $q->where('role', 'admin'))->count(),
-                'dean' => User::whereHas('employee', fn ($q) => $q->where('role', 'dean'))->count(),
-                'department head' => User::whereHas('employee', fn ($q) => $q->where('role', 'department head'))->count(),
-                'program head' => User::whereHas('employee', fn ($q) => $q->where('role', 'program head'))->count(),
-                'faculty' => User::whereHas('employee', fn ($q) => $q->where('role', 'faculty'))->count(),
-                'staff' => User::whereHas('employee', fn ($q) => $q->where('role', 'staff'))->count(),
+                'all' => $allCount,
+                'admin' => (int) ($roleCounts['admin'] ?? 0),
+                'dean' => (int) ($roleCounts['dean'] ?? 0),
+                'department head' => (int) ($roleCounts['department head'] ?? 0),
+                'program head' => (int) ($roleCounts['program head'] ?? 0),
+                'faculty' => (int) ($roleCounts['faculty'] ?? 0),
+                'staff' => (int) ($roleCounts['staff'] ?? 0),
             ],
         ];
     }

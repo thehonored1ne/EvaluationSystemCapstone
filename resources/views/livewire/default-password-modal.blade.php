@@ -33,7 +33,7 @@ new class extends Component {
             return false;
         }
 
-        return auth()->user()->isUsingDefaultPassword();
+        return (bool) auth()->user()?->isUsingDefaultPassword();
     }
 }; ?>
 

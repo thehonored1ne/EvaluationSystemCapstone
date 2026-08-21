@@ -2,7 +2,6 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Student;
@@ -16,13 +15,20 @@ use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
+    protected ?array $cachedData = null;
+
     public function placeholder()
     {
         return view('livewire.placeholders.admin-dashboard-skeleton');
     }
+
     public function with(): array
     {
+        if ($this->cachedData !== null) {
+            return $this->cachedData;
+        }
+
         // 1. Fetch Active Semester & Year
         $activeSem = Semester::where('is_active', true)->first();
         $activeYear = $activeSem ? $activeSem->academicYear : null;
@@ -84,16 +90,24 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         ];
 
         if ($activeSemId) {
-            $sentiments = EvaluationSentiment::whereHas('evaluation', function ($query) use ($activeSemId) {
-                $query->where('semester_id', $activeSemId);
-            })->get();
+            $sentimentRow = DB::table('evaluation_sentiments')
+                ->join('evaluations', 'evaluations.id', '=', 'evaluation_sentiments.evaluation_id')
+                ->where('evaluations.semester_id', $activeSemId)
+                ->selectRaw("
+                    count(*) as total,
+                    sum(case when vader_label = 'positive' then 1 else 0 end) as positive,
+                    sum(case when vader_label = 'neutral' then 1 else 0 end) as neutral,
+                    sum(case when vader_label = 'negative' then 1 else 0 end) as negative,
+                    avg(vader_score) as avg_score
+                ")
+                ->first();
 
-            if ($sentiments->count() > 0) {
-                $sentimentStats['total'] = $sentiments->count();
-                $sentimentStats['positive'] = $sentiments->where('vader_label', 'positive')->count();
-                $sentimentStats['neutral'] = $sentiments->where('vader_label', 'neutral')->count();
-                $sentimentStats['negative'] = $sentiments->where('vader_label', 'negative')->count();
-                $sentimentStats['average'] = round($sentiments->avg('vader_score'), 2);
+            if ($sentimentRow && $sentimentRow->total > 0) {
+                $sentimentStats['total'] = (int) $sentimentRow->total;
+                $sentimentStats['positive'] = (int) $sentimentRow->positive;
+                $sentimentStats['neutral'] = (int) $sentimentRow->neutral;
+                $sentimentStats['negative'] = (int) $sentimentRow->negative;
+                $sentimentStats['average'] = round((float) $sentimentRow->avg_score, 2);
             }
         }
 
@@ -132,24 +146,29 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $departmentStats = [];
         if ($activeSemId) {
             $departments = Department::orderBy('name')->get();
+
+            $expectedMap = DB::table('class_student')
+                ->join('students', 'students.id', '=', 'class_student.student_id')
+                ->join('programs', 'programs.id', '=', 'students.program_id')
+                ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                ->where('classes.semester_id', $activeSemId)
+                ->selectRaw('programs.department_id, count(*) as total')
+                ->groupBy('programs.department_id')
+                ->pluck('total', 'department_id');
+
+            $submittedMap = DB::table('evaluations')
+                ->join('users', 'users.id', '=', 'evaluations.evaluator_id')
+                ->join('students', 'students.id', '=', 'users.student_id')
+                ->join('programs', 'programs.id', '=', 'students.program_id')
+                ->where('evaluations.semester_id', $activeSemId)
+                ->where('evaluations.evaluation_type', 'upward_student')
+                ->selectRaw('programs.department_id, count(*) as total')
+                ->groupBy('programs.department_id')
+                ->pluck('total', 'department_id');
+
             foreach ($departments as $dept) {
-                $deptExpected = DB::table('class_student')
-                    ->join('students', 'students.id', '=', 'class_student.student_id')
-                    ->join('programs', 'programs.id', '=', 'students.program_id')
-                    ->join('classes', 'classes.id', '=', 'class_student.class_id')
-                    ->where('classes.semester_id', $activeSemId)
-                    ->where('programs.department_id', $dept->id)
-                    ->count();
-
-                $deptSubmitted = DB::table('evaluations')
-                    ->join('users', 'users.id', '=', 'evaluations.evaluator_id')
-                    ->join('students', 'students.id', '=', 'users.student_id')
-                    ->join('programs', 'programs.id', '=', 'students.program_id')
-                    ->where('evaluations.semester_id', $activeSemId)
-                    ->where('evaluations.evaluation_type', 'upward_student')
-                    ->where('programs.department_id', $dept->id)
-                    ->count();
-
+                $deptExpected = (int) ($expectedMap[$dept->id] ?? 0);
+                $deptSubmitted = (int) ($submittedMap[$dept->id] ?? 0);
                 $rate = $deptExpected > 0 ? round(($deptSubmitted / $deptExpected) * 100, 1) : 0;
 
                 $departmentStats[] = [
@@ -284,29 +303,35 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         $deptScores = [];
 
         if ($activeSemId) {
-            $activeEvalIds = Evaluation::where('semester_id', $activeSemId)->pluck('id')->toArray();
-            if (!empty($activeEvalIds)) {
-                $answers = EvaluationAnswer::whereIn('evaluation_id', $activeEvalIds)
-                    ->select('rating', DB::raw('count(*) as total'))
-                    ->groupBy('rating')
-                    ->pluck('total', 'rating')
-                    ->toArray();
+            $answers = DB::table('evaluation_answers')
+                ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
+                ->where('evaluations.semester_id', $activeSemId)
+                ->selectRaw('evaluation_answers.rating, count(*) as total')
+                ->groupBy('evaluation_answers.rating')
+                ->pluck('total', 'rating');
 
-                foreach ($ratingsDist as $rating => $val) {
-                    $ratingsDist[$rating] = $answers[$rating] ?? 0;
-                }
-                $totalRatingsCount = array_sum($ratingsDist);
+            foreach ($ratingsDist as $rating => $val) {
+                $ratingsDist[$rating] = (int) ($answers[$rating] ?? 0);
             }
+            $totalRatingsCount = array_sum($ratingsDist);
 
             $depts = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+
+            $deptAveragesMap = DB::table('evaluations')
+                ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
+                ->join('employees', 'employees.id', '=', 'users.employee_id')
+                ->where('evaluations.semester_id', $activeSemId)
+                ->whereNotNull('employees.department_id')
+                ->selectRaw('employees.department_id, count(*) as total_count, avg(evaluations.rating_average) as avg_rating')
+                ->groupBy('employees.department_id')
+                ->get()
+                ->keyBy('department_id');
+
             foreach ($depts as $dept) {
-                $deptEvals = Evaluation::where('semester_id', $activeSemId)
-                    ->whereHas('evaluatee.employee', function ($q) use ($dept) {
-                        $q->where('department_id', $dept->id);
-                    })
-                    ->get();
-                $dCount = $deptEvals->count();
-                $dAvg = $dCount > 0 ? round($deptEvals->avg('rating_average'), 2) : 0.00;
+                $data = $deptAveragesMap->get($dept->id);
+                $dCount = (int) ($data?->total_count ?? 0);
+                $dAvg = $dCount > 0 ? round((float) $data->avg_rating, 2) : 0.00;
+
                 $deptScores[] = [
                     'name' => $dept->name,
                     'code' => $dept->code,
@@ -488,7 +513,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $pendingCount = max(0, $expectedCount - $submittedCount);
 
-        return [
+        $this->cachedData = [
             'activeSemester' => $activeSem,
             'activeYear' => $activeYear,
             'employeeCount' => $employeeCount,
@@ -511,6 +536,8 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             'deptScores' => $deptScores,
             'auditLogs' => $auditLogs,
         ];
+
+        return $this->cachedData;
     }
 }; ?>
 
@@ -593,9 +620,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                         Evaluation Period Status
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Shows whether student & employee evaluation forms can be submitted right now.</p>
                 </div>
             </div>
@@ -683,9 +710,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
                         Overall Evaluation Feedback
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Simple summary of comments submitted across all evaluators.</p>
                 </div>
             </div>
@@ -765,10 +792,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Ratings Distribution Chart
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Frequency of 1 to 5 rating scores submitted for this period.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
@@ -792,10 +818,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Department Average Ratings Chart
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Comparative mean scores across academic departments.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
@@ -822,10 +847,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Audit Log
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Chronological history of admin updates and system operations.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
@@ -859,12 +883,12 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                                     </div>
                                                     <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-1">{{ $log['description'] }}</span>
                                                     @if(!empty($log['causer']))
-                                                        <span class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 block">
-                                                            Performed by <span class="font-semibold text-zinc-600 dark:text-zinc-400">{{ $log['causer'] }}</span>
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 block">
+                                                            Performed by <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $log['causer'] }}</span>
                                                         </span>
                                                     @endif
                                                 </div>
-                                                <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
+                                                <div class="text-right text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400 font-semibold pt-1">
                                                     <span title="{{ $log['full_time'] }}">{{ $log['time'] }}</span>
                                                 </div>
                                             </div>
@@ -887,10 +911,9 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
         <flux:card class="p-6 flex flex-col justify-between shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[480px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                        
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         Recent Submissions Log
-                    </h3>
+                    </h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Live incoming evaluation responses in active semester.</p>
                 </div>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
@@ -919,7 +942,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                                                     <span class="font-extrabold text-zinc-900 dark:text-zinc-100 block text-xs">{{ $sub['label'] }}</span>
                                                     <span class="font-medium text-zinc-600 dark:text-zinc-400 block mt-0.5">{{ $sub['description'] }}</span>
                                                 </div>
-                                                <div class="text-right text-[10px] whitespace-nowrap text-zinc-400 dark:text-zinc-500 font-semibold pt-1">
+                                                <div class="text-right text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400 font-semibold pt-1">
                                                     {{ $sub['time'] }}
                                                 </div>
                                             </div>

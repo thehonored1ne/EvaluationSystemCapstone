@@ -81,50 +81,73 @@ class Evaluation extends Model
     }
 
     /**
+     * In-memory per-request cache for evaluation statuses.
+     */
+    protected static array $statusCache = [];
+
+    public static function flushStatusCache(): void
+    {
+        self::$statusCache = [];
+    }
+
+    /**
      * Get the current status of an evaluation (completed, processing, or pending).
      */
     public static function getStatus(int $evaluatorId, int $evaluateeId, int $semesterId, ?int $classId = null, string $type = 'upward_student'): string
     {
-        // 1. Check database
-        $exists = self::where([
-            'evaluator_id' => $evaluatorId,
-            'evaluatee_id' => $evaluateeId,
-            'semester_id' => $semesterId,
-            'class_id' => $classId,
-            'evaluation_type' => $type,
-        ])->exists();
+        $cacheKey = "{$evaluatorId}_{$semesterId}";
 
-        if ($exists) {
-            return 'completed';
-        }
+        if (! isset(self::$statusCache[$cacheKey])) {
+            $map = [];
 
-        // 2. Check database queue jobs
-        try {
-            $pending = DB::table('jobs')
-                ->where('queue', 'default')
-                ->where(function ($query) use ($evaluatorId, $evaluateeId, $semesterId, $classId, $type) {
-                    $query->where('payload', 'like', '%ProcessEvaluationSubmission%')
-                        ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
-                        ->where('payload', 'like', '%evaluateeId%i:'.$evaluateeId.';%')
-                        ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
-                        ->where('payload', 'like', '%evaluationType%s:'.strlen($type).':%'.$type.'%');
+            // 1. Single batch query for all completed evaluations by this evaluator in this semester
+            $completed = self::where('evaluator_id', $evaluatorId)
+                ->where('semester_id', $semesterId)
+                ->select(['evaluatee_id', 'class_id', 'evaluation_type'])
+                ->get();
 
-                    if (is_null($classId)) {
-                        $query->where('payload', 'like', '%classId%N;%');
-                    } else {
-                        $query->where('payload', 'like', '%classId%i:'.$classId.';%');
-                    }
-                })
-                ->exists();
-
-            if ($pending) {
-                return 'processing';
+            foreach ($completed as $eval) {
+                $cId = $eval->class_id ?? 'null';
+                $key = "{$eval->evaluatee_id}_{$cId}_{$eval->evaluation_type}";
+                $map[$key] = 'completed';
             }
-        } catch (\Throwable $e) {
-            // Gracefully ignore if jobs table does not exist
+
+            // 2. Single batch query for any pending queue jobs for this evaluator
+            try {
+                $jobs = DB::table('jobs')
+                    ->where('queue', 'default')
+                    ->where('payload', 'like', '%ProcessEvaluationSubmission%')
+                    ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
+                    ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
+                    ->get(['payload']);
+
+                foreach ($jobs as $job) {
+                    $payload = $job->payload;
+                    if (preg_match('/evaluateeId%i:(\d+);/', $payload, $mEval) &&
+                        preg_match('/evaluationType%s:\d+:%"([^"]+)"%|evaluationType%s:\d+:%([^%]+)%/', $payload, $mType)) {
+                        $targetEvalId = $mEval[1];
+                        $targetType = ! empty($mType[1]) ? $mType[1] : $mType[2];
+                        $targetClassId = 'null';
+                        if (preg_match('/classId%i:(\d+);/', $payload, $mClass)) {
+                            $targetClassId = $mClass[1];
+                        }
+                        $jobKey = "{$targetEvalId}_{$targetClassId}_{$targetType}";
+                        if (! isset($map[$jobKey])) {
+                            $map[$jobKey] = 'processing';
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Gracefully ignore if jobs table does not exist
+            }
+
+            self::$statusCache[$cacheKey] = $map;
         }
 
-        return 'pending';
+        $lookupClassId = $classId ?? 'null';
+        $itemKey = "{$evaluateeId}_{$lookupClassId}_{$type}";
+
+        return self::$statusCache[$cacheKey][$itemKey] ?? 'pending';
     }
 
     /**

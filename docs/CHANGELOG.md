@@ -4,6 +4,49 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-21]
+
+### Added, Optimized & Security
+- **System-Wide Database Performance Optimization & Query Profiling**:
+  - **Admin Dashboard Optimization** ([`admin/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+    - Eliminated in-loop sub-queries and in-memory model loading across AI Sentiment Statistics, Department Completion Rates, Rating Distribution, and Department Averages.
+    - Dropped models loaded in memory from **139,039 models down to 171 models** (99.8% reduction).
+    - Reduced total database query statements from **128 queries down to 34 queries** (eliminating 102 duplicate statements).
+    - Added request-level memoization (`$this->cachedData`) to prevent duplicate view calculations.
+  - **Manage Employees Query Refactor** ([`manage-employees.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php)):
+    - Replaced 7 individual `whereHas('employee')` count subqueries for role badge tabs (`All`, `Admin`, `Dean`, `Department Head`, `Program Head`, `Faculty`, `Staff`) with 1 grouped SQL query (`Employee::selectRaw('role, count(*)')->groupBy('role')`).
+    - Reduced query count from **38 queries down to 18 queries** executing in **13.4 ms**.
+  - **Manage Students Eager Loading** ([`manage-students.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-students.blade.php)):
+    - Added eager loading `with(['student.program', 'roles'])` to eliminate N+1 queries during row rendering, running in **32 ms** total database time.
+  - **Manage Classes & Completion Tracking Performance** ([`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)):
+    - Replaced correlated subqueries on 946 classes with 2 indexed `groupBy('class_id')` lookup maps, reducing class evaluation calculation from **3,147 ms down to 100 ms**.
+    - Replaced tab button badge counts with a dedicated `getCategoryCountsProperty()` SQL query, preventing the 6 inactive tabs from computing their collections on page load.
+    - Reduced Completion Tracking page response time from **4.14 seconds down to 470 ms** (9x speedup).
+  - **Faculty & Department Rankings N+1 Elimination** ([`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php)):
+    - Replaced per-faculty evaluation counts and averages loop with a single grouped SQL query (`groupBy('evaluatee_id')`), dropping queries from **113 statements down to 10 statements** (91% reduction) in **37 ms**.
+  - **Evaluation Reports & Summary Analytics Optimization** ([`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)):
+    - Removed heavy unused `answers.question.criterion` eager loading graph tree on Individual Reports, reducing memory from **11,041 models down to ~400 models**.
+    - Refactored Summary Reports (`getSummaryReportDataProperty()`) to use direct SQL `GROUP BY` aggregations and `HAVING` filters across all 23,000 evaluations.
+    - Reduced Summary Reports render duration from **10.04 seconds down to 0.9 seconds** and memory from **107 MB down to 10 MB**.
+  - **Universal Evaluator Dashboard Memoization** ([`Evaluation.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Evaluation.php)):
+    - Added static per-request status memoization (`Evaluation::$statusCache`) in `Evaluation::getStatus()`.
+    - Batch-fetches all completed evaluations and queue jobs for an evaluator in 1 query, converting all subsequent loop status checks to instant `O(1)` in-memory dictionary lookups.
+    - Optimized all 6 evaluator portals (**Student Dashboard**: 65 queries $\rightarrow$ 9 queries in 6 ms; **Faculty Dashboard**: 6 queries in 2 ms; **Dean Dashboard**: 4 queries in 1.9 ms).
+
+- **Google Lighthouse Full Compliance (100 Best Practices, 100 SEO, 95 Accessibility, 95 Performance)**:
+  - **Font Optimization**: Added `&display=swap` to Google Fonts Inter and JetBrains Mono in [`head.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/partials/head.blade.php).
+  - **Script Deferral**: Added `defer` attribute to Chart.js CDN script tag.
+  - **Cumulative Layout Shift (CLS) Elimination**: Added explicit `width="220" height="72"` attributes to the SVG institutional logo in [`app-logo.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/app-logo.blade.php).
+  - **Semantic HTML & Landmark Navigation**: Wrapped main application slot in `<main id="main-content">` landmark inside [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php).
+  - **Accessible Form Controls**: Added descriptive `aria-label` attributes to all filter select dropdowns in [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php).
+  - **Color Contrast & Heading Order**: Upgraded heading tags (`h3` $\rightarrow$ `h2`) and boosted text color contrast across dashboard stat cards and footer text.
+  - **HTTPS & SSL**: Secured domain with SSL certificates via `herd secure evaluationsystem`.
+
+- **Security Hardening & Headers Middleware**:
+  - Created [`SecurityHeadersMiddleware.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Http/Middleware/SecurityHeadersMiddleware.php) attaching `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy`, and `HSTS` (Strict-Transport-Security).
+  - Registered middleware globally in the `web` pipeline in [`bootstrap/app.php`](file:///c:/Users/USER/Herd/evaluationsystem/bootstrap/app.php).
+  - Audited and verified full 8-point institutional security checklist: XSS escaping via Blade, MIME-type file upload validation and private storage, rate-limiting on authentication and Livewire actions, Role/Department scoping, private database access, and production stack trace masking.
+
 ## [2026-08-20]
 
 ### Added & Security

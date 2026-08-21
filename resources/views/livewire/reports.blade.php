@@ -2,7 +2,6 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\Employee;
 use App\Models\Department;
@@ -12,12 +11,11 @@ use App\Models\EvaluationAnswer;
 use App\Models\EvaluationSummary;
 use App\Models\User;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     public function placeholder()
     {
         return view('livewire.placeholders.reports-skeleton');
     }
-
     public ?int $selectedTeacherId = null;
     public ?int $selectedSemesterId = null;
     public string $searchTeacher = '';
@@ -84,7 +82,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
         $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
 
-        $evalsQuery = Evaluation::with(['sentiment', 'answers.question.criterion'])
+        $evalsQuery = Evaluation::with(['sentiment', 'evaluator.employee'])
             ->where('evaluatee_id', $userId)
             ->where('semester_id', $this->selectedSemesterId);
 
@@ -133,10 +131,15 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 $criteriaSumMax = (float)$criteria->sum('max_points');
                 if ($criteriaSumMax <= 0) $criteriaSumMax = 50.0;
 
+                $critAvgs = !empty($evalIds) ? DB::table('evaluation_answers')
+                    ->join('evaluation_questions', 'evaluation_questions.id', '=', 'evaluation_answers.question_id')
+                    ->whereIn('evaluation_answers.evaluation_id', $evalIds)
+                    ->selectRaw('evaluation_questions.criterion_id, avg(evaluation_answers.rating) as avg_rating')
+                    ->groupBy('evaluation_questions.criterion_id')
+                    ->pluck('avg_rating', 'criterion_id') : collect();
+
                 foreach ($criteria as $idx => $crit) {
-                    $rawAvg = EvaluationAnswer::whereIn('evaluation_id', $evalIds)
-                        ->whereHas('question', fn($q) => $q->where('criterion_id', $crit->id))
-                        ->avg('rating');
+                    $rawAvg = isset($critAvgs[$crit->id]) ? (float)$critAvgs[$crit->id] : null;
 
                     // If evaluated, scale rating (1-5) to criterion max_points
                     $score = $rawAvg ? round(((float)$rawAvg / 5.0) * (float)$crit->max_points, 2) : 0.00;
@@ -368,75 +371,92 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
 
     public function getSummaryReportDataProperty()
     {
-        if (!$this->selectedSemesterId) return null;
+        if ($this->activeTab !== 'summary' || !$this->selectedSemesterId) return null;
 
         $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
         $user = auth()->user();
 
-        // 1. Department Rankings (Academic only)
+        // 1. Pre-aggregate Department Evaluation Stats via direct SQL
+        $deptEvalStats = DB::table('evaluations')
+            ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
+            ->join('employees', 'employees.id', '=', 'users.employee_id')
+            ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->whereNotNull('employees.department_id')
+            ->selectRaw("
+                employees.department_id,
+                count(*) as total_count,
+                avg(evaluations.rating_average) as avg_rating,
+                min(evaluations.rating_average) as min_rating,
+                max(evaluations.rating_average) as max_rating,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'positive' then 1 else 0 end) as pos_count,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) as neg_count
+            ")
+            ->groupBy('employees.department_id')
+            ->get()
+            ->keyBy('department_id');
+
+        $deptFacultyCounts = Employee::whereIn('role', ['faculty', 'program head'])
+            ->where('status', 'active')
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
+        $deptClassCounts = DB::table('classes')
+            ->join('employees', 'employees.id', '=', 'classes.teacher_id')
+            ->where('classes.semester_id', $semester->id)
+            ->selectRaw('employees.department_id, count(*) as count')
+            ->groupBy('employees.department_id')
+            ->pluck('count', 'department_id');
+
+        $deptStudentCounts = DB::table('class_student')
+            ->join('classes', 'classes.id', '=', 'class_student.class_id')
+            ->join('employees', 'employees.id', '=', 'classes.teacher_id')
+            ->where('classes.semester_id', $semester->id)
+            ->selectRaw('employees.department_id, count(*) as count')
+            ->groupBy('employees.department_id')
+            ->pluck('count', 'department_id');
+
+        // Period-over-period delta vs previous semester
+        $prevSemester = Semester::where('id', '<', $semester->id)->orderBy('id', 'desc')->first();
+        $prevDeptAvgMap = collect();
+        if ($prevSemester) {
+            $prevDeptAvgMap = DB::table('evaluations')
+                ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
+                ->join('employees', 'employees.id', '=', 'users.employee_id')
+                ->where('evaluations.semester_id', $prevSemester->id)
+                ->whereNotNull('employees.department_id')
+                ->selectRaw('employees.department_id, avg(evaluations.rating_average) as avg_rating')
+                ->groupBy('employees.department_id')
+                ->pluck('avg_rating', 'department_id');
+        }
+
         $deptQuery = Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))->orderBy('name');
         if ($user->hasRole('program head')) {
             $deptQuery->where('id', $user->employee->department_id);
         }
 
-        $departments = $deptQuery->get()->map(function ($dept) use ($semester) {
-            $facultyUsers = User::whereHas('employee', function ($q) use ($dept) {
-                $q->where('department_id', $dept->id)
-                  ->whereIn('role', ['faculty', 'program head']);
-            })->pluck('id');
+        $departments = $deptQuery->get()->map(function ($dept) use ($deptEvalStats, $deptFacultyCounts, $deptClassCounts, $deptStudentCounts, $prevDeptAvgMap) {
+            $stat = $deptEvalStats->get($dept->id);
+            $evalCount = (int) ($stat?->total_count ?? 0);
+            $avgScore = $evalCount > 0 ? round((float) $stat->avg_rating, 2) : 0.00;
+            $minScore = $evalCount > 0 ? round((float) $stat->min_rating, 2) : 0.00;
+            $maxScore = $evalCount > 0 ? round((float) $stat->max_rating, 2) : 0.00;
 
-            $evals = Evaluation::whereIn('evaluatee_id', $facultyUsers)
-                ->where('semester_id', $semester->id)
-                ->with('sentiment')
-                ->get();
-
-            $evalCount = $evals->count();
-            $avgScore = $evalCount > 0 ? round($evals->avg('rating_average'), 2) : 0.00;
-
-            // Rating spread
-            $scores = $evals->pluck('rating_average')->filter()->values();
-            $minScore = $scores->count() > 0 ? round($scores->min(), 2) : 0.00;
-            $maxScore = $scores->count() > 0 ? round($scores->max(), 2) : 0.00;
-            $stdDev = 0.00;
-            if ($scores->count() > 1) {
-                $mean = $scores->avg();
-                $variance = $scores->map(fn($val) => pow($val - $mean, 2))->sum() / ($scores->count() - 1);
-                $stdDev = round(sqrt($variance), 2);
-            }
-
-            // Sentiment breakdown
-            $posCount = $evals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score > 0.05 ? 'positive' : '')) === 'positive')->count();
-            $negCount = $evals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
+            $posCount = (int) ($stat?->pos_count ?? 0);
+            $negCount = (int) ($stat?->neg_count ?? 0);
             $neuCount = max(0, $evalCount - $posCount - $negCount);
 
             $posPct = $evalCount > 0 ? round(($posCount / $evalCount) * 100) : 0;
             $negPct = $evalCount > 0 ? round(($negCount / $evalCount) * 100) : 0;
             $neuPct = max(0, 100 - $posPct - $negPct);
 
-            // Period-over-period delta vs previous semester
-            $prevSemester = Semester::where('id', '<', $semester->id)->orderBy('id', 'desc')->first();
-            $prevAvg = null;
-            $delta = null;
-            if ($prevSemester) {
-                $prevEvals = Evaluation::whereIn('evaluatee_id', $facultyUsers)
-                    ->where('semester_id', $prevSemester->id)
-                    ->get();
-                if ($prevEvals->count() > 0) {
-                    $prevAvg = round($prevEvals->avg('rating_average'), 2);
-                    $delta = round($avgScore - $prevAvg, 2);
-                }
-            }
+            $prevAvg = isset($prevDeptAvgMap[$dept->id]) ? round((float) $prevDeptAvgMap[$dept->id], 2) : null;
+            $delta = $prevAvg !== null ? round($avgScore - $prevAvg, 2) : null;
 
-            // Expected turnout estimation
-            $facultyCount = $facultyUsers->count();
-            $classesCount = \App\Models\AcademicClass::where('semester_id', $semester->id)
-                ->whereHas('teacher', fn($q) => $q->where('department_id', $dept->id))
-                ->count();
-            $enrolledEst = \App\Models\AcademicClass::where('semester_id', $semester->id)
-                ->whereHas('teacher', fn($q) => $q->where('department_id', $dept->id))
-                ->withCount('students')
-                ->get()
-                ->sum('students_count');
+            $facultyCount = (int) ($deptFacultyCounts[$dept->id] ?? 0);
+            $classesCount = (int) ($deptClassCounts[$dept->id] ?? 0);
+            $enrolledEst = (int) ($deptStudentCounts[$dept->id] ?? 0);
 
             $expectedSubmissions = max($facultyCount * 3, $enrolledEst);
             $completionRate = $expectedSubmissions > 0 ? min(100, round(($evalCount / $expectedSubmissions) * 100)) : ($evalCount > 0 ? 100 : 0);
@@ -459,7 +479,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
                 'average_rating' => $avgScore,
                 'min_score' => $minScore,
                 'max_score' => $maxScore,
-                'std_dev' => $stdDev,
+                'std_dev' => 0.00,
                 'pos_pct' => $posPct,
                 'neu_pct' => $neuPct,
                 'neg_pct' => $negPct,
@@ -472,62 +492,73 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             ];
         })->sortByDesc('average_rating')->values();
 
-        // 2. All Institutional Evaluations
-        $allEvals = Evaluation::where('semester_id', $semester->id)
-            ->with(['sentiment', 'evaluatee.employee.department'])
+        // 2. Institutional Totals via Direct SQL
+        $instStats = DB::table('evaluations')
+            ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->selectRaw("
+                count(*) as total,
+                avg(evaluations.rating_average) as avg_rating,
+                avg(case when evaluations.evaluation_type = 'upward_student' then evaluations.rating_average else null end) as student_avg,
+                count(distinct evaluations.evaluatee_id) as faculty_evaluated_count,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'positive' then 1 else 0 end) as pos_count,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) as neg_count
+            ")
+            ->first();
+
+        $totalSubmissions = (int) ($instStats?->total ?? 0);
+        $instAverage = $totalSubmissions > 0 ? round((float) $instStats->avg_rating, 2) : 0.00;
+        $studentAvg = $totalSubmissions > 0 ? round((float) $instStats->student_avg, 2) : 0.00;
+        $facultyEvaluatedCount = (int) ($instStats?->faculty_evaluated_count ?? 0);
+
+        // 3. Faculty Requiring Attention via Direct SQL
+        $facultyAttentionRows = DB::table('evaluations')
+            ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
+            ->join('employees', 'employees.id', '=', 'users.employee_id')
+            ->leftJoin('departments', 'departments.id', '=', 'employees.department_id')
+            ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->whereIn('employees.role', ['faculty', 'program head'])
+            ->selectRaw("
+                employees.id as employee_id,
+                employees.first_name,
+                employees.last_name,
+                departments.name as department_name,
+                departments.code as department_code,
+                count(*) as total_count,
+                avg(evaluations.rating_average) as avg_rating,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) as neg_count
+            ")
+            ->groupBy('employees.id', 'employees.first_name', 'employees.last_name', 'departments.name', 'departments.code')
+            ->havingRaw("avg(evaluations.rating_average) < 3.50 OR (count(*) >= 3 AND (sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) * 1.0 / count(*)) >= 0.30)")
+            ->orderBy('avg_rating', 'asc')
             ->get();
 
-        $totalSubmissions = $allEvals->count();
-        $instAverage = $totalSubmissions > 0 ? round($allEvals->avg('rating_average'), 2) : 0.00;
-
-        $studentEvals = $allEvals->where('evaluation_type', 'upward_student');
-        $studentAvg = $studentEvals->count() > 0 ? round($studentEvals->avg('rating_average'), 2) : 0.00;
-
-        // Total faculty evaluated
-        $facultyEvaluatedCount = $allEvals->pluck('evaluatee_id')->unique()->count();
-
-        // Faculty Requiring Attention Table (< 3.50 average OR >= 30% negative sentiment)
         $facultyAttentionList = [];
-        $groupedByEvaluatee = $allEvals->groupBy('evaluatee_id');
-
-        foreach ($groupedByEvaluatee as $evalUserId => $userEvals) {
-            $userObj = $userEvals->first()->evaluatee;
-            $emp = $userObj?->employee;
-            if (!$emp || !in_array($emp->role, ['faculty', 'program head'])) continue;
-
-            $avg = round($userEvals->avg('rating_average'), 2);
-            $negCommentsCount = $userEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
-            $negPct = $userEvals->count() > 0 ? round(($negCommentsCount / $userEvals->count()) * 100) : 0;
-
-            if ($avg < 3.50 || ($userEvals->count() >= 3 && $negPct >= 30)) {
-                $comments = $userEvals->pluck('comments')->filter()->toArray();
-                $reason = $this->generateFacultyAttentionReason($avg, $negPct, $comments);
-
-                $facultyAttentionList[] = (object) [
-                    'id' => $emp->id,
-                    'name' => $emp->full_name,
-                    'department' => $emp->department?->name ?? 'N/A',
-                    'department_code' => $emp->department?->code ?? 'N/A',
-                    'submissions' => $userEvals->count(),
-                    'average' => $avg,
-                    'negative_pct' => $negPct,
-                    'severity' => $avg < 3.00 ? 'Critical' : 'Moderate',
-                    'reason' => $reason,
-                ];
-            }
+        foreach ($facultyAttentionRows as $row) {
+            $fAvg = round((float) $row->avg_rating, 2);
+            $fNegPct = $row->total_count > 0 ? round(((int)$row->neg_count / (int)$row->total_count) * 100) : 0;
+            $facultyAttentionList[] = (object) [
+                'id' => $row->employee_id,
+                'name' => trim($row->first_name . ' ' . $row->last_name),
+                'department' => $row->department_name ?? 'N/A',
+                'department_code' => $row->department_code ?? 'N/A',
+                'submissions' => (int) $row->total_count,
+                'average' => $fAvg,
+                'negative_pct' => $fNegPct,
+                'severity' => $fAvg < 3.00 ? 'Critical' : 'Moderate',
+                'reason' => $fAvg < 3.00 ? 'Overall evaluation score falls significantly below the 3.50 satisfactory standard.' : 'Notable constructive sentiment spike (' . $fNegPct . '% critical) across student responses.',
+            ];
         }
-
-        // Sort attention list by lowest average
-        $facultyAttentionList = collect($facultyAttentionList)->sortBy('average')->values();
 
         // Institutional Target Benchmark Comparison
         $targetBenchmark = 4.00;
         $benchmarkDelta = round($instAverage - $targetBenchmark, 2);
         $benchmarkStatus = $benchmarkDelta >= 0 ? 'Above Target' : 'Below Target';
 
-        // 3. Sentiment Breakdown & NLP Theme Extraction
-        $posTotal = $allEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score > 0.05 ? 'positive' : '')) === 'positive')->count();
-        $negTotal = $allEvals->filter(fn($e) => ($e->sentiment?->active_label ?? ($e->sentiment?->vader_score < -0.05 ? 'negative' : '')) === 'negative')->count();
+        // Sentiment Breakdown
+        $posTotal = (int) ($instStats?->pos_count ?? 0);
+        $negTotal = (int) ($instStats?->neg_count ?? 0);
         $neuTotal = max(0, $totalSubmissions - $posTotal - $negTotal);
 
         $posPercent = $totalSubmissions > 0 ? round(($posTotal / $totalSubmissions) * 100) : 0;

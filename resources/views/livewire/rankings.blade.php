@@ -2,18 +2,16 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Evaluation;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.rankings-skeleton');
     }
-
     public string $activeTab = 'faculty';
     public string $search = '';
     public string $selectedDepartmentId = '';
@@ -40,17 +38,21 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
             $query->where('department_id', $this->selectedDepartmentId);
         }
 
-        $facultyList = $query->get()->map(function ($emp) use ($sem) {
-            $user = $emp->user;
-            $avgScore = 0.0;
-            $evalCount = 0;
+        $evalStatsMap = collect();
+        if ($sem) {
+            $evalStatsMap = DB::table('evaluations')
+                ->where('semester_id', $sem->id)
+                ->selectRaw('evaluatee_id, count(*) as total_count, avg(rating_average) as avg_rating')
+                ->groupBy('evaluatee_id')
+                ->get()
+                ->keyBy('evaluatee_id');
+        }
 
-            if ($user && $sem) {
-                $evals = Evaluation::where('evaluatee_id', $user->id)
-                    ->where('semester_id', $sem->id);
-                $evalCount = $evals->count();
-                $avgScore = $evalCount > 0 ? (float) $evals->avg('rating_average') : 0.0;
-            }
+        $facultyList = $query->get()->map(function ($emp) use ($evalStatsMap) {
+            $user = $emp->user;
+            $stat = $user ? $evalStatsMap->get($user->id) : null;
+            $evalCount = (int) ($stat?->total_count ?? 0);
+            $avgScore = $evalCount > 0 ? (float) $stat->avg_rating : 0.0;
 
             // Fallback for demonstration if no evaluations submitted yet in demo environment
             if ($evalCount === 0) {

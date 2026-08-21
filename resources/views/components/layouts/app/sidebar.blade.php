@@ -91,7 +91,7 @@
                 <!-- Active Term Indicator: Always on Mobile, and on Desktop when not collapsed -->
                 <div class="px-2 mb-3" :class="{ 'lg:hidden': sidebarCollapsed }">
                     <div class="flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium tracking-wide text-center">
-                        <span class="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 leading-none">Active Term</span>
+                        <span class="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300 leading-none">Active Term</span>
                         <span class="truncate font-semibold text-xs mt-0.5">
                             {{ $activeSemester ? $activeSemester->academicYear?->name . ' • ' . $shortSemName : 'No Active Term' }}
                         </span>
@@ -307,9 +307,9 @@
                     <x-admin.navbar />
                 @endif
 
-                <div class="flex-1">
+                <main id="main-content" class="flex-1">
                     {{ $slot }}
-                </div>
+                </main>
 
                 @if(auth()->check())
                     <x-admin.footer />

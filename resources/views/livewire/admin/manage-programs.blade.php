@@ -3,18 +3,17 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Program;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Student;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.manage-programs-skeleton');
     }
 
     // Filter properties

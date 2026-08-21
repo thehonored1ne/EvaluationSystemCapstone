@@ -9,6 +9,11 @@ use App\Models\User;
 use App\Models\Evaluation;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.student-dashboard-skeleton');
+    }
+
     public ?int $selectedClassId = null;
     public ?User $selectedTeacherUser = null;
     public bool $showForm = false;
@@ -29,7 +34,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $sem = $this->activeSemester;
         if (!$sem) return collect();
 
-        $student = auth()->user()->student;
+        $student = auth()->user()?->student;
         if (!$student) return collect();
 
         return AcademicClass::where('semester_id', $sem->id)

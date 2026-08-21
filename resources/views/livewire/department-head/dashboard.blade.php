@@ -10,6 +10,10 @@ use App\Models\User;
 use App\Models\Evaluation;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    public function placeholder()
+    {
+        return view('livewire.placeholders.evaluator-dashboard-skeleton');
+    }
     #[Url]
     public string $tab = 'self';
 
@@ -30,7 +34,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getEmployeeProperty()
     {
-        return auth()->user()->employee;
+        return auth()->user()?->employee;
     }
 
     public function getDepartmentProperty()

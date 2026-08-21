@@ -6,12 +6,11 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component
+new #[Layout('components.layouts.app')] class extends Component
 {
     use WithFileUploads;
     use WithPagination;
@@ -150,7 +149,7 @@ new #[Layout('components.layouts.app')] #[Lazy] class extends Component
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
 
         return [
-            'users' => $query->orderBy('name', $orderDirection)->paginate(10),
+            'users' => $query->with(['student.program', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
             'programs' => Program::orderBy('name')->get(),
         ];
     }

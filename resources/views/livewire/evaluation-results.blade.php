@@ -3,7 +3,6 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Lazy;
 use App\Models\Semester;
 use App\Models\User;
 use App\Models\Employee;
@@ -13,12 +12,12 @@ use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
 use App\Models\AcademicClass;
 
-new #[Layout('components.layouts.app')] #[Lazy] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
 
     public function placeholder()
     {
-        return view('livewire.placeholders.generic-table-skeleton');
+        return view('livewire.placeholders.evaluation-results-skeleton');
     }
 
     public ?int $selectedDepartmentId = null;
