@@ -112,42 +112,40 @@ class Evaluation extends Model
                 $map[$key] = 'completed';
             }
 
-            // 2. Single batch query for any pending queue jobs for this evaluator
-            try {
-                $jobs = DB::table('jobs')
-                    ->where('queue', 'default')
-                    ->where('payload', 'like', '%ProcessEvaluationSubmission%')
-                    ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
-                    ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
-                    ->get(['payload']);
-
-                foreach ($jobs as $job) {
-                    $payload = $job->payload;
-                    if (preg_match('/evaluateeId%i:(\d+);/', $payload, $mEval) &&
-                        preg_match('/evaluationType%s:\d+:%"([^"]+)"%|evaluationType%s:\d+:%([^%]+)%/', $payload, $mType)) {
-                        $targetEvalId = $mEval[1];
-                        $targetType = ! empty($mType[1]) ? $mType[1] : $mType[2];
-                        $targetClassId = 'null';
-                        if (preg_match('/classId%i:(\d+);/', $payload, $mClass)) {
-                            $targetClassId = $mClass[1];
-                        }
-                        $jobKey = "{$targetEvalId}_{$targetClassId}_{$targetType}";
-                        if (! isset($map[$jobKey])) {
-                            $map[$jobKey] = 'processing';
-                        }
-                    }
-                }
-            } catch (\Throwable $e) {
-                // Gracefully ignore if jobs table does not exist
-            }
-
             self::$statusCache[$cacheKey] = $map;
         }
 
         $lookupClassId = $classId ?? 'null';
         $itemKey = "{$evaluateeId}_{$lookupClassId}_{$type}";
 
-        return self::$statusCache[$cacheKey][$itemKey] ?? 'pending';
+        if (isset(self::$statusCache[$cacheKey][$itemKey])) {
+            return self::$statusCache[$cacheKey][$itemKey];
+        }
+
+        // 2. Check database queue jobs if not completed
+        try {
+            $jobExists = DB::table('jobs')
+                ->where('queue', 'default')
+                ->where('payload', 'like', '%ProcessEvaluationSubmission%')
+                ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
+                ->where('payload', 'like', '%evaluateeId%i:'.$evaluateeId.';%')
+                ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
+                ->where('payload', 'like', '%evaluationType%s:'.strlen($type).':%'.$type.'%');
+
+            if (is_null($classId)) {
+                $jobExists->where('payload', 'like', '%classId%N;%');
+            } else {
+                $jobExists->where('payload', 'like', '%classId%i:'.$classId.';%');
+            }
+
+            if ($jobExists->exists()) {
+                return 'processing';
+            }
+        } catch (\Throwable $e) {
+            // Gracefully ignore if jobs table does not exist
+        }
+
+        return 'pending';
     }
 
     /**

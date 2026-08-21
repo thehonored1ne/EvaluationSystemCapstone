@@ -527,7 +527,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                 departments.code as department_code,
                 count(*) as total_count,
                 avg(evaluations.rating_average) as avg_rating,
-                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) as neg_count
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) as neg_count,
+                group_concat(evaluations.comments, ' ') as all_comments
             ")
             ->groupBy('employees.id', 'employees.first_name', 'employees.last_name', 'departments.name', 'departments.code')
             ->havingRaw("avg(evaluations.rating_average) < 3.50 OR (count(*) >= 3 AND (sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' then 1 else 0 end) * 1.0 / count(*)) >= 0.30)")
@@ -538,6 +539,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         foreach ($facultyAttentionRows as $row) {
             $fAvg = round((float) $row->avg_rating, 2);
             $fNegPct = $row->total_count > 0 ? round(((int)$row->neg_count / (int)$row->total_count) * 100) : 0;
+            $comments = !empty($row->all_comments) ? [$row->all_comments] : [];
+            $reason = $this->generateFacultyAttentionReason($fAvg, $fNegPct, $comments);
+
             $facultyAttentionList[] = (object) [
                 'id' => $row->employee_id,
                 'name' => trim($row->first_name . ' ' . $row->last_name),
@@ -547,7 +551,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'average' => $fAvg,
                 'negative_pct' => $fNegPct,
                 'severity' => $fAvg < 3.00 ? 'Critical' : 'Moderate',
-                'reason' => $fAvg < 3.00 ? 'Overall evaluation score falls significantly below the 3.50 satisfactory standard.' : 'Notable constructive sentiment spike (' . $fNegPct . '% critical) across student responses.',
+                'reason' => $reason,
             ];
         }
 
