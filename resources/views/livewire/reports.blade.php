@@ -24,7 +24,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount()
     {
-        $activeSem = Semester::where('is_active', true)->first();
+        $activeSem = Semester::getActive();
         if ($activeSem) {
             $this->selectedSemesterId = $activeSem->id;
         }
@@ -37,9 +37,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getDepartmentsProperty()
     {
-        return Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))
-            ->orderBy('name')
-            ->get();
+        return Department::getCachedList()
+            ->filter(fn ($d) => is_null($d->type) || $d->type === 'academic')
+            ->values();
     }
 
     public function getTeachersProperty()

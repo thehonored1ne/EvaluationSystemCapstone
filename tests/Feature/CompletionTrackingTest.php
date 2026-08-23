@@ -1,10 +1,13 @@
 <?php
 
+use App\Models\AcademicClass;
 use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\Semester;
+use App\Models\Student;
+use App\Models\Subject;
 use App\Models\User;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -53,11 +56,16 @@ beforeEach(function () {
     $this->facPeerUser->assignRole('faculty');
 });
 
-test('completion tracking component renders and allows tab switching across all 7 standardized categories', function () {
+test('completion tracking route responds with 200 for admin, dean, and program head', function () {
+    $this->actingAs($this->adminUser)
+        ->get('/manage-evaluations')
+        ->assertStatus(200);
+});
+
+test('completion tracking component renders and allows tab switching across all 6 evaluator roles', function () {
     $this->actingAs($this->adminUser);
 
-    Livewire::withoutLazyLoading()
-        ->test('manage-evaluations')
+    Livewire::test('manage-evaluations')
         ->assertSet('activeTab', 'student')
         ->assertSee('Student')
         ->set('activeTab', 'dean')
@@ -69,19 +77,24 @@ test('completion tracking component renders and allows tab switching across all 
         ->set('activeTab', 'department_head')
         ->assertSet('activeTab', 'department_head')
         ->assertSee('Department Head')
-        ->set('activeTab', 'peer')
-        ->assertSet('activeTab', 'peer')
-        ->assertSee('Peer')
-        ->set('activeTab', 'supervisor')
-        ->assertSet('activeTab', 'supervisor')
-        ->assertSee('Supervisor')
-        ->set('activeTab', 'self')
-        ->assertSet('activeTab', 'self')
-        ->assertSee('Self');
+        ->set('activeTab', 'professor')
+        ->assertSet('activeTab', 'professor')
+        ->assertSee('Professor')
+        ->set('activeTab', 'staff')
+        ->assertSet('activeTab', 'staff')
+        ->assertSee('Staff');
 });
 
-test('completion tracking calculates peer evaluation progress accurately', function () {
-    // Alan Turing evaluates Ada Lovelace as peer
+test('completion tracking calculates professor evaluation progress accurately', function () {
+    // Alan Turing evaluates self and peer Ada Lovelace
+    Evaluation::create([
+        'semester_id' => $this->sem->id,
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 5.00,
+    ]);
+
     Evaluation::create([
         'semester_id' => $this->sem->id,
         'evaluator_id' => $this->facUser->id,
@@ -92,23 +105,93 @@ test('completion tracking calculates peer evaluation progress accurately', funct
 
     $this->actingAs($this->adminUser);
 
-    Livewire::withoutLazyLoading()
-        ->test('manage-evaluations')
-        ->set('activeTab', 'peer')
+    Livewire::test('manage-evaluations')
+        ->set('activeTab', 'professor')
         ->assertSee('Alan Turing')
-        ->assertSee('1 / 1') // 1 submitted / 1 peer target
+        ->assertSee('100%')
         ->assertSee('Completed');
 });
 
-test('send reminder toast broadcasts notification and logs activity', function () {
+test('completion tracking student tab renders enrolled student, section, subjects and reference ID when completed', function () {
+    $student = Student::create([
+        'student_number' => 'STU-9901',
+        'first_name' => 'Grace',
+        'last_name' => 'Hopper',
+        'year_level' => 3,
+        'section' => 'A',
+        'status' => 'regular',
+    ]);
+    $studentUser = User::create([
+        'name' => 'Grace Hopper',
+        'email' => 'hopper@track.com',
+        'student_id' => $student->id,
+        'password' => 'password',
+    ]);
+    $studentUser->assignRole('student');
+
+    $subject = Subject::create(['code' => 'CS101', 'name' => 'Intro CS', 'units' => 3]);
+    $class = AcademicClass::create([
+        'subject_id' => $subject->id,
+        'semester_id' => $this->sem->id,
+        'teacher_id' => $this->faculty->id,
+        'section' => 'CS3A',
+    ]);
+    $student->classes()->attach($class->id);
+
+    // Complete the evaluation
+    Evaluation::create([
+        'semester_id' => $this->sem->id,
+        'evaluator_id' => $studentUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'class_id' => $class->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 5.0,
+    ]);
+
     $this->actingAs($this->adminUser);
 
-    Livewire::withoutLazyLoading()
-        ->test('manage-evaluations')
-        ->call('sendReminderToast');
+    Livewire::test('manage-evaluations')
+        ->assertSet('activeTab', 'student')
+        ->assertSee('Grace Hopper')
+        ->assertSee('A')
+        ->assertSee('1 Subject')
+        ->assertSee('100%')
+        ->assertSee('Completed');
+});
 
-    $this->assertDatabaseHas('activity_log', [
-        'causer_id' => $this->adminUser->id,
-        'log_name' => 'evaluations',
+test('dean and program head can access manage-evaluations without errors', function () {
+    $deanEmp = Employee::create([
+        'employee_number' => 'DEAN-001',
+        'first_name' => 'Charles',
+        'last_name' => 'Babbage',
+        'role' => 'dean',
+        'status' => 'active',
+        'department_id' => $this->dept->id,
     ]);
+    $deanUser = User::create([
+        'name' => 'Charles Babbage',
+        'email' => 'babbage@track.com',
+        'employee_id' => $deanEmp->id,
+        'password' => 'password',
+    ]);
+    $deanUser->assignRole('dean');
+
+    $this->actingAs($deanUser)
+        ->get('/manage-evaluations')
+        ->assertStatus(200);
+
+    Livewire::actingAs($deanUser)
+        ->test('manage-evaluations')
+        ->assertStatus(200);
+});
+
+test('manage evaluations component supports search and status filtering', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('manage-evaluations')
+        ->set('search', 'NonExistentPersonXYZ')
+        ->assertSee('No student records found')
+        ->set('search', '')
+        ->set('selectedStatus', 'completed')
+        ->assertStatus(200);
 });

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -82,5 +83,21 @@ class Department extends Model
     public function employees()
     {
         return $this->hasMany(Employee::class);
+    }
+
+    /**
+     * Get all departments ordered by type and name, cached in memory.
+     */
+    public static function getCachedList()
+    {
+        return Cache::remember('departments_all', 300, function () {
+            return self::orderBy('type')->orderBy('name')->get();
+        });
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('departments_all'));
+        static::deleted(fn () => Cache::forget('departments_all'));
     }
 }

@@ -45,4 +45,10 @@ class EvaluationQuestion extends Model
     {
         return $this->hasMany(EvaluationAnswer::class, 'question_id');
     }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => EvaluationCriterion::clearCache());
+        static::deleted(fn () => EvaluationCriterion::clearCache());
+    }
 }

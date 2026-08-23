@@ -135,7 +135,7 @@ class User extends Authenticatable // implements MustVerifyEmail
     public function getNotifications(bool $ignoreDismissed = false): array
     {
         $notifications = [];
-        $sem = Semester::where('is_active', true)->first();
+        $sem = Semester::with('academicYear')->where('is_active', true)->first();
         if (! $sem) {
             $notifications[] = (object) [
                 'id' => 'no_active_semester',
@@ -147,6 +147,8 @@ class User extends Authenticatable // implements MustVerifyEmail
 
             return $this->filterDismissedNotifications($notifications, $ignoreDismissed);
         }
+
+        $ayName = $sem->academicYear?->name ?? 'Academic Year';
 
         // Capped timestamps to ensure notifications are never dated in the future
         $now = now();
@@ -174,7 +176,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'id' => 'sem_'.$sem->id.'_open',
                 'type' => 'info',
                 'title' => 'Evaluations are Open',
-                'description' => "The evaluation period for {$sem->academicYear->name} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
+                'description' => "The evaluation period for {$ayName} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
                 'created_at' => $notificationTime,
             ];
 
@@ -196,7 +198,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                         'id' => 'sem_'.$sem->id.'_deadline_'.$urgencyTier,
                         'type' => 'warning',
                         'title' => 'Evaluation Deadline Approaching',
-                        'description' => "Evaluations for {$sem->academicYear->name} - {$sem->name} will close on {$sem->evaluation_ends_at->format('F d, Y h:i A')} ({$urgencyLabel}).",
+                        'description' => "Evaluations for {$ayName} - {$sem->name} will close on {$sem->evaluation_ends_at->format('F d, Y h:i A')} ({$urgencyLabel}).",
                         'created_at' => $notificationTime,
                     ];
                 }
@@ -210,7 +212,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                 'id' => 'sem_'.$sem->id.'_closed',
                 'type' => 'warning',
                 'title' => 'Evaluations are Closed',
-                'description' => "Evaluations for {$sem->academicYear->name} - {$sem->name} are currently locked/closed{$timeInfo}.",
+                'description' => "Evaluations for {$ayName} - {$sem->name} are currently locked/closed{$timeInfo}.",
                 'created_at' => $closedNotificationTime,
             ];
         }

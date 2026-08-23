@@ -20,6 +20,17 @@ class Evaluation extends Model
             ->useLogName('evaluation');
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            self::flushStatusCache();
+        });
+
+        static::deleted(function () {
+            self::flushStatusCache();
+        });
+    }
+
     protected $fillable = [
         'evaluator_id',
         'evaluatee_id',

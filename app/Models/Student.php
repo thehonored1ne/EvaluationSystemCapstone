@@ -38,7 +38,7 @@ class Student extends Model
      */
     public function user()
     {
-        return $this->hasOne(User::class);
+        return $this->hasOne(User::class, 'student_id');
     }
 
     /**

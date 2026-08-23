@@ -4,22 +4,36 @@
     $roleName = ucwords(str_replace(['_', '-'], ' ', $roleRaw));
 @endphp
 
-<flux:header class="border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden">
+<flux:header class="border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden px-3 sm:px-4">
     <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3 sm:gap-4 -ml-1 sm:-ml-1.5">
         <button 
             type="button" 
-            x-data
             @click="if (window.innerWidth >= 1024) { $dispatch('toggle-sidebar'); } else { $dispatch('flux-sidebar-toggle'); }" 
             data-flux-sidebar-toggle
-            class="cursor-pointer p-2 rounded-lg text-white hover:bg-white/10 transition-colors shrink-0"
-            title="Toggle Sidebar"
+            class="cursor-pointer p-1.5 sm:p-2 rounded-lg text-white hover:bg-white/10 transition-colors shrink-0"
+            :title="sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
             aria-label="Toggle Sidebar"
         >
-            <flux:icon icon="bars-2" class="size-5" />
+            <!-- Desktop: Lucide Sidebar Close (when expanded) -->
+            <svg x-show="!sidebarCollapsed" class="size-5 hidden lg:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="M9 3v18"/>
+                <path d="m16 15-3-3 3-3"/>
+            </svg>
+
+            <!-- Desktop: Lucide Sidebar Open (when collapsed) -->
+            <svg x-show="sidebarCollapsed" x-cloak class="size-5 hidden lg:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                <path d="M9 3v18"/>
+                <path d="m14 9 3 3-3 3"/>
+            </svg>
+
+            <!-- Mobile: Classic Hamburger Menu Icon -->
+            <flux:icon icon="bars-2" class="size-5 block lg:hidden" />
         </button>
 
-        <div class="hidden sm:flex items-center gap-2 ml-1 text-xs font-medium">
+        <div class="hidden sm:flex items-center text-xs font-medium">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-semibold shadow-xs">
                 Logged as {{ $roleName }}
             </span>

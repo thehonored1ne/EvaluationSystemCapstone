@@ -60,35 +60,32 @@ beforeEach(function () {
     $this->facUser->assignRole('faculty');
 
     // Student user
-    $this->stud = Student::create(['student_number' => 'STU-01', 'first_name' => 'Stud', 'last_name' => 'CCS', 'year_level' => 1]);
+    $this->stud = Student::create(['student_number' => 'STU-01', 'first_name' => 'Stud', 'last_name' => 'CCS', 'year_level' => 1, 'section' => 'BSCS-1A']);
     $this->studUser = User::create(['name' => 'Student', 'email' => 'student@example.com', 'student_id' => $this->stud->id, 'password' => 'password']);
     $this->studUser->assignRole('student');
 });
 
 test('route access authorization holds correct boundaries', function () {
-    // 1. Admin has access to all routes
+    // 1. Admin has access to all active routes
     $this->actingAs($this->adminUser);
     $this->get('/manage-evaluations')->assertStatus(200);
     $this->get('/evaluation-results')->assertStatus(200);
-    $this->get('/analytics')->assertStatus(200);
     $this->get('/reports')->assertStatus(200);
     $this->get('/notifications')->assertStatus(200);
 
-    // 2. Dean has access to evaluations, results, reports, notifications but NOT analytics
+    // 2. Dean has access to evaluations, results, reports, notifications
     $this->actingAs($this->deanUser);
     $this->get('/manage-evaluations')->assertStatus(200);
     $this->get('/evaluation-results')->assertStatus(200);
     $this->get('/reports')->assertStatus(200);
     $this->get('/notifications')->assertStatus(200);
-    $this->get('/analytics')->assertStatus(403);
 
-    // 3. Faculty cannot access manage-evaluations, evaluation-results, analytics, reports
+    // 3. Faculty cannot access manage-evaluations, evaluation-results, reports
     $this->actingAs($this->facUser);
     $this->get('/notifications')->assertStatus(200);
     $this->get('/manage-evaluations')->assertStatus(403);
     $this->get('/evaluation-results')->assertStatus(403);
     $this->get('/reports')->assertStatus(403);
-    $this->get('/analytics')->assertStatus(403);
 
     // 4. Student cannot access either
     $this->actingAs($this->studUser);
@@ -125,7 +122,7 @@ test('manage evaluations lists completion rates correctly', function () {
     $response = $this->get('/manage-evaluations');
     $response->assertStatus(200);
     $response->assertSee('BSCS-1A');
-    $response->assertSee('1 / 1'); // Evaluated / Enrolled
+    $response->assertSee('100%'); // Completion Rate
 });
 
 test('sidebar renders correct evaluator submenus depending on user role', function () {

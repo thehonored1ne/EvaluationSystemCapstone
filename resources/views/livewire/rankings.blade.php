@@ -19,12 +19,12 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getActiveSemesterProperty()
     {
-        return Semester::where('is_active', true)->first();
+        return Semester::getActive();
     }
 
     public function getDepartmentsProperty()
     {
-        return Department::where('type', 'academic')->orderBy('name')->get();
+        return Department::getCachedList()->where('type', 'academic');
     }
 
     public function getFacultyRankingsProperty()

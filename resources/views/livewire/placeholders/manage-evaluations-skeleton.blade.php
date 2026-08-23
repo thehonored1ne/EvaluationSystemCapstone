@@ -4,14 +4,13 @@
         <div>
             <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Completion Tracking</flux:heading>
             <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
-                Real-time evaluation submission progress & completion tracking across all standardized evaluation categories.
+                Real-time evaluation submission progress & completion rates across all 6 evaluator roles.
             </flux:subheading>
         </div>
 
         <!-- Header Action Controls Skeleton -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-            <div class="w-full sm:w-56 h-9 bg-zinc-200 dark:bg-zinc-800 rounded-xl shimmer"></div>
-            <div class="h-9 bg-zinc-200 dark:bg-zinc-800 rounded-xl w-full sm:w-36 shimmer"></div>
+        <div class="flex items-center gap-3">
+            <div class="h-9 bg-zinc-200 dark:bg-zinc-800 rounded-xl w-36 shimmer"></div>
         </div>
     </div>
 
@@ -32,13 +31,12 @@
         <x-skeleton type="stat-card" />
     </div>
 
-    <!-- 7 Category Tabs Bar -->
+    <!-- 6 Category Tabs Bar -->
     <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-2 shadow-xs flex flex-wrap gap-2">
         <div class="h-9 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-28 shimmer"></div>
         <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-24"></div>
         <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-32"></div>
         <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-36"></div>
-        <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-24"></div>
         <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-28"></div>
         <div class="h-9 bg-zinc-100 dark:bg-zinc-800/40 rounded-lg w-20"></div>
     </div>

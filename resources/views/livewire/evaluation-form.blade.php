@@ -65,9 +65,7 @@ new class extends Component {
             default => [$this->evaluationType],
         };
 
-        $criteria = EvaluationCriterion::whereIn('evaluation_type', $types)
-            ->with(['questions' => fn($q) => $q->where('is_active', true)])
-            ->get();
+        $criteria = EvaluationCriterion::getForTypes($types);
 
         foreach ($criteria as $criterion) {
             foreach ($criterion->questions as $question) {
@@ -90,10 +88,7 @@ new class extends Component {
             default => [$this->evaluationType],
         };
 
-        return EvaluationCriterion::whereIn('evaluation_type', $types)
-            ->with(['questions' => fn($q) => $q->where('is_active', true)])
-            ->orderBy('order')
-            ->get();
+        return EvaluationCriterion::getForTypes($types);
     }
 
     public function getQuestionsProperty()
@@ -171,6 +166,7 @@ new class extends Component {
 @php
     $flatQuestions = $this->questions;
     $totalQuestionsCount = count($flatQuestions);
+    $questionIds = array_column($flatQuestions, 'id');
 @endphp
 
 <div 
@@ -179,6 +175,7 @@ new class extends Component {
         comments: @entangle('comments'),
         currentIndex: 0,
         totalQuestions: {{ $totalQuestionsCount }},
+        questionIds: {{ json_encode($questionIds) }},
         isReviewStep: false,
         autoAdvanceTimeout: null,
         storageKey: 'draft_eval_{{ auth()->id() }}_{{ $evaluationType }}_{{ $evaluatee->id }}_{{ $class?->id ?? 'noclass' }}',
@@ -269,6 +266,45 @@ new class extends Component {
             this.saveDraft();
         },
 
+        handleKeydown(e) {
+            // Ignore keystrokes inside inputs, textareas, selects, or editable elements
+            const activeEl = document.activeElement;
+            const tag = activeEl ? activeEl.tagName.toLowerCase() : '';
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || activeEl?.isContentEditable) {
+                return;
+            }
+
+            // Number Keys 1-5 (Top row and Numpad) for rapid rating
+            const key = e.key;
+            let ratingNum = null;
+            if (key >= '1' && key <= '5') {
+                ratingNum = parseInt(key, 10);
+            } else if (e.code && e.code.startsWith('Numpad') && e.code.length === 7) {
+                const numpadDigit = parseInt(e.code.replace('Numpad', ''), 10);
+                if (numpadDigit >= 1 && numpadDigit <= 5) {
+                    ratingNum = numpadDigit;
+                }
+            }
+
+            if (!this.isReviewStep && ratingNum !== null) {
+                e.preventDefault();
+                const currentQId = this.questionIds[this.currentIndex];
+                if (currentQId) {
+                    this.selectRating(currentQId, ratingNum);
+                }
+                return;
+            }
+
+            // Navigation Keys
+            if (key === 'ArrowRight' || (key === 'Enter' && !this.isReviewStep && e.target.tagName !== 'BUTTON')) {
+                e.preventDefault();
+                this.nextQuestion();
+            } else if (key === 'ArrowLeft' || key === 'Backspace') {
+                e.preventDefault();
+                this.prevQuestion();
+            }
+        },
+
         get answeredCount() {
             return Object.values(this.ratings).filter(r => r !== '' && r !== null && r !== undefined).length;
         },
@@ -278,6 +314,7 @@ new class extends Component {
             return Math.round((this.answeredCount / this.totalQuestions) * 100);
         }
     }" 
+    @keydown.window="handleKeydown($event)"
     @evaluation-submitted.window="clearDraft()"
     class="max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden"
 >
@@ -417,12 +454,17 @@ new class extends Component {
                                     <button
                                         type="button"
                                         @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
-                                        class="w-full max-w-[4rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-lg sm:text-2xl md:text-3xl font-black transition-all duration-200 flex items-center justify-center cursor-pointer select-none shrink-0 shadow-sm"
+                                        class="w-full max-w-[4rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-lg sm:text-2xl md:text-3xl font-black transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none shrink-0 shadow-sm group"
                                         :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
                                             ? 'bg-[#9b0000] border-[#9b0000] text-white shadow-xl shadow-red-950/50 scale-105 sm:scale-110 ring-2 sm:ring-4 ring-red-900/30'
                                             : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#f89696] hover:text-[#9b0000] dark:hover:text-[#f89696]'"
+                                        title="Press {{ $ratingVal }} on keyboard"
                                     >
                                         <span class="leading-none">{{ $ratingVal }}</span>
+                                        <span class="hidden sm:inline-block text-[9px] font-mono font-semibold opacity-60 tracking-tight mt-0.5"
+                                              :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-[#9b0000] dark:group-hover:text-[#f89696]'">
+                                            [{{ $ratingVal }}]
+                                        </span>
                                     </button>
                                 @endfor
                             </div>
@@ -441,26 +483,43 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <!-- Card Controls -->
-                        <div class="flex items-center justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800/80 pt-6 mt-2">
-                            <flux:button 
-                                variant="subtle" 
-                                type="button" 
-                                @click="prevQuestion()" 
-                                ::disabled="currentIndex === 0"
-                                icon="arrow-left"
-                                class="cursor-pointer"
-                            >
-                                Previous
-                            </flux:button>
+                        <!-- Card Controls & Keyboard Navigation Legend -->
+                        <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800/80 pt-5 mt-2">
+                            <div class="flex items-center justify-between gap-3">
+                                <flux:button 
+                                    variant="subtle" 
+                                    type="button" 
+                                    @click="prevQuestion()" 
+                                    ::disabled="currentIndex === 0"
+                                    icon="arrow-left"
+                                    class="cursor-pointer"
+                                >
+                                    Previous
+                                </flux:button>
 
-                            <button 
-                                type="button" 
-                                @click="nextQuestion()" 
-                                class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] text-xs sm:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#f89696]"
-                            >
-                                <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
-                            </button>
+                                <button 
+                                    type="button" 
+                                    @click="nextQuestion()" 
+                                    class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] text-xs sm:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#f89696]"
+                                >
+                                    <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
+                                </button>
+                            </div>
+
+                            <!-- Keyboard Shortcuts Helper Badge Bar -->
+                            <div class="hidden sm:flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800">
+                                <span class="inline-flex items-center gap-1">
+                                    <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">1</kbd>–<kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">5</kbd> Rate
+                                </span>
+                                <span class="opacity-40">•</span>
+                                <span class="inline-flex items-center gap-1">
+                                    <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">←</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">→</kbd> Navigate
+                                </span>
+                                <span class="opacity-40">•</span>
+                                <span class="inline-flex items-center gap-1">
+                                    <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">Enter</kbd> Next
+                                </span>
+                            </div>
                         </div>
                     </div>
                 @endforeach

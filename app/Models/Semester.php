@@ -4,9 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @property int $id
+ * @property int $academic_year_id
+ * @property string $name
+ * @property bool $is_active
+ * @property bool $is_evaluation_open
+ * @property Carbon|null $evaluation_starts_at
+ * @property Carbon|null $evaluation_ends_at
+ * @property-read AcademicYear|null $academicYear
+ */
 class Semester extends Model
 {
     use HasFactory, LogsActivity;
@@ -129,10 +142,36 @@ class Semester extends Model
 
     /**
      * Get the academic year this semester belongs to.
+     *
+     * @return BelongsTo<AcademicYear, $this>
      */
-    public function academicYear()
+    public function academicYear(): BelongsTo
     {
         return $this->belongsTo(AcademicYear::class);
+    }
+
+    /**
+     * Get the active semester with academic year cached in memory.
+     */
+    public static function getActive(): ?self
+    {
+        return Cache::remember('active_semester', 300, function () {
+            return self::where('is_active', true)->with('academicYear')->first();
+        });
+    }
+
+    /**
+     * Clear the active semester cache.
+     */
+    public static function clearActiveCache(): void
+    {
+        Cache::forget('active_semester');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::clearActiveCache());
+        static::deleted(fn () => self::clearActiveCache());
     }
 
     /**

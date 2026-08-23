@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use App\Models\AcademicClass;
 use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SendEvaluationDeadlineReminders extends Command
@@ -79,8 +79,62 @@ class SendEvaluationDeadlineReminders extends Command
         $tier = $tier ?? 'manual';
         $this->info("Processing evaluation deadline reminders (Tier: {$tier}, Semester: {$sem->academicYear?->name} - {$sem->name})...");
 
-        // Identify all users with pending evaluations
-        $activeUsers = User::where('is_active', true)->with(['employee.department', 'student', 'roles'])->get();
+        // 1. Preload all evaluations for this semester into a fast lookup set
+        $evalRows = DB::table('evaluations')
+            ->where('semester_id', $sem->id)
+            ->select('evaluator_id', 'evaluatee_id', 'class_id', 'evaluation_type')
+            ->get();
+
+        $evalSet = [];
+        foreach ($evalRows as $er) {
+            $evalSet[$er->evaluator_id.'_'.$er->evaluatee_id.'_'.($er->class_id ?? '').'_'.$er->evaluation_type] = true;
+        }
+
+        // 2. Preload student classes with teacher user mapping via lightweight DB queries (avoids AsPivot memory explosion)
+        $teacherUserMap = DB::table('classes')
+            ->join('users', 'users.employee_id', '=', 'classes.teacher_id')
+            ->where('classes.semester_id', $sem->id)
+            ->whereNotNull('classes.teacher_id')
+            ->pluck('users.id', 'classes.id'); // class_id => teacher_user_id
+
+        $studentEnrollments = DB::table('class_student')
+            ->join('classes', 'classes.id', '=', 'class_student.class_id')
+            ->where('classes.semester_id', $sem->id)
+            ->select('class_student.student_id', 'class_student.class_id')
+            ->get();
+
+        $studentClassesMap = [];
+        foreach ($studentEnrollments as $enr) {
+            if (isset($teacherUserMap[$enr->class_id])) {
+                $studentClassesMap[$enr->student_id][] = [
+                    'class_id' => $enr->class_id,
+                    'teacher_user_id' => $teacherUserMap[$enr->class_id],
+                ];
+            }
+        }
+
+        // 3. Preload active employees with user mapping
+        $activeEmployees = DB::table('employees')
+            ->join('users', 'users.employee_id', '=', 'employees.id')
+            ->where('employees.status', 'active')
+            ->select('employees.id', 'employees.department_id', 'employees.role', 'users.id as user_id')
+            ->get();
+
+        $deptFacultyMap = [];
+        $deptStaffMap = [];
+        $programHeadsList = [];
+
+        foreach ($activeEmployees as $emp) {
+            if ($emp->role === 'faculty' && $emp->department_id) {
+                $deptFacultyMap[$emp->department_id][] = $emp;
+            } elseif ($emp->role === 'staff' && $emp->department_id) {
+                $deptStaffMap[$emp->department_id][] = $emp;
+            } elseif ($emp->role === 'program head') {
+                $programHeadsList[] = $emp;
+            }
+        }
+
+        // 4. Identify all users with pending evaluations using memory-friendly cursor/chunks
         $notifiedCount = 0;
         $roleBreakdown = [
             'student' => 0,
@@ -91,19 +145,122 @@ class SendEvaluationDeadlineReminders extends Command
             'staff' => 0,
         ];
 
-        foreach ($activeUsers as $user) {
-            $pendingCount = $this->countUserPendingEvaluations($user, $sem);
+        User::where('is_active', true)
+            ->with(['employee:id,department_id,role', 'roles:id,name'])
+            ->select(['id', 'student_id', 'employee_id', 'is_active'])
+            ->chunk(500, function ($activeUsers) use (
+                $studentClassesMap,
+                $deptFacultyMap,
+                $deptStaffMap,
+                $programHeadsList,
+                $evalSet,
+                &$notifiedCount,
+                &$roleBreakdown
+            ) {
+                foreach ($activeUsers as $user) {
+                    $pending = 0;
 
-            if ($pendingCount > 0) {
-                $notifiedCount++;
-                foreach ($roleBreakdown as $role => &$count) {
-                    if ($user->hasRole($role)) {
-                        $count++;
-                        break;
+                    if ($user->hasRole('student') && $user->student_id) {
+                        $clsList = $studentClassesMap[$user->student_id] ?? [];
+                        foreach ($clsList as $cItem) {
+                            $key = $user->id.'_'.$cItem['teacher_user_id'].'_'.$cItem['class_id'].'_upward_student';
+                            if (! isset($evalSet[$key])) {
+                                $found = false;
+                                foreach (['upward_student', 'student', ''] as $t) {
+                                    if (isset($evalSet[$user->id.'_'.$cItem['teacher_user_id'].'_'.$cItem['class_id'].'_'.$t])) {
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+                                if (! $found) {
+                                    $pending++;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($user->hasRole('faculty') && $user->employee) {
+                        $emp = $user->employee;
+                        if (! isset($evalSet[$user->id.'_'.$user->id.'__self'])) {
+                            $pending++;
+                        }
+                        if ($emp->department_id) {
+                            $peers = $deptFacultyMap[$emp->department_id] ?? [];
+                            foreach ($peers as $p) {
+                                if ($p->id !== $emp->id && ! isset($evalSet[$user->id.'_'.$p->user_id.'__peer'])) {
+                                    $pending++;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($user->hasRole('program head') && $user->employee) {
+                        $emp = $user->employee;
+                        if (! isset($evalSet[$user->id.'_'.$user->id.'__self'])) {
+                            $pending++;
+                        }
+                        if ($emp->department_id) {
+                            $facList = $deptFacultyMap[$emp->department_id] ?? [];
+                            foreach ($facList as $fac) {
+                                if (! isset($evalSet[$user->id.'_'.$fac->user_id.'__peer']) && ! isset($evalSet[$user->id.'_'.$fac->user_id.'__downward'])) {
+                                    $pending++;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($user->hasRole('dean') && $user->employee) {
+                        if (! isset($evalSet[$user->id.'_'.$user->id.'__self'])) {
+                            $pending++;
+                        }
+                        foreach ($programHeadsList as $ph) {
+                            if (! isset($evalSet[$user->id.'_'.$ph->user_id.'__peer']) && ! isset($evalSet[$user->id.'_'.$ph->user_id.'__downward'])) {
+                                $pending++;
+                            }
+                        }
+                    }
+
+                    if ($user->hasRole('staff') && $user->employee) {
+                        $emp = $user->employee;
+                        if (! isset($evalSet[$user->id.'_'.$user->id.'__self'])) {
+                            $pending++;
+                        }
+                        if ($emp->department_id) {
+                            $peers = $deptStaffMap[$emp->department_id] ?? [];
+                            foreach ($peers as $p) {
+                                if ($p->id !== $emp->id && ! isset($evalSet[$user->id.'_'.$p->user_id.'__peer'])) {
+                                    $pending++;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($user->hasRole('department head') && $user->employee) {
+                        $emp = $user->employee;
+                        if (! isset($evalSet[$user->id.'_'.$user->id.'__self'])) {
+                            $pending++;
+                        }
+                        if ($emp->department_id) {
+                            $stList = $deptStaffMap[$emp->department_id] ?? [];
+                            foreach ($stList as $st) {
+                                if (! isset($evalSet[$user->id.'_'.$st->user_id.'__downward'])) {
+                                    $pending++;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($pending > 0) {
+                        $notifiedCount++;
+                        foreach ($roleBreakdown as $role => &$count) {
+                            if ($user->hasRole($role)) {
+                                $count++;
+                                break;
+                            }
+                        }
                     }
                 }
-            }
-        }
+            });
 
         if (function_exists('activity')) {
             activity('evaluations')
@@ -135,23 +292,24 @@ class SendEvaluationDeadlineReminders extends Command
         $pending = 0;
 
         if ($user->hasRole('student') && $user->student_id) {
-            $classes = AcademicClass::where('semester_id', $sem->id)
-                ->whereHas('students', fn ($q) => $q->where('students.id', $user->student_id))
-                ->with('teacher.user')
+            $studentClassEnrollments = DB::table('class_student')
+                ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                ->join('users', 'users.employee_id', '=', 'classes.teacher_id')
+                ->where('classes.semester_id', $sem->id)
+                ->where('class_student.student_id', $user->student_id)
+                ->select('classes.id as class_id', 'users.id as teacher_user_id')
                 ->get();
 
-            foreach ($classes as $class) {
-                if ($class->teacher && $class->teacher->user) {
-                    $exists = Evaluation::where([
-                        'semester_id' => $sem->id,
-                        'evaluator_id' => $user->id,
-                        'evaluatee_id' => $class->teacher->user->id,
-                        'class_id' => $class->id,
-                    ])->exists();
+            foreach ($studentClassEnrollments as $cls) {
+                $exists = Evaluation::where([
+                    'semester_id' => $sem->id,
+                    'evaluator_id' => $user->id,
+                    'evaluatee_id' => $cls->teacher_user_id,
+                    'class_id' => $cls->class_id,
+                ])->exists();
 
-                    if (! $exists) {
-                        $pending++;
-                    }
+                if (! $exists) {
+                    $pending++;
                 }
             }
         }

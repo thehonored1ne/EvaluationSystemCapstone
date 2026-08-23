@@ -31,8 +31,32 @@
                 font-weight: 700 !important;
             }
 
-            /* Mini Icon-Only Collapsed Sidebar Styles (Desktop Only) */
+            /* Mini Icon-Only Collapsed Sidebar Styles with Smooth Transitions (Desktop Only) */
             @media (min-width: 1024px) {
+                [data-flux-sidebar] {
+                    transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1),
+                                min-width 220ms cubic-bezier(0.4, 0, 0.2, 1),
+                                padding 220ms ease !important;
+                    overflow-x: hidden !important;
+                }
+
+                [data-flux-sidebar] [data-flux-navlist-item] {
+                    transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1),
+                                padding 220ms ease,
+                                margin 220ms ease,
+                                background-color 150ms ease,
+                                color 150ms ease !important;
+                    white-space: nowrap !important;
+                }
+
+                [data-flux-sidebar] [data-flux-navlist-group-heading],
+                [data-flux-sidebar] [data-content],
+                [data-flux-sidebar] .sidebar-text,
+                [data-flux-sidebar] [data-flux-badge] {
+                    transition: opacity 180ms ease, transform 180ms ease !important;
+                    white-space: nowrap !important;
+                }
+
                 body.sidebar-is-collapsed [data-flux-sidebar] {
                     width: 4.25rem !important;
                     min-width: 4.25rem !important;
@@ -40,6 +64,7 @@
                     padding-right: 0.375rem !important;
                     align-items: center !important;
                 }
+
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
                 body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-content],
@@ -47,8 +72,11 @@
                 body.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
                 body.sidebar-is-collapsed [data-flux-sidebar] .pl-6 {
+                    opacity: 0 !important;
                     display: none !important;
+                    pointer-events: none !important;
                 }
+
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-item] {
                     justify-content: center !important;
                     padding-left: 0 !important;

@@ -148,11 +148,6 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->middleware('role:admin|dean|program head')
         ->name('rankings');
 
-    Volt::route('/analytics', 'analytics')
-        ->lazy()
-        ->middleware('role:admin')
-        ->name('analytics');
-
     Volt::route('/reports', 'reports')
         ->lazy()
         ->middleware('role:admin|dean|program head')
