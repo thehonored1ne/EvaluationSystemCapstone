@@ -76,7 +76,7 @@ new class extends Component {
 
 <div>
     <flux:dropdown position="bottom" align="end">
-        <button type="button" class="relative inline-flex items-center justify-center p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer" title="Notifications">
+        <button type="button" aria-label="Notifications" class="relative inline-flex items-center justify-center p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer" title="Notifications">
             <flux:icon icon="bell" class="size-5" />
             @if($this->unreadCount > 0)
                 <span class="absolute top-0 right-0 -mt-0.5 -mr-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-zinc-950 px-1 border border-red-900 shadow-sm animate-pulse">

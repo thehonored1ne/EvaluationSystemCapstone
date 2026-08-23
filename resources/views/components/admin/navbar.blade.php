@@ -52,6 +52,7 @@
             @click="$flux.appearance = $flux.appearance === 'dark' ? 'light' : 'dark'" 
             class="relative p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer"
             :title="$flux.appearance === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            aria-label="Toggle Dark / Light Theme"
         >
             <!-- Sun Icon for Dark Mode -->
             <span x-show="$flux.appearance === 'dark'">
@@ -68,7 +69,7 @@
 
         <!-- Admin Profile Quick Dropdown -->
         <flux:dropdown position="bottom" align="end">
-            <button type="button" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+            <button type="button" aria-label="User Account Menu" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
                 <span class="flex h-7 w-7 items-center justify-center rounded-md bg-white/20 text-white text-xs font-bold shadow-sm border border-white/30">
                     {{ auth()->user()->initials() }}
                 </span>

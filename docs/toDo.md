@@ -1,3 +1,23 @@
+- [X] **System Performance, Database Composite Indexes & Caching Layer (2026-08-23)**:
+  - Re-architected **Manage Evaluations & Completion Tracking** (`manage-evaluations.blade.php`) to use direct SQL joins and pre-aggregations (`DB::table(...)` with `groupBy`), dropping models loaded in memory from **11,867 down to 0 models** and query statements from **4,859 queries down to ~10 queries**.
+  - Added static memoization in `EvaluationReferenceService.php` to prevent repeated `Semester` lookups during reference ID generation.
+  - Added application-level caching via `Cache::remember` for active semester (`Semester::getActive()`), departments (`Department::getCachedList()`), evaluation criteria (`EvaluationCriterion::getForTypes()`), and tracking summary statistics.
+  - Created and ran composite database index migration `2026_08_23_000001_add_performance_composite_indexes.php` on `employees`, `evaluations`, `classes`, and `semesters`.
+  - Deleted orphaned `analytics.blade.php` and its skeleton placeholder and removed `/analytics` route from `routes/web.php`.
+- [X] **Terms of Service & Privacy Modal UI/UX Redesign (2026-08-23)**:
+  - Redesigned `terms-modal.blade.php` to eliminate duplicate headings, doc IDs, and bureaucratic jargon.
+  - Formatted policies into clean card components with Lucide/Flux icons across Terms of Service and Privacy & AI Disclosure tabs.
+- [X] **Sidebar UI/UX, Tooltip & Zero-Flicker Navigation (2026-08-23)**:
+  - Removed native browser `title` tooltips and isolated `<flux:tooltip>` to collapsed icon-only mode.
+  - Configured collapsed accordion dropdowns (`Manage Users`, `My Evaluations`) to auto-expand the sidebar on click.
+  - Fixed `pointer-events` blocker on expanded sidebar navigation items.
+  - Implemented zero-flicker CSS architecture (`body.sidebar-animating`, `html.sidebar-is-collapsed`) to prevent layout flashes on `wire:navigate`.
+- [X] **Accessibility & Google Lighthouse Compliance (2026-08-23)**:
+  - Added descriptive `aria-label` tags across navigation links, accordion triggers, submenus, theme switcher, user profile, and notification dropdown.
+  - Added `fetchpriority="high"` and `decoding="async"` to logo image in `app-logo.blade.php` to eliminate Cumulative Layout Shift (CLS).
+- [X] **Dependency Security Audit Vulnerability Fixes (2026-08-23)**:
+  - Fixed 100% of vulnerabilities reported by `composer audit` and `npm audit` (Guzzle, PSR-7, CommonMark, Axios, PostCSS, Nanoid).
+  - Validated with full Pest feature test suite (130 passing tests, 621 assertions) and PHPStan (0 errors).
 - [X] **System-Wide Database Performance Optimization & Query Auditing (2026-08-21)**:
   - Installed and configured `barryvdh/laravel-debugbar` for deep query profiling, statement count verification, and memory tracking.
   - Optimized **Admin Dashboard** (`admin/dashboard.blade.php`): dropped models in RAM from 139,039 to 171, query statements from 128 to 34, and eliminated 102 duplicate queries using direct SQL `GROUP BY` aggregations and request memoization.

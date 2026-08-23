@@ -196,3 +196,17 @@ AI sentiment analysis results associated with evaluation comments.
 - `sessions`: Session tracking (Session Driver: `database`).
 - `cache` / `cache_locks`: Application cache store (Cache Store: `database`).
 - `password_reset_tokens`: Default security tokens.
+
+---
+
+## 6. Performance Composite Indexes
+
+To support fast aggregate joins and zero-N+1 query execution across thousands of evaluation records, the following composite indexes are applied:
+
+| Table | Index Name | Columns | Purpose |
+| :--- | :--- | :--- | :--- |
+| `employees` | `employees_role_status_dept_idx` | `(role, status, department_id)` | Fast role tab counts and department filtering |
+| `evaluations` | `evaluations_sem_eval_type_idx` | `(semester_id, evaluation_type)` | Fast completion rate aggregation per evaluation category |
+| `evaluations` | `evaluations_sem_evaluator_idx` | `(semester_id, evaluator_id)` | Instant $O(1)$ evaluator submission lookups |
+| `classes` | `classes_sem_teacher_idx` | `(semester_id, teacher_id)` | Fast faculty class lookups and student roster pairing |
+| `semesters` | `semesters_active_open_idx` | `(is_active, is_evaluation_open)` | Instant active term and evaluation window resolution |

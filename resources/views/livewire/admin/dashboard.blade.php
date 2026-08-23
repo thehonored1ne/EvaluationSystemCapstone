@@ -30,7 +30,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         // 1. Fetch Active Semester & Year
-        $activeSem = Semester::where('is_active', true)->first();
+        $activeSem = Semester::getActive();
         $activeYear = $activeSem ? $activeSem->academicYear : null;
         $activeSemId = $activeSem ? $activeSem->id : null;
 

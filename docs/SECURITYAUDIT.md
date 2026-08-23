@@ -151,10 +151,24 @@ The Academic Evaluation System implements defense-in-depth security controls acr
 
 ---
 
-## 7. Institutional 8-Point Security Checklist Verification
+## 7. Package & Dependency Security Auditing
+
+### Finding 7.1: Outdated Composer & NPM Dependencies (CVE Advisories)
+* **Severity**: **Medium**
+* **Status**: **RESOLVED / MITIGATED (2026-08-23)**
+* **Scope**: `composer.lock`, `package-lock.json`
+* **Audit Execution**: `composer audit` and `npm audit`
+* **Remediation**:
+  - Upgraded PHP packages: `guzzlehttp/psr7` (2.13.0), `guzzlehttp/guzzle` (7.15.3), `league/commonmark` (2.10.0), and `symfony/deprecation-contracts` (3.7.1).
+  - Upgraded NPM packages: `axios`, `nanoid`, `postcss`, `shell-quote`.
+  - **Result**: `composer audit` returns **0 security vulnerability advisories** and `npm audit` returns **0 vulnerabilities**.
+
+---
+
+## 8. Institutional 8-Point Security Checklist Verification
 
 | # | Security Checklist Item | Implementation / Mitigation Architecture | Status |
-| :---: | :--- | :--- | :---: |
+| :---: | :--- | :--- | :--- |
 | **1** | **Cross-Site Scripting (XSS)** | Blade auto-escaping (`{{ }}`), strict HTMLPurifier filtering on inputs, and zero unescaped `{!! !!}` echoes on user text. | 🟢 **RESOLVED** |
 | **2** | **File Upload Security** | Strict MIME-type checking (`mimes:csv,txt,xlsx`), max upload size limits (`max:5120`), randomized hash storage paths outside web root. | 🟢 **RESOLVED** |
 | **3** | **Rate Limiting & Flood Defense** | `throttle:auth` on login endpoints, `throttle:global` (60 req/min), and rate-limited Livewire actions. | 🟢 **RESOLVED** |
@@ -166,7 +180,7 @@ The Academic Evaluation System implements defense-in-depth security controls acr
 
 ---
 
-## 8. Production Infrastructure Readiness Checklist
+## 9. Production Infrastructure Readiness Checklist
 
 | Security Control | Development Value | Production Target | Status |
 | :--- | :--- | :--- | :--- |
@@ -175,3 +189,4 @@ The Academic Evaluation System implements defense-in-depth security controls acr
 | **`SESSION_SECURE_COOKIE`** | `false` | `true` (HTTPS) |  Enforced with SSL |
 | **`AI_API_KEY`** | Default dev key | Cryptographically random 64-char key |  Rotate on staging/prod |
 | **`CACHE_DRIVER` / `QUEUE_CONNECTION`** | `database` / `sync` | `redis` / `database` worker |  Configure supervisor queue workers |
+| **`COMPOSER_AUDIT` / `NPM_AUDIT`** | 0 advisories | 0 advisories | 🟢 0 vulnerabilities |pervisor queue workers |

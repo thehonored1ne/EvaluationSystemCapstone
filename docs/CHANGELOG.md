@@ -4,6 +4,50 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-23]
+
+### Added, Optimized & Security
+- **Completion Tracking Zero-Overhead Direct SQL Joins & N+1 Query Elimination** ([`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)):
+  - Rewrote tracking getters (`getStudentTrackingProperty`, `getDeanTrackingProperty`, `getProgramHeadTrackingProperty`, `getDepartmentHeadTrackingProperty`, `getProfessorTrackingProperty`, `getStaffTrackingProperty`) to use direct SQL joins and pre-aggregations (`DB::table(...)` with `groupBy`).
+  - Reduced model hydration on Manage Evaluations from **11,867 Eloquent models down to 0 models**.
+  - Consolidated KPI metric counters in `getSummaryStatsProperty()` into a single aggregate SQL query (`COUNT(CASE WHEN ... THEN 1 END)`).
+  - Reduced total page query statements from **4,859 queries down to ~10 queries**.
+- **Evaluation Reference ID Memoization** ([`EvaluationReferenceService.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Services/EvaluationReferenceService.php)):
+  - Added static memoization (`static $semCache = []`) inside `EvaluationReferenceService::generate()` to eliminate repeated semester database queries for each completed evaluator row.
+- **Application-Level In-Memory Caching Layer (`Cache::remember`)**:
+  - `Semester::getActive()`: Caches active academic semester and year in memory with automated cache busting on model `saved` and `deleted` events in `Semester::booted()`.
+  - `Department::getCachedList()`: Caches department list for 300s with automated cache invalidation.
+  - `EvaluationCriterion::getForTypes(array $types)`: Caches active evaluation criteria and questions for 600s with automated cache invalidation hooks on criteria and question model events.
+  - Manage Evaluations Summary Stats & Tab Counts: Wrapped in 30-second memory cache for instant tab transitions.
+  - Updated [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php), [`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php), [`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php), [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), and [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php) to use cached helpers.
+- **Database Composite Performance Indexes**:
+  - Created migration `2026_08_23_000001_add_performance_composite_indexes.php`:
+    - `employees`: `(role, status, department_id)`
+    - `evaluations`: `(semester_id, evaluation_type)` and `(semester_id, evaluator_id)`
+    - `classes`: `(semester_id, teacher_id)`
+    - `semesters`: `(is_active, is_evaluation_open)`
+- **Cleaned Up Orphaned Analytics Component**:
+  - Deleted unused `resources/views/livewire/analytics.blade.php` and its skeleton placeholder `resources/views/livewire/placeholders/analytics-skeleton.blade.php`.
+  - Removed obsolete `/analytics` route from `routes/web.php`.
+- **Terms of Service & Privacy Modal UI Redesign** ([`terms-modal.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/terms-modal.blade.php)):
+  - Removed duplicated headers, institutional doc ID noise, and heavy legal jargons.
+  - Restructured both tabs into clean, human-readable card-based sections with dedicated Lucide/Flux icons:
+    - *Terms*: Constructive & Honest Feedback, Account Security, Submission Finality, Strict Non-Retaliation.
+    - *Privacy & AI*: Guaranteed Anonymity, Data Protection (RA 10173), AI Sentiment Analysis Transparency.
+- **Sidebar UI/UX & Tooltip Refactor** ([`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php)):
+  - Removed native browser `title="..."` attributes on navigation items to eliminate duplicate overlapping OS popups.
+  - Isolated `<flux:tooltip>` popups to collapsed icon-only mode so expanded browsing remains distraction-free.
+  - Implemented auto-expansion for collapsed accordion dropdowns (`Manage Users`, `My Evaluations`) on click.
+  - Solved `pointer-events` blocker on expanded sidebar navigation links.
+  - Built zero-flicker CSS transition architecture using `body.sidebar-animating` and `html.sidebar-is-collapsed` to prevent layout flashes during `wire:navigate` page transitions.
+- **Accessibility & Google Lighthouse Compliance**:
+  - Added descriptive `aria-label` attributes across all navigation links, accordion triggers, submenus, theme toggle, user profile menu, and notification dropdown.
+  - Added `fetchpriority="high"` and `decoding="async"` to the institutional logo in [`app-logo.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/app-logo.blade.php) to minimize Cumulative Layout Shift (CLS).
+- **Security Audit Vulnerabilities Resolution**:
+  - `composer audit`: Resolved all package security advisories (`guzzlehttp/guzzle`, `guzzlehttp/psr7`, `guzzlehttp/promises`, `league/commonmark`, `symfony/deprecation-contracts`) with 0 advisories remaining.
+  - `npm audit fix`: Resolved all NPM vulnerabilities (`axios`, `nanoid`, `postcss`, `shell-quote`) with 0 vulnerabilities remaining.
+  - 100% test suite passing (130 feature tests, 621 assertions) and clean PHPStan analysis (0 errors).
+
 ## [2026-08-21]
 
 ### Added, Optimized & Security
