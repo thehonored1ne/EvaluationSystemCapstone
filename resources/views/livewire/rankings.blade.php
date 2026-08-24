@@ -165,9 +165,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
         <div>
             <flux:heading size="xl" level="1" class="text-left">Faculty & Department Rankings</flux:heading>
-            <flux:subheading class="text-left">
-                Institutional performance leaderboards and rating benchmarks for the active semester.
-            </flux:subheading>
         </div>
 
         @if($this->activeSemester)
@@ -305,7 +302,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
             @else
                 <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                    <table class="w-full text-left text-sm">
+                    <table class="w-full text-left text-sm min-w-[700px]">
                         <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
                             <tr>
                                 <th class="px-6 py-3.5 text-center w-16">Rank</th>
@@ -385,7 +382,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     @if($activeTab === 'department')
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-xs flex flex-col gap-6">
             <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <table class="w-full text-left text-sm">
+                <table class="w-full text-left text-sm min-w-[700px]">
                     <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
                         <tr>
                             <th class="px-6 py-3.5 text-center w-16">Rank</th>

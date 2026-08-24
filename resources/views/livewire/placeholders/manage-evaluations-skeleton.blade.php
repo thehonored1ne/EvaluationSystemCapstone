@@ -3,9 +3,6 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
         <div>
             <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Completion Tracking</flux:heading>
-            <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
-                Real-time evaluation submission progress & completion rates across all 6 evaluator roles.
-            </flux:subheading>
         </div>
 
         <!-- Header Action Controls Skeleton -->

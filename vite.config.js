@@ -12,8 +12,19 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    esbuild: {
+        target: 'esnext',
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            target: 'esnext',
+        },
+    },
     build: {
         target: 'esnext',
+    },
+    css: {
+        postcss: false,
     },
     server: {
         cors: true,

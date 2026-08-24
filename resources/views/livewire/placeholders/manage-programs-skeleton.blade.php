@@ -3,7 +3,6 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Academic Programs</flux:heading>
-            <flux:subheading class="text-left">Degree programs catalog, department assignments, program head leadership, and student allocations.</flux:subheading>
         </div>
         <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-32 shimmer shrink-0"></div>
     </div>

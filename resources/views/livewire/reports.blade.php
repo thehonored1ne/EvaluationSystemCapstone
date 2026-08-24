@@ -104,8 +104,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         $peerPct = round(($peerMax / $totalScale) * 100);
         $selfPct = round(($selfMax / $totalScale) * 100);
 
+        // Eager-load all criteria in a single query to prevent repeated N+1 queries
+        $allCriteria = EvaluationCriterion::orderBy('order')->get();
+
         // Helper to calculate criteria breakdown & subtotal for a specific evaluation type
-        $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($evaluations, $userId) {
+        $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($evaluations, $allCriteria) {
             $matchedEvals = $evaluations->filter(function ($e) use ($evalTypes, $evaluatorRoles) {
                 $typeMatch = in_array($e->evaluation_type, $evalTypes);
                 if (!$typeMatch) return false;
@@ -119,10 +122,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             $evalCount = $matchedEvals->count();
             $evalIds = $matchedEvals->pluck('id')->toArray();
 
-            // Fetch criteria associated with these types
-            $criteria = EvaluationCriterion::whereIn('evaluation_type', $evalTypes)
-                ->orderBy('order')
-                ->get();
+            // Fetch criteria associated with these types from preloaded collection
+            $criteria = $allCriteria->filter(fn($c) => in_array($c->evaluation_type, $evalTypes))->values();
 
             $parts = [];
             $sectionEarnedPoints = 0.0;
@@ -643,9 +644,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full print:hidden">
         <div>
             <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Evaluation Reports</flux:heading>
-            <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
-                Generate official 360-degree faculty performance evaluations on teaching effectiveness and summary executive analytics.
-            </flux:subheading>
         </div>
 
         <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -921,7 +919,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </div>
 
                         <!-- Signatories Section -->
-                        <div class="grid grid-cols-3 gap-6 pt-3 print:pt-3 text-[11px]">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3 print:grid-cols-3 print:pt-3 text-[11px]">
                             <div class="flex flex-col items-center text-center">
                                 <span class="text-[9.5px] text-zinc-500 uppercase tracking-wider mb-5">Prepared by:</span>
                                 <div class="w-full border-b border-black"></div>
@@ -1161,7 +1159,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <span class="text-xs font-bold text-zinc-500">{{ count($summary->faculty_attention) }} Instructors Flagged</span>
                             </div>
                             <div class="overflow-x-auto rounded-xl border border-zinc-300 dark:border-zinc-700">
-                                <table class="w-full text-left text-xs">
+                                <table class="w-full text-left text-xs min-w-[650px]">
                                     <thead class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider border-b border-zinc-300 dark:border-zinc-700">
                                         <tr>
                                             <th class="px-4 py-3">Instructor Name</th>
@@ -1204,7 +1202,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <span class="text-xs text-zinc-500 font-medium">Ranked by Composite Score</span>
                         </div>
                         <div class="overflow-x-auto rounded-xl border border-zinc-300 dark:border-zinc-700">
-                            <table class="w-full text-left text-xs">
+                            <table class="w-full text-left text-xs min-w-[720px]">
                                 <thead class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider border-b border-zinc-300 dark:border-zinc-700">
                                     <tr>
                                         <th class="px-4 py-3 text-center w-12">Rank</th>

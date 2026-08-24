@@ -435,7 +435,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Subjects</flux:heading>
-            <flux:subheading class="text-left">Curriculum catalog, year level curriculum placement, semester offerings, and section class assignments.</flux:subheading>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="outline" wire:click="downloadTemplate" icon="arrow-down-tray" size="sm">
@@ -464,7 +463,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="book-open" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Active curriculum catalog items</span>
         </div>
 
         <!-- Card 2: Active Classes Assigned -->
@@ -490,7 +488,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="exclamation-triangle" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Subjects with 0 active section classes</span>
         </div>
     </div>
     

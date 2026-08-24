@@ -108,7 +108,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex justify-between items-start">
         <div>
             <flux:heading size="xl" level="1">AI Pipeline & Classifier</flux:heading>
-            <flux:subheading>Manage Tagalog/English lexicon datasets, override comment predictions, and retrain classifier models.</flux:subheading>
         </div>
         <flux:button variant="primary" icon="beaker" wire:click="retrain" wire:loading.attr="disabled">
             <span wire:loading.remove wire:target="retrain">Retrain Classifier</span>

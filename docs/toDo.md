@@ -1,3 +1,13 @@
+- [X] **Evaluation UX, Mobile Responsiveness & N+1 Database Optimizations (2026-08-25)**:
+  - Added *"Jump to Missing Question →"* button and smooth auto-centering scroll for rating number pills in `evaluation-form.blade.php`.
+  - Guarded evaluation form submit button against false-positive loading animations when incomplete using client-side Alpine checks and `pointer-events-none`.
+  - Replaced single-line review matrix text truncation with `line-clamp-2 sm:truncate leading-snug` to prevent clipping question names on mobile.
+  - Reduced outer viewport padding (`px-2 sm:px-4 md:px-6 py-3 sm:py-6`) across `evaluation-form.blade.php` and all 6 evaluator portals (`student`, `faculty`, `staff`, `dean`, `department-head`, `program-head`).
+  - Pre-loaded `EvaluationCriterion` in `reports.blade.php` to eliminate 4 redundant database queries and added responsive horizontal table scroll constraints (`min-w-[720px]`, `min-w-[650px]`).
+  - Eliminated N+1 queries in `evaluation-results.blade.php` table render loop with grouped `whereIn` submission count aggregations, and optimized modal details query from 10 queries down to 1.
+  - Converted role tabs in `manage-evaluations.blade.php` to a full-width responsive grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`), eliminating dead whitespace.
+  - Added `min-w-[700px]` constraints to Faculty and Department leaderboards in `rankings.blade.php`.
+  - De-cluttered UI by removing redundant page-level and card-level filler subheadings across all admin management views while preserving dynamic counters, and synced all 11 skeleton loader placeholders to match live page headers 1:1.
 - [X] **System Performance, Database Composite Indexes & Caching Layer (2026-08-23)**:
   - Re-architected **Manage Evaluations & Completion Tracking** (`manage-evaluations.blade.php`) to use direct SQL joins and pre-aggregations (`DB::table(...)` with `groupBy`), dropping models loaded in memory from **11,867 down to 0 models** and query statements from **4,859 queries down to ~10 queries**.
   - Added static memoization in `EvaluationReferenceService.php` to prevent repeated `Semester` lookups during reference ID generation.

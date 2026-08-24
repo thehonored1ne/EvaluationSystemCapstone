@@ -3,7 +3,6 @@
     <div class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
         <div>
             <flux:heading size="xl" level="1">Evaluation Questions Setup</flux:heading>
-            <flux:subheading>Configure evaluation question rubrics across all academic and administrative evaluation types.</flux:subheading>
         </div>
         <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-36 shimmer shrink-0"></div>
     </div>

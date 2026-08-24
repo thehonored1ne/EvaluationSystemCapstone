@@ -3,7 +3,6 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <flux:heading size="xl" level="1">Manage Students</flux:heading>
-            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Directory and enrollment lifecycle management for student accounts.</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-28 shimmer"></div>

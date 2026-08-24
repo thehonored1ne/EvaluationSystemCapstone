@@ -688,7 +688,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex justify-between items-center w-full">
         <div>
             <flux:heading size="xl" level="1">Evaluation Settings</flux:heading>
-            <flux:subheading>Manage system academic periods, evaluation windows, and point allocations.</flux:subheading>
         </div>
     </div>
 

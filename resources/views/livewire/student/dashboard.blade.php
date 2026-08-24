@@ -188,7 +188,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
     }"
     @evaluation-submitted.window="if ({{ $this->isAllCompleted ? 'true' : 'false' }}) { launchConfetti(); }"
-    class="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4 py-6"
+    class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6"
 >
     @if(!$showForm)
         <!-- Header -->

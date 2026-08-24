@@ -2,8 +2,7 @@
     <!-- Header with real text -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-            <flux:heading size="xl" level="1">Evaluation Results Directory</flux:heading>
-            <flux:subheading>Search and inspect detailed submission results and qualitative comments across departments.</flux:subheading>
+            <flux:heading size="xl" level="1">Evaluation Results</flux:heading>
         </div>
     </div>
 

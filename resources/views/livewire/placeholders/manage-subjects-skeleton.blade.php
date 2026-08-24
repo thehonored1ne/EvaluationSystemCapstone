@@ -3,7 +3,6 @@
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Subjects</flux:heading>
-            <flux:subheading class="text-left">Curriculum catalog, year level curriculum placement, semester offerings, and section class assignments.</flux:subheading>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-36 shimmer"></div>

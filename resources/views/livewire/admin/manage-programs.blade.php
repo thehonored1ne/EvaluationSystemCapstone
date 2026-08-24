@@ -323,7 +323,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Academic Programs</flux:heading>
-            <flux:subheading class="text-left">Degree programs catalog, department assignments, program head leadership, and student allocations.</flux:subheading>
         </div>
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Program</flux:button>
     </div>
@@ -339,7 +338,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Active degree program offerings</span>
         </div>
 
         <!-- Card 2: Assigned Program Heads -->
@@ -351,7 +349,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="user-group" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Programs with active leadership</span>
         </div>
 
         <!-- Card 3: Total Enrolled Students -->
@@ -363,7 +360,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="users" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Students linked to academic programs</span>
         </div>
 
         <!-- Card 4: Departments Covered -->
@@ -375,7 +371,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="building-office-2" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Departments housing degree programs</span>
         </div>
     </div>
 

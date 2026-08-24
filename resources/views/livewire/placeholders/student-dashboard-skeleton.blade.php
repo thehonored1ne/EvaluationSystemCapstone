@@ -2,10 +2,7 @@
     <!-- Header with real text + Progress Badge skeleton -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Student Dashboard</flux:heading>
-            <flux:subheading class="text-left text-zinc-500 dark:text-zinc-400">
-                Evaluate your assigned teachers for the active semester.
-            </flux:subheading>
+            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Student Evaluation Dashboard</flux:heading>
         </div>
         <div class="h-7 bg-zinc-200 dark:bg-zinc-800 rounded-full w-36 shimmer shrink-0"></div>
     </div>
@@ -27,7 +24,6 @@
         <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
             <div>
                 <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Enrolled Classes</h3>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400">List of classes enrolled in for the active semester.</p>
             </div>
         </div>
 

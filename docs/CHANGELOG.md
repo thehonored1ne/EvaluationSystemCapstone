@@ -4,6 +4,38 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-25]
+
+### Added, Optimized & UI/UX Polish
+- **Evaluation Form UX & Submission Guard Optimization** ([`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)):
+  - Added *"Jump to Missing Question →"* quick-action button navigating directly to the first unanswered rating.
+  - Added auto-centering smooth scroll (`scrollPillIntoView`) for question number pills on touch/mobile viewports.
+  - Fixed false-positive submit button loading state: Prevented premature AJAX roundtrips and loading animation when ratings are missing using client-side Alpine evaluation with `pointer-events-none` on incomplete states.
+  - Improved review step layout: Replaced single-line truncate with `line-clamp-2 sm:truncate leading-snug` to prevent clipping question text on mobile screens.
+  - Reduced outer & inner horizontal padding (`px-2 sm:px-4 md:px-6`, `p-3.5`) across mobile viewports, freeing up over 30px of readable screen width.
+- **Evaluator Role Dashboards Mobile Viewport Optimization**:
+  - Reduced excessive left/right container gutters from `px-4 py-6` to `px-2 sm:px-4 md:px-6 py-3 sm:py-6` across all 6 evaluator dashboards:
+    - [`student/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/student/dashboard.blade.php)
+    - [`faculty/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/faculty/dashboard.blade.php)
+    - [`staff/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/staff/dashboard.blade.php)
+    - [`dean/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/dean/dashboard.blade.php)
+    - [`department-head/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/department-head/dashboard.blade.php)
+    - [`program-head/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/program-head/dashboard.blade.php)
+- **Reports & Analytics Performance & Responsiveness** ([`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)):
+  - Pre-loaded all `EvaluationCriterion` in a single query collection (`$allCriteria = EvaluationCriterion::orderBy('order')->get()`), eliminating 4 duplicate database queries per render.
+  - Added responsive horizontal scrolling constraints (`min-w-[720px]` and `min-w-[650px]`) on Department Rankings and Faculty Attention tables.
+  - Made Signatories block responsive on mobile (`grid-cols-1 sm:grid-cols-3`) while retaining 3-column format on print (`print:grid-cols-3`).
+- **Evaluation Results N+1 Query Elimination & Grouped Aggregations** ([`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php)):
+  - Eliminated row-level N+1 database queries in the paginated table loop by batch-aggregating evaluator submission counts and evaluatee received counts in two single `whereIn` grouped SQL queries in `with()`.
+  - Consolidated modal details categorical breakdown from 10 separate queries down to 1 single grouped query (`selectRaw('evaluation_type, count(*) as total_count, avg(rating_average) as avg_rating')`).
+- **Completion Tracking & Rankings Layout Optimization**:
+  - **Completion Tracking** ([`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)): Converted role tabs into a responsive grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`) distributing all 6 tabs evenly across the container without empty dead space on desktop.
+  - **Rankings** ([`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php)): Added `min-w-[700px]` constraints to both the Faculty Leaderboard and Department Leaderboard tables inside responsive scroll wrappers.
+- **UI De-Cluttering Across Administrative Views & Cards**:
+  - Removed redundant, static page-level subheadings across all admin views: Completion Tracking, Evaluation Results, Institutional Rankings, Evaluation Reports, Admin Dashboard, Manage Departments, Manage Programs, Manage Subjects, Manage Classes, Manage Questions, Evaluation Settings, and Manage AI.
+  - Removed static filler captions from cards in Admin Dashboard, Manage Departments, Manage Programs, and Manage Subjects, creating a cleaner, higher-density UI while preserving all critical dynamic numbers, progress counters (`X of Y submitted`), and active filters.
+  - Synchronized all 1:1 skeleton placeholders across `resources/views/livewire/placeholders/` to match live page headings and layouts, eliminating layout shift.
+
 ## [2026-08-23]
 
 ### Added, Optimized & Security

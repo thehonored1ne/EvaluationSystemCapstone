@@ -11,6 +11,7 @@ use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
 use App\Models\AcademicClass;
+use Illuminate\Support\Facades\DB;
 
 new #[Layout('components.layouts.app')] class extends Component {
     use WithPagination;
@@ -81,7 +82,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Submitted evaluations
         $submittedCount = Evaluation::where('evaluator_id', $user->id)->where('semester_id', $semId)->count();
 
-        // Categorical breakdown
+        // Categorical breakdown in a single grouped query
         $evalTypeLabels = [
             'upward_student' => 'Student Evaluation',
             'peer' => 'Peer Evaluation',
@@ -90,15 +91,22 @@ new #[Layout('components.layouts.app')] class extends Component {
             'upward_employee' => 'Subordinate Evaluation',
         ];
 
+        $typeStats = DB::table('evaluations')
+            ->where('evaluatee_id', $user->id)
+            ->where('semester_id', $semId)
+            ->selectRaw('evaluation_type, count(*) as total_count, avg(rating_average) as avg_rating')
+            ->groupBy('evaluation_type')
+            ->get()
+            ->keyBy('evaluation_type');
+
         $typeAverages = [];
         foreach ($evalTypeLabels as $type => $label) {
-            $tCount = Evaluation::where('evaluatee_id', $user->id)->where('semester_id', $semId)->where('evaluation_type', $type)->count();
-            if ($tCount > 0) {
-                $tAvg = round(Evaluation::where('evaluatee_id', $user->id)->where('semester_id', $semId)->where('evaluation_type', $type)->avg('rating_average'), 2);
+            if (isset($typeStats[$type])) {
+                $stat = $typeStats[$type];
                 $typeAverages[$type] = (object)[
                     'label' => $label,
-                    'count' => $tCount,
-                    'average' => $tAvg,
+                    'count' => (int)$stat->total_count,
+                    'average' => round((float)$stat->avg_rating, 2),
                 ];
             }
         }
@@ -178,9 +186,33 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $users = $query->orderBy('name')->paginate(10);
+        $userIds = $users->pluck('id')->toArray();
+
+        $evaluatorCounts = [];
+        $evaluateeCounts = [];
+
+        if ($semId && !empty($userIds)) {
+            $evaluatorCounts = DB::table('evaluations')
+                ->where('semester_id', $semId)
+                ->whereIn('evaluator_id', $userIds)
+                ->selectRaw('evaluator_id, count(*) as total')
+                ->groupBy('evaluator_id')
+                ->pluck('total', 'evaluator_id')
+                ->toArray();
+
+            $evaluateeCounts = DB::table('evaluations')
+                ->where('semester_id', $semId)
+                ->whereIn('evaluatee_id', $userIds)
+                ->selectRaw('evaluatee_id, count(*) as total')
+                ->groupBy('evaluatee_id')
+                ->pluck('total', 'evaluatee_id')
+                ->toArray();
+        }
 
         return [
             'users' => $users,
+            'evaluatorCounts' => $evaluatorCounts,
+            'evaluateeCounts' => $evaluateeCounts,
         ];
     }
 }; ?>
@@ -190,7 +222,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
         <div>
             <flux:heading size="xl" level="1">Evaluation Results</flux:heading>
-            <flux:subheading>Comprehensive institutional performance evaluations, submission tracking, and score breakdowns.</flux:subheading>
         </div>
     </div>
 
@@ -280,13 +311,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                             };
 
                             $isStudent = (bool)$user->student;
-                            if ($isStudent) {
-                                $submissionsCount = $semId ? Evaluation::where('evaluator_id', $user->id)->where('semester_id', $semId)->count() : 0;
-                                $isComplete = $submissionsCount > 0;
-                            } else {
-                                $submissionsCount = $semId ? Evaluation::where('evaluatee_id', $user->id)->where('semester_id', $semId)->count() : 0;
-                                $isComplete = $submissionsCount > 0;
-                            }
+                            $submissionsCount = $isStudent 
+                                ? ($evaluatorCounts[$user->id] ?? 0) 
+                                : ($evaluateeCounts[$user->id] ?? 0);
+                            $isComplete = $submissionsCount > 0;
                         @endphp
                         <tr wire:key="usr-{{ $user->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Full Name -->

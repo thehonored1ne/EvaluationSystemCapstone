@@ -39,8 +39,6 @@
         @if ($hasProgress)
             <div class="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-3 mt-4 shimmer"></div>
             <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 mt-2 shimmer"></div>
-        @else
-            <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/2 mt-3 shimmer"></div>
         @endif
     </div>
 
@@ -51,7 +49,6 @@
             <div class="h-6 w-16 bg-zinc-200 dark:bg-zinc-800 rounded-full shimmer"></div>
         </div>
         <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/2 shimmer"></div>
-        <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-2/3 shimmer"></div>
     </div>
 
 @elseif ($type === 'chart')
@@ -59,7 +56,6 @@
         <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
             <div class="space-y-1">
                 <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-36 shimmer"></div>
-                <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 shimmer"></div>
             </div>
             <div class="h-6 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full shimmer"></div>
         </div>

@@ -127,7 +127,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4 py-6">
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6">
     @if(!$showForm)
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">

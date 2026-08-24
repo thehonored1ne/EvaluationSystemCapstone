@@ -287,7 +287,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <flux:heading size="xl" level="1" class="text-left">Manage Departments</flux:heading>
-            <flux:subheading class="text-left">Institutional academic colleges & administrative department management, leadership assignments, and member counts.</flux:subheading>
         </div>
         <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Department</flux:button>
     </div>
@@ -303,7 +302,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="building-office-2" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">All institutional colleges & units</span>
         </div>
 
         <!-- Card 2: Academic Departments -->
@@ -315,7 +313,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="academic-cap" class="size-6 text-sky-600 dark:text-sky-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Colleges with degree programs & faculty</span>
         </div>
 
         <!-- Card 3: Administrative Departments -->
@@ -327,7 +324,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="briefcase" class="size-6 text-amber-600 dark:text-amber-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Support & service units with staff</span>
         </div>
 
         <!-- Card 4: Assigned Department Leaders -->
@@ -339,7 +335,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
                 <flux:icon name="user-group" class="size-6 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">Units with active Program/Dept Head</span>
         </div>
     </div>
 

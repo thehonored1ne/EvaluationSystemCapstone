@@ -3,7 +3,6 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Manage Employees</h1>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400">View, create, edit, and assign roles to deans, program heads, faculty, and staff.</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-28 shimmer"></div>

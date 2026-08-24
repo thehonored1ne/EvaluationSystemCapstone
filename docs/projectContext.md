@@ -30,6 +30,29 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 25, 2026
+- **Evaluation Form UX, Submission Guards & Mobile Optimization**:
+  - Added *"Jump to Missing Question →"* quick-action button and auto-centering smooth scroll for rating number navigator pills in `evaluation-form.blade.php`.
+  - Blocked false-positive submit button loading states when incomplete with client-side Alpine checks and `pointer-events-none`.
+  - Replaced single-line review matrix text truncation with `line-clamp-2 sm:truncate leading-snug` to prevent clipping question names on mobile.
+  - Reduced outer viewport gutters (`px-2 sm:px-4 md:px-6 py-3 sm:py-6`) across `evaluation-form.blade.php` and all 6 evaluator dashboards (`student`, `faculty`, `staff`, `dean`, `department-head`, `program-head`).
+- **Reports & Evaluation Results N+1 Database Optimizations**:
+  - Pre-loaded criteria collection in `reports.blade.php`, eliminating 4 duplicate SQL queries, and added responsive horizontal scrolling min-widths.
+  - Batch-aggregated evaluator submission and evaluatee received counts in `evaluation-results.blade.php`, eliminating row-level N+1 queries in the paginated table and reducing modal queries from 10 to 1.
+- **UI De-Cluttering & Component Layout Balancing**:
+  - Converted role tabs in `manage-evaluations.blade.php` into a responsive 6-column grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`), eliminating dead whitespace.
+  - Added `min-w-[700px]` constraints to Faculty and Department leaderboards in `rankings.blade.php`.
+  - Removed redundant page-level subheadings and card-level filler captions across all administrative views while preserving dynamic counters.
+  - Synchronized all 11 placeholder skeletons in `resources/views/livewire/placeholders/` to match live headers and layouts 1:1.
+
+### August 23, 2026
+- **System Performance, Database Composite Indexes & Caching Layer**:
+  - Re-architected **Manage Evaluations & Completion Tracking** (`manage-evaluations.blade.php`) to use direct SQL joins and pre-aggregations, dropping models in RAM from **11,867 down to 0** and query statements from **4,859 down to ~10**.
+  - Added application-level caching via `Cache::remember` for active semester (`Semester::getActive()`), departments (`Department::getCachedList()`), and evaluation criteria (`EvaluationCriterion::getForTypes()`).
+  - Added composite performance database indexes on `employees`, `evaluations`, `classes`, and `semesters`.
+  - Redesigned `terms-modal.blade.php` with card-based policy sections.
+  - Refactored sidebar with zero-flicker CSS transition architecture.
+
 ### August 21, 2026
 - **System-Wide 1:1 Skeleton Loader & Shimmer Animation Overhaul**:
   - Upgraded shimmer sweep animation in `app.css` with GPU hardware acceleration (`will-change: transform`, `transform: translateZ(0)`), enhanced dark-mode contrast, and reduced-motion accessibility.

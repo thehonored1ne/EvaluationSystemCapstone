@@ -3,7 +3,6 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
         <div>
             <flux:heading size="xl" level="1">Evaluation Reports</flux:heading>
-            <flux:subheading>Official performance evaluation reports, criteria breakdowns, and qualitative feedback summaries.</flux:subheading>
         </div>
         <!-- Actions & Mode Switcher -->
         <div class="flex items-center gap-3">

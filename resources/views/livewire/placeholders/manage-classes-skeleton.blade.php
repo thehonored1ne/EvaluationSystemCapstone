@@ -3,7 +3,6 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <flux:heading size="xl" level="1">Manage Classes & Enrollment</flux:heading>
-            <flux:subheading class="text-left mt-1">Class section allocations, professor assignments, student enrollment, and scheduling.</flux:subheading>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-lg w-28 shimmer"></div>

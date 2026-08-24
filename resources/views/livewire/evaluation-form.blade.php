@@ -236,6 +236,7 @@ new class extends Component {
             this.autoAdvanceTimeout = setTimeout(() => {
                 if (this.currentIndex < this.totalQuestions - 1) {
                     this.currentIndex++;
+                    this.scrollPillIntoView(this.currentIndex);
                 } else {
                     this.isReviewStep = true;
                 }
@@ -246,11 +247,29 @@ new class extends Component {
             this.isReviewStep = false;
             this.currentIndex = index;
             this.saveDraft();
+            this.scrollPillIntoView(index);
+        },
+
+        goToNextUnanswered() {
+            const firstUnansweredIndex = this.questionIds.findIndex(qId => !this.ratings[qId]);
+            if (firstUnansweredIndex !== -1) {
+                this.goToQuestion(firstUnansweredIndex);
+            }
+        },
+
+        scrollPillIntoView(idx) {
+            this.$nextTick(() => {
+                const pill = this.$refs['pill_' + idx];
+                if (pill) {
+                    pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            });
         },
 
         nextQuestion() {
             if (this.currentIndex < this.totalQuestions - 1) {
                 this.currentIndex++;
+                this.scrollPillIntoView(this.currentIndex);
             } else {
                 this.isReviewStep = true;
             }
@@ -262,6 +281,7 @@ new class extends Component {
                 this.isReviewStep = false;
             } else if (this.currentIndex > 0) {
                 this.currentIndex--;
+                this.scrollPillIntoView(this.currentIndex);
             }
             this.saveDraft();
         },
@@ -316,10 +336,10 @@ new class extends Component {
     }" 
     @keydown.window="handleKeydown($event)"
     @evaluation-submitted.window="clearDraft()"
-    class="max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden"
+    class="w-full max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden"
 >
     <!-- Simple Header: Name & Progress -->
-    <div class="px-4 sm:px-6 py-4 bg-[#9b0000] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+    <div class="px-3.5 sm:px-6 py-3.5 sm:py-4 bg-[#9b0000] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
         <div>
             <h2 class="text-base sm:text-lg md:text-xl font-bold">
                 @if($evaluationType === 'self')
@@ -352,36 +372,37 @@ new class extends Component {
 
     <!-- Alert Messages -->
     @if(session()->has('success'))
-        <div class="mx-4 sm:mx-6 mt-4 sm:mt-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3">
+        <div class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="check-circle" class="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div class="text-sm font-semibold">{{ session('success') }}</div>
+            <div class="text-xs sm:text-sm font-semibold">{{ session('success') }}</div>
         </div>
     @endif
 
     @if($retryAfter > 0)
         <div x-data="{ seconds: @entangle('retryAfter') }" 
              x-init="const interval = setInterval(() => { if (seconds > 0) { seconds--; } else { clearInterval(interval); $wire.set('retryAfter', 0); } }, 1000)"
-             class="mx-4 sm:mx-6 mt-4 sm:mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+             class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="clock" class="size-5 text-rose-600 dark:text-rose-400 animate-pulse shrink-0" />
-            <div class="text-sm font-semibold">
+            <div class="text-xs sm:text-sm font-semibold">
                 Too many submission attempts. Please wait <span x-text="seconds" class="font-bold"></span> seconds before submitting again.
             </div>
         </div>
     @elseif(session()->has('error'))
-        <div class="mx-4 sm:mx-6 mt-4 sm:mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+        <div class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="x-circle" class="size-5 text-rose-600 dark:text-rose-400 shrink-0" />
-            <div class="text-sm font-semibold">{{ session('error') }}</div>
+            <div class="text-xs sm:text-sm font-semibold">{{ session('error') }}</div>
         </div>
     @endif
 
     <!-- Question Number Pills Grid Navigator -->
-    <div class="px-4 sm:px-6 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40">
-        <div class="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap sm:max-h-24 sm:overflow-y-auto pb-1 sm:pb-0">
+    <div class="px-2.5 sm:px-6 py-2.5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40">
+        <div class="flex items-center gap-1.5 overflow-x-auto scroll-smooth sm:flex-wrap sm:max-h-24 sm:overflow-y-auto pb-1 sm:pb-0">
             @foreach($flatQuestions as $idx => $q)
                 <button
                     type="button"
+                    :x-ref="'pill_' + {{ $idx }}"
                     @click="goToQuestion({{ $idx }})"
-                    class="size-8 min-w-8 rounded-lg text-xs font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border shrink-0"
+                    class="size-7 sm:size-8 min-w-7 sm:min-w-8 rounded-lg text-xs font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border shrink-0"
                     :class="{
                         'bg-[#9b0000] border-[#9b0000] text-white shadow-sm scale-105': !isReviewStep && currentIndex === {{ $idx }},
                         'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
@@ -403,7 +424,7 @@ new class extends Component {
             <button
                 type="button"
                 @click="isReviewStep = true"
-                class="h-8 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap"
+                class="h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap"
                 :class="{
                     'bg-[#9b0000] border-[#9b0000] text-white shadow-sm': isReviewStep,
                     'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400': !isReviewStep
@@ -416,7 +437,7 @@ new class extends Component {
     </div>
 
     <!-- Main Content Area -->
-    <div class="p-4 sm:p-6 md:p-8">
+    <div class="p-3.5 sm:p-6 md:p-8">
 
         <!-- Active Question Card Step (Wrapped in single root div for Alpine template compatibility) -->
         <template x-if="!isReviewStep && totalQuestions > 0">
@@ -427,11 +448,11 @@ new class extends Component {
                         x-transition:enter="transition ease-out duration-150"
                         x-transition:enter-start="opacity-0 scale-98"
                         x-transition:enter-end="opacity-100 scale-100"
-                        class="flex flex-col gap-6"
+                        class="flex flex-col gap-4 sm:gap-6"
                     >
                         <!-- Question Header Info -->
-                        <div class="flex items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
-                            <span class="px-2.5 sm:px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#f89696] text-[11px] sm:text-xs font-bold border border-red-900/20 truncate max-w-[200px] sm:max-w-none">
+                        <div class="flex items-center justify-between gap-2 pb-2.5 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
+                            <span class="px-2.5 sm:px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#f89696] text-[11px] sm:text-xs font-bold border border-red-900/20 truncate max-w-[180px] sm:max-w-none">
                                 {{ $q['criterion_name'] }}
                             </span>
                             <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
@@ -440,21 +461,21 @@ new class extends Component {
                         </div>
 
                         <!-- Question Text -->
-                        <div class="py-4 sm:py-6 min-h-[80px] sm:min-h-[90px] flex items-center justify-center">
-                            <h3 class="text-base sm:text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-100 text-center leading-relaxed max-w-2xl px-1">
+                        <div class="py-3 sm:py-6 min-h-[70px] sm:min-h-[90px] flex items-center justify-center">
+                            <h3 class="text-base sm:text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-100 text-center leading-snug sm:leading-relaxed max-w-2xl px-0.5">
                                 {{ $q['question_text'] }}
                             </h3>
                         </div>
 
                         <!-- Horizontal 1-5 Rating Buttons Container -->
-                        <div class="my-3 sm:my-5 flex flex-col items-center justify-center gap-4 sm:gap-6 w-full">
+                        <div class="my-2 sm:my-5 flex flex-col items-center justify-center gap-3 sm:gap-6 w-full">
                             <!-- 1 to 5 Buttons with Clean Aspect-Square Dimensions -->
-                            <div class="grid grid-cols-5 gap-2 sm:gap-3 md:gap-5 w-full max-w-xs sm:max-w-md md:max-w-lg justify-items-center py-2">
+                            <div class="grid grid-cols-5 gap-1.5 sm:gap-3 md:gap-5 w-full max-w-xs sm:max-w-md md:max-w-lg justify-items-center py-1 sm:py-2">
                                 @for($ratingVal = 1; $ratingVal <= 5; $ratingVal++)
                                     <button
                                         type="button"
                                         @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
-                                        class="w-full max-w-[4rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-lg sm:text-2xl md:text-3xl font-black transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none shrink-0 shadow-sm group"
+                                        class="w-full max-w-[3.5rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-base sm:text-2xl md:text-3xl font-black transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none shrink-0 shadow-sm group"
                                         :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
                                             ? 'bg-[#9b0000] border-[#9b0000] text-white shadow-xl shadow-red-950/50 scale-105 sm:scale-110 ring-2 sm:ring-4 ring-red-900/30'
                                             : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#f89696] hover:text-[#9b0000] dark:hover:text-[#f89696]'"
@@ -470,7 +491,7 @@ new class extends Component {
                             </div>
 
                             <!-- Separate Divider Line & Scale Legend Badges -->
-                            <div class="w-full pt-4 sm:pt-6 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-wrap justify-center items-center gap-2 sm:gap-4 md:gap-6 text-[11px] sm:text-xs md:text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+                            <div class="w-full pt-3 sm:pt-6 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-wrap justify-center items-center gap-1.5 sm:gap-4 md:gap-6 text-[10.5px] sm:text-xs md:text-sm font-semibold text-zinc-600 dark:text-zinc-400">
                                 <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">1</strong> Poor</span>
                                 <span class="opacity-40">•</span>
                                 <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">2</strong> Fair</span>
@@ -528,7 +549,10 @@ new class extends Component {
 
         <!-- Final Summary & Review Step -->
         <template x-if="isReviewStep">
-            <form wire:submit="submit" class="flex flex-col gap-6">
+            <form 
+                @submit.prevent="if (answeredCount < totalQuestions || {{ $retryAfter }} > 0) { return false; } $wire.submit()" 
+                class="flex flex-col gap-6"
+            >
                 <!-- Review Step Header -->
                 <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
                     <div>
@@ -554,11 +578,21 @@ new class extends Component {
 
                 <!-- Answer Completion Status Banner -->
                 <template x-if="answeredCount < totalQuestions">
-                    <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 rounded-xl flex items-center gap-3">
-                        <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                        <div class="text-xs font-semibold">
-                            You have answered <span class="font-bold text-amber-900 dark:text-amber-200" x-text="answeredCount"></span> of <span class="font-bold text-amber-900 dark:text-amber-200" x-text="totalQuestions"></span> questions. All questions require a rating before submitting.
+                    <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <div class="text-xs font-semibold">
+                                You have answered <span class="font-bold text-amber-900 dark:text-amber-200" x-text="answeredCount"></span> of <span class="font-bold text-amber-900 dark:text-amber-200" x-text="totalQuestions"></span> questions. All questions require a rating before submitting.
+                            </div>
                         </div>
+                        <button 
+                            type="button" 
+                            @click="goToNextUnanswered()" 
+                            class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shrink-0 transition-colors cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
+                        >
+                            <span>Jump to Missing Question</span>
+                            <span>→</span>
+                        </button>
                     </div>
                 </template>
 
@@ -572,14 +606,14 @@ new class extends Component {
                 </template>
 
                 <!-- Rating Matrix Breakdown by Criterion -->
-                <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-3 sm:gap-4">
                     @foreach($this->criteria as $criterion)
-                        <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-2.5">
+                        <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-2">
                             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
-                                <h4 class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                                <h4 class="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">
                                     {{ $criterion->name }}
                                 </h4>
-                                <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
                                     Max: {{ (float)$criterion->max_points }} pts
                                 </span>
                             </div>
@@ -589,15 +623,15 @@ new class extends Component {
                                     @php
                                         $qIndexInFlat = array_search($q->id, array_column($flatQuestions, 'id'));
                                     @endphp
-                                    <div class="py-2 flex items-center justify-between gap-3 text-xs">
-                                        <div class="flex items-center gap-2 flex-1 min-w-0">
-                                            <span class="font-bold text-zinc-400 shrink-0">{{ $qIndexInFlat !== false ? $qIndexInFlat + 1 : '' }}.</span>
-                                            <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate">{{ $q->question_text }}</span>
+                                    <div class="py-2 flex items-center justify-between gap-2.5 text-xs">
+                                        <div class="flex items-start gap-1.5 flex-1 min-w-0 pr-1">
+                                            <span class="font-bold text-zinc-400 shrink-0 mt-0.5">{{ $qIndexInFlat !== false ? $qIndexInFlat + 1 : '' }}.</span>
+                                            <span class="font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2 sm:truncate leading-snug">{{ $q->question_text }}</span>
                                         </div>
 
-                                        <div class="flex items-center gap-2 shrink-0">
+                                        <div class="flex items-center gap-2 shrink-0 self-center">
                                             <template x-if="ratings[{{ $q->id }}]">
-                                                <span class="px-2 py-0.5 rounded-md bg-[#9b0000] text-white font-bold text-xs">
+                                                <span class="px-2 py-0.5 rounded-md bg-[#9b0000] text-white font-bold text-[11px] sm:text-xs whitespace-nowrap">
                                                     Score: <span x-text="ratings[{{ $q->id }}]"></span> / 5
                                                 </span>
                                             </template>
@@ -605,7 +639,7 @@ new class extends Component {
                                                 <button 
                                                     type="button" 
                                                     @click="goToQuestion({{ $qIndexInFlat !== false ? $qIndexInFlat : 0 }})" 
-                                                    class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 font-bold text-[11px] hover:underline cursor-pointer"
+                                                    class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 font-bold text-[10.5px] sm:text-[11px] hover:underline cursor-pointer whitespace-nowrap"
                                                 >
                                                     Unanswered
                                                 </button>
@@ -675,14 +709,24 @@ new class extends Component {
                         >
                             Reset All
                         </flux:button>
-                        <flux:button 
-                            variant="primary"
+                        <button 
                             type="submit" 
-                            :disabled="$retryAfter > 0"
-                            class="flex-1 sm:flex-none px-5 sm:px-6 py-2.5 font-bold cursor-pointer justify-center text-sm"
+                            wire:loading.attr="disabled"
+                            wire:target="submit"
+                            :disabled="{{ $retryAfter }} > 0 || answeredCount < totalQuestions"
+                            @click="if (answeredCount < totalQuestions || {{ $retryAfter }} > 0) { $event.preventDefault(); $event.stopPropagation(); return false; }"
+                            class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 flex items-center gap-2 border shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            :class="answeredCount === totalQuestions && {{ $retryAfter }} === 0 ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] dark:border-[#f89696] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
                         >
-                            Submit Evaluation
-                        </flux:button>
+                            <span wire:loading.remove wire:target="submit" class="flex items-center gap-1.5">
+                                <flux:icon icon="paper-airplane" class="size-4" />
+                                Submit Evaluation
+                            </span>
+                            <span wire:loading wire:target="submit" class="flex items-center gap-1.5">
+                                <flux:icon icon="arrow-path" class="size-4 animate-spin" />
+                                Submitting...
+                            </span>
+                        </button>
                     </div>
                 </div>
             </form>

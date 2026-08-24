@@ -3,7 +3,6 @@
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
             <flux:heading size="xl" level="1">AI Pipeline & Classifier</flux:heading>
-            <flux:subheading>Manage Tagalog/English lexicon datasets, override comment predictions, and retrain classifier models.</flux:subheading>
         </div>
         <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-xl w-40 shimmer shrink-0"></div>
     </div>

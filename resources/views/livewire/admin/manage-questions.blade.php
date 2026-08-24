@@ -210,7 +210,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
         <div>
             <flux:heading size="xl" level="1">Evaluation Questions Setup</flux:heading>
-            <flux:subheading>Configure evaluation question rubrics across all academic and administrative evaluation types.</flux:subheading>
         </div>
         <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
             Add Question

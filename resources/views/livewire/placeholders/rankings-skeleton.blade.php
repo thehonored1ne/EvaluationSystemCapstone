@@ -2,8 +2,7 @@
     <!-- Header with real text + Semester select skeleton -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-            <flux:heading size="xl" level="1">Institutional Rankings</flux:heading>
-            <flux:subheading>Top faculty performance scores and college department average comparisons.</flux:subheading>
+            <flux:heading size="xl" level="1" class="text-left">Faculty & Department Rankings</flux:heading>
         </div>
         <div class="w-full sm:w-56 h-10 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shimmer"></div>
     </div>
