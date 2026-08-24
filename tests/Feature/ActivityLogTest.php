@@ -79,7 +79,7 @@ test('admin dashboard renders audit log card with activities and timestamps', fu
         ->actingAs($admin)
         ->test('admin.dashboard')
         ->assertSee('Audit Log')
-        ->assertSee('Chronological history of admin updates')
+        ->assertSee('System Activity & Progress Logs', false)
         ->assertSee('Created Department')
         ->assertSee('Added new department: College of Engineering (COE)');
 });
