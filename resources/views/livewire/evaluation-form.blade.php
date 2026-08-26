@@ -327,6 +327,14 @@ new class extends Component {
             return Object.values(this.ratings).filter(r => r !== '' && r !== null && r !== undefined).length;
         },
 
+        get hasValidComment() {
+            return typeof this.comments === 'string' && this.comments.trim().length >= 3;
+        },
+
+        get isReadyToSubmit() {
+            return this.answeredCount === this.totalQuestions && this.hasValidComment && {{ $retryAfter }} === 0;
+        },
+
         get progressPercent() {
             if (this.totalQuestions === 0) return 0;
             return Math.round((this.answeredCount / this.totalQuestions) * 100);
@@ -657,9 +665,10 @@ new class extends Component {
                     </label>
                     <textarea 
                         id="comments" 
-                        wire:model.live.debounce.1000ms="comments" 
+                        x-model="comments"
+                        wire:model.live.debounce.300ms="comments" 
                         rows="3" 
-                        placeholder="Share constructive feedback here (required)..." 
+                        placeholder="Share constructive feedback here (required, min 3 characters)..." 
                         class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#9b0000] focus:ring-1 focus:ring-[#9b0000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
                     ></textarea>
                     @error('comments')
@@ -711,10 +720,10 @@ new class extends Component {
                             type="submit" 
                             wire:loading.attr="disabled"
                             wire:target="submit"
-                            :disabled="{{ $retryAfter }} > 0 || answeredCount < totalQuestions"
-                            @click="if (answeredCount < totalQuestions || {{ $retryAfter }} > 0) { $event.preventDefault(); $event.stopPropagation(); return false; }"
+                            :disabled="!isReadyToSubmit"
+                            @click="if (!isReadyToSubmit) { $event.preventDefault(); $event.stopPropagation(); return false; }"
                             class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 flex items-center gap-2 border shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                            :class="answeredCount === totalQuestions && {{ $retryAfter }} === 0 ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] dark:border-[#f89696] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
+                            :class="isReadyToSubmit ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] dark:border-[#f89696] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
                         >
                             <span wire:loading.remove wire:target="submit" class="flex items-center gap-1.5">
                                 <flux:icon icon="paper-airplane" class="size-4" />

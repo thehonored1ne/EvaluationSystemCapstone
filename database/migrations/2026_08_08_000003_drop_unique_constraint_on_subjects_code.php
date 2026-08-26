@@ -49,7 +49,7 @@ return new class extends Migration
                         $table->dropUnique(['code']);
                     });
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Index does not exist, safely ignore
             }
         }

@@ -281,16 +281,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     </span>
                                 </template>
                             </button>
-
-                            <button
-                                type="button"
-                                onclick="window.print()"
-                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 cursor-pointer print:hidden shadow-2xs"
-                                title="Print Proof of Evaluation"
-                            >
-                                <flux:icon icon="printer" class="size-3.5" />
-                                <span>Print</span>
-                            </button>
                         </div>
                     </div>
                 </div>
