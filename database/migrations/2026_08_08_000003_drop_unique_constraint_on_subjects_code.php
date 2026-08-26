@@ -39,17 +39,19 @@ return new class extends Migration
 
             Schema::enableForeignKeyConstraints();
         } else {
-            Schema::table('subjects', function (Blueprint $table) {
-                try {
-                    $table->dropUnique('subjects_code_unique');
-                } catch (Throwable $e) {
-                    try {
+            try {
+                if (Schema::hasIndex('subjects', 'subjects_code_unique')) {
+                    Schema::table('subjects', function (Blueprint $table) {
+                        $table->dropUnique('subjects_code_unique');
+                    });
+                } elseif (Schema::hasIndex('subjects', ['code'])) {
+                    Schema::table('subjects', function (Blueprint $table) {
                         $table->dropUnique(['code']);
-                    } catch (Throwable $ex) {
-                        // Ignore if index does not exist
-                    }
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Index does not exist, safely ignore
+            }
         }
     }
 

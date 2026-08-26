@@ -24,5 +24,8 @@ php /var/www/html/artisan config:cache || true
 php /var/www/html/artisan route:cache || true
 php /var/www/html/artisan view:cache || true
 
+# Ensure supervisor log directories exist
+mkdir -p /var/log/supervisor /var/run
+
 echo "Starting all services via Supervisor (Nginx, PHP-FPM, Python AI, Queue Worker)..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+exec /usr/bin/supervisord -c /var/www/html/docker/supervisord.conf
