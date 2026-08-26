@@ -30,6 +30,25 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### August 26, 2026
+- **Cloud Production Deployment (Render + TiDB Cloud Serverless MySQL)**:
+  - Containerized full application stack (`Dockerfile`, `supervisord.conf`, `nginx.conf`, `entrypoint.sh`): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single lightweight container.
+  - Linked to a persistent TiDB Cloud Serverless MySQL instance in AWS Singapore (`ap-southeast-1`) with mandatory TLS/SSL certificates (`MYSQL_ATTR_SSL_CA`).
+  - Configured reverse-proxy trusted proxies (`$middleware->trustProxies(at: '*')`) and forced HTTPS URL scheme for assets.
+- **Database & Seeder Performance Optimization**:
+  - Converted `employees.role` column to `string('role', 50)` to support `department head` role on MySQL without truncation errors.
+  - Added `Schema::hasIndex` existence guards to `drop_unique_constraint_on_subjects_code` migration.
+  - Streamed `EvaluationPhase2Seeder.php` with `AcademicClass::chunk(25)` and periodic `$flushAll()` every 200 evaluations, reducing RAM usage from >500MB to <35MB on 512MB cloud tiers.
+- **Evaluator Bug Fixes & Queue State Isolation**:
+  - Fixed Issue #24: Resolved serialized answer matching bug in `Evaluation::getStatus()` by enforcing exact property delimiters (`\"evaluateeId\";i:X;` and `\"classId\";i:X;`).
+  - Resolved 76-question bug across Dean (30), Program Head (30), and Dept Head (16) forms by splitting generic `'downward'` into explicit instruments.
+  - Restricted `/manage-evaluations` strictly to `role:admin`.
+  - Added `sessionStorage` snooze persistence for the default password change modal.
+- **UI & UX Refinements**:
+  - Enforced reactive submit locking in `evaluation-form.blade.php`: submit button stays disabled until all questions are rated AND a comment $\ge 3$ characters is provided.
+  - Removed print button from student completion proof card, maintaining clean 15-digit reference ID copy workflow.
+  - Fixed sidebar sublist text overflow, container boundary clipping, and label hierarchy.
+
 ### August 25, 2026
 - **Evaluation Form UX, Submission Guards & Mobile Optimization**:
   - Added *"Jump to Missing Question →"* quick-action button and auto-centering smooth scroll for rating number navigator pills in `evaluation-form.blade.php`.

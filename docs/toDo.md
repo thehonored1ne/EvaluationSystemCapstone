@@ -1,3 +1,16 @@
+- [X] **Cloud Production Deployment, Seeder Scalability & Evaluator Bug Fixes (2026-08-26)**:
+  - Containerized full stack on **Render Web Service** (`Dockerfile`, `supervisord.conf`, `nginx.conf`, `entrypoint.sh`): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single multi-service container.
+  - Linked to a high-availability **TiDB Cloud Serverless MySQL** database in AWS Singapore (`ap-southeast-1`) with mandatory TLS/SSL certificate verification (`MYSQL_ATTR_SSL_CA`).
+  - Configured reverse-proxy trusted proxies (`$middleware->trustProxies(at: '*')`) and forced HTTPS URL asset scheme.
+  - Converted `employees.role` column to `string('role', 50)` to support `department head` on MySQL strict mode without truncation.
+  - Streamed `EvaluationPhase2Seeder.php` with `AcademicClass::chunk(25)` and periodic `$flushAll()` batch database insertions every 200 evaluations, reducing RAM consumption from **> 500 MB down to < 35 MB** on 512 MB cloud tiers.
+  - Fixed Issue #24: Resolved serialized answer matching bug in `Evaluation::getStatus()` by enforcing exact serialized property delimiters (`\"evaluateeId\";i:X;` and `\"classId\";i:X;`).
+  - Fixed 76-question bug across Dean (30), Program Head (30), and Dept Head (16) forms by splitting generic `'downward'` into explicit instruments.
+  - Enabled College Deans with `department_id = null` to view faculty across all academic colleges in `reports.blade.php`.
+  - Restricted `/manage-evaluations` strictly to `role:admin`.
+  - Enforced `isReadyToSubmit` in `evaluation-form.blade.php`: submit button stays disabled until all questions are rated AND a comment of $\ge 3$ characters is provided.
+  - Removed redundant print button from student completion proof card, maintaining clean 15-digit reference ID copy button.
+  - Fixed sidebar sublist text overflow, container boundary clipping, and label hierarchy.
 - [X] **Evaluation UX, Mobile Responsiveness & N+1 Database Optimizations (2026-08-25)**:
   - Added *"Jump to Missing Question →"* button and smooth auto-centering scroll for rating number pills in `evaluation-form.blade.php`.
   - Guarded evaluation form submit button against false-positive loading animations when incomplete using client-side Alpine checks and `pointer-events-none`.

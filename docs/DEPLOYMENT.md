@@ -69,7 +69,48 @@ sudo systemctl start flask-ai
 
 ---
 
-## 3. Laravel Scheduler Config
+## 3. Cloud Deployment (Render + TiDB Cloud Serverless)
+
+The project includes an all-in-one Docker deployment stack for Render's Web Service tier backed by a persistent TiDB Cloud MySQL database:
+
+### 1. Docker Multi-Service Container (`Dockerfile` & `supervisord.conf`)
+* **PHP-FPM (PHP 8.3)**: Handles dynamic Laravel requests.
+* **Nginx**: High-performance web server listening on Render dynamic `$PORT`.
+* **Gunicorn Python AI**: Serves Flask ML API on `127.0.0.1:5001`.
+* **Laravel Queue Worker**: Processes background sentiment analysis and asynchronous evaluation jobs.
+
+### 2. TiDB Cloud MySQL Configuration
+* **Provider**: TiDB Cloud Serverless on AWS Singapore (`ap-southeast-1`).
+* **SSL/TLS Requirement**: Set `MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt`.
+* **Port**: `4000`.
+
+### 3. Recommended Production Environment Variables on Render
+```env
+APP_NAME=EvaluationSystem
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://<your-app-name>.onrender.com
+SESSION_SECURE_COOKIE=true
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+AI_API_URL=http://127.0.0.1:5001
+AI_API_KEY=<secure-secret-key>
+AUTO_MIGRATE=true
+AUTO_SEED=false
+
+DB_CONNECTION=mysql
+DB_HOST=gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+DB_PORT=4000
+DB_DATABASE=test
+DB_USERNAME=<tidb-username>
+DB_PASSWORD=<tidb-password>
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt
+```
+
+---
+
+## 4. Laravel Scheduler Config
 Our automated AI retraining job (`php artisan ai:train`) is scheduled to run daily at midnight. To activate Laravel's scheduler, add the following cron entry to your production server:
 
 1. Open crontab editor:

@@ -4,6 +4,28 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-26]
+
+### Added, Optimized & Cloud Deployment
+- **Cloud Production Deployment (Render + TiDB Cloud Serverless MySQL)**:
+  - Containerized full application stack ([`Dockerfile`](file:///c:/Users/USER/Herd/evaluationsystem/Dockerfile), [`docker/supervisord.conf`](file:///c:/Users/USER/Herd/evaluationsystem/docker/supervisord.conf), [`docker/nginx.conf`](file:///c:/Users/USER/Herd/evaluationsystem/docker/nginx.conf), [`docker/entrypoint.sh`](file:///c:/Users/USER/Herd/evaluationsystem/docker/entrypoint.sh)): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single lightweight container.
+  - Connected to a high-availability **TiDB Cloud Serverless MySQL** database in AWS Singapore (`ap-southeast-1`) with mandatory TLS/SSL certificate verification.
+  - Configured reverse-proxy trusted proxies (`$middleware->trustProxies(at: '*')` in [`bootstrap/app.php`](file:///c:/Users/USER/Herd/evaluationsystem/bootstrap/app.php)) and forced HTTPS URL asset scheme ([`AppServiceProvider.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Providers/AppServiceProvider.php)).
+- **Database & Seeder Performance Optimization**:
+  - Fixed MySQL strict mode enum truncation on `employees` table: Updated migration [`0000_01_01_000001_create_employees_table.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/migrations/0000_01_01_000001_create_employees_table.php) to `$table->string('role', 50)` to accommodate `department head`.
+  - Added safe index existence check (`Schema::hasIndex`) to [`2026_08_08_000003_drop_unique_constraint_on_subjects_code.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/migrations/2026_08_08_000003_drop_unique_constraint_on_subjects_code.php).
+  - Streamed [`EvaluationPhase2Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/EvaluationPhase2Seeder.php) with `AcademicClass::chunk(25)` and periodic `$flushAll()` batch database insertions every 200 evaluations, reducing RAM consumption from **> 500 MB down to < 35 MB** on 512 MB cloud tiers.
+- **Evaluator Bug Fixes & Queue Isolation**:
+  - **Issue #24 Fixed**: Fixed serialized answers matching bug in [`Evaluation.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Evaluation.php) `getStatus()` by enforcing exact serialized property delimiters (`\"evaluateeId\";i:X;` and `\"classId\";i:X;`).
+  - **Question Count Disentanglement**: Fixed Dean (30), Program Head (30), and Dept Head (16) evaluation instruments in [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php) and role dashboard buttons.
+  - **Dean Cross-Department Visibility**: Enabled College Deans with `department_id = null` to view faculty across all academic colleges in [`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php).
+  - **Completion Tracking Scoping**: Restricted `/manage-evaluations` strictly to `role:admin`.
+  - **Default Password Modal**: Added `sessionStorage` snooze persistence in [`default-password-modal.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/default-password-modal.blade.php).
+- **UI/UX Refinements**:
+  - **Reactive Submit Button Locking** ([`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)): Enforced `isReadyToSubmit` so the submit button stays disabled and greyed out until all questions are rated AND a constructive comment of at least 3 characters is entered.
+  - **Sidebar Text Overflow & Container Boundaries** ([`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php)): Added `min-w-0 max-w-full overflow-hidden`, concise labels, and compact indentation to eliminate sub-item overflow and clipping.
+  - **Student Proof Card** ([`student/dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/student/dashboard.blade.php)): Removed redundant print button, maintaining a clean 15-digit reference ID copy button.
+
 ## [2026-08-25]
 
 ### Added, Optimized & UI/UX Polish

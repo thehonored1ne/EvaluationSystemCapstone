@@ -315,6 +315,16 @@ evaluationsystem/
 
 ---
 
+## 🐳 Docker & Cloud Deployment (Render + TiDB Cloud)
+
+The application includes an all-in-one production Docker setup:
+
+* **Container Runtime**: Multi-stage Docker image combining PHP 8.3 FPM, Nginx, Node.js 20 (Vite asset build), and Python 3 ML runtime.
+* **Process Manager**: Supervisord concurrently running Nginx, PHP-FPM, Python AI , and Laravel Queue Workers.
+* **Database**: High-availability MySQL wire-compatible serverless database hosted on **TiDB Cloud (AWS Singapore)** with enforced SSL/TLS.
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
