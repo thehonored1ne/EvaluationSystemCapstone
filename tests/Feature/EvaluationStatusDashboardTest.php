@@ -130,8 +130,53 @@ test('Evaluation getStatus correctly retrieves processing status for database qu
     // Assert status is now processing
     expect(Evaluation::getStatus($evaluatorId, $evaluateeId, $semesterId, $classId, $type))->toBe('processing');
 
-    // Assert different parameters do not return processing (loose checking isolation)
+    // Assert different parameters do not return processing (strict checking isolation)
     expect(Evaluation::getStatus($evaluatorId, $evaluateeId, $semesterId + 1, $classId, $type))->toBe('pending');
+});
+
+test('Evaluation getStatus isolates classes and does not falsely match other classes when answers array contains question numbers matching class ids', function () {
+    $evaluatorId = $this->studentUser->id;
+    $evaluateeId1 = $this->facUser1->id;
+    $evaluateeId2 = $this->facUser2->id;
+    $semesterId = $this->semester->id;
+    $classId1 = 1;
+    $classId2 = 2;
+    $type = 'upward_student';
+
+    // Answers containing question IDs 1 through 10
+    $answers = [1 => 5, 2 => 4, 3 => 5, 4 => 3, 5 => 5, 6 => 4, 7 => 5, 8 => 4, 9 => 5, 10 => 5];
+
+    $payload = json_encode([
+        'displayName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'data' => [
+            'commandName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+            'command' => serialize(new ProcessEvaluationSubmission(
+                $evaluatorId,
+                $evaluateeId1,
+                $semesterId,
+                $classId1,
+                $type,
+                $answers,
+                'great job'
+            )),
+        ],
+    ]);
+
+    DB::table('jobs')->insert([
+        'queue' => 'default',
+        'payload' => $payload,
+        'attempts' => 0,
+        'reserved_at' => null,
+        'available_at' => time(),
+        'created_at' => time(),
+    ]);
+
+    // Class 1 MUST be processing
+    expect(Evaluation::getStatus($evaluatorId, $evaluateeId1, $semesterId, $classId1, $type))->toBe('processing');
+
+    // Class 2 MUST be pending (not processing, even though question 2 is in answers)
+    expect(Evaluation::getStatus($evaluatorId, $evaluateeId2, $semesterId, $classId2, $type))->toBe('pending');
 });
 
 test('Student dashboard blocks selectClass when evaluation is processing in queue', function () {

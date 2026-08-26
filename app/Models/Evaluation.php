@@ -138,15 +138,15 @@ class Evaluation extends Model
             $jobExists = DB::table('jobs')
                 ->where('queue', 'default')
                 ->where('payload', 'like', '%ProcessEvaluationSubmission%')
-                ->where('payload', 'like', '%evaluatorId%i:'.$evaluatorId.';%')
-                ->where('payload', 'like', '%evaluateeId%i:'.$evaluateeId.';%')
-                ->where('payload', 'like', '%semesterId%i:'.$semesterId.';%')
-                ->where('payload', 'like', '%evaluationType%s:'.strlen($type).':%'.$type.'%');
+                ->where('payload', 'like', '%evaluatorId\";i:'.$evaluatorId.';%')
+                ->where('payload', 'like', '%evaluateeId\";i:'.$evaluateeId.';%')
+                ->where('payload', 'like', '%semesterId\";i:'.$semesterId.';%')
+                ->where('payload', 'like', '%evaluationType\";s:'.strlen($type).':\"'.$type.'\";%');
 
             if (is_null($classId)) {
-                $jobExists->where('payload', 'like', '%classId%N;%');
+                $jobExists->where('payload', 'like', '%classId\";N;%');
             } else {
-                $jobExists->where('payload', 'like', '%classId%i:'.$classId.';%');
+                $jobExists->where('payload', 'like', '%classId\";i:'.$classId.';%');
             }
 
             if ($jobExists->exists()) {
