@@ -19,6 +19,11 @@ if [ "$AUTO_MIGRATE" = "true" ]; then
     php /var/www/html/artisan migrate --force || true
 fi
 
+if [ "$AUTO_SEED" = "true" ]; then
+    echo "Running database seeders..."
+    php /var/www/html/artisan db:seed --force || true
+fi
+
 # Optimize configuration and caches
 php /var/www/html/artisan config:cache || true
 php /var/www/html/artisan route:cache || true
