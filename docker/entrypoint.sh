@@ -14,7 +14,10 @@ chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 # Run Laravel optimizations
 php /var/www/html/artisan storage:link --force || true
 
-if [ "$AUTO_MIGRATE" = "true" ]; then
+if [ "$AUTO_SEED" = "fresh" ]; then
+    echo "Fresh migrating and seeding database..."
+    php /var/www/html/artisan migrate:fresh --seed --force || true
+elif [ "$AUTO_MIGRATE" = "true" ]; then
     echo "Running database migrations..."
     php /var/www/html/artisan migrate --force || true
 fi
