@@ -340,78 +340,120 @@ class EvaluationPhase2Seeder extends Seeder
         $deptHeadUsers = User::whereHas('employee', fn ($q) => $q->where('role', 'department head'))->with('employee.department')->get();
         $staffUsers = User::whereHas('employee', fn ($q) => $q->where('role', 'staff'))->with('employee.department')->get();
 
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         $this->command->info('1. Seeding Student Evaluations (~75% completed, ~25% pending for demo)...');
-        $classes = AcademicClass::with(['teacher.user', 'students.user'])->get();
 
         $evalIdCounter = 1;
         $evalInserts = [];
         $answerInserts = [];
         $sentimentInserts = [];
+        $totalEvalInserted = 0;
+        $totalAnsInserted = 0;
+        $totalSentInserted = 0;
         $now = now()->toDateTimeString();
 
-        foreach ($classes as $class) {
-            if (! $class->teacher || ! $class->teacher->user) {
-                continue;
+        $flushAll = function () use (&$evalInserts, &$answerInserts, &$sentimentInserts, &$totalEvalInserted, &$totalAnsInserted, &$totalSentInserted) {
+            if (! empty($evalInserts)) {
+                $totalEvalInserted += count($evalInserts);
+                foreach (array_chunk($evalInserts, 500) as $chunk) {
+                    DB::table('evaluations')->insert($chunk);
+                }
+                $evalInserts = [];
             }
+            if (! empty($answerInserts)) {
+                $totalAnsInserted += count($answerInserts);
+                foreach (array_chunk($answerInserts, 1000) as $chunk) {
+                    DB::table('evaluation_answers')->insert($chunk);
+                }
+                $answerInserts = [];
+            }
+            if (! empty($sentimentInserts)) {
+                $totalSentInserted += count($sentimentInserts);
+                foreach (array_chunk($sentimentInserts, 500) as $chunk) {
+                    DB::table('evaluation_sentiments')->insert($chunk);
+                }
+                $sentimentInserts = [];
+            }
+        };
 
-            $teacherUser = $class->teacher->user;
-            $students = $class->students;
-            $totalEnrolled = $students->count();
-
-            // Evaluate approximately 75% of enrolled students, leaving ~25% pending
-            $evaluateCount = (int) round($totalEnrolled * 0.75);
-
-            foreach ($students->take($evaluateCount) as $student) {
-                if (! $student->user) {
+        AcademicClass::with(['teacher.user', 'students.user'])->chunk(25, function ($classes) use (
+            &$evalIdCounter, &$evalInserts, &$answerInserts, &$sentimentInserts,
+            $activeSemester, $generateAnswersAndScore, $pickComment, $studentComments,
+            $determineSentimentData, $now, $flushAll
+        ) {
+            foreach ($classes as $class) {
+                if (! $class->teacher || ! $class->teacher->user) {
                     continue;
                 }
 
-                $rand = mt_rand(1, 100);
-                $sentiment = $rand <= 70 ? 'positive' : ($rand <= 90 ? 'neutral' : 'negative');
+                $teacherUser = $class->teacher->user;
+                $students = $class->students;
+                $totalEnrolled = $students->count();
 
-                $calc = $generateAnswersAndScore('upward_student', $sentiment);
-                $comment = $pickComment($studentComments, $sentiment);
-                $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+                // Evaluate approximately 75% of enrolled students, leaving ~25% pending
+                $evaluateCount = (int) round($totalEnrolled * 0.75);
 
-                $currentEvalId = $evalIdCounter++;
+                foreach ($students->take($evaluateCount) as $student) {
+                    if (! $student->user) {
+                        continue;
+                    }
 
-                $evalInserts[] = [
-                    'id' => $currentEvalId,
-                    'evaluator_id' => $student->user->id,
-                    'evaluatee_id' => $teacherUser->id,
-                    'semester_id' => $activeSemester->id,
-                    'class_id' => $class->id,
-                    'evaluation_type' => 'upward_student',
-                    'rating_average' => $calc['rating_average'],
-                    'raw_score' => $calc['raw_score'],
-                    'max_score' => $calc['max_score'],
-                    'weighted_score' => $calc['weighted_score'],
-                    'comments' => $comment,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                    $rand = mt_rand(1, 100);
+                    $sentiment = $rand <= 70 ? 'positive' : ($rand <= 90 ? 'neutral' : 'negative');
 
-                foreach ($calc['answers'] as $qId => $rating) {
-                    $answerInserts[] = [
-                        'evaluation_id' => $currentEvalId,
-                        'question_id' => $qId,
-                        'rating' => $rating,
+                    $calc = $generateAnswersAndScore('upward_student', $sentiment);
+                    $comment = $pickComment($studentComments, $sentiment);
+                    $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+
+                    $currentEvalId = $evalIdCounter++;
+
+                    $evalInserts[] = [
+                        'id' => $currentEvalId,
+                        'evaluator_id' => $student->user->id,
+                        'evaluatee_id' => $teacherUser->id,
+                        'semester_id' => $activeSemester->id,
+                        'class_id' => $class->id,
+                        'evaluation_type' => 'upward_student',
+                        'rating_average' => $calc['rating_average'],
+                        'raw_score' => $calc['raw_score'],
+                        'max_score' => $calc['max_score'],
+                        'weighted_score' => $calc['weighted_score'],
+                        'comments' => $comment,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
-                }
 
-                $sentimentInserts[] = [
-                    'evaluation_id' => $currentEvalId,
-                    'vader_score' => $sentimentMeta['vader_score'],
-                    'vader_label' => $sentimentMeta['vader_label'],
-                    'dt_label' => $sentimentMeta['dt_label'],
-                    'manual_label' => null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                    foreach ($calc['answers'] as $qId => $rating) {
+                        $answerInserts[] = [
+                            'evaluation_id' => $currentEvalId,
+                            'question_id' => $qId,
+                            'rating' => $rating,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+
+                    $sentimentInserts[] = [
+                        'evaluation_id' => $currentEvalId,
+                        'vader_score' => $sentimentMeta['vader_score'],
+                        'vader_label' => $sentimentMeta['vader_label'],
+                        'dt_label' => $sentimentMeta['dt_label'],
+                        'manual_label' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+
+                    if (count($evalInserts) >= 200) {
+                        $flushAll();
+                    }
+                }
             }
-        }
+            $flushAll();
+        });
+
+        $flushAll();
 
         $this->command->info('2. Seeding Dean Evaluations (40/50 Faculty & 3/4 Program Heads completed)...');
         if ($deanUser) {
@@ -1056,23 +1098,8 @@ class EvaluationPhase2Seeder extends Seeder
         }
 
         $this->command->info('6. Executing batch database insertions...');
-        // Insert evaluations in chunks
-        foreach (array_chunk($evalInserts, 500) as $chunk) {
-            DB::table('evaluations')->insert($chunk);
-        }
-        $this->command->info('   -> Inserted '.count($evalInserts).' evaluation records.');
-
-        // Insert answers in chunks
-        foreach (array_chunk($answerInserts, 2000) as $chunk) {
-            DB::table('evaluation_answers')->insert($chunk);
-        }
-        $this->command->info('   -> Inserted '.count($answerInserts).' answer records.');
-
-        // Insert sentiments in chunks
-        foreach (array_chunk($sentimentInserts, 500) as $chunk) {
-            DB::table('evaluation_sentiments')->insert($chunk);
-        }
-        $this->command->info('   -> Inserted '.count($sentimentInserts).' sentiment records.');
+        $flushAll();
+        $this->command->info("   -> Total inserted: {$totalEvalInserted} evaluation records, {$totalAnsInserted} answer records, {$totalSentInserted} sentiment records.");
 
         $this->command->info('7. Aggregating evaluation summaries for all employees...');
         $allEmployees = Employee::with('user')->get();
