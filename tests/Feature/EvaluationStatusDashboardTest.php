@@ -222,7 +222,7 @@ test('Dean dashboard blocks selectTarget when evaluation is processing in queue'
     $evaluateeId = $this->phUser->id; // Program head
     $semesterId = $this->semester->id;
     $classId = null;
-    $type = 'downward';
+    $type = 'dean';
 
     // Set up queue job
     $payload = json_encode([

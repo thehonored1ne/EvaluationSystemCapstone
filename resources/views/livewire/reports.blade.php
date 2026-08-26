@@ -51,9 +51,13 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->orderBy('first_name');
 
         if ($user->hasRole('program head')) {
-            $query->where('department_id', $user->employee->department_id);
+            if ($user->employee?->department_id) {
+                $query->where('department_id', $user->employee->department_id);
+            }
         } elseif ($user->hasRole('dean')) {
-            $query->where('department_id', $user->employee->department_id);
+            if ($user->employee?->department_id) {
+                $query->where('department_id', $user->employee->department_id);
+            }
         }
 
         if ($this->selectedDepartment) {

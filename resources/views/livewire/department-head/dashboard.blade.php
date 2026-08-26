@@ -18,7 +18,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $tab = 'self';
 
     public ?int $selectedEvaluateeUserId = null;
-    public string $selectedEvaluationType = 'downward'; // 'self', 'downward' (for staff), 'upward_employee' (for deans)
+    public string $selectedEvaluationType = 'department_head'; // 'self', 'department_head' (for staff), 'upward_employee' (for deans)
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -83,7 +83,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 return false;
             }
 
-            $status = $this->getEvaluationStatus($staff->user->id, 'downward');
+            $status = $this->getEvaluationStatus($staff->user->id, 'department_head');
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
@@ -267,7 +267,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <tbody class="divide-y divide-zinc-250 dark:divide-zinc-850 bg-white dark:bg-zinc-900">
                                     @foreach($this->departmentStaff as $staff)
                                         @if($staff->user)
-                                            @php $status = $this->getEvaluationStatus($staff->user->id, 'downward'); @endphp
+                                            @php $status = $this->getEvaluationStatus($staff->user->id, 'department_head'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
                                                     {{ $staff->full_name }}
@@ -304,7 +304,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @elseif(!$this->isEvaluationOpen)
                                                         <span class="text-xs text-zinc-400">Unavailable</span>
                                                     @else
-                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $staff->user->id }}, 'downward')">
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $staff->user->id }}, 'department_head')">
                                                             Evaluate
                                                         </flux:button>
                                                     @endif

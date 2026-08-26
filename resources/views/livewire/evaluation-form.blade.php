@@ -54,13 +54,12 @@ new class extends Component {
         $this->comments = '';
         
         $types = match ($this->evaluationType) {
-            'student', 'upward_student' => ['student', 'upward_student'],
-            'dean' => ['dean', 'downward'],
-            'program_head', 'ph_dh' => ['program_head', 'ph_dh', 'downward'],
-            'department_head' => ['department_head', 'downward'],
-            'downward' => ['downward', 'dean', 'program_head', 'department_head'],
+            'student', 'upward_student' => ['upward_student', 'student'],
+            'dean' => ['dean'],
+            'program_head', 'ph_dh' => ['program_head'],
+            'department_head' => ['department_head'],
             'peer' => ['peer'],
-            'superior', 'upward_employee' => ['superior', 'upward_employee'],
+            'superior', 'upward_employee' => ['upward_employee', 'superior'],
             'self' => ['self'],
             default => [$this->evaluationType],
         };
@@ -77,13 +76,12 @@ new class extends Component {
     public function getCriteriaProperty()
     {
         $types = match ($this->evaluationType) {
-            'student', 'upward_student' => ['student', 'upward_student'],
-            'dean' => ['dean', 'downward'],
-            'program_head', 'ph_dh' => ['program_head', 'ph_dh', 'downward'],
-            'department_head' => ['department_head', 'downward'],
-            'downward' => ['downward', 'dean', 'program_head', 'department_head'],
+            'student', 'upward_student' => ['upward_student', 'student'],
+            'dean' => ['dean'],
+            'program_head', 'ph_dh' => ['program_head'],
+            'department_head' => ['department_head'],
             'peer' => ['peer'],
-            'superior', 'upward_employee' => ['superior', 'upward_employee'],
+            'superior', 'upward_employee' => ['upward_employee', 'superior'],
             'self' => ['self'],
             default => [$this->evaluationType],
         };

@@ -18,7 +18,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $tab = 'self';
 
     public ?int $selectedEvaluateeUserId = null;
-    public string $selectedEvaluationType = 'downward'; // 'self', 'downward', 'dean'
+    public string $selectedEvaluationType = 'dean'; // 'self', 'dean'
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -83,7 +83,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return $this->facultyMembers->filter(function ($fac) {
             if (!$fac->user) return false;
-            $status = $this->getEvaluationStatus($fac->user->id, 'downward');
+            $status = $this->getEvaluationStatus($fac->user->id, 'dean');
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
@@ -92,7 +92,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return $this->programHeads->filter(function ($head) {
             if (!$head->user) return false;
-            $status = $this->getEvaluationStatus($head->user->id, 'downward');
+            $status = $this->getEvaluationStatus($head->user->id, 'dean');
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
@@ -248,7 +248,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
                                     @foreach($this->facultyMembers as $faculty)
                                         @if($faculty->user)
-                                            @php $status = $this->getEvaluationStatus($faculty->user->id, 'downward'); @endphp
+                                            @php $status = $this->getEvaluationStatus($faculty->user->id, 'dean'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4">
                                                     <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $faculty->full_name }}</div>
@@ -288,7 +288,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @elseif(!$this->isEvaluationOpen)
                                                         <span class="text-xs text-zinc-400">Unavailable</span>
                                                     @else
-                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $faculty->user->id }}, 'downward')">
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $faculty->user->id }}, 'dean')">
                                                             Evaluate
                                                         </flux:button>
                                                     @endif
@@ -330,7 +330,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
                                     @foreach($this->programHeads as $head)
                                         @if($head->user)
-                                            @php $status = $this->getEvaluationStatus($head->user->id, 'downward'); @endphp
+                                            @php $status = $this->getEvaluationStatus($head->user->id, 'dean'); @endphp
                                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                                                 <td class="px-6 py-4 font-semibold text-zinc-800 dark:text-zinc-200">
                                                     {{ $head->full_name }}
@@ -369,7 +369,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @elseif(!$this->isEvaluationOpen)
                                                         <span class="text-xs text-zinc-400">Unavailable</span>
                                                     @else
-                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'downward')">
+                                                        <flux:button size="sm" variant="primary" wire:click="selectTarget({{ $head->user->id }}, 'dean')">
                                                             Evaluate
                                                         </flux:button>
                                                     @endif

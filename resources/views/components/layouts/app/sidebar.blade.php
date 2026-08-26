@@ -255,7 +255,7 @@
 
                     <!-- Evaluations (All roles) -->
                     <flux:navlist.group heading="Evaluations" class="grid">
-                        @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                        @if($user->hasRole('admin'))
                             <flux:tooltip content="Completion Tracking" position="right">
                                 <flux:navlist.item icon="clipboard-document-check" :href="route('manage-evaluations')" :current="request()->routeIs('manage-evaluations')" aria-label="Completion Tracking" wire:navigate>Completion Tracking</flux:navlist.item>
                             </flux:tooltip>

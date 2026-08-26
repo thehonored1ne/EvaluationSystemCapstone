@@ -56,10 +56,14 @@ beforeEach(function () {
     $this->facPeerUser->assignRole('faculty');
 });
 
-test('completion tracking route responds with 200 for admin, dean, and program head', function () {
+test('completion tracking route responds with 200 for admin and 403 for non-admins', function () {
     $this->actingAs($this->adminUser)
         ->get('/manage-evaluations')
         ->assertStatus(200);
+
+    $this->actingAs($this->facUser)
+        ->get('/manage-evaluations')
+        ->assertStatus(403);
 });
 
 test('completion tracking component renders and allows tab switching across all 6 evaluator roles', function () {
@@ -159,7 +163,7 @@ test('completion tracking student tab renders enrolled student, section, subject
         ->assertSee('Completed');
 });
 
-test('dean and program head can access manage-evaluations without errors', function () {
+test('non-admin roles like dean and program head cannot access manage-evaluations', function () {
     $deanEmp = Employee::create([
         'employee_number' => 'DEAN-001',
         'first_name' => 'Charles',
@@ -178,11 +182,7 @@ test('dean and program head can access manage-evaluations without errors', funct
 
     $this->actingAs($deanUser)
         ->get('/manage-evaluations')
-        ->assertStatus(200);
-
-    Livewire::actingAs($deanUser)
-        ->test('manage-evaluations')
-        ->assertStatus(200);
+        ->assertStatus(403);
 });
 
 test('manage evaluations component supports search and status filtering', function () {

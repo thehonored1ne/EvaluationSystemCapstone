@@ -73,9 +73,9 @@ test('route access authorization holds correct boundaries', function () {
     $this->get('/reports')->assertStatus(200);
     $this->get('/notifications')->assertStatus(200);
 
-    // 2. Dean has access to evaluations, results, reports, notifications
+    // 2. Dean has access to results, reports, notifications (manage-evaluations is admin only)
     $this->actingAs($this->deanUser);
-    $this->get('/manage-evaluations')->assertStatus(200);
+    $this->get('/manage-evaluations')->assertStatus(403);
     $this->get('/evaluation-results')->assertStatus(200);
     $this->get('/reports')->assertStatus(200);
     $this->get('/notifications')->assertStatus(200);

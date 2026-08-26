@@ -135,7 +135,7 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
     // Unified Sidebar Features
     Volt::route('/manage-evaluations', 'manage-evaluations')
         ->lazy()
-        ->middleware('role:admin|dean|program head')
+        ->middleware('role:admin')
         ->name('manage-evaluations');
 
     Volt::route('/evaluation-results', 'evaluation-results')

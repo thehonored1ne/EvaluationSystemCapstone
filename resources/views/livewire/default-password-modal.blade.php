@@ -41,7 +41,7 @@ new class extends Component {
     @if($this->shouldShow())
         <div 
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
-            x-data="{ show: true }"
+            x-data="{ show: !sessionStorage.getItem('default_password_modal_dismissed') }"
             x-show="show"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="opacity-0 transform scale-95"
@@ -97,6 +97,7 @@ new class extends Component {
                 <div class="px-6 py-4 bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3">
                     <button 
                         type="button" 
+                        @click="sessionStorage.setItem('default_password_modal_dismissed', '1'); show = false"
                         wire:click="dismissLater" 
                         class="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-center"
                     >
@@ -105,6 +106,7 @@ new class extends Component {
 
                     <button 
                         type="button" 
+                        @click="sessionStorage.setItem('default_password_modal_dismissed', '1'); show = false"
                         wire:click="goToChangePassword" 
                         class="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#7a0000] hover:bg-[#9b0000] active:bg-[#600000] shadow-sm hover:shadow transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
                     >
