@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Lighthouse Performance & Layout Shift Fixes (`admin/dashboard.blade.php`, `app-logo.blade.php`, `docker/nginx.conf`)**:
     - Eliminated Cumulative Layout Shift (CLS) by matching skeleton placeholder height (`min-h-[360px]`) to live chart cards and enforcing explicit natural aspect ratio (`width="440" height="237"`) on the GRC brand logo.
     - Added short-lived caching (`Cache::remember`) on heavy admin dashboard metrics and aggregation queries to reduce server response time (TTFB).
-    - Configured 1-year immutable caching headers (`Cache-Control: public, max-age=31536000, immutable`) for static assets in `docker/nginx.conf`.
+    - Configured 1-year immutable caching headers (`Cache-Control: public, max-age=31536000, immutable`) for static assets in `docker/nginx.conf` with dynamic fallback routing for Livewire and Flux runtime scripts.
   - **Static Analysis & Tooling**: Regenerated PHPStan baseline to match reduced query counts. All 136 Pest tests and Pint linters verified green.
 - **Documentation & Agent Governance**:
   - Migrated legacy documentation into Obsidian Vault (`docs/eval-system-vault/`) with Map of Content (`Dashboard.md`) and visual Canvas (`System Overview.canvas`).
