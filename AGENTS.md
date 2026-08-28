@@ -2,6 +2,7 @@
 
 - **Single Source of Truth:** The agent must treat [`docs/eval-system-vault/`](file:///c:/Users/USER/Herd/evaluationsystem/docs/eval-system-vault) as the project's single source of truth.
 - **Pre-Task Check:** Inspect `00 - Home/Dashboard.md` and related vault notes before executing tasks.
+- **Post-Task Update:** After finishing any task, the agent must update the project documentation in `docs/eval-system-vault/`.
 - **Context Maintenance:** Write all architecture decisions, schema updates, RBAC changes, and roadmap progress directly into `docs/eval-system-vault/`.
 
 Modular rule definitions are located in [`.agents/rules/`](file:///c:/Users/USER/Herd/evaluationsystem/.agents/rules):

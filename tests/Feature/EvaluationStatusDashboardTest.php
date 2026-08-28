@@ -21,6 +21,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Livewire::withoutLazyLoading();
+    Evaluation::flushStatusCache();
     // Create roles
     Role::firstOrCreate(['name' => 'admin']);
     Role::firstOrCreate(['name' => 'dean']);

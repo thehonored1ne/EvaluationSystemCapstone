@@ -15,6 +15,20 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-28]
+
+### Optimized & Resolved
+- **Codebase N+1 Query Resolution**:
+  - **Global Layout & Navigation (`app/Models/User.php`)**: Replaced per-item `Evaluation::where()->exists()` inside `getNotifications()` and `countPendingEvaluations()` with a single bulk query (`pluck('class_id')` for students, preloaded `completedMap` keyed by `evaluatee_id_evaluation_type` for employees). Reduced SQL queries from $O(N)$ (15–40 queries per page load) to **1 single batch query**.
+  - **Evaluation Status In-Memory Caching (`app/Models/Evaluation.php`)**: Optimized `getStatus()` with cached batch evaluation lookup and queue checks (`self::$statusCache`), reducing evaluator portal table query overhead. Added `flushStatusCache()` for queue state invalidation and test isolation.
+  - **Admin Class Table Nested Eager-Loading (`resources/views/livewire/admin/manage-classes.blade.php`)**: Added `teacher.department` to `AcademicClass::with(['subject', 'teacher.department', 'semester.academicYear'])` to eliminate lazy-loading queries during class table pagination.
+  - **Console Commands (`app/Console/Commands/SendEvaluationDeadlineReminders.php`)**: Delegated reminder count checks directly to the optimized `User` model method.
+  - **Static Analysis & Tooling**: Regenerated PHPStan baseline to match reduced query counts. All 136 Pest tests and Pint linters verified green.
+- **Documentation & Agent Governance**:
+  - Migrated legacy documentation into Obsidian Vault (`docs/eval-system-vault/`) with Map of Content (`Dashboard.md`) and visual Canvas (`System Overview.canvas`).
+  - Modularized agent rules in `.agents/rules/` (`vault.md`, `laravel-livewire.md`, `qa-security.md`, `workflow.md`).
+  - Added mandatory `Post-Task Update` rule requiring the agent to update vault documentation immediately upon task completion.
+
 ## [2026-08-26]
 
 ### Added, Optimized & Cloud Deployment

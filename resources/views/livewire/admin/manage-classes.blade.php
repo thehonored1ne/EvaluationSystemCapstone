@@ -617,7 +617,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function with(): array
     {
         $query = AcademicClass::query()
-            ->with(['subject', 'teacher', 'semester.academicYear'])
+            ->with(['subject', 'teacher.department', 'semester.academicYear'])
             ->withCount('students');
 
         if ($this->search) {

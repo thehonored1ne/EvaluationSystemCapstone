@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\ProcessEvaluationSubmission;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -92,13 +93,16 @@ class Evaluation extends Model
     }
 
     /**
-     * In-memory per-request cache for evaluation statuses.
+     * In-memory per-request cache for evaluation statuses and active queue jobs.
      */
     protected static array $statusCache = [];
+
+    protected static ?array $activeJobsCache = null;
 
     public static function flushStatusCache(): void
     {
         self::$statusCache = [];
+        self::$activeJobsCache = null;
     }
 
     /**
@@ -133,24 +137,28 @@ class Evaluation extends Model
             return self::$statusCache[$cacheKey][$itemKey];
         }
 
-        // 2. Check database queue jobs if not completed
+        // 2. Check database queue jobs if not in completed map
         try {
-            $jobExists = DB::table('jobs')
+            $activeJobs = DB::table('jobs')
                 ->where('queue', 'default')
                 ->where('payload', 'like', '%ProcessEvaluationSubmission%')
-                ->where('payload', 'like', '%evaluatorId\";i:'.$evaluatorId.';%')
-                ->where('payload', 'like', '%evaluateeId\";i:'.$evaluateeId.';%')
-                ->where('payload', 'like', '%semesterId\";i:'.$semesterId.';%')
-                ->where('payload', 'like', '%evaluationType\";s:'.strlen($type).':\"'.$type.'\";%');
+                ->pluck('payload');
 
-            if (is_null($classId)) {
-                $jobExists->where('payload', 'like', '%classId\";N;%');
-            } else {
-                $jobExists->where('payload', 'like', '%classId\";i:'.$classId.';%');
-            }
-
-            if ($jobExists->exists()) {
-                return 'processing';
+            foreach ($activeJobs as $payloadStr) {
+                $payloadData = json_decode($payloadStr, true);
+                $command = $payloadData['data']['command'] ?? null;
+                if ($command) {
+                    $unserialized = @unserialize($command);
+                    if ($unserialized instanceof ProcessEvaluationSubmission) {
+                        if ($unserialized->evaluatorId === $evaluatorId
+                            && $unserialized->evaluateeId === $evaluateeId
+                            && $unserialized->semesterId === $semesterId
+                            && (string) ($unserialized->classId ?? 'null') === (string) $lookupClassId
+                            && $unserialized->evaluationType === $type) {
+                            return 'processing';
+                        }
+                    }
+                }
             }
         } catch (\Throwable $e) {
             // Gracefully ignore if jobs table does not exist

@@ -9,6 +9,14 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] **Codebase N+1 Query Resolution, Obsidian Vault Migration & Agent Governance (2026-08-28)**:
+  - Eliminated N+1 queries in `app/Models/User.php` (`getNotifications()` & `countPendingEvaluations()`) by pre-fetching class IDs and completed evaluations via a single batch query.
+  - Optimized `Evaluation::getStatus()` with in-memory memoization cache (`self::$statusCache`) and batch queue inspection.
+  - Added eager-loading for `teacher.department` in `resources/views/livewire/admin/manage-classes.blade.php`.
+  - Refactored `SendEvaluationDeadlineReminders.php` to delegate count checks to the optimized `User` model.
+  - Regenerated PHPStan baseline (0 errors) and passed all 136 Pest tests and Pint linting.
+  - Migrated project documentation into an organized Obsidian Vault (`docs/eval-system-vault/`) with Map of Content and visual canvas.
+  - Modularized agent rules in `.agents/rules/` and added mandatory post-task documentation update rule.
 - [X] **Cloud Production Deployment, Seeder Scalability & Evaluator Bug Fixes (2026-08-26)**:
   - Containerized full stack on **Render Web Service** (`Dockerfile`, `supervisord.conf`, `nginx.conf`, `entrypoint.sh`): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single multi-service container.
   - Linked to a high-availability **TiDB Cloud Serverless MySQL** database in AWS Singapore (`ap-southeast-1`) with mandatory TLS/SSL certificate verification (`MYSQL_ATTR_SSL_CA`).

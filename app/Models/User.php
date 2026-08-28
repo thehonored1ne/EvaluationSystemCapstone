@@ -227,19 +227,18 @@ class User extends Authenticatable // implements MustVerifyEmail
                 ->with(['subject', 'teacher.user'])
                 ->get();
 
+            $evaluatedClassSet = array_flip(
+                Evaluation::where('semester_id', $sem->id)
+                    ->where('evaluator_id', $this->id)
+                    ->pluck('class_id')
+                    ->filter()
+                    ->all()
+            );
+
             $pendingCount = 0;
             foreach ($classes as $class) {
-                if ($class->teacher && $class->teacher->user) {
-                    $evaluated = Evaluation::where([
-                        'semester_id' => $sem->id,
-                        'evaluator_id' => $this->id,
-                        'evaluatee_id' => $class->teacher->user->id,
-                        'class_id' => $class->id,
-                    ])->exists();
-
-                    if (! $evaluated) {
-                        $pendingCount++;
-                    }
+                if ($class->teacher && $class->teacher->user && ! isset($evaluatedClassSet[$class->id])) {
+                    $pendingCount++;
                 }
             }
 
@@ -252,273 +251,248 @@ class User extends Authenticatable // implements MustVerifyEmail
                     'created_at' => $notificationTime,
                 ];
             }
-        } elseif ($this->hasRole('faculty') && $this->employee) {
+        } elseif ($this->employee) {
             $emp = $this->employee;
+            $completedEvals = Evaluation::where('semester_id', $sem->id)
+                ->where('evaluator_id', $this->id)
+                ->select(['evaluatee_id', 'evaluation_type'])
+                ->get();
 
-            // Check self evaluation
-            $selfEvaluated = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
-
-            if (! $selfEvaluated && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'faculty_self_'.$sem->id,
-                    'type' => 'reminder',
-                    'title' => 'Self Evaluation Incomplete',
-                    'description' => 'You have not submitted your self-evaluation report for this semester yet.',
-                    'created_at' => $notificationTime,
-                ];
+            $completedMap = [];
+            foreach ($completedEvals as $ev) {
+                $completedMap[$ev->evaluatee_id.'_'.$ev->evaluation_type] = true;
             }
 
-            // Peers pending
-            if ($emp->department_id) {
-                $peers = Employee::where('role', 'faculty')
-                    ->where('department_id', $emp->department_id)
-                    ->where('id', '!=', $emp->id)
-                    ->with('user')
-                    ->get();
+            if ($this->hasRole('faculty')) {
+                // Check self evaluation
+                $selfEvaluated = isset($completedMap[$this->id.'_self']);
 
-                $peerPending = 0;
-                foreach ($peers as $peer) {
-                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $peerPending++;
-                    }
-                }
-
-                if ($peerPending > 0 && $isEvaluationOpen) {
+                if (! $selfEvaluated && $isEvaluationOpen) {
                     $notifications[] = (object) [
-                        'id' => 'faculty_peer_'.$sem->id.'_'.$peerPending,
+                        'id' => 'faculty_self_'.$sem->id,
                         'type' => 'reminder',
-                        'title' => 'Pending Peer Evaluations',
-                        'description' => "You have {$peerPending} peer evaluation(s) remaining for faculty members in your department.",
+                        'title' => 'Self Evaluation Incomplete',
+                        'description' => 'You have not submitted your self-evaluation report for this semester yet.',
                         'created_at' => $notificationTime,
                     ];
                 }
-            }
-        } elseif ($this->hasRole('program head') && $this->employee) {
-            $emp = $this->employee;
 
-            // Check self evaluation
-            $selfEvaluated = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
+                // Peers pending
+                if ($emp->department_id) {
+                    $peers = Employee::where('role', 'faculty')
+                        ->where('department_id', $emp->department_id)
+                        ->where('id', '!=', $emp->id)
+                        ->with('user')
+                        ->get();
 
-            if (! $selfEvaluated && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'ph_self_'.$sem->id,
-                    'type' => 'reminder',
-                    'title' => 'Self Evaluation Incomplete',
-                    'description' => 'Please fill out your self-evaluation form for this semester.',
-                    'created_at' => $notificationTime,
-                ];
-            }
-
-            // Faculty subordinates pending
-            if ($emp->department_id) {
-                $faculty = Employee::where('role', 'faculty')
-                    ->where('department_id', $emp->department_id)
-                    ->with('user')
-                    ->get();
-
-                $facPending = 0;
-                foreach ($faculty as $member) {
-                    if ($member->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $member->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $facPending++;
+                    $peerPending = 0;
+                    foreach ($peers as $peer) {
+                        if ($peer->user && ! isset($completedMap[$peer->user->id.'_peer'])) {
+                            $peerPending++;
+                        }
                     }
-                }
 
-                if ($facPending > 0 && $isEvaluationOpen) {
-                    $notifications[] = (object) [
-                        'id' => 'ph_fac_'.$sem->id.'_'.$facPending,
-                        'type' => 'reminder',
-                        'title' => 'Pending Subordinate Evaluations',
-                        'description' => "You have {$facPending} subordinate faculty evaluation(s) remaining in your department.",
-                        'created_at' => $notificationTime,
-                    ];
-                }
-            }
-        } elseif ($this->hasRole('dean') && $this->employee) {
-            // Check self evaluation
-            $selfEvaluated = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
-
-            if (! $selfEvaluated && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'dean_self_'.$sem->id,
-                    'type' => 'reminder',
-                    'title' => 'Self Evaluation Incomplete',
-                    'description' => 'Please submit your dean self-evaluation form.',
-                    'created_at' => $notificationTime,
-                ];
-            }
-
-            // PH subordinates pending
-            $heads = Employee::where('role', 'program head')->with('user')->get();
-            $phPending = 0;
-            foreach ($heads as $head) {
-                if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                    $phPending++;
-                }
-            }
-
-            if ($phPending > 0 && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'dean_ph_'.$sem->id.'_'.$phPending,
-                    'type' => 'reminder',
-                    'title' => 'Pending Program Head Evaluations',
-                    'description' => "You have {$phPending} Program Head evaluation(s) remaining to fill out.",
-                    'created_at' => $notificationTime,
-                ];
-            }
-        } elseif ($this->hasRole('staff') && $this->employee) {
-            $emp = $this->employee;
-
-            // Check self evaluation
-            $selfEvaluated = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
-
-            if (! $selfEvaluated && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'staff_self_'.$sem->id,
-                    'type' => 'reminder',
-                    'title' => 'Self Evaluation Incomplete',
-                    'description' => 'Please submit your staff self-evaluation report.',
-                    'created_at' => $notificationTime,
-                ];
-            }
-
-            // Department Head supervisor evaluation pending
-            if ($emp->department_id) {
-                $dept = $emp->department;
-                $headUser = null;
-                if ($dept && $dept->department_head_id) {
-                    $headEmp = Employee::with('user')->find($dept->department_head_id);
-                    $headUser = $headEmp?->user;
-                } else {
-                    $headEmp = Employee::where('role', 'department head')->where('department_id', $emp->department_id)->first();
-                    $headUser = $headEmp?->user;
-                }
-
-                if ($headUser && $headUser->id !== $this->id) {
-                    $headDone = Evaluation::where([
-                        'semester_id' => $sem->id,
-                        'evaluator_id' => $this->id,
-                        'evaluatee_id' => $headUser->id,
-                        'evaluation_type' => 'upward_employee',
-                    ])->exists();
-
-                    if (! $headDone && $isEvaluationOpen) {
+                    if ($peerPending > 0 && $isEvaluationOpen) {
                         $notifications[] = (object) [
-                            'id' => 'staff_dh_'.$sem->id,
+                            'id' => 'faculty_peer_'.$sem->id.'_'.$peerPending,
                             'type' => 'reminder',
-                            'title' => 'Pending Supervisor Evaluation',
-                            'description' => 'You have 1 Department Head supervisor evaluation remaining to submit.',
+                            'title' => 'Pending Peer Evaluations',
+                            'description' => "You have {$peerPending} peer evaluation(s) remaining for faculty members in your department.",
+                            'created_at' => $notificationTime,
+                        ];
+                    }
+                }
+            } elseif ($this->hasRole('program head')) {
+                // Check self evaluation
+                $selfEvaluated = isset($completedMap[$this->id.'_self']);
+
+                if (! $selfEvaluated && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'id' => 'ph_self_'.$sem->id,
+                        'type' => 'reminder',
+                        'title' => 'Self Evaluation Incomplete',
+                        'description' => 'Please fill out your self-evaluation form for this semester.',
+                        'created_at' => $notificationTime,
+                    ];
+                }
+
+                // Faculty subordinates pending
+                if ($emp->department_id) {
+                    $faculty = Employee::where('role', 'faculty')
+                        ->where('department_id', $emp->department_id)
+                        ->with('user')
+                        ->get();
+
+                    $facPending = 0;
+                    foreach ($faculty as $member) {
+                        if ($member->user && ! isset($completedMap[$member->user->id.'_peer']) && ! isset($completedMap[$member->user->id.'_downward'])) {
+                            $facPending++;
+                        }
+                    }
+
+                    if ($facPending > 0 && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'ph_fac_'.$sem->id.'_'.$facPending,
+                            'type' => 'reminder',
+                            'title' => 'Pending Subordinate Evaluations',
+                            'description' => "You have {$facPending} subordinate faculty evaluation(s) remaining in your department.",
+                            'created_at' => $notificationTime,
+                        ];
+                    }
+                }
+            } elseif ($this->hasRole('dean')) {
+                // Check self evaluation
+                $selfEvaluated = isset($completedMap[$this->id.'_self']);
+
+                if (! $selfEvaluated && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'id' => 'dean_self_'.$sem->id,
+                        'type' => 'reminder',
+                        'title' => 'Self Evaluation Incomplete',
+                        'description' => 'Please submit your dean self-evaluation form.',
+                        'created_at' => $notificationTime,
+                    ];
+                }
+
+                // PH subordinates pending
+                $heads = Employee::where('role', 'program head')->with('user')->get();
+                $phPending = 0;
+                foreach ($heads as $head) {
+                    if ($head->user && ! isset($completedMap[$head->user->id.'_peer']) && ! isset($completedMap[$head->user->id.'_downward'])) {
+                        $phPending++;
+                    }
+                }
+
+                if ($phPending > 0 && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'id' => 'dean_ph_'.$sem->id.'_'.$phPending,
+                        'type' => 'reminder',
+                        'title' => 'Pending Program Head Evaluations',
+                        'description' => "You have {$phPending} Program Head evaluation(s) remaining to fill out.",
+                        'created_at' => $notificationTime,
+                    ];
+                }
+            } elseif ($this->hasRole('staff')) {
+                // Check self evaluation
+                $selfEvaluated = isset($completedMap[$this->id.'_self']);
+
+                if (! $selfEvaluated && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'id' => 'staff_self_'.$sem->id,
+                        'type' => 'reminder',
+                        'title' => 'Self Evaluation Incomplete',
+                        'description' => 'Please submit your staff self-evaluation report.',
+                        'created_at' => $notificationTime,
+                    ];
+                }
+
+                // Department Head supervisor evaluation pending
+                if ($emp->department_id) {
+                    $dept = $emp->department;
+                    $headUser = null;
+                    if ($dept && $dept->department_head_id) {
+                        $headEmp = Employee::with('user')->find($dept->department_head_id);
+                        $headUser = $headEmp?->user;
+                    } else {
+                        $headEmp = Employee::where('role', 'department head')->where('department_id', $emp->department_id)->first();
+                        $headUser = $headEmp?->user;
+                    }
+
+                    if ($headUser && $headUser->id !== $this->id) {
+                        $headDone = isset($completedMap[$headUser->id.'_upward_employee']);
+
+                        if (! $headDone && $isEvaluationOpen) {
+                            $notifications[] = (object) [
+                                'id' => 'staff_dh_'.$sem->id,
+                                'type' => 'reminder',
+                                'title' => 'Pending Supervisor Evaluation',
+                                'description' => 'You have 1 Department Head supervisor evaluation remaining to submit.',
+                                'created_at' => $notificationTime,
+                            ];
+                        }
+                    }
+
+                    // Peer staff evaluations pending
+                    $peerStaff = Employee::where('role', 'staff')
+                        ->where('department_id', $emp->department_id)
+                        ->where('id', '!=', $emp->id)
+                        ->with('user')
+                        ->get();
+
+                    $peerPending = 0;
+                    foreach ($peerStaff as $peer) {
+                        if ($peer->user && ! isset($completedMap[$peer->user->id.'_peer'])) {
+                            $peerPending++;
+                        }
+                    }
+
+                    if ($peerPending > 0 && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'staff_peer_'.$sem->id.'_'.$peerPending,
+                            'type' => 'reminder',
+                            'title' => 'Pending Peer Evaluations',
+                            'description' => "You have {$peerPending} peer staff evaluation(s) remaining to submit.",
+                            'created_at' => $notificationTime,
+                        ];
+                    }
+                }
+            } elseif ($this->hasRole('department head')) {
+                // Check self evaluation
+                $selfEvaluated = isset($completedMap[$this->id.'_self']);
+
+                if (! $selfEvaluated && $isEvaluationOpen) {
+                    $notifications[] = (object) [
+                        'id' => 'dh_self_'.$sem->id,
+                        'type' => 'reminder',
+                        'title' => 'Self Evaluation Incomplete',
+                        'description' => 'Please submit your department head self-evaluation report.',
+                        'created_at' => $notificationTime,
+                    ];
+                }
+
+                // Staff members in administrative department pending
+                if ($emp->department_id) {
+                    $staffMembers = Employee::where('role', 'staff')
+                        ->where('department_id', $emp->department_id)
+                        ->with('user')
+                        ->get();
+
+                    $staffPending = 0;
+                    foreach ($staffMembers as $staff) {
+                        if ($staff->user && ! isset($completedMap[$staff->user->id.'_downward'])) {
+                            $staffPending++;
+                        }
+                    }
+
+                    if ($staffPending > 0 && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'dh_staff_'.$sem->id.'_'.$staffPending,
+                            'type' => 'reminder',
+                            'title' => 'Pending Staff Evaluations',
+                            'description' => "You have {$staffPending} staff evaluation(s) remaining in your administrative department.",
                             'created_at' => $notificationTime,
                         ];
                     }
                 }
 
-                // Peer staff evaluations pending
-                $peerStaff = Employee::where('role', 'staff')
-                    ->where('department_id', $emp->department_id)
-                    ->where('id', '!=', $emp->id)
-                    ->with('user')
-                    ->get();
-
-                $peerPending = 0;
-                foreach ($peerStaff as $peer) {
-                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $peerPending++;
+                // Dean pending
+                $deans = Employee::where('role', 'dean')->with('user')->get();
+                $deanPending = 0;
+                foreach ($deans as $dean) {
+                    if ($dean->user && ! isset($completedMap[$dean->user->id.'_upward_employee'])) {
+                        $deanPending++;
                     }
                 }
 
-                if ($peerPending > 0 && $isEvaluationOpen) {
+                if ($deanPending > 0 && $isEvaluationOpen) {
                     $notifications[] = (object) [
-                        'id' => 'staff_peer_'.$sem->id.'_'.$peerPending,
+                        'id' => 'dh_dean_'.$sem->id.'_'.$deanPending,
                         'type' => 'reminder',
-                        'title' => 'Pending Peer Evaluations',
-                        'description' => "You have {$peerPending} peer staff evaluation(s) remaining to submit.",
+                        'title' => 'Pending Dean Evaluation',
+                        'description' => "You have {$deanPending} Dean evaluation(s) remaining to complete.",
                         'created_at' => $notificationTime,
                     ];
                 }
-            }
-        } elseif ($this->hasRole('department head') && $this->employee) {
-            $emp = $this->employee;
-
-            // Check self evaluation
-            $selfEvaluated = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
-
-            if (! $selfEvaluated && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'dh_self_'.$sem->id,
-                    'type' => 'reminder',
-                    'title' => 'Self Evaluation Incomplete',
-                    'description' => 'Please submit your department head self-evaluation report.',
-                    'created_at' => $notificationTime,
-                ];
-            }
-
-            // Staff members in administrative department pending
-            if ($emp->department_id) {
-                $staffMembers = Employee::where('role', 'staff')
-                    ->where('department_id', $emp->department_id)
-                    ->with('user')
-                    ->get();
-
-                $staffPending = 0;
-                foreach ($staffMembers as $staff) {
-                    if ($staff->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $staff->user->id, 'evaluation_type' => 'downward'])->exists()) {
-                        $staffPending++;
-                    }
-                }
-
-                if ($staffPending > 0 && $isEvaluationOpen) {
-                    $notifications[] = (object) [
-                        'id' => 'dh_staff_'.$sem->id.'_'.$staffPending,
-                        'type' => 'reminder',
-                        'title' => 'Pending Staff Evaluations',
-                        'description' => "You have {$staffPending} staff evaluation(s) remaining in your administrative department.",
-                        'created_at' => $notificationTime,
-                    ];
-                }
-            }
-
-            // Dean pending
-            $deans = Employee::where('role', 'dean')->with('user')->get();
-            $deanPending = 0;
-            foreach ($deans as $dean) {
-                if ($dean->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $dean->user->id, 'evaluation_type' => 'upward_employee'])->exists()) {
-                    $deanPending++;
-                }
-            }
-
-            if ($deanPending > 0 && $isEvaluationOpen) {
-                $notifications[] = (object) [
-                    'id' => 'dh_dean_'.$sem->id.'_'.$deanPending,
-                    'type' => 'reminder',
-                    'title' => 'Pending Dean Evaluation',
-                    'description' => "You have {$deanPending} Dean evaluation(s) remaining to complete.",
-                    'created_at' => $notificationTime,
-                ];
             }
         }
 
@@ -588,137 +562,124 @@ class User extends Authenticatable // implements MustVerifyEmail
                 ->with('teacher.user')
                 ->get();
 
+            $evaluatedClassSet = array_flip(
+                Evaluation::where('semester_id', $sem->id)
+                    ->where('evaluator_id', $this->id)
+                    ->pluck('class_id')
+                    ->filter()
+                    ->all()
+            );
+
             foreach ($classes as $class) {
-                if ($class->teacher && $class->teacher->user) {
-                    $exists = Evaluation::where([
-                        'semester_id' => $sem->id,
-                        'evaluator_id' => $this->id,
-                        'evaluatee_id' => $class->teacher->user->id,
-                        'class_id' => $class->id,
-                    ])->exists();
-
-                    if (! $exists) {
-                        $pending++;
-                    }
-                }
-            }
-        }
-
-        if ($this->hasRole('faculty') && $this->employee) {
-            $emp = $this->employee;
-
-            // Self evaluation
-            $selfDone = Evaluation::where([
-                'semester_id' => $sem->id,
-                'evaluator_id' => $this->id,
-                'evaluatee_id' => $this->id,
-                'evaluation_type' => 'self',
-            ])->exists();
-
-            if (! $selfDone) {
-                $pending++;
-            }
-
-            // Peer evaluations in same department
-            if ($emp->department_id) {
-                $peers = Employee::where('role', 'faculty')
-                    ->where('department_id', $emp->department_id)
-                    ->where('id', '!=', $emp->id)
-                    ->where('status', 'active')
-                    ->with('user')
-                    ->get();
-
-                foreach ($peers as $peer) {
-                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $pending++;
-                    }
-                }
-            }
-        }
-
-        if ($this->hasRole('program head') && $this->employee) {
-            $emp = $this->employee;
-
-            // Self
-            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
-                $pending++;
-            }
-
-            // Subordinate faculty
-            if ($emp->department_id) {
-                $faculty = Employee::where('role', 'faculty')
-                    ->where('department_id', $emp->department_id)
-                    ->where('status', 'active')
-                    ->with('user')
-                    ->get();
-
-                foreach ($faculty as $fac) {
-                    if ($fac->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $fac->user->id, 'evaluation_type' => 'peer'])->exists()) {
-                        $pending++;
-                    }
-                }
-            }
-        }
-
-        if ($this->hasRole('dean') && $this->employee) {
-            // Self
-            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
-                $pending++;
-            }
-
-            // Program heads
-            $heads = Employee::where('role', 'program head')->where('status', 'active')->with('user')->get();
-            foreach ($heads as $head) {
-                if ($head->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $head->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                if ($class->teacher && $class->teacher->user && ! isset($evaluatedClassSet[$class->id])) {
                     $pending++;
                 }
             }
-        }
-
-        if ($this->hasRole('staff') && $this->employee) {
+        } elseif ($this->employee) {
             $emp = $this->employee;
+            $completedEvals = Evaluation::where('semester_id', $sem->id)
+                ->where('evaluator_id', $this->id)
+                ->select(['evaluatee_id', 'evaluation_type'])
+                ->get();
 
-            // Self
-            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
-                $pending++;
+            $completedMap = [];
+            foreach ($completedEvals as $ev) {
+                $completedMap[$ev->evaluatee_id.'_'.$ev->evaluation_type] = true;
             }
 
-            // Peer staff in department
-            if ($emp->department_id) {
-                $peerStaff = Employee::where('role', 'staff')
-                    ->where('department_id', $emp->department_id)
-                    ->where('id', '!=', $emp->id)
-                    ->where('status', 'active')
-                    ->with('user')
-                    ->get();
+            if ($this->hasRole('faculty')) {
+                // Self evaluation
+                if (! isset($completedMap[$this->id.'_self'])) {
+                    $pending++;
+                }
 
-                foreach ($peerStaff as $peer) {
-                    if ($peer->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $peer->user->id, 'evaluation_type' => 'peer'])->exists()) {
+                // Peer evaluations in same department
+                if ($emp->department_id) {
+                    $peers = Employee::where('role', 'faculty')
+                        ->where('department_id', $emp->department_id)
+                        ->where('id', '!=', $emp->id)
+                        ->where('status', 'active')
+                        ->with('user')
+                        ->get();
+
+                    foreach ($peers as $peer) {
+                        if ($peer->user && ! isset($completedMap[$peer->user->id.'_peer'])) {
+                            $pending++;
+                        }
+                    }
+                }
+            } elseif ($this->hasRole('program head')) {
+                // Self
+                if (! isset($completedMap[$this->id.'_self'])) {
+                    $pending++;
+                }
+
+                // Subordinate faculty
+                if ($emp->department_id) {
+                    $faculty = Employee::where('role', 'faculty')
+                        ->where('department_id', $emp->department_id)
+                        ->where('status', 'active')
+                        ->with('user')
+                        ->get();
+
+                    foreach ($faculty as $fac) {
+                        if ($fac->user && ! isset($completedMap[$fac->user->id.'_peer']) && ! isset($completedMap[$fac->user->id.'_downward'])) {
+                            $pending++;
+                        }
+                    }
+                }
+            } elseif ($this->hasRole('dean')) {
+                // Self
+                if (! isset($completedMap[$this->id.'_self'])) {
+                    $pending++;
+                }
+
+                // Program heads
+                $heads = Employee::where('role', 'program head')->where('status', 'active')->with('user')->get();
+                foreach ($heads as $head) {
+                    if ($head->user && ! isset($completedMap[$head->user->id.'_peer']) && ! isset($completedMap[$head->user->id.'_downward'])) {
                         $pending++;
                     }
                 }
-            }
-        }
+            } elseif ($this->hasRole('staff')) {
+                // Self
+                if (! isset($completedMap[$this->id.'_self'])) {
+                    $pending++;
+                }
 
-        if ($this->hasRole('department head') && $this->employee) {
-            $emp = $this->employee;
+                // Peer staff in department
+                if ($emp->department_id) {
+                    $peerStaff = Employee::where('role', 'staff')
+                        ->where('department_id', $emp->department_id)
+                        ->where('id', '!=', $emp->id)
+                        ->where('status', 'active')
+                        ->with('user')
+                        ->get();
 
-            // Self
-            if (! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $this->id, 'evaluation_type' => 'self'])->exists()) {
-                $pending++;
-            }
+                    foreach ($peerStaff as $peer) {
+                        if ($peer->user && ! isset($completedMap[$peer->user->id.'_peer'])) {
+                            $pending++;
+                        }
+                    }
+                }
+            } elseif ($this->hasRole('department head')) {
+                // Self
+                if (! isset($completedMap[$this->id.'_self'])) {
+                    $pending++;
+                }
 
-            // Staff in dept
-            if ($emp->department_id) {
-                $staff = Employee::where('role', 'staff')
-                    ->where('department_id', $emp->department_id)
-                    ->where('status', 'active')
-                    ->with('user')
-                    ->get();
+                // Staff in dept
+                if ($emp->department_id) {
+                    $staff = Employee::where('role', 'staff')
+                        ->where('department_id', $emp->department_id)
+                        ->where('status', 'active')
+                        ->with('user')
+                        ->get();
 
-                foreach ($staff as $st) {
-                    if ($st->user && ! Evaluation::where(['semester_id' => $sem->id, 'evaluator_id' => $this->id, 'evaluatee_id' => $st->user->id, 'evaluation_type' => 'downward'])->exists()) {
-                        $pending++;
+                    foreach ($staff as $st) {
+                        if ($st->user && ! isset($completedMap[$st->user->id.'_downward'])) {
+                            $pending++;
+                        }
                     }
                 }
             }
