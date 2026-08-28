@@ -1,3 +1,12 @@
+async function loadChartJs() {
+    if (typeof window.Chart === 'undefined') {
+        const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } = await import('chart.js');
+        Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+        window.Chart = Chart;
+    }
+    return window.Chart;
+}
+
 // Global chart helper for Admin Dashboard (dynamically lazy-loads Chart.js on demand)
 window.dashboardAnalyticsCharts = function(config) {
     return {
@@ -10,10 +19,7 @@ window.dashboardAnalyticsCharts = function(config) {
             return document.documentElement.classList.contains('dark');
         },
         async init() {
-            if (typeof window.Chart === 'undefined') {
-                const { default: Chart } = await import('chart.js/auto');
-                window.Chart = Chart;
-            }
+            await loadChartJs();
 
             this.$nextTick(() => {
                 this.renderAll();
@@ -36,10 +42,7 @@ window.dashboardAnalyticsCharts = function(config) {
             });
         },
         async renderAll() {
-            if (typeof window.Chart === 'undefined') {
-                const { default: Chart } = await import('chart.js/auto');
-                window.Chart = Chart;
-            }
+            await loadChartJs();
             this.renderRatings();
             this.renderDept();
         },
