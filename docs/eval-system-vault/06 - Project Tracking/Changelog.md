@@ -1,3 +1,14 @@
+---
+title: "Project Changelog & Version History"
+category: "Project Tracking"
+tags: [changelog, versions, history, commits]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Task Roadmap & Todo]]
+
 # Changelog
 
 All notable changes to the **Evaluation System** project will be documented in this file.

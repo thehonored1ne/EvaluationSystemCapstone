@@ -1,3 +1,14 @@
+---
+title: "Database Schema & Entity Documentation"
+category: "Database & Data"
+tags: [database, erd, mysql, migrations, models]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[SQL Schema Reference]] • [[System Architecture]] • [[Module Breakdown]]
+
 # Database Documentation
 
 This document describes the database schema and architecture for the **Evaluation System**.

@@ -1,3 +1,14 @@
+---
+title: "Troubleshooting & Common Fixes"
+category: "Operations & Guides"
+tags: [troubleshooting, debug, errors, fixes, faq]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Deployment Guide]] • [[Edge Cases & Testing]]
+
 # Development Troubleshooting Guide
 
 This guide contains common development issues, error messages, and their solutions for the **Evaluation System** project.

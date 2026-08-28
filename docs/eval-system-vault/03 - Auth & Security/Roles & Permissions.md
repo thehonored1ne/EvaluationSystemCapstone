@@ -1,3 +1,14 @@
+---
+title: "Role-Based Access Control (RBAC) & Permissions"
+category: "Auth & Security"
+tags: [rbac, roles, permissions, authorization, gates]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Authentication Flow]] • [[Module Breakdown]] • [[Security Audit]]
+
 # Roles, Permissions & Evaluation Boundaries
 
 This document maps user roles to their features, views, and target evaluation boundaries.

@@ -1,3 +1,14 @@
+---
+title: "System Architecture & Design Principles"
+category: "Architecture & System"
+tags: [architecture, design-principles, laravel, livewire, solid]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Module Breakdown]] • [[API Contract]] • [[System Workflows]]
+
 
 # Design Laws & Whitespace Principles
 

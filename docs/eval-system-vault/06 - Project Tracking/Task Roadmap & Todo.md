@@ -1,3 +1,14 @@
+---
+title: "Task Roadmap, Backlog & Completed Milestones"
+category: "Project Tracking"
+tags: [tracking, todo, roadmap, milestones, tasks]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
+
 - [X] **Cloud Production Deployment, Seeder Scalability & Evaluator Bug Fixes (2026-08-26)**:
   - Containerized full stack on **Render Web Service** (`Dockerfile`, `supervisord.conf`, `nginx.conf`, `entrypoint.sh`): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single multi-service container.
   - Linked to a high-availability **TiDB Cloud Serverless MySQL** database in AWS Singapore (`ap-southeast-1`) with mandatory TLS/SSL certificate verification (`MYSQL_ATTR_SSL_CA`).

@@ -1,3 +1,14 @@
+---
+title: "Developer Notes & Key Reminders"
+category: "Project Tracking"
+tags: [reminders, notes, developer, quick-tips]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Task Roadmap & Todo]]
+
 ## 6/18/26
 - **Larastan Analysis**: Run `./vendor/bin/phpstan analyse` to verify type safety.
 - **PHPStan Baseline Rebuild**: Run `./vendor/bin/phpstan analyse --generate-baseline` to update baseline filters.

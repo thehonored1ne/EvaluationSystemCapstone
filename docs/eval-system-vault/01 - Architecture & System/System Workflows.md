@@ -1,3 +1,14 @@
+---
+title: "Evaluation & Operational Workflows"
+category: "Architecture & System"
+tags: [workflow, business-logic, evaluation-cycle, processes]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Module Breakdown]] • [[Roles & Permissions]] • [[Task Roadmap & Todo]]
+
 # Git Workflow: dev → uat → main
 
 ## Branch Overview

@@ -1,3 +1,14 @@
+---
+title: "Authentication & Session Flow"
+category: "Auth & Security"
+tags: [auth, login, fortify, sanctum, session, security]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Roles & Permissions]] • [[Security Audit]]
+
 # Feature Overview
 We built a role-based authentication system. The login form accepts custom identifiers. The system directs users to specific dashboards. The admin manages all account creations.
 

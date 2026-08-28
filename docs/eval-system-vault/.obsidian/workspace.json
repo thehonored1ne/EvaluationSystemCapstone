@@ -1,0 +1,217 @@
+{
+  "main": {
+    "id": "e0e5298f384a98ed",
+    "type": "split",
+    "children": [
+      {
+        "id": "c984a5d01605ea3f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "97e9bab23a096d75",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "d34dec173076fe55",
+    "type": "split",
+    "children": [
+      {
+        "id": "21e8a7ef1c1341b1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "bd2ba7ac7d43ac9e",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "abaf83bf1e3e0156",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "ef39a7ce09b3f22f",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "3d6b351e67a4fab7",
+    "type": "split",
+    "children": [
+      {
+        "id": "91e02d8af46c64aa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "40fd2338700ed32f",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "8b894a4f31975099",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "e997816ab24ee04a",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "fadeb50d7c4c84fc",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "309311c934e5318a",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "97e9bab23a096d75",
+  "lastOpenFiles": [
+    "System Overview.canvas",
+    "00 - Home/Dashboard.md",
+    "Welcome.md",
+    "06 - Project Tracking/Changelog.md",
+    "06 - Project Tracking/Developer Reminders.md",
+    "06 - Project Tracking/Suggestions & Backlog.md",
+    "06 - Project Tracking/Task Roadmap & Todo.md",
+    "05 - Operations & Guides/Edge Cases & Testing.md",
+    "05 - Operations & Guides/Troubleshooting.md",
+    "05 - Operations & Guides/Deployment Guide.md",
+    "04 - UI & Design/Color & UI Audit.md",
+    "03 - Auth & Security/Security Audit.md",
+    "03 - Auth & Security/Roles & Permissions.md",
+    "03 - Auth & Security/Authentication Flow.md",
+    "02 - Database & Data/SQL Schema Reference.md",
+    "02 - Database & Data/Database Schema.md",
+    "01 - Architecture & System/System Workflows.md",
+    "01 - Architecture & System/API Contract.md",
+    "01 - Architecture & System/Module Breakdown.md",
+    "01 - Architecture & System/System Architecture.md",
+    "00 - Home/Project Overview.md",
+    "99 - Attachments/Data Dictionary.xlsx",
+    "99 - Attachments",
+    "06 - Project Tracking",
+    "05 - Operations & Guides",
+    "04 - UI & Design",
+    "03 - Auth & Security",
+    "02 - Database & Data",
+    "01 - Architecture & System",
+    "00 - Home"
+  ]
+}

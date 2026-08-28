@@ -1,3 +1,14 @@
+---
+title: "System Feature Modules Breakdown"
+category: "Architecture & System"
+tags: [modules, features, faculty-evaluation, student-portal, admin]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[System Architecture]] • [[Roles & Permissions]] • [[Database Schema]]
+
 # Academic Evaluation System - Module List
 
 A high-level functional overview of all core modules in the Academic Evaluation System.

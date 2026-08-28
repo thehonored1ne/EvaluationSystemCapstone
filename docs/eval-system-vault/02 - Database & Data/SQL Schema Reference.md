@@ -1,3 +1,17 @@
+---
+title: "SQL Schema Reference DDL"
+category: "Database & Data"
+tags: [database, sql, ddl, schema, tables]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Database Schema]]
+
+# SQL Schema Reference DDL
+
+```sql
 -- ========================================================
 -- Academic Evaluation System - Complete Database Schema DDL
 -- Suitable for DrawSQL (MySQL / SQLite / MariaDB import)
@@ -379,3 +393,5 @@ CREATE TABLE `jobs` (
 );
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+```

@@ -1,0 +1,35 @@
+{
+	"nodes":[
+		{"id":"hub-dashboard","type":"file","file":"00 - Home/Dashboard.md","x":0,"y":0,"width":420,"height":450,"color":"1"},
+		{"id":"hub-overview","type":"file","file":"00 - Home/Project Overview.md","x":0,"y":500,"width":420,"height":450,"color":"1"},
+		{"id":"group-arch","type":"group","label":"🏛️ Architecture & System Design","x":-1000,"y":-700,"width":880,"height":900,"color":"2"},
+		{"id":"node-arch","type":"file","file":"01 - Architecture & System/System Architecture.md","x":-960,"y":-640,"width":380,"height":380},
+		{"id":"node-modules","type":"file","file":"01 - Architecture & System/Module Breakdown.md","x":-540,"y":-640,"width":380,"height":380},
+		{"id":"node-workflow","type":"file","file":"01 - Architecture & System/System Workflows.md","x":-960,"y":-220,"width":380,"height":380},
+		{"id":"node-api","type":"file","file":"01 - Architecture & System/API Contract.md","x":-540,"y":-220,"width":380,"height":380},
+		{"id":"group-data","type":"group","label":"🗄️ Database & Schema","x":-1000,"y":280,"width":880,"height":480,"color":"3"},
+		{"id":"node-db","type":"file","file":"02 - Database & Data/Database Schema.md","x":-960,"y":340,"width":380,"height":380},
+		{"id":"node-sql","type":"file","file":"02 - Database & Data/SQL Schema Reference.md","x":-540,"y":340,"width":380,"height":380},
+		{"id":"group-security","type":"group","label":"🔐 Authentication & Security","x":540,"y":-700,"width":880,"height":680,"color":"4"},
+		{"id":"node-auth","type":"file","file":"03 - Auth & Security/Authentication Flow.md","x":580,"y":-640,"width":380,"height":360},
+		{"id":"node-rbac","type":"file","file":"03 - Auth & Security/Roles & Permissions.md","x":1000,"y":-640,"width":380,"height":360},
+		{"id":"node-sec-audit","type":"file","file":"03 - Auth & Security/Security Audit.md","x":580,"y":-240,"width":800,"height":200},
+		{"id":"group-ops","type":"group","label":"🚀 Operations, Testing & Guides","x":540,"y":40,"width":880,"height":450,"color":"5"},
+		{"id":"node-deploy","type":"file","file":"05 - Operations & Guides/Deployment Guide.md","x":580,"y":100,"width":380,"height":350},
+		{"id":"node-troubleshoot","type":"file","file":"05 - Operations & Guides/Troubleshooting.md","x":1000,"y":100,"width":380,"height":350},
+		{"id":"group-tracking","type":"group","label":"📋 UI Design & Project Tracking","x":-450,"y":1020,"width":1350,"height":450,"color":"6"},
+		{"id":"node-ui","type":"file","file":"04 - UI & Design/Color & UI Audit.md","x":-410,"y":1080,"width":380,"height":350},
+		{"id":"node-todo","type":"file","file":"06 - Project Tracking/Task Roadmap & Todo.md","x":20,"y":1080,"width":420,"height":350},
+		{"id":"node-changelog","type":"file","file":"06 - Project Tracking/Changelog.md","x":480,"y":1080,"width":380,"height":350}
+	],
+	"edges":[
+		{"id":"e-hub-arch","fromNode":"hub-dashboard","fromSide":"left","toNode":"node-modules","toSide":"right","label":"Defines Modules"},
+		{"id":"e-hub-db","fromNode":"hub-dashboard","fromSide":"left","toNode":"node-db","toSide":"right","label":"Data Model"},
+		{"id":"e-hub-auth","fromNode":"hub-dashboard","fromSide":"right","toNode":"node-auth","toSide":"left","label":"Security"},
+		{"id":"e-hub-ops","fromNode":"hub-dashboard","fromSide":"right","toNode":"node-deploy","toSide":"left","label":"Guides"},
+		{"id":"e-hub-todo","fromNode":"hub-overview","fromSide":"bottom","toNode":"node-todo","toSide":"top","label":"Roadmap"},
+		{"id":"e-arch-db","fromNode":"node-modules","fromSide":"bottom","toNode":"node-db","toSide":"top","label":"Persists to"},
+		{"id":"e-auth-rbac","fromNode":"node-auth","fromSide":"right","toNode":"node-rbac","toSide":"left","label":"Enforces RBAC"},
+		{"id":"e-rbac-sec","fromNode":"node-rbac","fromSide":"bottom","toNode":"node-sec-audit","toSide":"top","label":"Audited in"}
+	]
+}

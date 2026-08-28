@@ -1,3 +1,14 @@
+---
+title: "API Contract & Endpoints Specification"
+category: "Architecture & System"
+tags: [api, endpoints, contracts, requests, responses]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[System Architecture]] • [[Authentication Flow]] • [[Database Schema]]
+
 # AI Service API Contract
 
 This document outlines the API endpoints hosted by the Python Flask service (`http://127.0.0.1:5001`) and consumed by the Laravel application.

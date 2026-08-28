@@ -1,3 +1,14 @@
+---
+title: "Edge Cases, Boundary Conditions & Test Scenarios"
+category: "Operations & Guides"
+tags: [edgecases, qa, pest, testing, validation]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Troubleshooting]] • [[Module Breakdown]]
+
 # Edge Cases, Vulnerabilities & Failure Modes
 
 This document tracks identified edge cases, potential failure modes, security boundaries, and architectural mitigations in the **Evaluation System** project.

@@ -1,3 +1,14 @@
+---
+title: "Deployment & Server Configuration Guide"
+category: "Operations & Guides"
+tags: [devops, deployment, server, herd, nginx, production]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Troubleshooting]] • [[System Architecture]]
+
 # Production Deployment Guide
 
 This document lists requirements, configuration settings, and server commands required to safely deploy the **Evaluation System** to production.

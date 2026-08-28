@@ -1,3 +1,14 @@
+---
+title: "Project Overview & Domain Context"
+category: "Home"
+tags: [project, overview, domain, capstone, context]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[System Architecture]] • [[Module Breakdown]] • [[Database Schema]]
+
 # Evaluation System - Project Context
 
 > [!IMPORTANT]

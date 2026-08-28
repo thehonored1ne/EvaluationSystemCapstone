@@ -1,3 +1,14 @@
+---
+title: "Feature Suggestions & Long-term Backlog"
+category: "Project Tracking"
+tags: [ideas, suggestions, backlog, enhancements]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[Task Roadmap & Todo]]
+
 # System Suggestions, Roadmap & Future Enhancements
 
 This document outlines strategic suggestions, architectural improvements, and feature roadmap ideas for the **Academic Evaluation System** (Global Reciprocal Colleges).

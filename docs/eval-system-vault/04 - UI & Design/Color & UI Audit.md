@@ -1,3 +1,14 @@
+---
+title: "Color System & UI Design Tokens Audit"
+category: "UI & Design"
+tags: [ui, design-system, colors, tokens, dark-mode, tailwind]
+created: 2026-08-28
+last_updated: 2026-08-28
+---
+
+> [!INFO] Navigation
+> **Related Notes:** [[Dashboard]] • [[System Architecture]]
+
 # System Color Audit & Semantic Token Guide
 
 This document provides a comprehensive audit of all colors utilized across the **Evaluation System** application. All colors are organized into a standardized **Semantic Design Token System**, mapped across **Light Mode** and **Dark Mode**, and detailed with corresponding Tailwind CSS utility classes and hex/HSL definitions.
