@@ -33,160 +33,236 @@ new #[Layout('components.layouts.app')] class extends Component
         $activeYear = $activeSem ? $activeSem->academicYear : null;
         $activeSemId = $activeSem ? $activeSem->id : null;
 
-        // 2. Core Entity Counts
-        $employeeCount = Employee::count();
-        $studentCount = Student::where('status', 'regular')->count();
-        $userCount = User::count();
+        $metrics = \Illuminate\Support\Facades\Cache::remember('admin_dashboard_metrics_'.($activeSemId ?? 'none'), 30, function () use ($activeSem, $activeSemId) {
+            // 2. Core Entity Counts
+            $employeeCount = Employee::count();
+            $studentCount = Student::where('status', 'regular')->count();
+            $userCount = User::count();
 
-        // 3. Expected & Submitted evaluations progress
-        $expectedCount = 0;
-        $submittedCount = 0;
-        $progressPercent = 0;
+            // 3. Expected & Submitted evaluations progress
+            $expectedCount = 0;
+            $submittedCount = 0;
+            $progressPercent = 0;
 
-        if ($activeSemId) {
-            // Expected Student Upward evaluations (enrollments in active semester classes)
-            $studentExpected = DB::table('class_student')
-                ->join('classes', 'classes.id', '=', 'class_student.class_id')
-                ->where('classes.semester_id', $activeSemId)
-                ->count();
+            if ($activeSemId) {
+                // Expected Student Upward evaluations (enrollments in active semester classes)
+                $studentExpected = DB::table('class_student')
+                    ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                    ->where('classes.semester_id', $activeSemId)
+                    ->count();
 
-            // Expected Faculty Self evaluations (1 per active employee)
-            $employeeSelfExpected = Employee::where('status', 'active')->count();
+                // Expected Faculty Self evaluations (1 per active employee)
+                $employeeSelfExpected = Employee::where('status', 'active')->count();
 
-            // Expected Faculty Peer evaluations (calculated via SQL aggregate)
-            $peerFacultyCounts = DB::table('employees')
-                ->where('role', 'faculty')
-                ->where('status', 'active')
-                ->whereNotNull('department_id')
-                ->selectRaw('department_id, count(*) as total')
-                ->groupBy('department_id')
-                ->having('total', '>', 1)
-                ->pluck('total');
+                // Expected Faculty Peer evaluations (calculated via SQL aggregate)
+                $peerFacultyCounts = DB::table('employees')
+                    ->where('role', 'faculty')
+                    ->where('status', 'active')
+                    ->whereNotNull('department_id')
+                    ->selectRaw('department_id, count(*) as total')
+                    ->groupBy('department_id')
+                    ->having('total', '>', 1)
+                    ->pluck('total');
 
-            $peerExpected = 0;
-            foreach ($peerFacultyCounts as $c) {
-                $peerExpected += $c * ($c - 1);
+                $peerExpected = 0;
+                foreach ($peerFacultyCounts as $c) {
+                    $peerExpected += $c * ($c - 1);
+                }
+
+                // Total expected evaluations across all evaluation types
+                $expectedCount = $studentExpected + $employeeSelfExpected + $peerExpected;
+
+                // Total actual submitted evaluations in active semester
+                $submittedCount = Evaluation::where('semester_id', $activeSemId)->count();
+
+                if ($expectedCount > 0) {
+                    $progressPercent = min(100.0, round(($submittedCount / $expectedCount) * 100, 1));
+                }
             }
 
-            // Total expected evaluations across all evaluation types
-            $expectedCount = $studentExpected + $employeeSelfExpected + $peerExpected;
+            // 4. AI Sentiment Statistics
+            $sentimentStats = [
+                'positive' => 0,
+                'neutral' => 0,
+                'negative' => 0,
+                'average' => 0.0,
+                'total' => 0,
+            ];
 
-            // Total actual submitted evaluations in active semester
-            $submittedCount = Evaluation::where('semester_id', $activeSemId)->count();
+            if ($activeSemId) {
+                $sentimentRow = DB::table('evaluation_sentiments')
+                    ->join('evaluations', 'evaluations.id', '=', 'evaluation_sentiments.evaluation_id')
+                    ->where('evaluations.semester_id', $activeSemId)
+                    ->selectRaw("
+                        count(*) as total,
+                        sum(case when vader_label = 'positive' then 1 else 0 end) as positive,
+                        sum(case when vader_label = 'neutral' then 1 else 0 end) as neutral,
+                        sum(case when vader_label = 'negative' then 1 else 0 end) as negative,
+                        avg(vader_score) as avg_score
+                    ")
+                    ->first();
 
-            if ($expectedCount > 0) {
-                $progressPercent = min(100.0, round(($submittedCount / $expectedCount) * 100, 1));
+                if ($sentimentRow && $sentimentRow->total > 0) {
+                    $sentimentStats['total'] = (int) $sentimentRow->total;
+                    $sentimentStats['positive'] = (int) $sentimentRow->positive;
+                    $sentimentStats['neutral'] = (int) $sentimentRow->neutral;
+                    $sentimentStats['negative'] = (int) $sentimentRow->negative;
+                    $sentimentStats['average'] = round((float) $sentimentRow->avg_score, 2);
+                }
             }
-        }
 
-        // 4. AI Sentiment Statistics
-        $sentimentStats = [
-            'positive' => 0,
-            'neutral' => 0,
-            'negative' => 0,
-            'average' => 0.0,
-            'total' => 0,
-        ];
+            // 5. Active Schedule details
+            $scheduleStatus = 'closed';
+            $scheduleMessage = 'No active schedule window configured.';
 
-        if ($activeSemId) {
-            $sentimentRow = DB::table('evaluation_sentiments')
-                ->join('evaluations', 'evaluations.id', '=', 'evaluation_sentiments.evaluation_id')
-                ->where('evaluations.semester_id', $activeSemId)
-                ->selectRaw("
-                    count(*) as total,
-                    sum(case when vader_label = 'positive' then 1 else 0 end) as positive,
-                    sum(case when vader_label = 'neutral' then 1 else 0 end) as neutral,
-                    sum(case when vader_label = 'negative' then 1 else 0 end) as negative,
-                    avg(vader_score) as avg_score
-                ")
-                ->first();
+            if ($activeSem) {
+                if ($activeSem->is_evaluation_open) {
+                    $starts = $activeSem->evaluation_starts_at;
+                    $ends = $activeSem->evaluation_ends_at;
 
-            if ($sentimentRow && $sentimentRow->total > 0) {
-                $sentimentStats['total'] = (int) $sentimentRow->total;
-                $sentimentStats['positive'] = (int) $sentimentRow->positive;
-                $sentimentStats['neutral'] = (int) $sentimentRow->neutral;
-                $sentimentStats['negative'] = (int) $sentimentRow->negative;
-                $sentimentStats['average'] = round((float) $sentimentRow->avg_score, 2);
-            }
-        }
-
-        // 5. Active Schedule details
-        $scheduleStatus = 'closed';
-        $scheduleMessage = 'No active schedule window configured.';
-
-        if ($activeSem) {
-            if ($activeSem->is_evaluation_open) {
-                $starts = $activeSem->evaluation_starts_at;
-                $ends = $activeSem->evaluation_ends_at;
-
-                if ($starts && $ends) {
-                    $now = Carbon::now('Asia/Manila');
-                    if ($now->lt($starts)) {
-                        $scheduleStatus = 'scheduled';
-                        $scheduleMessage = 'Opens '.$starts->diffForHumans($now);
-                    } elseif ($now->gt($ends)) {
-                        $scheduleStatus = 'expired';
-                        $scheduleMessage = 'Expired '.$ends->diffForHumans($now);
+                    if ($starts && $ends) {
+                        $now = Carbon::now('Asia/Manila');
+                        if ($now->lt($starts)) {
+                            $scheduleStatus = 'scheduled';
+                            $scheduleMessage = 'Opens '.$starts->diffForHumans($now);
+                        } elseif ($now->gt($ends)) {
+                            $scheduleStatus = 'expired';
+                            $scheduleMessage = 'Expired '.$ends->diffForHumans($now);
+                        } else {
+                            $scheduleStatus = 'active';
+                            $scheduleMessage = 'Closes '.$ends->diffForHumans($now);
+                        }
                     } else {
                         $scheduleStatus = 'active';
-                        $scheduleMessage = 'Closes '.$ends->diffForHumans($now);
+                        $scheduleMessage = 'Manually opened (No scheduled dates set).';
                     }
                 } else {
-                    $scheduleStatus = 'active';
-                    $scheduleMessage = 'Manually opened (No scheduled dates set).';
+                    $scheduleStatus = 'locked';
+                    $scheduleMessage = 'Evaluation is currently locked/closed.';
                 }
-            } else {
-                $scheduleStatus = 'locked';
-                $scheduleMessage = 'Evaluation is currently locked/closed.';
             }
-        }
 
-        // 6. Department Stats
-        $departmentStats = [];
-        if ($activeSemId) {
-            $departments = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+            // 6. Department Stats
+            $departmentStats = [];
+            if ($activeSemId) {
+                $departments = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
 
-            $expectedMap = DB::table('class_student')
-                ->join('students', 'students.id', '=', 'class_student.student_id')
-                ->join('programs', 'programs.id', '=', 'students.program_id')
-                ->join('classes', 'classes.id', '=', 'class_student.class_id')
-                ->where('classes.semester_id', $activeSemId)
-                ->selectRaw('programs.department_id, count(*) as total')
-                ->groupBy('programs.department_id')
-                ->pluck('total', 'department_id');
+                $expectedMap = DB::table('class_student')
+                    ->join('students', 'students.id', '=', 'class_student.student_id')
+                    ->join('programs', 'programs.id', '=', 'students.program_id')
+                    ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                    ->where('classes.semester_id', $activeSemId)
+                    ->selectRaw('programs.department_id, count(*) as total')
+                    ->groupBy('programs.department_id')
+                    ->pluck('total', 'department_id');
 
-            $submittedMap = DB::table('evaluations')
-                ->join('users', 'users.id', '=', 'evaluations.evaluator_id')
-                ->join('students', 'students.id', '=', 'users.student_id')
-                ->join('programs', 'programs.id', '=', 'students.program_id')
-                ->where('evaluations.semester_id', $activeSemId)
-                ->where('evaluations.evaluation_type', 'upward_student')
-                ->selectRaw('programs.department_id, count(*) as total')
-                ->groupBy('programs.department_id')
-                ->pluck('total', 'department_id');
+                $submittedMap = DB::table('evaluations')
+                    ->join('users', 'users.id', '=', 'evaluations.evaluator_id')
+                    ->join('students', 'students.id', '=', 'users.student_id')
+                    ->join('programs', 'programs.id', '=', 'students.program_id')
+                    ->where('evaluations.semester_id', $activeSemId)
+                    ->where('evaluations.evaluation_type', 'upward_student')
+                    ->selectRaw('programs.department_id, count(*) as total')
+                    ->groupBy('programs.department_id')
+                    ->pluck('total', 'department_id');
 
-            foreach ($departments as $dept) {
-                $deptExpected = (int) ($expectedMap[$dept->id] ?? 0);
-                $deptSubmitted = (int) ($submittedMap[$dept->id] ?? 0);
-                $rate = $deptExpected > 0 ? round(($deptSubmitted / $deptExpected) * 100, 1) : 0;
-                $pending = max(0, $deptExpected - $deptSubmitted);
-                $status = $rate >= 80 ? 'Complete' : ($rate >= 50 ? 'On Track' : ($deptExpected > 0 ? 'Needs Attention' : 'No Expected'));
-                $statusVariant = $rate >= 80 ? 'success' : ($rate >= 50 ? 'info' : ($deptExpected > 0 ? 'danger' : 'neutral'));
-                $barColor = $rate >= 80 ? 'bg-emerald-600 dark:bg-emerald-500' : ($rate >= 50 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-rose-600 dark:bg-rose-500');
+                foreach ($departments as $dept) {
+                    $deptExpected = (int) ($expectedMap[$dept->id] ?? 0);
+                    $deptSubmitted = (int) ($submittedMap[$dept->id] ?? 0);
+                    $rate = $deptExpected > 0 ? round(($deptSubmitted / $deptExpected) * 100, 1) : 0;
+                    $pending = max(0, $deptExpected - $deptSubmitted);
+                    $status = $rate >= 80 ? 'Complete' : ($rate >= 50 ? 'On Track' : ($deptExpected > 0 ? 'Needs Attention' : 'No Expected'));
+                    $statusVariant = $rate >= 80 ? 'success' : ($rate >= 50 ? 'info' : ($deptExpected > 0 ? 'danger' : 'neutral'));
+                    $barColor = $rate >= 80 ? 'bg-emerald-600 dark:bg-emerald-500' : ($rate >= 50 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-rose-600 dark:bg-rose-500');
 
-                $departmentStats[] = [
-                    'code' => $dept->code,
-                    'name' => $dept->name,
-                    'expected' => $deptExpected,
-                    'submitted' => $deptSubmitted,
-                    'pending' => $pending,
-                    'rate' => $rate,
-                    'status' => $status,
-                    'status_variant' => $statusVariant,
-                    'bar_color' => $barColor,
-                ];
+                    $departmentStats[] = [
+                        'code' => $dept->code,
+                        'name' => $dept->name,
+                        'expected' => $deptExpected,
+                        'submitted' => $deptSubmitted,
+                        'pending' => $pending,
+                        'rate' => $rate,
+                        'status' => $status,
+                        'status_variant' => $statusVariant,
+                        'bar_color' => $barColor,
+                    ];
+                }
             }
-        }
+
+            // 7. Analytics Visual Distribution & Department Averages
+            $ratingsDist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+            $totalRatingsCount = 0;
+            $deptScores = [];
+
+            if ($activeSemId) {
+                $answers = DB::table('evaluation_answers')
+                    ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
+                    ->where('evaluations.semester_id', $activeSemId)
+                    ->selectRaw('evaluation_answers.rating, count(*) as total')
+                    ->groupBy('evaluation_answers.rating')
+                    ->pluck('total', 'rating');
+
+                foreach ($ratingsDist as $rating => $val) {
+                    $ratingsDist[$rating] = (int) ($answers[$rating] ?? 0);
+                }
+                $totalRatingsCount = array_sum($ratingsDist);
+
+                $depts = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+
+                $deptAveragesMap = DB::table('evaluations')
+                    ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
+                    ->join('employees', 'employees.id', '=', 'users.employee_id')
+                    ->where('evaluations.semester_id', $activeSemId)
+                    ->whereNotNull('employees.department_id')
+                    ->selectRaw('employees.department_id, count(*) as total_count, avg(evaluations.rating_average) as avg_rating')
+                    ->groupBy('employees.department_id')
+                    ->get()
+                    ->keyBy('department_id');
+
+                foreach ($depts as $dept) {
+                    $data = $deptAveragesMap->get($dept->id);
+                    $dCount = (int) ($data?->total_count ?? 0);
+                    $dAvg = $dCount > 0 ? round((float) $data->avg_rating, 2) : 0.00;
+
+                    $deptScores[] = [
+                        'name' => $dept->name,
+                        'code' => $dept->code,
+                        'average' => $dAvg,
+                        'count' => $dCount,
+                    ];
+                }
+            }
+
+            return [
+                'employeeCount' => $employeeCount,
+                'studentCount' => $studentCount,
+                'userCount' => $userCount,
+                'expectedCount' => $expectedCount,
+                'submittedCount' => $submittedCount,
+                'progressPercent' => $progressPercent,
+                'sentimentStats' => $sentimentStats,
+                'scheduleStatus' => $scheduleStatus,
+                'scheduleMessage' => $scheduleMessage,
+                'departmentStats' => $departmentStats,
+                'deptScores' => $deptScores,
+                'ratingsDist' => $ratingsDist,
+                'totalRatingsCount' => $totalRatingsCount,
+            ];
+        });
+
+        $employeeCount = $metrics['employeeCount'];
+        $studentCount = $metrics['studentCount'];
+        $userCount = $metrics['userCount'];
+        $expectedCount = $metrics['expectedCount'];
+        $submittedCount = $metrics['submittedCount'];
+        $progressPercent = $metrics['progressPercent'];
+        $sentimentStats = $metrics['sentimentStats'];
+        $scheduleStatus = $metrics['scheduleStatus'];
+        $scheduleMessage = $metrics['scheduleMessage'];
+        $departmentStats = $metrics['departmentStats'];
+        $deptScores = $metrics['deptScores'];
+        $ratingsDist = $metrics['ratingsDist'];
+        $totalRatingsCount = $metrics['totalRatingsCount'];
 
         // 7. Recent Submissions Anonymized Log
         $recentSubmissions = [];
@@ -781,7 +857,7 @@ new #[Layout('components.layouts.app')] class extends Component
         deptAverages: {{ json_encode(array_values(array_column($deptScores, 'average'))) }}
     })">
         <!-- Chart 1: Ratings Distribution -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -806,7 +882,7 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Chart 2: Academic Department Average Ratings Comparison -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">

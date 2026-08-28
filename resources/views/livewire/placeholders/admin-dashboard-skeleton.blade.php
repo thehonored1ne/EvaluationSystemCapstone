@@ -88,7 +88,7 @@
     <!-- Chart.js Visual Analytics Row (2 Charts) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Chart 1 Skeleton -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[400px]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -107,7 +107,7 @@
         </div>
 
         <!-- Chart 2 Skeleton -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] h-[400px]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">

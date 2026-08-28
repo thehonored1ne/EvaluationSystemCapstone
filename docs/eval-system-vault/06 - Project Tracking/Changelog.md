@@ -25,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Console Commands (`app/Console/Commands/SendEvaluationDeadlineReminders.php`)**: Delegated reminder count checks directly to the optimized `User` model method.
   - **Font Assets & Bundle Optimization (`resources/css/app.css` & `package.json`)**: Consolidated 7 separate static font weights (`@fontsource/lexend` and unused `@fontsource/playfair-display`) into a single unified variable font package (`@fontsource-variable/lexend`). Removed 7 browser font preload warnings, eliminated unused font files, and reduced font asset payload.
   - **Chart.js Tree-Shaking (`resources/js/app.js`)**: Replaced monolithic `chart.js/auto` with modular imports (`BarController`, `BarElement`, `CategoryScale`, `LinearScale`, `Tooltip`, `Legend`), reducing the lazy-loaded admin analytics chart chunk from **207.86 kB down to 151.64 kB** (52.84 kB gzip).
+  - **Lighthouse Performance & Layout Shift Fixes (`admin/dashboard.blade.php`, `app-logo.blade.php`, `docker/nginx.conf`)**:
+    - Eliminated Cumulative Layout Shift (CLS) by matching skeleton placeholder height (`min-h-[360px]`) to live chart cards and enforcing explicit natural aspect ratio (`width="440" height="237"`) on the GRC brand logo.
+    - Added short-lived caching (`Cache::remember`) on heavy admin dashboard metrics and aggregation queries to reduce server response time (TTFB).
+    - Configured 1-year immutable caching headers (`Cache-Control: public, max-age=31536000, immutable`) for static assets in `docker/nginx.conf`.
   - **Static Analysis & Tooling**: Regenerated PHPStan baseline to match reduced query counts. All 136 Pest tests and Pint linters verified green.
 - **Documentation & Agent Governance**:
   - Migrated legacy documentation into Obsidian Vault (`docs/eval-system-vault/`) with Map of Content (`Dashboard.md`) and visual Canvas (`System Overview.canvas`).
