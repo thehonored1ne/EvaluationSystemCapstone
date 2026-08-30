@@ -140,7 +140,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $allCount = (int) $roleCounts->sum();
 
         return [
-            'users' => $query->with(['employee.department', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
+            'users' => $query->with(['employee.department', 'employee.supervisedDepartments', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
             'departments' => Department::orderBy('name')->get(),
             'counts' => [
                 'all' => $allCount,
@@ -193,7 +193,7 @@ new #[Layout('components.layouts.app')] class extends Component
         });
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Employee Created',
             text: 'The employee account has been successfully created.',
             variant: 'success'
@@ -282,7 +282,7 @@ new #[Layout('components.layouts.app')] class extends Component
         });
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Employee Updated',
             text: 'The employee account has been successfully updated.',
             variant: 'success'
@@ -292,7 +292,7 @@ new #[Layout('components.layouts.app')] class extends Component
     public function toggleActive(User $user)
     {
         if ($user->id === auth()->id()) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Action Restricted',
                 text: 'You cannot disable your own currently logged-in account.',
                 variant: 'danger'
@@ -306,7 +306,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 ->where('is_active', true)
                 ->count();
             if ($activeAdminCount <= 1) {
-                \Flux::toast(
+                Flux::toast(
                     heading: 'Action Restricted',
                     text: 'Cannot disable the last active administrator account in the system.',
                     variant: 'danger'
@@ -319,7 +319,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $user->is_active = ! $user->is_active;
         $user->save();
 
-        \Flux::toast(
+        Flux::toast(
             heading: $user->is_active ? 'Account Enabled' : 'Account Disabled',
             text: 'The employee account status has been updated.',
             variant: 'success'
@@ -329,7 +329,7 @@ new #[Layout('components.layouts.app')] class extends Component
     public function confirmDelete(User $user)
     {
         if ($user->id === auth()->id()) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Action Restricted',
                 text: 'You cannot delete your own currently logged-in account.',
                 variant: 'danger'
@@ -341,7 +341,7 @@ new #[Layout('components.layouts.app')] class extends Component
         if (strtolower($user->employee->role ?? '') === 'admin') {
             $adminCount = User::whereHas('employee', fn ($q) => $q->where('role', 'admin'))->count();
             if ($adminCount <= 1) {
-                \Flux::toast(
+                Flux::toast(
                     heading: 'Action Restricted',
                     text: 'Cannot delete the last administrator account in the system.',
                     variant: 'danger'
@@ -362,7 +362,7 @@ new #[Layout('components.layouts.app')] class extends Component
         }
 
         if ($this->deletingUser->id === auth()->id()) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Action Restricted',
                 text: 'You cannot delete your own currently logged-in account.',
                 variant: 'danger'
@@ -383,7 +383,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->showDeleteModal = false;
         $this->deletingUser = null;
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Employee Deleted',
             text: 'The employee account has been deleted.',
             variant: 'success'
@@ -588,7 +588,7 @@ new #[Layout('components.layouts.app')] class extends Component
             }
 
             DB::commit();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
             $this->addError('importFile', 'Import error on line '.($index + 2).': '.$e->getMessage());
 
@@ -602,7 +602,7 @@ new #[Layout('components.layouts.app')] class extends Component
             ->causedBy(auth()->user())
             ->log("Bulk imported {$addedCount} new employees and updated {$updatedCount} employee records via CSV");
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Import Successful',
             text: "Processed employees: {$addedCount} added, {$updatedCount} updated.",
             variant: 'success'
@@ -747,7 +747,33 @@ new #[Layout('components.layouts.app')] class extends Component
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">
-                                {{ $user->employee->department->name ?? 'Unassigned' }}
+                                @php
+                                    $emp = $user->employee;
+                                    $homeDept = $emp?->department?->name;
+                                    $supervised = $emp?->supervisedDepartments;
+                                @endphp
+
+                                @if($emp && $emp->role === 'dean' && $supervised && $supervised->isNotEmpty())
+                                    <div>
+                                        @if($supervised->count() === 1)
+                                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $supervised->first()->code }}</span>
+                                            <span class="text-[11px] text-indigo-600 dark:text-indigo-400 block font-medium">Supervising Dean</span>
+                                        @else
+                                            <flux:badge 
+                                                color="indigo" 
+                                                size="sm" 
+                                                class="font-medium cursor-help"
+                                                title="Supervised Departments: {{ $supervised->pluck('code')->join(', ') }}"
+                                            >
+                                                {{ $supervised->count() }} Supervised Depts
+                                            </flux:badge>
+                                        @endif
+                                    </div>
+                                @elseif($homeDept)
+                                    <span>{{ $homeDept }}</span>
+                                @else
+                                    <span class="text-zinc-400 italic">Unassigned</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 text-xs text-zinc-600 dark:text-zinc-400">
                                 {{ $user->email }}

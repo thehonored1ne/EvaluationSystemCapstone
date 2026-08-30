@@ -94,9 +94,9 @@ test('dean evaluating program head with dean evaluation_type decrements pending 
         ->assertSee('100%');
 });
 
-test('program head evaluating faculty with program_head evaluation_type decrements pending count and updates completion tracking', function () {
-    // Before submission: PH has pending self (1) + Faculty (1) = 2
-    expect($this->phUser->countPendingEvaluations($this->semester))->toBe(2);
+test('program head evaluating faculty and dean decrements pending count and updates completion tracking', function () {
+    // Before submission: PH has pending self (1) + Faculty (1) + Dean (1) = 3
+    expect($this->phUser->countPendingEvaluations($this->semester))->toBe(3);
 
     // Submit self
     Evaluation::create([
@@ -107,13 +107,22 @@ test('program head evaluating faculty with program_head evaluation_type decremen
         'rating_average' => 5.0,
     ]);
 
-    // Submit program_head evaluation
+    // Submit program_head evaluation for faculty
     Evaluation::create([
         'evaluator_id' => $this->phUser->id,
         'evaluatee_id' => $this->facUser->id,
         'semester_id' => $this->semester->id,
         'evaluation_type' => 'program_head',
         'rating_average' => 4.9,
+    ]);
+
+    // Submit upward_employee evaluation for dean
+    Evaluation::create([
+        'evaluator_id' => $this->phUser->id,
+        'evaluatee_id' => $this->deanUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'upward_employee',
+        'rating_average' => 4.8,
     ]);
 
     expect($this->phUser->countPendingEvaluations($this->semester))->toBe(0);

@@ -18,6 +18,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2026-08-30]
 
 ### Fixed & Enhanced
+- **Supervising Dean Department Assignment & Multi-Department Support** ([`manage-departments.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-departments.blade.php), [`manage-employees.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php), [`Employee.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Employee.php), [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/program-head/dashboard.blade.php), [`User.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php)):
+  - Added **"Supervising Dean"** selector in Create/Edit Department modals for both **Academic** and **Administrative** departments.
+  - Enabled assigning a single College Dean to oversee multiple academic/administrative departments via `departments.dean_id`.
+  - Added `supervisedDepartments` relation to [`Employee.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Employee.php) and updated the Department column in [`manage-employees.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php) with a clean native browser hover title on the `Supervised Depts` badge (`title="Supervised Departments: CCS, COA, ..."`) avoiding double tooltips and overflow cutoff issues.
+  - Displayed assigned Dean in the Manage Departments leadership table column.
+  - Added fallback in Program Head dashboard & notifications so Program Heads can always evaluate the supervising Dean even if the department `dean_id` is unconfigured.
+  - Added automated tests in [`AdminManagementTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminManagementTest.php) verifying multi-department Dean assignments and table badges.
 - **Faculty & Department Rankings Active Semester Zero-Evaluation Fix & Rank Integrity** ([`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php)):
   - Removed obsolete developer demo fallback/mock generation logic (`$base = 4.20 + ...` and synthetic evaluation counts `(($emp->id * 3) % 25) + 5`) that generated fake ratings and evaluation records on newly activated terms with zero evaluations.
   - Implemented proper empty/pending states for faculty and departments with zero evaluations: displays `No Evaluations` status badge (`variant="zinc"`), `0 evals`, and unranked rank indicators (`—`) rather than fabricating scores.

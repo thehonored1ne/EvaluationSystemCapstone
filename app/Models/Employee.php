@@ -91,6 +91,16 @@ class Employee extends Model
     }
 
     /**
+     * Get all departments supervised by this employee (if they are a Dean).
+     *
+     * @return HasMany<Department, $this>
+     */
+    public function supervisedDepartments(): HasMany
+    {
+        return $this->hasMany(Department::class, 'dean_id');
+    }
+
+    /**
      * Get the program managed by this employee (if they are a Program Head).
      *
      * @return HasOne<Program, $this>

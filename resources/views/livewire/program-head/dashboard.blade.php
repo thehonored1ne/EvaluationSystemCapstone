@@ -1,16 +1,16 @@
 <?php
 
-use Livewire\Volt\Component;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Evaluation;
+use App\Models\Semester;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
-use App\Models\Semester;
-use App\Models\Employee;
-use App\Models\Department;
-use App\Models\User;
-use App\Models\Evaluation;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     public function placeholder()
     {
         return view('livewire.placeholders.evaluator-dashboard-skeleton');
@@ -20,7 +20,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $tab = 'self';
 
     public ?int $selectedEvaluateeUserId = null;
+
     public string $selectedEvaluationType = 'program_head'; // 'self', 'upward_employee', 'program_head'
+
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -31,6 +33,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsEvaluationOpenProperty()
     {
         $sem = $this->activeSemester;
+
         return $sem ? $sem->isEvaluationWindowActive() : false;
     }
 
@@ -48,7 +51,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getFacultyProperty()
     {
         $emp = $this->employee;
-        if (!$emp || !$emp->department_id) return collect();
+        if (! $emp || ! $emp->department_id) {
+            return collect();
+        }
 
         return Employee::where('role', 'faculty')
             ->where('department_id', $emp->department_id)
@@ -56,19 +61,26 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->get();
     }
 
-    // Dean of their department
+    // Dean of their department (with fallback to active institutional dean)
     public function getDeanProperty()
     {
         $dept = $this->department;
-        if (!$dept || !$dept->dean_id) return null;
+        if ($dept && $dept->dean_id) {
+            $dean = Employee::with('user')->find($dept->dean_id);
+            if ($dean) {
+                return $dean;
+            }
+        }
 
-        return Employee::with('user')->find($dept->dean_id);
+        return Employee::where('role', 'dean')->where('status', 'active')->with('user')->first();
     }
 
     public function getEvaluationStatus($evaluateeUserId, $type)
     {
         $sem = $this->activeSemester;
-        if (!$sem) return 'closed';
+        if (! $sem) {
+            return 'closed';
+        }
 
         return Evaluation::getStatus(auth()->id(), $evaluateeUserId, $sem->id, null, $type);
     }
@@ -76,41 +88,46 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getSelfEvaluatedProperty(): bool
     {
         $status = $this->getEvaluationStatus(auth()->id(), 'self');
+
         return in_array($status, ['completed', 'processing']);
     }
 
     public function getDeanEvaluatedProperty(): bool
     {
-        if (!$this->dean || !$this->dean->user) {
+        if (! $this->dean || ! $this->dean->user) {
             return false;
         }
 
         $status = $this->getEvaluationStatus($this->dean->user->id, 'upward_employee');
+
         return in_array($status, ['completed', 'processing']);
     }
 
     public function getEvaluatedFacultyCountProperty(): int
     {
         return $this->faculty->filter(function ($fac) {
-            if (!$fac->user) {
+            if (! $fac->user) {
                 return false;
             }
 
             $status = $this->getEvaluationStatus($fac->user->id, 'program_head');
+
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
 
     public function selectTarget($evaluateeUserId, $type)
     {
-        if (!$this->isEvaluationOpen) {
+        if (! $this->isEvaluationOpen) {
             session()->flash('error', 'Evaluations are currently closed.');
+
             return;
         }
 
         $status = $this->getEvaluationStatus($evaluateeUserId, $type);
         if ($status !== 'pending') {
             session()->flash('error', 'This evaluation is already processing or completed.');
+
             return;
         }
 

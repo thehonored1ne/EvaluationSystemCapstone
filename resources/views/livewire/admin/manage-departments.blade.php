@@ -1,13 +1,14 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Program;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     use WithPagination;
 
     public function placeholder()
@@ -17,27 +18,53 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     // Filter properties
     public string $search = '';
+
     public string $headFilter = '';
+
     public string $typeFilter = ''; // '', 'academic', 'administrative'
+
     public string $sortBy = 'name_asc';
 
     // Department Form properties
     public string $code = '';
+
     public string $name = '';
+
     public string $type = 'academic'; // 'academic', 'administrative'
+
+    public string $dean_id = '';
+
     public string $program_head_id = '';
+
     public string $department_head_id = '';
-    
+
     public bool $showModal = false;
+
     public bool $showDeleteModal = false;
 
     public ?Department $editingDepartment = null;
+
     public ?Department $deletingDepartment = null;
 
-    public function updatedSearch() { $this->resetPage(); }
-    public function updatedHeadFilter() { $this->resetPage(); }
-    public function updatedTypeFilter() { $this->resetPage(); }
-    public function updatedSortBy() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedHeadFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSortBy()
+    {
+        $this->resetPage();
+    }
 
     public function clearFilters()
     {
@@ -48,7 +75,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function prepareCreate()
     {
-        $this->reset(['code', 'name', 'type', 'program_head_id', 'department_head_id', 'editingDepartment']);
+        $this->reset(['code', 'name', 'type', 'dean_id', 'program_head_id', 'department_head_id', 'editingDepartment']);
         $this->type = 'academic';
         $this->showModal = true;
     }
@@ -56,9 +83,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function saveDepartment()
     {
         $rules = [
-            'code' => 'required|string|max:50|unique:departments,code' . ($this->editingDepartment ? ',' . $this->editingDepartment->id : ''),
+            'code' => 'required|string|max:50|unique:departments,code'.($this->editingDepartment ? ','.$this->editingDepartment->id : ''),
             'name' => 'required|string|max:255',
             'type' => 'required|in:academic,administrative',
+            'dean_id' => 'nullable|exists:employees,id',
             'program_head_id' => 'nullable|exists:employees,id',
             'department_head_id' => 'nullable|exists:employees,id',
         ];
@@ -66,8 +94,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->validate($rules);
 
         $codeFormatted = strtoupper(trim($this->code));
-        $newProgHeadId = ($this->type === 'academic' && $this->program_head_id) ? (int)$this->program_head_id : null;
-        $newDeptHeadId = ($this->type === 'administrative' && $this->department_head_id) ? (int)$this->department_head_id : null;
+        $newDeanId = $this->dean_id ? (int) $this->dean_id : null;
+        $newProgHeadId = ($this->type === 'academic' && $this->program_head_id) ? (int) $this->program_head_id : null;
+        $newDeptHeadId = ($this->type === 'administrative' && $this->department_head_id) ? (int) $this->department_head_id : null;
 
         if ($this->editingDepartment) {
             $deptId = $this->editingDepartment->id;
@@ -104,11 +133,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'code' => $codeFormatted,
                 'name' => $this->name,
                 'type' => $this->type,
+                'dean_id' => $newDeanId,
                 'program_head_id' => $newProgHeadId,
                 'department_head_id' => $newDeptHeadId,
             ]);
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Department Updated',
                 text: 'Department information has been updated successfully.',
                 variant: 'success'
@@ -126,6 +156,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'code' => $codeFormatted,
                 'name' => $this->name,
                 'type' => $this->type,
+                'dean_id' => $newDeanId,
                 'program_head_id' => $newProgHeadId,
                 'department_head_id' => $newDeptHeadId,
             ]);
@@ -138,7 +169,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 Employee::where('id', $newDeptHeadId)->update(['department_id' => $department->id]);
             }
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Department Created',
                 text: 'New department created successfully.',
                 variant: 'success'
@@ -154,13 +185,14 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->code = $dept->code;
         $this->name = $dept->name;
         $this->type = $dept->type ?? 'academic';
-        
+        $this->dean_id = $dept->dean_id ? (string) $dept->dean_id : '';
+
         $progHead = $dept->programHead ?: $dept->programHeads->first();
-        $this->program_head_id = $progHead ? (string)$progHead->id : '';
+        $this->program_head_id = $progHead ? (string) $progHead->id : '';
 
         $deptHead = $dept->departmentHead ?: $dept->departmentHeads->first();
-        $this->department_head_id = $deptHead ? (string)$deptHead->id : '';
-        
+        $this->department_head_id = $deptHead ? (string) $deptHead->id : '';
+
         $this->showModal = true;
     }
 
@@ -172,24 +204,27 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function deleteDepartment()
     {
-        if (!$this->deletingDepartment) return;
+        if (! $this->deletingDepartment) {
+            return;
+        }
 
         $deptToDelete = $this->deletingDepartment;
 
         // Check if department has associated programs or active non-head employees
         $hasNonHeadEmployees = Employee::where('department_id', $deptToDelete->id)
-            ->when($deptToDelete->program_head_id, fn($q) => $q->where('id', '!=', $deptToDelete->program_head_id))
+            ->when($deptToDelete->program_head_id, fn ($q) => $q->where('id', '!=', $deptToDelete->program_head_id))
             ->where('role', '!=', 'program head')
             ->exists();
 
         if ($deptToDelete->programs()->exists() || $hasNonHeadEmployees) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Cannot Delete Department',
                 text: 'This department has academic programs or faculty assigned to it. Re-assign or remove them first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
             $this->deletingDepartment = null;
+
             return;
         }
 
@@ -205,7 +240,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $deptToDelete->delete();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Department Deleted',
             text: 'Academic department deleted successfully.',
             variant: 'success'
@@ -216,30 +251,31 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         // 1. Calculate Essential Summary Statistics for Admin
         $totalDepartments = Department::count();
-        $academicDeptsCount = Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))->count();
+        $academicDeptsCount = Department::where(fn ($q) => $q->whereNull('type')->orWhere('type', 'academic'))->count();
         $administrativeDeptsCount = Department::where('type', 'administrative')->count();
-        
+
         // Departments with assigned Program Head or Department Head leadership
         $assignedLeadersCount = Department::where(function ($q) {
             $q->whereNotNull('program_head_id')
-              ->orWhereNotNull('department_head_id')
-              ->orWhereHas('employees', fn($empQ) => $empQ->whereIn('role', ['program head', 'department head']));
+                ->orWhereNotNull('department_head_id')
+                ->orWhereNotNull('dean_id')
+                ->orWhereHas('employees', fn ($empQ) => $empQ->whereIn('role', ['program head', 'department head', 'dean']));
         })->count();
 
         // 2. Query Departments with relations and counts
         $query = Department::query()
-            ->with(['programHead', 'programHeads', 'departmentHead', 'departmentHeads'])
+            ->with(['dean', 'programHead', 'programHeads', 'departmentHead', 'departmentHeads'])
             ->withCount(['programs', 'employees']);
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('code', 'like', '%' . $this->search . '%')
-                  ->orWhere('name', 'like', '%' . $this->search . '%');
+                $q->where('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('name', 'like', '%'.$this->search.'%');
             });
         }
 
         if ($this->typeFilter === 'academic') {
-            $query->where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'));
+            $query->where(fn ($q) => $q->whereNull('type')->orWhere('type', 'academic'));
         } elseif ($this->typeFilter === 'administrative') {
             $query->where('type', 'administrative');
         }
@@ -247,13 +283,15 @@ new #[Layout('components.layouts.app')] class extends Component {
         if ($this->headFilter === 'assigned') {
             $query->where(function ($q) {
                 $q->whereNotNull('program_head_id')
-                  ->orWhereNotNull('department_head_id')
-                  ->orWhereHas('employees', fn($empQ) => $empQ->whereIn('role', ['program head', 'department head']));
+                    ->orWhereNotNull('department_head_id')
+                    ->orWhereNotNull('dean_id')
+                    ->orWhereHas('employees', fn ($empQ) => $empQ->whereIn('role', ['program head', 'department head', 'dean']));
             });
         } elseif ($this->headFilter === 'unassigned') {
             $query->whereNull('program_head_id')
-                  ->whereNull('department_head_id')
-                  ->whereDoesntHave('employees', fn($empQ) => $empQ->whereIn('role', ['program head', 'department head']));
+                ->whereNull('department_head_id')
+                ->whereNull('dean_id')
+                ->whereDoesntHave('employees', fn ($empQ) => $empQ->whereIn('role', ['program head', 'department head', 'dean']));
         }
 
         match ($this->sortBy) {
@@ -265,7 +303,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             default => $query->orderBy('name', 'asc'),
         };
 
-        // Available active program heads and department heads list
+        // Available active deans, program heads, and department heads
+        $deansList = Employee::where('role', 'dean')->where('status', 'active')->orderBy('last_name')->get();
         $programHeadsList = Employee::where('role', 'program head')->where('status', 'active')->orderBy('last_name')->get();
         $departmentHeadsList = Employee::where('role', 'department head')->where('status', 'active')->orderBy('last_name')->get();
 
@@ -276,6 +315,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'administrativeDeptsCount' => $administrativeDeptsCount,
             'assignedLeadersCount' => $assignedLeadersCount,
             'assignedHeadsCount' => $assignedLeadersCount,
+            'deansList' => $deansList,
             'programHeadsList' => $programHeadsList,
             'departmentHeadsList' => $departmentHeadsList,
         ];
@@ -414,7 +454,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 @endif
                             </td>
 
-                            <!-- Head -->
+                            <!-- Head & Dean -->
                             <td class="px-4 py-3.5 dark:text-zinc-300 text-xs whitespace-nowrap">
                                 @php
                                     $isAdminType = ($dept->type ?? 'academic') === 'administrative';
@@ -422,14 +462,22 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         ? ($dept->departmentHead ?: $dept->departmentHeads->first()) 
                                         : ($dept->programHead ?: $dept->programHeads->first());
                                 @endphp
-                                @if($assignedLeader)
-                                    <div>
-                                        <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $assignedLeader->formatted_name }}</span>
-                                        <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $assignedLeader->employee_number }} ({{ $isAdminType ? 'Dept Head' : 'Prog Head' }})</span>
-                                    </div>
-                                @else
-                                    <span class="text-zinc-400 italic">Unassigned</span>
-                                @endif
+                                <div class="space-y-1">
+                                    @if($assignedLeader)
+                                        <div>
+                                            <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $assignedLeader->formatted_name }}</span>
+                                            <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $assignedLeader->employee_number }} ({{ $isAdminType ? 'Dept Head' : 'Prog Head' }})</span>
+                                        </div>
+                                    @else
+                                        <span class="text-zinc-400 italic text-[11px] block">No Head Assigned</span>
+                                    @endif
+
+                                    @if($dept->dean)
+                                        <div class="pt-0.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1">
+                                            <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">Dean: {{ $dept->dean->formatted_name }}</span>
+                                        </div>
+                                    @endif
+                                </div>
                             </td>
 
                             <!-- Members Count -->
@@ -513,6 +561,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                         @endforeach
                     </flux:select>
                 @endif
+
+                <flux:select wire:model="dean_id" label="Supervising Dean (Optional)">
+                    <flux:select.option value="">Unassigned (None)</flux:select.option>
+                    @foreach($deansList as $dean)
+                        <flux:select.option value="{{ $dean->id }}">{{ $dean->formatted_name }} ({{ $dean->employee_number }})</flux:select.option>
+                    @endforeach
+                </flux:select>
 
                 <div class="flex justify-end gap-2 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3">
                     <flux:button wire:click="$set('showModal', false)">Cancel</flux:button>

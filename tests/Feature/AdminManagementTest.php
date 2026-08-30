@@ -938,3 +938,66 @@ test('admin can view, add, remove, and unenroll all students in program manageme
     expect($student2->refresh()->program_id)->toBeNull();
     expect($prog->students()->count())->toBe(0);
 });
+
+test('admin can assign the same supervising dean to multiple academic and administrative departments', function () {
+    $this->actingAs($this->adminUser);
+
+    $deanEmp = Employee::create([
+        'employee_number' => 'DEAN-001',
+        'first_name' => 'Eleanor',
+        'last_name' => 'Vance',
+        'role' => 'dean',
+        'status' => 'active',
+    ]);
+
+    $academicDept = Department::create([
+        'code' => 'COA',
+        'name' => 'College of Accountancy',
+        'type' => 'academic',
+    ]);
+
+    $adminDept = Department::create([
+        'code' => 'REG',
+        'name' => 'Registrar Office',
+        'type' => 'administrative',
+    ]);
+
+    // Assign Dean to Academic Department
+    Volt::test('admin.manage-departments')
+        ->call('editDepartment', $academicDept->id)
+        ->set('dean_id', (string) $deanEmp->id)
+        ->call('saveDepartment')
+        ->assertHasNoErrors();
+
+    // Assign SAME Dean to Administrative Department
+    Volt::test('admin.manage-departments')
+        ->call('editDepartment', $adminDept->id)
+        ->set('dean_id', (string) $deanEmp->id)
+        ->call('saveDepartment')
+        ->assertHasNoErrors();
+
+    expect($academicDept->refresh()->dean_id)->toBe($deanEmp->id);
+    expect($adminDept->refresh()->dean_id)->toBe($deanEmp->id);
+
+    // Verify Dean is displayed on the Manage Departments list
+    Volt::test('admin.manage-departments')
+        ->assertSee('Dean: Vance, Eleanor')
+        ->assertSee('College of Accountancy')
+        ->assertSee('Registrar Office');
+
+    // Create user for the Dean to view in manage-employees
+    $deanUser = User::create([
+        'name' => 'Eleanor Vance',
+        'email' => 'eleanor.vance@example.com',
+        'password' => 'password',
+        'employee_id' => $deanEmp->id,
+    ]);
+    $deanUser->assignRole('dean');
+
+    // Verify Dean displays supervised departments badge on the Manage Employees table
+    Volt::test('admin.manage-employees')
+        ->set('selectedRole', 'dean')
+        ->assertSee('2 Supervised Depts')
+        ->assertSee('COA')
+        ->assertSee('REG');
+});

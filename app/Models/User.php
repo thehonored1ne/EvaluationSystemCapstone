@@ -368,6 +368,34 @@ class User extends Authenticatable // implements MustVerifyEmail
                         ];
                     }
                 }
+
+                // Dean supervisor evaluation pending
+                $deanUser = null;
+                if ($emp->department_id) {
+                    $dept = $emp->department;
+                    if ($dept && $dept->dean_id) {
+                        $deanEmp = Employee::with('user')->find($dept->dean_id);
+                        $deanUser = $deanEmp?->user;
+                    }
+                }
+                if (! $deanUser) {
+                    $deanEmp = Employee::where('role', 'dean')->where('status', 'active')->with('user')->first();
+                    $deanUser = $deanEmp?->user;
+                }
+
+                if ($deanUser && $deanUser->id !== $this->id) {
+                    $deanDone = isset($completedMap[$deanUser->id.'_upward_employee']) || isset($completedMap[$deanUser->id.'_superior']);
+
+                    if (! $deanDone && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'ph_dean_'.$sem->id,
+                            'type' => 'reminder',
+                            'title' => 'Pending Dean Evaluation',
+                            'description' => 'You have 1 College Dean supervisor evaluation remaining to submit.',
+                            'created_at' => $notificationTime,
+                        ];
+                    }
+                }
             } elseif ($this->hasRole('dean')) {
                 // Check self evaluation
                 $selfEvaluated = isset($completedMap[$this->id.'_self']);
@@ -680,6 +708,26 @@ class User extends Authenticatable // implements MustVerifyEmail
                             $pending++;
                         }
                     }
+                }
+
+                // Supervisor Dean
+                $deanUser = null;
+                if ($emp->department_id) {
+                    $dept = $emp->department;
+                    if ($dept && $dept->dean_id) {
+                        $deanEmp = Employee::with('user')->find($dept->dean_id);
+                        $deanUser = $deanEmp?->user;
+                    }
+                }
+                if (! $deanUser) {
+                    $deanEmp = Employee::where('role', 'dean')->where('status', 'active')->with('user')->first();
+                    $deanUser = $deanEmp?->user;
+                }
+
+                if ($deanUser && $deanUser->id !== $this->id
+                    && ! isset($completedMap[$deanUser->id.'_upward_employee'])
+                    && ! isset($completedMap[$deanUser->id.'_superior'])) {
+                    $pending++;
                 }
             } elseif ($this->hasRole('dean')) {
                 // Self
