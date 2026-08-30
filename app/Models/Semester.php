@@ -90,7 +90,7 @@ class Semester extends Model
         return match ($type) {
             'student', 'upward_student' => (float) ($this->student_weight ?? 30.0),
             'dean' => (float) ($this->dean_weight ?? 15.0),
-            'ph_dh', 'downward' => (float) ($this->ph_dh_weight ?? 15.0),
+            'ph_dh', 'downward', 'program_head', 'department_head' => (float) ($this->ph_dh_weight ?? 15.0),
             'peer' => (float) ($this->peer_weight ?? 15.0),
             'self' => (float) ($this->self_weight ?? 5.0),
             'superior', 'upward_employee' => (float) ($this->superior_weight ?? 20.0),

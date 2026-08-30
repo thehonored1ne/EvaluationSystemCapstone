@@ -2,11 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @property int $id
+ * @property int $criterion_id
+ * @property string $question_text
+ * @property int $order
+ * @property bool $is_active
+ * @property-read EvaluationCriterion $criterion
+ * @property-read Collection<int, EvaluationAnswer> $answers
+ */
 class EvaluationQuestion extends Model
 {
     use HasFactory, LogsActivity;
@@ -32,16 +44,20 @@ class EvaluationQuestion extends Model
 
     /**
      * Get the criterion this question belongs to.
+     *
+     * @return BelongsTo<EvaluationCriterion, $this>
      */
-    public function criterion()
+    public function criterion(): BelongsTo
     {
         return $this->belongsTo(EvaluationCriterion::class, 'criterion_id');
     }
 
     /**
      * Get the answers submitted for this question.
+     *
+     * @return HasMany<EvaluationAnswer, $this>
      */
-    public function answers()
+    public function answers(): HasMany
     {
         return $this->hasMany(EvaluationAnswer::class, 'question_id');
     }

@@ -301,6 +301,31 @@ class User extends Authenticatable // implements MustVerifyEmail
                             'created_at' => $notificationTime,
                         ];
                     }
+
+                    // Program Head supervisor pending
+                    $phList = Employee::where('role', 'program head')
+                        ->where('department_id', $emp->department_id)
+                        ->with('user')
+                        ->get();
+
+                    $phPending = 0;
+                    foreach ($phList as $ph) {
+                        if ($ph->user
+                            && ! isset($completedMap[$ph->user->id.'_upward_employee'])
+                            && ! isset($completedMap[$ph->user->id.'_superior'])) {
+                            $phPending++;
+                        }
+                    }
+
+                    if ($phPending > 0 && $isEvaluationOpen) {
+                        $notifications[] = (object) [
+                            'id' => 'faculty_ph_'.$sem->id.'_'.$phPending,
+                            'type' => 'reminder',
+                            'title' => 'Pending Program Head Evaluation',
+                            'description' => "You have {$phPending} supervisor evaluation(s) remaining for your department Program Head.",
+                            'created_at' => $notificationTime,
+                        ];
+                    }
                 }
             } elseif ($this->hasRole('program head')) {
                 // Check self evaluation
@@ -325,7 +350,10 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                     $facPending = 0;
                     foreach ($faculty as $member) {
-                        if ($member->user && ! isset($completedMap[$member->user->id.'_peer']) && ! isset($completedMap[$member->user->id.'_downward'])) {
+                        if ($member->user
+                            && ! isset($completedMap[$member->user->id.'_program_head'])
+                            && ! isset($completedMap[$member->user->id.'_downward'])
+                            && ! isset($completedMap[$member->user->id.'_peer'])) {
                             $facPending++;
                         }
                     }
@@ -358,7 +386,10 @@ class User extends Authenticatable // implements MustVerifyEmail
                 $heads = Employee::where('role', 'program head')->with('user')->get();
                 $phPending = 0;
                 foreach ($heads as $head) {
-                    if ($head->user && ! isset($completedMap[$head->user->id.'_peer']) && ! isset($completedMap[$head->user->id.'_downward'])) {
+                    if ($head->user
+                        && ! isset($completedMap[$head->user->id.'_dean'])
+                        && ! isset($completedMap[$head->user->id.'_downward'])
+                        && ! isset($completedMap[$head->user->id.'_peer'])) {
                         $phPending++;
                     }
                 }
@@ -399,7 +430,7 @@ class User extends Authenticatable // implements MustVerifyEmail
                     }
 
                     if ($headUser && $headUser->id !== $this->id) {
-                        $headDone = isset($completedMap[$headUser->id.'_upward_employee']);
+                        $headDone = isset($completedMap[$headUser->id.'_upward_employee']) || isset($completedMap[$headUser->id.'_superior']);
 
                         if (! $headDone && $isEvaluationOpen) {
                             $notifications[] = (object) [
@@ -459,7 +490,9 @@ class User extends Authenticatable // implements MustVerifyEmail
 
                     $staffPending = 0;
                     foreach ($staffMembers as $staff) {
-                        if ($staff->user && ! isset($completedMap[$staff->user->id.'_downward'])) {
+                        if ($staff->user
+                            && ! isset($completedMap[$staff->user->id.'_department_head'])
+                            && ! isset($completedMap[$staff->user->id.'_downward'])) {
                             $staffPending++;
                         }
                     }
@@ -479,7 +512,9 @@ class User extends Authenticatable // implements MustVerifyEmail
                 $deans = Employee::where('role', 'dean')->with('user')->get();
                 $deanPending = 0;
                 foreach ($deans as $dean) {
-                    if ($dean->user && ! isset($completedMap[$dean->user->id.'_upward_employee'])) {
+                    if ($dean->user
+                        && ! isset($completedMap[$dean->user->id.'_upward_employee'])
+                        && ! isset($completedMap[$dean->user->id.'_superior'])) {
                         $deanPending++;
                     }
                 }
@@ -607,6 +642,21 @@ class User extends Authenticatable // implements MustVerifyEmail
                             $pending++;
                         }
                     }
+
+                    // Program Head supervisor in same department
+                    $phList = Employee::where('role', 'program head')
+                        ->where('department_id', $emp->department_id)
+                        ->where('status', 'active')
+                        ->with('user')
+                        ->get();
+
+                    foreach ($phList as $ph) {
+                        if ($ph->user
+                            && ! isset($completedMap[$ph->user->id.'_upward_employee'])
+                            && ! isset($completedMap[$ph->user->id.'_superior'])) {
+                            $pending++;
+                        }
+                    }
                 }
             } elseif ($this->hasRole('program head')) {
                 // Self
@@ -623,7 +673,10 @@ class User extends Authenticatable // implements MustVerifyEmail
                         ->get();
 
                     foreach ($faculty as $fac) {
-                        if ($fac->user && ! isset($completedMap[$fac->user->id.'_peer']) && ! isset($completedMap[$fac->user->id.'_downward'])) {
+                        if ($fac->user
+                            && ! isset($completedMap[$fac->user->id.'_program_head'])
+                            && ! isset($completedMap[$fac->user->id.'_downward'])
+                            && ! isset($completedMap[$fac->user->id.'_peer'])) {
                             $pending++;
                         }
                     }
@@ -637,7 +690,10 @@ class User extends Authenticatable // implements MustVerifyEmail
                 // Program heads
                 $heads = Employee::where('role', 'program head')->where('status', 'active')->with('user')->get();
                 foreach ($heads as $head) {
-                    if ($head->user && ! isset($completedMap[$head->user->id.'_peer']) && ! isset($completedMap[$head->user->id.'_downward'])) {
+                    if ($head->user
+                        && ! isset($completedMap[$head->user->id.'_dean'])
+                        && ! isset($completedMap[$head->user->id.'_downward'])
+                        && ! isset($completedMap[$head->user->id.'_peer'])) {
                         $pending++;
                     }
                 }
@@ -677,7 +733,9 @@ class User extends Authenticatable // implements MustVerifyEmail
                         ->get();
 
                     foreach ($staff as $st) {
-                        if ($st->user && ! isset($completedMap[$st->user->id.'_downward'])) {
+                        if ($st->user
+                            && ! isset($completedMap[$st->user->id.'_department_head'])
+                            && ! isset($completedMap[$st->user->id.'_downward'])) {
                             $pending++;
                         }
                     }

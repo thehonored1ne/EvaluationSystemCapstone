@@ -25,45 +25,15 @@ parameters:
 			path: app/Console/Commands/TrainAI.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\EvaluationQuestion\:\:\$criterion\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Jobs/ProcessEvaluationSubmission.php
-
-		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.expr
 			count: 1
 			path: app/Jobs/ProcessEvaluationSubmission.php
 
 		-
-			message: '#^Relation ''criterion'' is not found in App\\Models\\EvaluationQuestion model\.$#'
-			identifier: larastan.relationExistence
-			count: 1
-			path: app/Jobs/ProcessEvaluationSubmission.php
-
-		-
-			message: '#^Relation ''questions'' is not found in App\\Models\\EvaluationCriterion model\.$#'
-			identifier: larastan.relationExistence
-			count: 1
-			path: app/Models/EvaluationCriterion.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\AcademicClass\:\:\$teacher\.$#'
 			identifier: property.notFound
 			count: 2
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Employee\:\:\$user\.$#'
-			identifier: property.notFound
-			count: 12
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Employee\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\Employee\>\:\:\$user\.$#'
-			identifier: property.notFound
-			count: 1
 			path: app/Models/User.php
 
 		-
@@ -94,12 +64,6 @@ parameters:
 			message: '#^Relation ''teacher'' is not found in App\\Models\\AcademicClass model\.$#'
 			identifier: larastan.relationExistence
 			count: 2
-			path: app/Models/User.php
-
-		-
-			message: '#^Relation ''user'' is not found in App\\Models\\Employee model\.$#'
-			identifier: larastan.relationExistence
-			count: 12
 			path: app/Models/User.php
 
 		-

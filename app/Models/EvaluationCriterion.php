@@ -2,12 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @property int $id
+ * @property string $evaluation_type
+ * @property string $name
+ * @property int $order
+ * @property float $max_points
+ * @property-read Collection<int, EvaluationQuestion> $questions
+ */
 class EvaluationCriterion extends Model
 {
     use HasFactory, LogsActivity;
@@ -37,8 +47,10 @@ class EvaluationCriterion extends Model
 
     /**
      * Get the questions belonging to this criterion.
+     *
+     * @return HasMany<EvaluationQuestion, $this>
      */
-    public function questions()
+    public function questions(): HasMany
     {
         return $this->hasMany(EvaluationQuestion::class, 'criterion_id');
     }

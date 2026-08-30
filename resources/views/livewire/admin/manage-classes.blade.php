@@ -1,21 +1,23 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
-use Livewire\WithFileUploads;
-use Livewire\Attributes\Layout;
 use App\Models\AcademicClass;
-use App\Models\Subject;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Program;
 use App\Models\Semester;
 use App\Models\Student;
-use App\Models\Department;
-use App\Models\Program;
+use App\Models\Subject;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
-    use WithPagination, WithFileUploads;
+new #[Layout('components.layouts.app')] class extends Component
+{
+    use WithFileUploads, WithPagination;
 
     public function placeholder()
     {
@@ -24,56 +26,97 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     // Import properties
     public $importFile = null;
+
     public bool $showImportModal = false;
 
     // Filter properties
     public string $search = '';
+
     public string $filterSemester = '';
+
     public string $filterDepartment = '';
+
     public string $filterSubject = '';
+
     public string $filterTeacher = '';
 
     // Class CRUD properties
     public string $subject_id = '';
+
     public string $teacher_id = '';
+
     public string $semester_id = '';
+
     public string $section = '';
+
     public string $schedule = '';
+
     public string $schedule_days = '';
+
     public string $schedule_start_time = '';
+
     public string $schedule_end_time = '';
+
     public string $room = '';
-    
+
     public bool $showModal = false;
+
     public bool $showDeleteModal = false;
+
     public ?AcademicClass $editingClass = null;
+
     public ?AcademicClass $deletingClass = null;
 
     // Enrollment properties
     public bool $showEnrollmentModal = false;
+
     public ?AcademicClass $managingClass = null;
+
     public string $studentSearch = '';
+
     public array $enrolledStudentIds = [];
 
     // Fast Batch Enrollment & Multi-Select properties
     public array $selectedStudentIds = [];
+
     public string $enrollProgramFilter = '';
+
     public string $enrollYearFilter = '';
+
     public bool $selectAllUnenrolled = false;
 
     public function mount()
     {
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
-            $this->filterSemester = (string)$activeSemester->id;
+            $this->filterSemester = (string) $activeSemester->id;
         }
     }
 
-    public function updatedSearch() { $this->resetPage(); }
-    public function updatedFilterSemester() { $this->resetPage(); }
-    public function updatedFilterDepartment() { $this->resetPage(); }
-    public function updatedFilterSubject() { $this->resetPage(); }
-    public function updatedFilterTeacher() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterSemester()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDepartment()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterSubject()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterTeacher()
+    {
+        $this->resetPage();
+    }
 
     public function updatedEnrollProgramFilter()
     {
@@ -97,7 +140,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         if ($value && $this->managingClass) {
             $candidates = $this->getUnenrolledCandidates();
-            $this->selectedStudentIds = $candidates->pluck('id')->map(fn($id) => (string)$id)->toArray();
+            $this->selectedStudentIds = $candidates->pluck('id')->map(fn ($id) => (string) $id)->toArray();
         } else {
             $this->selectedStudentIds = [];
         }
@@ -108,7 +151,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset(['search', 'filterDepartment', 'filterSubject', 'filterTeacher']);
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
-            $this->filterSemester = (string)$activeSemester->id;
+            $this->filterSemester = (string) $activeSemester->id;
         } else {
             $this->filterSemester = '';
         }
@@ -120,7 +163,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset(['subject_id', 'teacher_id', 'semester_id', 'section', 'schedule', 'schedule_days', 'schedule_start_time', 'schedule_end_time', 'room', 'editingClass']);
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
-            $this->semester_id = (string)$activeSemester->id;
+            $this->semester_id = (string) $activeSemester->id;
         }
         $this->showModal = true;
     }
@@ -142,8 +185,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             try {
                 $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
                 $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
-                $this->schedule = $this->schedule_days . ' ' . $startStr . ' - ' . $endStr;
-            } catch (\Exception $e) {}
+                $this->schedule = $this->schedule_days.' '.$startStr.' - '.$endStr;
+            } catch (Throwable $e) {
+                Log::debug('Failed to format class schedule on creation', [
+                    'error' => $e->getMessage(),
+                    'start_time' => $this->schedule_start_time,
+                    'end_time' => $this->schedule_end_time,
+                ]);
+            }
         }
 
         AcademicClass::create([
@@ -156,7 +205,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         ]);
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Class Created',
             text: 'The academic class has been successfully created.',
             variant: 'success'
@@ -182,7 +231,12 @@ new #[Layout('components.layouts.app')] class extends Component {
             try {
                 $this->schedule_start_time = Carbon::parse($matches[2])->format('H:i');
                 $this->schedule_end_time = Carbon::parse($matches[3])->format('H:i');
-            } catch (\Exception $e) {}
+            } catch (Throwable $e) {
+                Log::debug('Failed to parse class schedule on edit', [
+                    'error' => $e->getMessage(),
+                    'raw_schedule' => $this->schedule,
+                ]);
+            }
         }
 
         $this->showModal = true;
@@ -205,8 +259,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             try {
                 $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
                 $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
-                $this->schedule = $this->schedule_days . ' ' . $startStr . ' - ' . $endStr;
-            } catch (\Exception $e) {}
+                $this->schedule = $this->schedule_days.' '.$startStr.' - '.$endStr;
+            } catch (Throwable $e) {
+                Log::debug('Failed to format class schedule on update', [
+                    'error' => $e->getMessage(),
+                    'start_time' => $this->schedule_start_time,
+                    'end_time' => $this->schedule_end_time,
+                ]);
+            }
         }
 
         $this->editingClass->update([
@@ -219,7 +279,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         ]);
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Class Updated',
             text: 'The academic class has been successfully updated.',
             variant: 'success'
@@ -234,18 +294,21 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function deleteClass()
     {
-        if (!$this->deletingClass) return;
+        if (! $this->deletingClass) {
+            return;
+        }
 
         $classToDelete = $this->deletingClass;
 
         if ($classToDelete->evaluations()->exists()) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Cannot Delete Class',
                 text: 'This class has evaluation submissions associated with it. Delete the evaluations first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
             $this->deletingClass = null;
+
             return;
         }
 
@@ -256,7 +319,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $classToDelete->delete();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Class Deleted',
             text: 'The academic class has been successfully deleted.',
             variant: 'success'
@@ -286,23 +349,38 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function enrollStudent($studentId)
     {
-        if (!$this->managingClass) return;
+        if (! $this->managingClass) {
+            return;
+        }
 
         try {
             $this->managingClass->students()->attach($studentId);
             $this->updateEnrolledList();
-            $this->selectedStudentIds = array_diff($this->selectedStudentIds, [(string)$studentId]);
-            \Flux::toast(
+            $this->selectedStudentIds = array_diff($this->selectedStudentIds, [(string) $studentId]);
+            Flux::toast(
                 heading: 'Student Enrolled',
                 text: 'The student was added to this class.',
                 variant: 'success'
             );
-        } catch (\Exception $e) {}
+        } catch (Throwable $e) {
+            Log::debug('Failed to enroll student into academic class', [
+                'error' => $e->getMessage(),
+                'student_id' => $studentId,
+                'class_id' => $this->managingClass?->id,
+            ]);
+            Flux::toast(
+                heading: 'Enrollment Failed',
+                text: 'Could not enroll student: '.$e->getMessage(),
+                variant: 'danger'
+            );
+        }
     }
 
     public function enrollSelectedStudents()
     {
-        if (!$this->managingClass || empty($this->selectedStudentIds)) return;
+        if (! $this->managingClass || empty($this->selectedStudentIds)) {
+            return;
+        }
 
         $this->managingClass->students()->syncWithoutDetaching($this->selectedStudentIds);
         $count = count($this->selectedStudentIds);
@@ -310,7 +388,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->selectAllUnenrolled = false;
         $this->updateEnrolledList();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Batch Students Enrolled',
             text: "Successfully enrolled $count student(s) into this class.",
             variant: 'success'
@@ -319,7 +397,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function enrollMatchingSectionStudents()
     {
-        if (!$this->managingClass) return;
+        if (! $this->managingClass) {
+            return;
+        }
 
         $sectionCode = $this->managingClass->section;
         $matchingStudentIds = Student::where('section', $sectionCode)
@@ -328,11 +408,12 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->toArray();
 
         if (empty($matchingStudentIds)) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'No Matching Unenrolled Students',
                 text: "All students in section '$sectionCode' are already enrolled in this class.",
                 variant: 'warning'
             );
+
             return;
         }
 
@@ -340,7 +421,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $count = count($matchingStudentIds);
         $this->updateEnrolledList();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Batch Section Enrollment Complete',
             text: "Successfully enrolled all $count student(s) matching section '$sectionCode'.",
             variant: 'success'
@@ -349,12 +430,14 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function unenrollStudent($studentId)
     {
-        if (!$this->managingClass) return;
+        if (! $this->managingClass) {
+            return;
+        }
 
         $this->managingClass->students()->detach($studentId);
         $this->updateEnrolledList();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Student Removed',
             text: 'The student was removed from this class.',
             variant: 'success'
@@ -363,13 +446,15 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function unenrollAllStudents()
     {
-        if (!$this->managingClass) return;
+        if (! $this->managingClass) {
+            return;
+        }
 
         $count = count($this->enrolledStudentIds);
         $this->managingClass->students()->detach();
         $this->updateEnrolledList();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'All Students Removed',
             text: "Successfully unenrolled all $count student(s) from this class.",
             variant: 'success'
@@ -378,19 +463,21 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     private function getUnenrolledCandidates()
     {
-        if (!$this->managingClass) return collect();
+        if (! $this->managingClass) {
+            return collect();
+        }
 
         $query = Student::query()
             ->with('program.department')
             ->whereNotIn('id', $this->enrolledStudentIds);
 
         if ($this->studentSearch) {
-            $searchStr = '%' . trim($this->studentSearch) . '%';
+            $searchStr = '%'.trim($this->studentSearch).'%';
             $query->where(function ($q) use ($searchStr) {
                 $q->where('first_name', 'like', $searchStr)
-                  ->orWhere('last_name', 'like', $searchStr)
-                  ->orWhere('student_number', 'like', $searchStr)
-                  ->orWhere('section', 'like', $searchStr);
+                    ->orWhere('last_name', 'like', $searchStr)
+                    ->orWhere('student_number', 'like', $searchStr)
+                    ->orWhere('section', 'like', $searchStr);
             });
         }
 
@@ -399,7 +486,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         if ($this->enrollYearFilter !== '') {
-            $query->where('year_level', (int)$this->enrollYearFilter);
+            $query->where('year_level', (int) $this->enrollYearFilter);
         }
 
         return $query->orderBy('last_name')->limit(50)->get();
@@ -593,7 +680,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             }
 
             DB::commit();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
             $this->addError('importFile', 'Import error on line '.($index + 2).': '.$e->getMessage());
 
@@ -607,7 +694,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->causedBy(auth()->user())
             ->log("Bulk imported {$classesAdded} class sections and enrolled {$enrollmentsAdded} student allocations via CSV");
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Classes & Rosters Imported',
             text: "Processed classes: {$classesAdded} created, {$classesUpdated} updated. Enrolled {$enrollmentsAdded} student allocations.",
             variant: 'success'
@@ -622,16 +709,16 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('section', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('subject', function ($sub) {
-                      $sub->where('code', 'like', '%' . $this->search . '%')
-                          ->orWhere('name', 'like', '%' . $this->search . '%');
-                  })
-                  ->orWhereHas('teacher', function ($emp) {
-                      $emp->where('first_name', 'like', '%' . $this->search . '%')
-                          ->orWhere('last_name', 'like', '%' . $this->search . '%')
-                          ->orWhere('employee_number', 'like', '%' . $this->search . '%');
-                  });
+                $q->where('section', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('subject', function ($sub) {
+                        $sub->where('code', 'like', '%'.$this->search.'%')
+                            ->orWhere('name', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('teacher', function ($emp) {
+                        $emp->where('first_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('last_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('employee_number', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 

@@ -1,22 +1,23 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use App\Models\Semester;
-use App\Models\AcademicClass;
 use App\Models\Department;
-use App\Models\Evaluation;
 use App\Models\Employee;
+use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\EvaluationReferenceService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     use WithPagination;
 
     public function placeholder()
@@ -26,9 +27,13 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     // 6 Evaluator Role Tabs: 'student', 'dean', 'program_head', 'department_head', 'professor', 'staff'
     public string $activeTab = 'student';
+
     public string $search = '';
+
     public string $selectedDepartmentId = '';
+
     public string $selectedStatus = 'all'; // 'all', 'completed', 'in_progress', 'pending'
+
     public int $perPage = 10;
 
     public function getActiveSemesterProperty()
@@ -58,15 +63,30 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->resetPage();
     }
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedSelectedDepartmentId(): void { $this->resetPage(); }
-    public function updatedSelectedStatus(): void { $this->resetPage(); }
-    public function updatedPerPage(): void { $this->resetPage(); }
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedDepartmentId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
 
     /**
      * Helper to paginate in-memory collections safely with fixed 'page' parameter.
      *
-     * @param \Illuminate\Support\Collection<int, mixed> $items
+     * @param  Collection<int, mixed>  $items
      */
     protected function paginateCollection($items, int $perPage = 10): LengthAwarePaginator
     {
@@ -283,7 +303,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'downward', 'peer'])
+            ->whereIn('evaluation_type', ['self', 'downward', 'dean', 'peer'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -375,7 +395,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'downward', 'peer'])
+            ->whereIn('evaluation_type', ['self', 'downward', 'program_head', 'peer', 'upward_employee'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -470,7 +490,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'downward', 'peer'])
+            ->whereIn('evaluation_type', ['self', 'downward', 'department_head', 'peer', 'upward_employee'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -562,10 +582,18 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->groupBy('department_id')
             ->pluck('count', 'department_id');
 
+        // Preload department active program head count map
+        $deptPhCountMap = DB::table('employees')
+            ->where('role', 'program head')
+            ->where('status', 'active')
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'peer'])
+            ->whereIn('evaluation_type', ['self', 'peer', 'upward_employee', 'superior'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -591,11 +619,12 @@ new #[Layout('components.layouts.app')] class extends Component {
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $evalCountMap) {
+        return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $deptPhCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptFacCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
+            $deptPhCount = (int) ($deptPhCountMap[$emp->department_id] ?? 0);
             $peerTarget = max(0, $deptFacCount - 1);
-            $targetCount = 1 + $peerTarget; // 1 (Self) + Dept Faculty Peers
+            $targetCount = 1 + $peerTarget + $deptPhCount; // 1 (Self) + Dept Faculty Peers + Dept Program Head(s)
 
             $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;
@@ -661,7 +690,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'peer', 'upward_employee'])
+            ->whereIn('evaluation_type', ['self', 'peer', 'upward_employee', 'superior'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -746,7 +775,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ];
         }
 
-        return \Illuminate\Support\Facades\Cache::remember("manage_eval_summary_stats_{$semId}", 30, function () use ($semId) {
+        return Cache::remember("manage_eval_summary_stats_{$semId}", 30, function () use ($semId) {
             // 1. Single aggregate query on evaluations table
             $evalAgg = DB::table('evaluations')
                 ->where('semester_id', $semId)
@@ -810,7 +839,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ];
         }
 
-        return \Illuminate\Support\Facades\Cache::remember("manage_eval_tab_counts_{$semId}", 30, function () use ($semId) {
+        return Cache::remember("manage_eval_tab_counts_{$semId}", 30, function () use ($semId) {
             // Consolidated single query for employee tab counts
             $empCounts = DB::table('employees')
                 ->where('status', 'active')
@@ -852,7 +881,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 ->log('Broadcasted evaluation completion reminders across all pending evaluators via Completion Tracking.');
         }
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Reminders Broadcasted',
             text: 'Evaluation submission reminders have been processed and broadcasted to all pending evaluators.',
             variant: 'success'

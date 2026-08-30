@@ -90,7 +90,7 @@ class ProcessEvaluationSubmission implements ShouldQueue
 
             foreach ($this->answers as $qId => $rating) {
                 $question = $questions->firstWhere('id', $qId);
-                if ($question && $question->criterion) {
+                if ($question?->criterion) {
                     $cMax = (float) $question->criterion->max_points;
                     $qCount = $questionsByCriterion[$question->criterion_id]->count() ?? 1;
                     $qPoints = ($rating / 5.0) * ($cMax / $qCount);

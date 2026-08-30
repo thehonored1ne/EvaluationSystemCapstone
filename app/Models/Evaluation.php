@@ -6,6 +6,7 @@ use App\Jobs\ProcessEvaluationSubmission;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -148,7 +149,7 @@ class Evaluation extends Model
                 $payloadData = json_decode($payloadStr, true);
                 $command = $payloadData['data']['command'] ?? null;
                 if ($command) {
-                    $unserialized = @unserialize($command);
+                    $unserialized = unserialize($command, ['allowed_classes' => [ProcessEvaluationSubmission::class]]);
                     if ($unserialized instanceof ProcessEvaluationSubmission) {
                         if ($unserialized->evaluatorId === $evaluatorId
                             && $unserialized->evaluateeId === $evaluateeId
@@ -161,7 +162,9 @@ class Evaluation extends Model
                 }
             }
         } catch (\Throwable $e) {
-            // Gracefully ignore if jobs table does not exist
+            Log::debug('Failed to inspect database queue jobs in Evaluation::getStatus', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return 'pending';

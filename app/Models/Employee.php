@@ -4,9 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @property int $id
+ * @property string $employee_number
+ * @property string $first_name
+ * @property string $last_name
+ * @property string|null $middle_name
+ * @property string|null $suffix
+ * @property string $role
+ * @property string $status
+ * @property int|null $department_id
+ * @property-read User|null $user
+ * @property-read Department|null $department
+ * @property-read string $full_name
+ * @property-read string $formatted_name
+ */
 class Employee extends Model
 {
     use HasFactory, LogsActivity;
@@ -34,48 +52,60 @@ class Employee extends Model
 
     /**
      * Get the user account associated with the employee.
+     *
+     * @return HasOne<User, $this>
      */
-    public function user()
+    public function user(): HasOne
     {
         return $this->hasOne(User::class);
     }
 
     /**
      * Get the classes taught by this employee.
+     *
+     * @return HasMany<AcademicClass, $this>
      */
-    public function classes()
+    public function classes(): HasMany
     {
         return $this->hasMany(AcademicClass::class, 'teacher_id');
     }
 
     /**
      * Get the department this employee belongs to.
+     *
+     * @return BelongsTo<Department, $this>
      */
-    public function department()
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
     /**
      * Get the department managed by this employee (if they are a Dean).
+     *
+     * @return HasOne<Department, $this>
      */
-    public function managedDepartment()
+    public function managedDepartment(): HasOne
     {
         return $this->hasOne(Department::class, 'dean_id');
     }
 
     /**
      * Get the program managed by this employee (if they are a Program Head).
+     *
+     * @return HasOne<Program, $this>
      */
-    public function managedProgram()
+    public function managedProgram(): HasOne
     {
         return $this->hasOne(Program::class, 'program_head_id');
     }
 
     /**
      * Get the department managed by this employee (if they are a Department Head).
+     *
+     * @return HasOne<Department, $this>
      */
-    public function managedAdminDepartment()
+    public function managedAdminDepartment(): HasOne
     {
         return $this->hasOne(Department::class, 'department_head_id');
     }

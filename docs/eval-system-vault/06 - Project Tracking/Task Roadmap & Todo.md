@@ -9,6 +9,16 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] **Rankings Bug Fix, Evaluation Type Unification & Custom Error Pages (2026-08-30)**:
+  - Removed demo fallback / synthetic score generator in `rankings.blade.php` that fabricated scores (3.50–5.00) and evaluation counts on terms with zero evaluations.
+  - Implemented proper `No Evaluations` status badge (`variant="zinc"`), `0 evals`, unranked display (`—`), and `N/A` for summary KPI cards when no evaluations exist.
+  - Decoupled Top Performing KPI cards (Top Faculty & Top Department) from table sort order so they always display the true highest-rated performers.
+  - Preserved true performance rank across all table sorting modes ("Lowest", "Most Evaluations") without incorrectly awarding 🥇🥈🥉 medals to lower-rated faculty.
+  - Resolved evaluation type mismatches across `User.php` notifications / pending counters and `manage-evaluations.blade.php` completion tracking queries for `dean`, `program_head`, `department_head`, and `upward_employee`.
+  - Added Faculty Program Head supervisor evaluation tracking in `User.php` and `manage-evaluations.blade.php`.
+  - Remediated all silent error suppression / empty catch blocks across `manage-classes`, `manage-subjects`, and `Evaluation.php`.
+  - Designed and deployed custom branded error pages (`resources/views/errors/`) for 404, 403, 419, 500, and 503 in pure light mode with custom illustrations and automated tests.
+  - Added Pest feature tests in `RankingsEmptyAndActiveSemesterTest.php`, `RoleEvaluationTypesCompletionAndNotificationTest.php`, and `CustomErrorPagesTest.php`.
 - [X] **Codebase N+1 Query Resolution, Obsidian Vault Migration & Agent Governance (2026-08-28)**:
   - Eliminated N+1 queries in `app/Models/User.php` (`getNotifications()` & `countPendingEvaluations()`) by pre-fetching class IDs and completed evaluations via a single batch query.
   - Optimized `Evaluation::getStatus()` with in-memory memoization cache (`self::$statusCache`) and batch queue inspection.

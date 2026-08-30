@@ -15,6 +15,29 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-08-30]
+
+### Fixed & Enhanced
+- **Faculty & Department Rankings Active Semester Zero-Evaluation Fix & Rank Integrity** ([`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php)):
+  - Removed obsolete developer demo fallback/mock generation logic (`$base = 4.20 + ...` and synthetic evaluation counts `(($emp->id * 3) % 25) + 5`) that generated fake ratings and evaluation records on newly activated terms with zero evaluations.
+  - Implemented proper empty/pending states for faculty and departments with zero evaluations: displays `No Evaluations` status badge (`variant="zinc"`), `0 evals`, and unranked rank indicators (`—`) rather than fabricating scores.
+  - Decoupled Top Performing KPI cards (Top Faculty & Top Department) from the table's filter/sort order so they always display the true highest-rated performers in the semester.
+  - Preserved true performance ranks in the table: sorting by "Lowest" or "Most Evaluations" displays true rank numbers (`#1`, `#2`, `#18`) without awarding medals (🥇, 🥈, 🥉) to lower-scoring faculty.
+  - Added feature tests in [`RankingsEmptyAndActiveSemesterTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/RankingsEmptyAndActiveSemesterTest.php) verifying empty semester handling, live calculation, and rank preservation across sorting.
+- **Evaluation Type Unification & Completion Tracking Fixes** ([`User.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php), [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php), [`Evaluation.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Evaluation.php)):
+  - Resolved type check mismatches in `User::getNotifications()` and `User::countPendingEvaluations()` for role-specific evaluation submissions (`dean`, `program_head`, `department_head`, `upward_employee`), ensuring sidebar pending counts and notification banners decrement immediately upon submission.
+  - Added Faculty Program Head supervisor evaluation tracking in `User.php` and `manage-evaluations.blade.php` (`$targetCount = 1 (Self) + Dept Peers + Dept Program Head`), ensuring faculty reach 100% progress upon evaluating all targets.
+  - Updated Admin Manage Evaluations tracking queries (`getDeanTrackingProperty`, `getProgramHeadTrackingProperty`, `getDepartmentHeadTrackingProperty`, `getStaffTrackingProperty`) to include all explicit evaluation instrument types, ensuring evaluator progress reaches 100% upon completion.
+  - Optimized database queue inspection in `Evaluation::getStatus()` by caching active queue payloads in `self::$activeJobsCache` during request lifecycles.
+  - Created automated Pest test suite in [`RoleEvaluationTypesCompletionAndNotificationTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/RoleEvaluationTypesCompletionAndNotificationTest.php) validating all evaluator roles.
+- **Error Suppression & Silent Catch Block Remediation** ([`manage-classes.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php), [`manage-subjects.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-subjects.blade.php), [`Evaluation.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Evaluation.php)):
+  - Replaced all 6 silent `catch (\Exception $e) {}` blocks across class creation, edit, update, student enrollment, and subject management with structured `Log::debug()` contextual error recording and user-facing error feedback toasts.
+  - Replaced unsafe `@unserialize` suppression with secure `unserialize($command, ['allowed_classes' => ...])` in `Evaluation.php`.
+- **Custom Modern HTTP Error Pages (404, 403, 419, 500, 503)** ([`resources/views/errors/`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/errors/)):
+  - Redesigned error views into a modern, minimalist layout featuring bespoke vector iconography, clean typographic hierarchy, and seamless dark mode support (`dark:bg-zinc-950`).
+  - Streamlined navigation to a single prominent, rounded **"Go Back"** button (`window.history.back()`).
+  - Added automated Pest test suite in [`CustomErrorPagesTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/CustomErrorPagesTest.php).
+
 ## [2026-08-28]
 
 ### Optimized & Resolved

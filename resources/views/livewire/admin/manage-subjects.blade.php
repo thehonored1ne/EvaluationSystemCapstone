@@ -1,18 +1,20 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
-use Livewire\WithFileUploads;
-use Livewire\Attributes\Layout;
-use App\Models\Subject;
 use App\Models\AcademicClass;
-use App\Models\Semester;
 use App\Models\Employee;
+use App\Models\Semester;
+use App\Models\Subject;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
-    use WithPagination;
+new #[Layout('components.layouts.app')] class extends Component
+{
     use WithFileUploads;
+    use WithPagination;
 
     public function placeholder()
     {
@@ -21,47 +23,86 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     // Form properties for Subject CRUD
     public string $code = '';
+
     public string $name = '';
+
     public string $year_level = '';
+
     public string $semester_offered = '';
-    
+
     // Import & Export properties
     public $importFile = null;
+
     public bool $showImportModal = false;
 
     // Modal states
     public bool $showModal = false;
+
     public bool $showDeleteModal = false;
+
     public bool $showClassesModal = false;
+
     public bool $showQuickClassModal = false;
 
     // Selected models
     public ?Subject $editingSubject = null;
+
     public ?Subject $deletingSubject = null;
+
     public ?Subject $viewingSubject = null;
+
     public ?Subject $selectedSubjectForClass = null;
 
     // Filter & Search properties
     public string $search = '';
+
     public string $yearFilter = '';
+
     public string $semesterFilter = '';
+
     public string $usageFilter = '';
+
     public string $sortBy = 'code_asc';
 
     // Quick class creation properties
     public string $quick_teacher_id = '';
+
     public string $quick_semester_id = '';
+
     public string $quick_section = '';
+
     public string $quick_schedule = '';
+
     public string $quick_schedule_days = '';
+
     public string $quick_schedule_start_time = '';
+
     public string $quick_schedule_end_time = '';
 
-    public function updatedSearch() { $this->resetPage(); }
-    public function updatedYearFilter() { $this->resetPage(); }
-    public function updatedSemesterFilter() { $this->resetPage(); }
-    public function updatedUsageFilter() { $this->resetPage(); }
-    public function updatedSortBy() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedYearFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSemesterFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedUsageFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSortBy()
+    {
+        $this->resetPage();
+    }
 
     public function clearFilters()
     {
@@ -88,13 +129,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         Subject::create([
             'code' => strtoupper(trim($this->code)),
             'name' => trim($this->name),
-            'year_level' => $this->year_level !== '' ? (int)$this->year_level : null,
+            'year_level' => $this->year_level !== '' ? (int) $this->year_level : null,
             'semester_offered' => $this->semester_offered ?: null,
             'units' => 3,
         ]);
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Subject Created',
             text: 'The subject has been successfully created.',
             variant: 'success'
@@ -106,7 +147,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->editingSubject = $subject;
         $this->code = $subject->code;
         $this->name = $subject->name;
-        $this->year_level = $subject->year_level ? (string)$subject->year_level : '';
+        $this->year_level = $subject->year_level ? (string) $subject->year_level : '';
         $this->semester_offered = $subject->semester_offered ?? '';
         $this->showModal = true;
     }
@@ -123,12 +164,12 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->editingSubject->update([
             'code' => strtoupper(trim($this->code)),
             'name' => trim($this->name),
-            'year_level' => $this->year_level !== '' ? (int)$this->year_level : null,
+            'year_level' => $this->year_level !== '' ? (int) $this->year_level : null,
             'semester_offered' => $this->semester_offered ?: null,
         ]);
 
         $this->showModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Subject Updated',
             text: 'The subject has been successfully updated.',
             variant: 'success'
@@ -143,19 +184,22 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function deleteSubject()
     {
-        if (!$this->deletingSubject) return;
+        if (! $this->deletingSubject) {
+            return;
+        }
 
         $subjectToDelete = $this->deletingSubject;
 
         // Check if subject has classes
         if ($subjectToDelete->classes()->exists()) {
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Cannot Delete Subject',
                 text: 'This subject has classes associated with it. Delete the classes first.',
                 variant: 'danger'
             );
             $this->showDeleteModal = false;
             $this->deletingSubject = null;
+
             return;
         }
 
@@ -166,7 +210,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $subjectToDelete->delete();
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Subject Deleted',
             text: 'The subject has been successfully deleted.',
             variant: 'success'
@@ -196,7 +240,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="subjects_export_' . date('Y-m-d') . '.csv"',
+            'Content-Disposition' => 'attachment; filename="subjects_export_'.date('Y-m-d').'.csv"',
         ];
 
         $subjects = Subject::orderBy('code')->get();
@@ -229,22 +273,25 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $path = $this->importFile->getRealPath();
         $file = @fopen($path, 'r');
-        
-        if (!$file) {
+
+        if (! $file) {
             $this->addError('importFile', 'Could not open uploaded file. Please ensure it is a valid CSV file.');
+
             return;
         }
 
         $header = fgetcsv($file);
-        if (!$header) {
+        if (! $header) {
             $this->addError('importFile', 'The uploaded file is empty.');
             fclose($file);
+
             return;
         }
 
         // Clean headers
         $cleanHeaders = array_map(function ($h) {
             $h = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h);
+
             return strtolower(trim($h));
         }, $header);
 
@@ -254,6 +301,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         if ($codeIdx === false || $nameIdx === false) {
             $this->addError('importFile', "Invalid format: header must include 'code' and 'name' columns.");
             fclose($file);
+
             return;
         }
 
@@ -265,15 +313,19 @@ new #[Layout('components.layouts.app')] class extends Component {
         $updated = 0;
 
         while (($row = fgetcsv($file)) !== false) {
-            if (empty(array_filter($row))) continue;
+            if (empty(array_filter($row))) {
+                continue;
+            }
 
             $code = isset($row[$codeIdx]) ? strtoupper(trim($row[$codeIdx])) : '';
             $name = isset($row[$nameIdx]) ? trim($row[$nameIdx]) : '';
 
-            if (!$code || !$name) continue;
+            if (! $code || ! $name) {
+                continue;
+            }
 
-            $units = ($unitsIdx !== false && isset($row[$unitsIdx]) && is_numeric(trim($row[$unitsIdx]))) ? (int)trim($row[$unitsIdx]) : 3;
-            $yearLevel = ($yearIdx !== false && isset($row[$yearIdx]) && is_numeric(trim($row[$yearIdx]))) ? (int)trim($row[$yearIdx]) : null;
+            $units = ($unitsIdx !== false && isset($row[$unitsIdx]) && is_numeric(trim($row[$unitsIdx]))) ? (int) trim($row[$unitsIdx]) : 3;
+            $yearLevel = ($yearIdx !== false && isset($row[$yearIdx]) && is_numeric(trim($row[$yearIdx]))) ? (int) trim($row[$yearIdx]) : null;
             $semOffered = ($semIdx !== false && isset($row[$semIdx])) ? trim($row[$semIdx]) : null;
 
             $existing = Subject::where('code', $code)->first();
@@ -301,7 +353,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->importFile = null;
         $this->showImportModal = false;
 
-        \Flux::toast(
+        Flux::toast(
             heading: 'Import Completed',
             text: "{$created} new subjects created, {$updated} subjects updated.",
             variant: 'success'
@@ -327,14 +379,16 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->reset(['quick_teacher_id', 'quick_semester_id', 'quick_section', 'quick_schedule', 'quick_schedule_days', 'quick_schedule_start_time', 'quick_schedule_end_time']);
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
-            $this->quick_semester_id = (string)$activeSemester->id;
+            $this->quick_semester_id = (string) $activeSemester->id;
         }
         $this->showQuickClassModal = true;
     }
 
     public function quickCreateClass()
     {
-        if (!$this->selectedSubjectForClass) return;
+        if (! $this->selectedSubjectForClass) {
+            return;
+        }
 
         $this->validate([
             'quick_teacher_id' => 'required|exists:employees,id',
@@ -350,8 +404,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             try {
                 $startStr = Carbon::parse($this->quick_schedule_start_time)->format('h:i A');
                 $endStr = Carbon::parse($this->quick_schedule_end_time)->format('h:i A');
-                $this->quick_schedule = $this->quick_schedule_days . ' ' . $startStr . ' - ' . $endStr;
-            } catch (\Exception $e) {}
+                $this->quick_schedule = $this->quick_schedule_days.' '.$startStr.' - '.$endStr;
+            } catch (Throwable $e) {
+                Log::debug('Failed to format quick class schedule on creation', [
+                    'error' => $e->getMessage(),
+                    'start_time' => $this->quick_schedule_start_time,
+                    'end_time' => $this->quick_schedule_end_time,
+                ]);
+            }
         }
 
         AcademicClass::create([
@@ -363,9 +423,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         ]);
 
         $this->showQuickClassModal = false;
-        \Flux::toast(
+        Flux::toast(
             heading: 'Class Created',
-            text: 'A new section class for ' . $this->selectedSubjectForClass->code . ' has been created.',
+            text: 'A new section class for '.$this->selectedSubjectForClass->code.' has been created.',
             variant: 'success'
         );
     }
@@ -377,8 +437,8 @@ new #[Layout('components.layouts.app')] class extends Component {
         $unassignedSubjectsCount = Subject::doesntHave('classes')->count();
 
         $activeSem = Semester::where('is_active', true)->first();
-        $activeClassesCount = $activeSem 
-            ? AcademicClass::where('semester_id', $activeSem->id)->count() 
+        $activeClassesCount = $activeSem
+            ? AcademicClass::where('semester_id', $activeSem->id)->count()
             : AcademicClass::count();
 
         // 2. Query Subjects with filters and sorting
@@ -386,13 +446,13 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('code', 'like', '%' . $this->search . '%')
-                  ->orWhere('name', 'like', '%' . $this->search . '%');
+                $q->where('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('name', 'like', '%'.$this->search.'%');
             });
         }
 
         if ($this->yearFilter !== '') {
-            $query->where('year_level', (int)$this->yearFilter);
+            $query->where('year_level', (int) $this->yearFilter);
         }
 
         if ($this->semesterFilter) {
