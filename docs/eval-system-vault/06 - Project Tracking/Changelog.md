@@ -15,6 +15,31 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-02]
+
+### Redesigned & Enhanced
+- **Admin Dashboard Executive KPI Metric Strip Redesign** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`admin-dashboard-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/admin-dashboard-skeleton.blade.php)):
+  - Replaced static vanity counters (*Total Employees* and *Total Students*) with 4 high-impact executive decision-support KPI cards:
+    1. **Overall Institutional Rating**: `4.32 / 5.00` with qualitative band badge (`Very Satisfactory` in green / `Satisfactory` in amber / `Poor` in red) positioned inline beside the rating, target benchmark positioned below, and updated institutional 360° descriptive subtext.
+    2. **Positive Feedback Rate**: `86.4% Positive` with flag breakdown (`4.5% flagged for review`), semester delta, and transparent subtext basis (`Based on N comments analyzed`).
+    3. **Overall Completion Rate**: `77.0%` with gradient progress bar and distinct evaluator person completion ratio excluding administrator accounts (`1,240 / 1,580 evaluators completed all assigned evaluations`).
+    4. **Pending Evaluators**: `340 Pending` evaluators with top-right header-aligned in-place **Send Reminder** action button (`wire:click="sendReminderToast"`) that directly triggers `evaluations:send-reminders` without page navigation, formatted numbers, and inverted velocity trend (`▼ -60 vs past 7 days`).
+  - Removed decorative card header icons to achieve a clean, professional typography-first design with proper spacing and high contrast across both light and dark themes.
+  - Updated skeleton loader to match 1:1 with the new metric cards.
+- **Admin Dashboard Analytics Charts Redesign** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js), [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)):
+  - **Chart 1 (Completion Rate by Role)**: Renamed header to **"Completion Rate by Role"** (`Evaluators who completed all assigned evaluations`). Enforced strict **100% completed status** requirement across all 6 roles (Students, Faculty, Program Heads, Department Heads, Deans, Staff), counting only evaluators who finished all assigned duties (e.g. `75.5% (2,416 / 3,200)`).
+  - **Department Head Dean Evaluation Consistency**: Updated Department Head evaluation target count in both Dashboard and Completion Tracking to include the supervising Dean (`1 Self + Dept Staff + 1 Dean`).
+  - **Single Source of Truth Alignment**: Unified Card 3 (`Overall Completion Rate`), Card 4 (`Pending Evaluators`), and Chart 1 to draw from identical completed evaluator person calculations.
+  - **Chart 2 (Department Performance vs. Benchmark)**: Implemented department performance comparison against the **3.50 Passing Benchmark Line** with an instant interactive toggle switcher between **Academic Colleges (4)** and **Administrative Offices (11)**.
+  - Updated Chart.js configuration with rich tooltips, responsive theme-aware styling, and smooth transitions.
+  - **Dean & Program Head Evaluation Target Integrity Fix** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php)):
+    - Fixed Dean evaluation target formula across both Admin Dashboard and Completion Tracking to correctly include all academic faculty members (`1 Self + 50 Faculty + 4 Program Heads = 55 Target`), resolving false 100% completed status where 43 partial submissions previously triggered completion.
+    - Updated Program Head target count in [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php) to include the supervising Dean (`1 Self + Dept Faculty + 1 Dean`).
+    - Verified all 6 evaluator roles against their respective livewire dashboards and database records.
+  - **Alphabetical Last Name (A-Z) Default Sorting** ([`manage-employees.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php), [`manage-students.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-students.blade.php)):
+    - Refactored table queries and CSV exports in Manage Employees across all role tabs (All Employees, Admin, Deans, Department Heads, Program Heads, Faculty, Staff) to sort alphabetically by `employees.last_name, employees.first_name` by default, replacing the previous `users.name` (First Name) sorting.
+    - Refactored table queries and CSV exports in Manage Students to sort alphabetically by `students.last_name, students.first_name` by default, aligning table rendering (`Last Name, First Name`) with true alphabetical ordering.
+
 ## [2026-08-30]
 
 ### Fixed & Enhanced

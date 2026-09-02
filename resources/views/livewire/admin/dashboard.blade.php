@@ -6,7 +6,9 @@ use App\Models\Evaluation;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
+use Flux\Flux;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
@@ -20,6 +22,25 @@ new #[Layout('components.layouts.app')] class extends Component
     public function placeholder()
     {
         return view('livewire.placeholders.admin-dashboard-skeleton');
+    }
+
+    public function sendReminderToast(): void
+    {
+        $user = auth()->user();
+
+        Artisan::call('evaluations:send-reminders', ['--force' => true]);
+
+        if ($user && function_exists('activity')) {
+            activity('evaluations')
+                ->causedBy($user)
+                ->log('Broadcasted evaluation completion reminders across all pending evaluators via Admin Dashboard.');
+        }
+
+        Flux::toast(
+            heading: 'Reminders Broadcasted',
+            text: 'Evaluation submission reminders have been processed and broadcasted to all pending evaluators.',
+            variant: 'success'
+        );
     }
 
     public function with(): array
@@ -51,8 +72,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     ->where('classes.semester_id', $activeSemId)
                     ->count();
 
-                // Expected Faculty Self evaluations (1 per active employee)
-                $employeeSelfExpected = Employee::where('status', 'active')->count();
+                // Expected Faculty Self evaluations (1 per active non-admin employee)
+                $employeeSelfExpected = Employee::where('status', 'active')->where('role', '!=', 'admin')->count();
 
                 // Expected Faculty Peer evaluations (calculated via SQL aggregate)
                 $peerFacultyCounts = DB::table('employees')
@@ -189,26 +210,109 @@ new #[Layout('components.layouts.app')] class extends Component
                 }
             }
 
-            // 7. Analytics Visual Distribution & Department Averages
-            $ratingsDist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
-            $totalRatingsCount = 0;
-            $deptScores = [];
+            // 7. Role Turnout & Department Comparison Analytics
+            $roleTurnoutData = [];
+            $academicDeptScores = [];
+            $adminDeptScores = [];
 
             if ($activeSemId) {
-                $answers = DB::table('evaluation_answers')
-                    ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
-                    ->where('evaluations.semester_id', $activeSemId)
-                    ->selectRaw('evaluation_answers.rating, count(*) as total')
-                    ->groupBy('evaluation_answers.rating')
-                    ->pluck('total', 'rating');
+                // Preload department counts and employee active maps
+                $deptFacultyCountMap = DB::table('employees')->where('role', 'faculty')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+                $deptPhCountMap = DB::table('employees')->where('role', 'program head')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+                $deptStaffCountMap = DB::table('employees')->where('role', 'staff')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+                $facultyTotalCount = DB::table('employees')->where('role', 'faculty')->where('status', 'active')->count();
+                $phTotalCount = DB::table('employees')->where('role', 'program head')->where('status', 'active')->count();
 
-                foreach ($ratingsDist as $rating => $val) {
-                    $ratingsDist[$rating] = (int) ($answers[$rating] ?? 0);
-                }
-                $totalRatingsCount = array_sum($ratingsDist);
+                $evalCountMap = DB::table('evaluations')
+                    ->where('semester_id', $activeSemId)
+                    ->selectRaw('evaluator_id, count(distinct evaluatee_id) as count')
+                    ->groupBy('evaluator_id')
+                    ->pluck('count', 'evaluator_id');
 
-                $depts = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+                // 1. Students (Distinct Enrolled Students who completed 100% of enrolled subjects)
+                $studentEvaluatorStats = DB::table('students')
+                    ->join('class_student', 'class_student.student_id', '=', 'students.id')
+                    ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                    ->where('classes.semester_id', $activeSemId)
+                    ->leftJoin('users', 'users.student_id', '=', 'students.id')
+                    ->leftJoin('evaluations', function ($join) use ($activeSemId) {
+                        $join->on('evaluations.evaluator_id', '=', 'users.id')
+                            ->on('evaluations.class_id', '=', 'classes.id')
+                            ->where('evaluations.semester_id', '=', $activeSemId);
+                    })
+                    ->groupBy('students.id')
+                    ->selectRaw('students.id, count(distinct classes.id) as expected_count, count(distinct evaluations.id) as submitted_count')
+                    ->get();
 
+                $studentTotal = $studentEvaluatorStats->count();
+                $studentCompleted = $studentEvaluatorStats->filter(fn ($s) => $s->expected_count > 0 && $s->submitted_count >= $s->expected_count)->count();
+                $studentRate = $studentTotal > 0 ? min(100.0, round(($studentCompleted / $studentTotal) * 100, 1)) : 0.0;
+
+                // Employee roles helper (Evaluators who completed 100% of assigned evaluations)
+                $activeEmployees = DB::table('employees')
+                    ->where('status', 'active')
+                    ->where('role', '!=', 'admin')
+                    ->leftJoin('users', 'users.employee_id', '=', 'employees.id')
+                    ->select('employees.id as emp_id', 'employees.role', 'employees.department_id', 'users.id as user_id')
+                    ->get();
+
+                $getRoleCompletionStats = function ($roleKey) use ($activeEmployees, $deptFacultyCountMap, $deptPhCountMap, $deptStaffCountMap, $facultyTotalCount, $phTotalCount, $evalCountMap) {
+                    $emps = $activeEmployees->where('role', $roleKey);
+                    $total = $emps->count();
+                    $completed = 0;
+
+                    foreach ($emps as $e) {
+                        $userId = $e->user_id;
+                        $sub = (int) ($evalCountMap[$userId] ?? 0);
+                        $target = 1;
+
+                        if ($roleKey === 'faculty') {
+                            $deptFac = (int) ($deptFacultyCountMap[$e->department_id] ?? 0);
+                            $deptPh = (int) ($deptPhCountMap[$e->department_id] ?? 0);
+                            $target = 1 + max(0, $deptFac - 1) + $deptPh; // Self + Peers + Program Head(s)
+                        } elseif ($roleKey === 'program head') {
+                            $deptFac = (int) ($deptFacultyCountMap[$e->department_id] ?? 0);
+                            $target = 1 + $deptFac + 1; // Self + Dept Faculty + Dean
+                        } elseif ($roleKey === 'department head') {
+                            $deptStaff = (int) ($deptStaffCountMap[$e->department_id] ?? 0);
+                            $target = 1 + $deptStaff + 1; // Self + Dept Staff + Dean
+                        } elseif ($roleKey === 'dean') {
+                            $target = 1 + $facultyTotalCount + $phTotalCount; // Self (1) + Faculty (50) + Program Heads (4)
+                        } elseif ($roleKey === 'staff') {
+                            $deptStaff = (int) ($deptStaffCountMap[$e->department_id] ?? 0);
+                            $target = 1 + max(0, $deptStaff - 1) + 1; // Self + Staff Peers + Dept Head
+                        }
+
+                        if ($sub >= $target && $target > 0) {
+                            $completed++;
+                        }
+                    }
+
+                    $rate = $total > 0 ? min(100.0, round(($completed / $total) * 100, 1)) : 0.0;
+
+                    return [
+                        'completed' => $completed,
+                        'total' => $total,
+                        'rate' => $rate,
+                    ];
+                };
+
+                $facultyStats = $getRoleCompletionStats('faculty');
+                $phStats = $getRoleCompletionStats('program head');
+                $dhStats = $getRoleCompletionStats('department head');
+                $deanStats = $getRoleCompletionStats('dean');
+                $staffStats = $getRoleCompletionStats('staff');
+
+                $roleTurnoutData = [
+                    ['role' => 'Students', 'rate' => $studentRate, 'submitted' => $studentCompleted, 'expected' => $studentTotal],
+                    ['role' => 'Faculty', 'rate' => $facultyStats['rate'], 'submitted' => $facultyStats['completed'], 'expected' => $facultyStats['total']],
+                    ['role' => 'Program Heads', 'rate' => $phStats['rate'], 'submitted' => $phStats['completed'], 'expected' => $phStats['total']],
+                    ['role' => 'Department Heads', 'rate' => $dhStats['rate'], 'submitted' => $dhStats['completed'], 'expected' => $dhStats['total']],
+                    ['role' => 'Deans', 'rate' => $deanStats['rate'], 'submitted' => $deanStats['completed'], 'expected' => $deanStats['total']],
+                    ['role' => 'Staff', 'rate' => $staffStats['rate'], 'submitted' => $staffStats['completed'], 'expected' => $staffStats['total']],
+                ];
+
+                // Department Averages (Evaluatee Department)
                 $deptAveragesMap = DB::table('evaluations')
                     ->join('users', 'users.id', '=', 'evaluations.evaluatee_id')
                     ->join('employees', 'employees.id', '=', 'users.employee_id')
@@ -219,18 +323,150 @@ new #[Layout('components.layouts.app')] class extends Component
                     ->get()
                     ->keyBy('department_id');
 
-                foreach ($depts as $dept) {
+                $academicDepts = Department::where('type', 'academic')->orWhereNull('type')->orderBy('name')->get();
+                foreach ($academicDepts as $dept) {
                     $data = $deptAveragesMap->get($dept->id);
                     $dCount = (int) ($data?->total_count ?? 0);
                     $dAvg = $dCount > 0 ? round((float) $data->avg_rating, 2) : 0.00;
 
-                    $deptScores[] = [
+                    $academicDeptScores[] = [
                         'name' => $dept->name,
                         'code' => $dept->code,
                         'average' => $dAvg,
                         'count' => $dCount,
                     ];
                 }
+
+                $adminDepts = Department::where('type', 'administrative')->orderBy('name')->get();
+                foreach ($adminDepts as $dept) {
+                    $data = $deptAveragesMap->get($dept->id);
+                    $dCount = (int) ($data?->total_count ?? 0);
+                    $dAvg = $dCount > 0 ? round((float) $data->avg_rating, 2) : 0.00;
+
+                    $adminDeptScores[] = [
+                        'name' => $dept->name,
+                        'code' => $dept->code,
+                        'average' => $dAvg,
+                        'count' => $dCount,
+                    ];
+                }
+            }
+
+            // 4. Institutional Rating & Previous Semester Comparison
+            $institutionalAverage = 0.00;
+            $ratingDelta = null;
+            $ratingLabel = 'No Ratings';
+            $ratingBadgeClasses = 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700';
+
+            $positivePct = 0.0;
+            $negativePct = 0.0;
+            $sentimentDelta = null;
+            $completionDelta = null;
+            $pendingDelta = null;
+
+            if ($activeSemId) {
+                $avgRating = Evaluation::where('semester_id', $activeSemId)->avg('rating_average');
+                if ($avgRating !== null) {
+                    $institutionalAverage = round((float) $avgRating, 2);
+                }
+
+                $ratingLabel = match (true) {
+                    $institutionalAverage >= 4.50 => 'Outstanding',
+                    $institutionalAverage >= 3.50 => 'Very Satisfactory',
+                    $institutionalAverage >= 2.50 => 'Satisfactory',
+                    $institutionalAverage >= 1.50 => 'Fair',
+                    $institutionalAverage > 0.00 => 'Poor',
+                    default => 'No Ratings'
+                };
+
+                $ratingBadgeClasses = match (true) {
+                    $institutionalAverage >= 3.50 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+                    $institutionalAverage >= 2.50 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
+                    $institutionalAverage > 0.00 => 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800',
+                    default => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+                };
+
+                // Previous Semester Comparisons
+                $prevSem = Semester::where('id', '!=', $activeSemId)
+                    ->where('id', '<', $activeSemId)
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($prevSem) {
+                    $prevAvg = Evaluation::where('semester_id', $prevSem->id)->avg('rating_average');
+                    if ($prevAvg !== null) {
+                        $ratingDelta = round($institutionalAverage - (float) $prevAvg, 2);
+                    }
+
+                    $prevSent = DB::table('evaluation_sentiments')
+                        ->join('evaluations', 'evaluations.id', '=', 'evaluation_sentiments.evaluation_id')
+                        ->where('evaluations.semester_id', $prevSem->id)
+                        ->selectRaw("
+                            count(*) as total,
+                            sum(case when vader_label = 'positive' then 1 else 0 end) as positive
+                        ")->first();
+
+                    if ($prevSent && $prevSent->total > 0) {
+                        $prevPos = round(((int) $prevSent->positive / (int) $prevSent->total) * 100, 1);
+                        $prevPosCurrent = $sentimentStats['total'] > 0 ? round(((int) $sentimentStats['positive'] / (int) $sentimentStats['total']) * 100, 1) : 0.0;
+                        $sentimentDelta = round($prevPosCurrent - $prevPos, 1);
+                    }
+
+                    // Previous completion rate comparison
+                    $prevSubmitted = Evaluation::where('semester_id', $prevSem->id)->count();
+                    if ($prevSubmitted > 0 && $expectedCount > 0) {
+                        $prevRate = min(100.0, round(($prevSubmitted / $expectedCount) * 100, 1));
+                        $completionDelta = round($progressPercent - $prevRate, 1);
+                    }
+                }
+
+                $posCount = $sentimentStats['positive'];
+                $negCount = $sentimentStats['negative'];
+                $totalComments = $sentimentStats['total'];
+
+                $positivePct = $totalComments > 0 ? round(($posCount / $totalComments) * 100, 1) : 0.0;
+                $negativePct = $totalComments > 0 ? round(($negCount / $totalComments) * 100, 1) : 0.0;
+
+                // Weekly pending reduction (evaluations submitted in the last 7 days)
+                $last7DaysSubmitted = Evaluation::where('semester_id', $activeSemId)
+                    ->where('created_at', '>=', Carbon::now('Asia/Manila')->subDays(7))
+                    ->count();
+
+                if ($last7DaysSubmitted > 0) {
+                    $pendingDelta = -$last7DaysSubmitted;
+                }
+            }
+
+            // 5. Evaluator Person Counts (Distinct users expected vs completed all assigned evaluations)
+            $totalEvaluatorsCount = 0;
+            $completedEvaluatorsCount = 0;
+            $pendingEvaluatorsCount = 0;
+
+            if ($activeSemId) {
+                // Student evaluators enrolled in active classes
+                $studentEvaluatorStats = DB::table('students')
+                    ->join('class_student', 'class_student.student_id', '=', 'students.id')
+                    ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                    ->where('classes.semester_id', $activeSemId)
+                    ->leftJoin('users', 'users.student_id', '=', 'students.id')
+                    ->leftJoin('evaluations', function ($join) use ($activeSemId) {
+                        $join->on('evaluations.evaluator_id', '=', 'users.id')
+                            ->on('evaluations.class_id', '=', 'classes.id')
+                            ->where('evaluations.semester_id', '=', $activeSemId);
+                    })
+                    ->groupBy('students.id')
+                    ->selectRaw('students.id, count(distinct classes.id) as expected_count, count(distinct evaluations.id) as submitted_count')
+                    ->get();
+
+                $studentTotal = $studentEvaluatorStats->count();
+                $studentCompleted = $studentEvaluatorStats->filter(fn ($s) => $s->submitted_count >= $s->expected_count && $s->expected_count > 0)->count();
+
+                $employeeTotal = $facultyStats['total'] + $phStats['total'] + $dhStats['total'] + $deanStats['total'] + $staffStats['total'];
+                $employeeCompleted = $facultyStats['completed'] + $phStats['completed'] + $dhStats['completed'] + $deanStats['completed'] + $staffStats['completed'];
+
+                $totalEvaluatorsCount = $studentTotal + $employeeTotal;
+                $completedEvaluatorsCount = $studentCompleted + $employeeCompleted;
+                $pendingEvaluatorsCount = max(0, $totalEvaluatorsCount - $completedEvaluatorsCount);
             }
 
             return [
@@ -244,9 +480,22 @@ new #[Layout('components.layouts.app')] class extends Component
                 'scheduleStatus' => $scheduleStatus,
                 'scheduleMessage' => $scheduleMessage,
                 'departmentStats' => $departmentStats,
-                'deptScores' => $deptScores,
-                'ratingsDist' => $ratingsDist,
-                'totalRatingsCount' => $totalRatingsCount,
+                'roleTurnoutData' => $roleTurnoutData,
+                'academicDeptScores' => $academicDeptScores,
+                'adminDeptScores' => $adminDeptScores,
+                'institutionalAverage' => $institutionalAverage,
+                'ratingLabel' => $ratingLabel,
+                'ratingBadgeClasses' => $ratingBadgeClasses,
+                'ratingDelta' => $ratingDelta,
+                'positivePct' => $positivePct,
+                'negativePct' => $negativePct,
+                'totalComments' => $sentimentStats['total'],
+                'sentimentDelta' => $sentimentDelta,
+                'completionDelta' => $completionDelta,
+                'pendingDelta' => $pendingDelta,
+                'totalEvaluatorsCount' => $totalEvaluatorsCount,
+                'completedEvaluatorsCount' => $completedEvaluatorsCount,
+                'pendingEvaluatorsCount' => $pendingEvaluatorsCount,
             ];
         });
 
@@ -260,9 +509,22 @@ new #[Layout('components.layouts.app')] class extends Component
         $scheduleStatus = $metrics['scheduleStatus'];
         $scheduleMessage = $metrics['scheduleMessage'];
         $departmentStats = $metrics['departmentStats'];
-        $deptScores = $metrics['deptScores'];
-        $ratingsDist = $metrics['ratingsDist'];
-        $totalRatingsCount = $metrics['totalRatingsCount'];
+        $roleTurnoutData = $metrics['roleTurnoutData'];
+        $academicDeptScores = $metrics['academicDeptScores'];
+        $adminDeptScores = $metrics['adminDeptScores'];
+        $institutionalAverage = $metrics['institutionalAverage'];
+        $ratingLabel = $metrics['ratingLabel'];
+        $ratingBadgeClasses = $metrics['ratingBadgeClasses'];
+        $ratingDelta = $metrics['ratingDelta'];
+        $positivePct = $metrics['positivePct'];
+        $negativePct = $metrics['negativePct'];
+        $totalComments = $metrics['totalComments'];
+        $sentimentDelta = $metrics['sentimentDelta'];
+        $completionDelta = $metrics['completionDelta'];
+        $pendingDelta = $metrics['pendingDelta'];
+        $totalEvaluatorsCount = $metrics['totalEvaluatorsCount'];
+        $completedEvaluatorsCount = $metrics['completedEvaluatorsCount'];
+        $pendingEvaluatorsCount = $metrics['pendingEvaluatorsCount'];
 
         // 7. Recent Submissions Anonymized Log
         $recentSubmissions = [];
@@ -629,10 +891,23 @@ new #[Layout('components.layouts.app')] class extends Component
             'sentimentTextClass' => $sentimentTextClass,
             'sentimentBadgeVariant' => $sentimentBadgeVariant,
             'sentimentLabel' => $sentimentLabel,
-            'ratingsDist' => $ratingsDist,
-            'totalRatingsCount' => $totalRatingsCount,
-            'deptScores' => $deptScores,
+            'roleTurnoutData' => $roleTurnoutData,
+            'academicDeptScores' => $academicDeptScores,
+            'adminDeptScores' => $adminDeptScores,
             'auditLogs' => $auditLogs,
+            'institutionalAverage' => $institutionalAverage,
+            'ratingLabel' => $ratingLabel,
+            'ratingBadgeClasses' => $ratingBadgeClasses,
+            'ratingDelta' => $ratingDelta,
+            'positivePct' => $positivePct,
+            'negativePct' => $negativePct,
+            'totalComments' => $totalComments,
+            'sentimentDelta' => $sentimentDelta,
+            'completionDelta' => $completionDelta,
+            'pendingDelta' => $pendingDelta,
+            'totalEvaluatorsCount' => $totalEvaluatorsCount,
+            'completedEvaluatorsCount' => $completedEvaluatorsCount,
+            'pendingEvaluatorsCount' => $pendingEvaluatorsCount,
         ];
 
         return $this->cachedData;
@@ -645,55 +920,123 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="flex flex-col items-start text-left">
             <div class="flex items-center gap-3 flex-wrap">
                 <flux:heading size="xl" level="1" class="text-left">Admin Dashboard</flux:heading>
-
             </div>
         </div>
     </div>
 
-    <!-- Top Row: Unified Single-Surface Metric Strip (Eliminating Card Overuse) -->
+    <!-- Top Row: Unified Single-Surface Metric Strip (4 Executive KPI Cards) -->
     <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 dark:divide-zinc-800 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-        <!-- Metric 1: Total Employees -->
+        <!-- Card 1: Overall Institutional Rating -->
         <div class="p-6 flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider">Total Employees</span>
-                <flux:icon name="users" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
-            </div>
-            <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mt-2 block"><x-odometer :value="$employeeCount" /></span>
-        </div>
-
-        <!-- Metric 2: Total Students -->
-        <div class="p-6 flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider">Total Students</span>
-                <flux:icon name="academic-cap" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
-            </div>
-            <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mt-2 block"><x-odometer :value="$studentCount" /></span>
-        </div>
-
-        <!-- Metric 3: Current Evaluation Progress -->
-        <div class="p-6 flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider">Evaluation Progress</span>
-                <flux:icon name="check-circle" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
-            </div>
-            <div class="mt-2">
-                <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block"><x-odometer :value="$progressPercent" suffix="%" /></span>
-                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2 overflow-hidden">
-                    <div class="h-2 rounded-full transition-all duration-500 bg-[#9b0000] dark:bg-[#f89696]" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
+            <div>
+                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Overall Institutional Rating</span>
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                            <x-odometer :value="$institutionalAverage" precision="2" />
+                        </span>
+                        <span class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">/ 5.00</span>
+                    </div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $ratingBadgeClasses }}">
+                        {{ $ratingLabel }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                    @if($ratingDelta !== null)
+                        <span class="font-semibold {{ $ratingDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $ratingDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($ratingDelta, 2) }} vs last sem
+                        </span>
+                        <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                    @endif
+                    <span class="text-zinc-500 dark:text-zinc-400 font-medium">Target: 3.50+</span>
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 block">
-                {{ $submittedCount }} of {{ $expectedCount }} submitted
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+                Institutional rating mean across all 360° evaluation roles
             </span>
         </div>
 
-        <!-- Metric 4: Pending Submissions -->
+        <!-- Card 2: Positive Feedback Rate -->
         <div class="p-6 flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider">Pending Submissions</span>
-                <flux:icon name="clock" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+            <div>
+                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Positive Feedback Rate</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                        <x-odometer :value="$positivePct" suffix="%" />
+                    </span>
+                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Positive</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                    @if($negativePct > 0)
+                        <span class="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400">
+                            <span class="size-1.5 rounded-full bg-rose-500"></span>
+                            {{ $negativePct }}% flagged for review
+                        </span>
+                    @else
+                        <span class="text-zinc-500 dark:text-zinc-400 font-medium">0% negative flags</span>
+                    @endif
+                    @if($sentimentDelta !== null)
+                        <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                        <span class="font-semibold {{ $sentimentDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $sentimentDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($sentimentDelta, 1) }}% vs last sem
+                        </span>
+                    @endif
+                </div>
             </div>
-            <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mt-2 block"><x-odometer :value="$pendingCount" /></span>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+                Based on {{ number_format($totalComments) }} evaluator comments analyzed
+            </span>
+        </div>
+
+        <!-- Card 3: Overall Completion Rate -->
+        <div class="p-6 flex flex-col justify-between">
+            <div>
+                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Overall Completion Rate</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                        <x-odometer :value="$progressPercent" suffix="%" />
+                    </span>
+                    @if($completionDelta !== null)
+                        <span class="text-xs font-semibold {{ $completionDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $completionDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($completionDelta, 1) }}% vs last sem
+                        </span>
+                    @endif
+                </div>
+                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2.5 overflow-hidden">
+                    <div class="h-2 rounded-full transition-all duration-500 bg-[#9b0000] dark:bg-[#f89696]" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
+                </div>
+            </div>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+                {{ number_format($completedEvaluatorsCount) }} / {{ number_format($totalEvaluatorsCount) }} evaluators completed all assigned evaluations
+            </span>
+        </div>
+
+        <!-- Card 4: Pending Evaluators -->
+        <div class="p-6 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Pending Evaluators</span>
+                    <flux:button wire:click="sendReminderToast" wire:loading.attr="disabled" variant="subtle" size="xs" icon="bell" class="font-bold text-[#9b0000] dark:text-[#f89696] hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer">
+                        Send Reminder
+                    </flux:button>
+                </div>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                        <x-odometer :value="$pendingEvaluatorsCount" />
+                    </span>
+                    <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Pending</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                    @if($pendingDelta !== null)
+                        <span class="font-semibold {{ $pendingDelta <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $pendingDelta <= 0 ? '▼ -' : '▲ +' }}{{ number_format(abs($pendingDelta)) }} vs past 7 days
+                        </span>
+                    @endif
+                </div>
+            </div>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+                {{ number_format($pendingEvaluatorsCount) }} evaluators have incomplete evaluations
+            </span>
         </div>
     </div>
 
@@ -850,60 +1193,70 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
     </div>
 
-    <!-- Analytics Charts Row: Ratings Distribution & Department Average Comparison -->
+    <!-- Analytics Charts Row: Evaluator Role Turnout & Department Performance Benchmark -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" x-data="dashboardAnalyticsCharts({
-        ratingsData: [{{ (int)($ratingsDist[5] ?? 0) }}, {{ (int)($ratingsDist[4] ?? 0) }}, {{ (int)($ratingsDist[3] ?? 0) }}, {{ (int)($ratingsDist[2] ?? 0) }}, {{ (int)($ratingsDist[1] ?? 0) }}],
-        deptLabels: {{ json_encode(array_values(array_column($deptScores, 'code'))) }},
-        deptAverages: {{ json_encode(array_values(array_column($deptScores, 'average'))) }}
+        roleLabels: {{ json_encode(array_values(array_column($roleTurnoutData, 'role'))) }},
+        roleRates: {{ json_encode(array_values(array_column($roleTurnoutData, 'rate'))) }},
+        roleDetails: {{ json_encode($roleTurnoutData) }},
+        academicDeptLabels: {{ json_encode(array_values(array_column($academicDeptScores, 'code'))) }},
+        academicDeptNames: {{ json_encode(array_values(array_column($academicDeptScores, 'name'))) }},
+        academicDeptAverages: {{ json_encode(array_values(array_column($academicDeptScores, 'average'))) }},
+        academicDeptCounts: {{ json_encode(array_values(array_column($academicDeptScores, 'count'))) }},
+        adminDeptLabels: {{ json_encode(array_values(array_column($adminDeptScores, 'code'))) }},
+        adminDeptNames: {{ json_encode(array_values(array_column($adminDeptScores, 'name'))) }},
+        adminDeptAverages: {{ json_encode(array_values(array_column($adminDeptScores, 'average'))) }},
+        adminDeptCounts: {{ json_encode(array_values(array_column($adminDeptScores, 'count'))) }}
     })">
-        <!-- Chart 1: Ratings Distribution -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
-            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <!-- Chart 1: Evaluation Turnout by Evaluator Role -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[380px]">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Ratings Distribution Chart
+                        Completion Rate by Role
                     </h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Evaluators who completed all assigned evaluations</p>
                 </div>
-                <flux:badge variant="neutral" size="sm" class="font-bold">
-                    {{ $totalRatingsCount }} answer{{ $totalRatingsCount === 1 ? '' : 's' }}
+                <flux:badge variant="neutral" size="sm" class="font-bold shrink-0">
+                    Target: 80% Completion
                 </flux:badge>
             </div>
 
-            @if($totalRatingsCount > 0)
-                <div class="h-64 w-full pt-2">
-                    <canvas x-ref="ratingsChart" class="w-full h-full"></canvas>
+            @if(count($roleTurnoutData) > 0)
+                <div class="h-72 w-full pt-2">
+                    <canvas x-ref="roleTurnoutChart" class="w-full h-full"></canvas>
                 </div>
             @else
-                <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
+                <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-72">
                     <flux:icon name="chart-bar" class="size-8 text-zinc-300 dark:text-zinc-600" />
-                    <p class="text-xs text-zinc-600 dark:text-zinc-400">No question rating answers recorded for this period.</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400">No evaluator submissions recorded for this period.</p>
                 </div>
             @endif
         </div>
 
-        <!-- Chart 2: Academic Department Average Ratings Comparison -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[360px]">
-            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <!-- Chart 2: Department Performance vs. Benchmark -->
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[380px]">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Department Average Ratings Chart
+                        Department Performance vs. Benchmark
                     </h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Scale: 5.00 • Passing Benchmark: 3.50</p>
                 </div>
-                <flux:badge variant="neutral" size="sm" class="font-bold">
-                    Scale: 5.00
-                </flux:badge>
+
+                <!-- Academic vs Administrative Toggle -->
+                <div class="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
+                    <button type="button" @click="switchDeptType('academic')" :class="activeDeptType === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer">
+                        Academic ({{ count($academicDeptScores) }})
+                    </button>
+                    <button type="button" @click="switchDeptType('administrative')" :class="activeDeptType === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer">
+                        Administrative ({{ count($adminDeptScores) }})
+                    </button>
+                </div>
             </div>
 
-            @if(count($deptScores) > 0)
-                <div class="h-64 w-full pt-2">
-                    <canvas x-ref="deptChart" class="w-full h-full"></canvas>
-                </div>
-            @else
-                <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-64">
-                    <flux:icon name="building-office" class="size-8 text-zinc-300 dark:text-zinc-600" />
-                    <p class="text-xs text-zinc-600 dark:text-zinc-400">No departments configured.</p>
-                </div>
-            @endif
+            <div class="h-72 w-full pt-2">
+                <canvas x-ref="deptChart" class="w-full h-full"></canvas>
+            </div>
         </div>
     </div>
 

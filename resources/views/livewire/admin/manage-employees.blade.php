@@ -104,33 +104,27 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function with(): array
     {
-        $query = User::query()->whereHas('employee');
+        $query = User::query()
+            ->join('employees', 'employees.id', '=', 'users.employee_id')
+            ->select('users.*');
 
         if ($this->selectedRole) {
-            $query->whereHas('employee', function ($q) {
-                $q->where('role', $this->selectedRole);
-            });
+            $query->where('employees.role', $this->selectedRole);
         }
 
         if ($this->selectedDepartmentId === 'none') {
-            $query->whereHas('employee', function ($q) {
-                $q->whereNull('department_id');
-            });
+            $query->whereNull('employees.department_id');
         } elseif ($this->selectedDepartmentId) {
-            $query->whereHas('employee', function ($q) {
-                $q->where('department_id', $this->selectedDepartmentId);
-            });
+            $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%')
-                    ->orWhereHas('employee', function ($sub) {
-                        $sub->where('employee_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('last_name', 'like', '%'.$this->search.'%');
-                    });
+                $q->where('users.name', 'like', '%'.$this->search.'%')
+                    ->orWhere('users.email', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.employee_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.first_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.last_name', 'like', '%'.$this->search.'%');
             });
         }
 
@@ -140,7 +134,10 @@ new #[Layout('components.layouts.app')] class extends Component
         $allCount = (int) $roleCounts->sum();
 
         return [
-            'users' => $query->with(['employee.department', 'employee.supervisedDepartments', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
+            'users' => $query->with(['employee.department', 'employee.supervisedDepartments', 'roles'])
+                ->orderBy('employees.last_name', $orderDirection)
+                ->orderBy('employees.first_name', $orderDirection)
+                ->paginate(10),
             'departments' => Department::orderBy('name')->get(),
             'counts' => [
                 'all' => $allCount,
@@ -414,32 +411,35 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function exportEmployees()
     {
-        $query = User::query()->whereHas('employee')->with(['employee.department', 'roles']);
+        $query = User::query()
+            ->join('employees', 'employees.id', '=', 'users.employee_id')
+            ->select('users.*')
+            ->with(['employee.department', 'roles']);
 
         if ($this->selectedRole) {
-            $query->whereHas('employee', fn ($q) => $q->where('role', $this->selectedRole));
+            $query->where('employees.role', $this->selectedRole);
         }
 
         if ($this->selectedDepartmentId === 'none') {
-            $query->whereHas('employee', fn ($q) => $q->whereNull('department_id'));
+            $query->whereNull('employees.department_id');
         } elseif ($this->selectedDepartmentId) {
-            $query->whereHas('employee', fn ($q) => $q->where('department_id', $this->selectedDepartmentId));
+            $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%')
-                    ->orWhereHas('employee', function ($sub) {
-                        $sub->where('employee_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('last_name', 'like', '%'.$this->search.'%');
-                    });
+                $q->where('users.name', 'like', '%'.$this->search.'%')
+                    ->orWhere('users.email', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.employee_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.first_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('employees.last_name', 'like', '%'.$this->search.'%');
             });
         }
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
-        $employees = $query->orderBy('name', $orderDirection)->get();
+        $employees = $query->orderBy('employees.last_name', $orderDirection)
+            ->orderBy('employees.first_name', $orderDirection)
+            ->get();
 
         $headers = [
             'Content-Type' => 'text/csv',

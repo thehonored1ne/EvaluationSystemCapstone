@@ -10,11 +10,9 @@
     <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 dark:divide-zinc-800 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
         @for ($i = 0; $i < 4; $i++)
             <div class="p-6 flex flex-col justify-between space-y-3">
-                <div class="flex items-center justify-between">
-                    <div class="h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded w-28 shimmer"></div>
-                    <div class="size-5 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
-                </div>
-                <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-20 shimmer"></div>
+                <div class="h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded w-36 shimmer"></div>
+                <div class="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-28 shimmer mt-1"></div>
+                <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-48 shimmer mt-2"></div>
             </div>
         @endfor
     </div>

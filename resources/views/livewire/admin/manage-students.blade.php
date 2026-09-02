@@ -109,47 +109,42 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function with(): array
     {
-        $query = User::query()->whereHas('student');
+        $query = User::query()
+            ->join('students', 'students.id', '=', 'users.student_id')
+            ->select('users.*');
 
         if ($this->selectedProgramId === 'none') {
-            $query->whereHas('student', function ($q) {
-                $q->whereNull('program_id');
-            });
+            $query->whereNull('students.program_id');
         } elseif ($this->selectedProgramId) {
-            $query->whereHas('student', function ($q) {
-                $q->where('program_id', $this->selectedProgramId);
-            });
+            $query->where('students.program_id', $this->selectedProgramId);
         }
 
         if ($this->selectedYearLevel) {
-            $query->whereHas('student', function ($q) {
-                $q->where('year_level', $this->selectedYearLevel);
-            });
+            $query->where('students.year_level', $this->selectedYearLevel);
         }
 
         if ($this->statusFilter) {
-            $query->whereHas('student', function ($q) {
-                $q->where('status', $this->statusFilter);
-            });
+            $query->where('students.status', $this->statusFilter);
         }
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%')
-                    ->orWhereHas('student', function ($sub) {
-                        $sub->where('student_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('last_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('section', 'like', '%'.$this->search.'%');
-                    });
+                $q->where('users.name', 'like', '%'.$this->search.'%')
+                    ->orWhere('users.email', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.student_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.first_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.last_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.section', 'like', '%'.$this->search.'%');
             });
         }
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
 
         return [
-            'users' => $query->with(['student.program', 'roles'])->orderBy('name', $orderDirection)->paginate(10),
+            'users' => $query->with(['student.program', 'roles'])
+                ->orderBy('students.last_name', $orderDirection)
+                ->orderBy('students.first_name', $orderDirection)
+                ->paginate(10),
             'programs' => Program::orderBy('name')->get(),
         ];
     }
@@ -326,36 +321,39 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function exportStudents()
     {
-        $query = User::query()->whereHas('student')->with('student.program');
+        $query = User::query()
+            ->join('students', 'students.id', '=', 'users.student_id')
+            ->select('users.*')
+            ->with('student.program');
 
         if ($this->selectedProgramId === 'none') {
-            $query->whereHas('student', fn ($q) => $q->whereNull('program_id'));
+            $query->whereNull('students.program_id');
         } elseif ($this->selectedProgramId) {
-            $query->whereHas('student', fn ($q) => $q->where('program_id', $this->selectedProgramId));
+            $query->where('students.program_id', $this->selectedProgramId);
         }
 
         if ($this->selectedYearLevel) {
-            $query->whereHas('student', fn ($q) => $q->where('year_level', $this->selectedYearLevel));
+            $query->where('students.year_level', $this->selectedYearLevel);
         }
 
         if ($this->statusFilter) {
-            $query->whereHas('student', fn ($q) => $q->where('status', $this->statusFilter));
+            $query->where('students.status', $this->statusFilter);
         }
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%')
-                    ->orWhereHas('student', function ($sub) {
-                        $sub->where('student_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('first_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('last_name', 'like', '%'.$this->search.'%');
-                    });
+                $q->where('users.name', 'like', '%'.$this->search.'%')
+                    ->orWhere('users.email', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.student_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.first_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('students.last_name', 'like', '%'.$this->search.'%');
             });
         }
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
-        $students = $query->orderBy('name', $orderDirection)->get();
+        $students = $query->orderBy('students.last_name', $orderDirection)
+            ->orderBy('students.first_name', $orderDirection)
+            ->get();
 
         $headers = [
             'Content-Type' => 'text/csv',

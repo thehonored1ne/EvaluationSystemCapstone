@@ -296,9 +296,10 @@ new #[Layout('components.layouts.app')] class extends Component
         $semId = $sem->id;
         $search = trim($this->search);
 
-        // Expected targets: 1 (Self) + Total Active Program Heads
+        // Expected targets: 1 (Self) + Total Active Faculty + Total Active Program Heads
+        $facultyCount = DB::table('employees')->where('role', 'faculty')->where('status', 'active')->count();
         $phCount = DB::table('employees')->where('role', 'program head')->where('status', 'active')->count();
-        $targetCount = 1 + $phCount;
+        $targetCount = 1 + $facultyCount + $phCount;
 
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
@@ -424,7 +425,7 @@ new #[Layout('components.layouts.app')] class extends Component
         return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptFacCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
-            $targetCount = 1 + $deptFacCount; // 1 (Self) + Dept Faculty
+            $targetCount = 1 + $deptFacCount + 1; // 1 (Self) + Dept Faculty + 1 (Dean)
 
             $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;
@@ -490,7 +491,7 @@ new #[Layout('components.layouts.app')] class extends Component
         // Preload submitted evaluations per evaluator
         $evalCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
-            ->whereIn('evaluation_type', ['self', 'downward', 'department_head', 'peer', 'upward_employee'])
+            ->whereIn('evaluation_type', ['self', 'downward', 'department_head', 'peer', 'upward_employee', 'dean', 'superior'])
             ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
@@ -519,7 +520,7 @@ new #[Layout('components.layouts.app')] class extends Component
         return $query->get()->map(function ($emp) use ($deptStaffCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptStaffCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
-            $targetCount = 1 + $deptStaffCount; // 1 (Self) + Dept Staff
+            $targetCount = 1 + $deptStaffCount + 1; // 1 (Self) + Dept Staff + 1 (Dean)
 
             $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;

@@ -166,8 +166,8 @@ test('admin dashboard renders evaluation analytics visual charts', function () {
     Livewire::withoutLazyLoading()
         ->actingAs($this->adminUser)
         ->test('admin.dashboard')
-        ->assertSee('Ratings Distribution')
-        ->assertSee('Department Average Ratings');
+        ->assertSee('Completion Rate by Role')
+        ->assertSee('Department Performance vs. Benchmark');
 });
 
 test('admin can edit questionnaire part name and max points via modal', function () {
