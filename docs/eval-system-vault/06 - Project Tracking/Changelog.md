@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2026-09-03]
 
+- **DatabaseSeeder Orchestration for Historical Comparison Semester** ([`DatabaseSeeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/DatabaseSeeder.php)):
+  - Registered `Semester20272028Seeder` inside `DatabaseSeeder::run()` directly after `EvaluationPhase2Seeder`.
+  - Ensures automated cloud fresh seeding (e.g. Render `AUTO_SEED=fresh`) seeds both the prior historical semester (**2025-2026 • 2nd Semester**) and the active evaluation period (**2026-2027 • 1st Semester**), enabling immediate semester-over-semester analytical comparison in production.
 - **Docker Build & Runtime Container Optimizations** ([`Dockerfile`](file:///c:/Users/USER/Herd/evaluationsystem/Dockerfile), [`docker/entrypoint.sh`](file:///c:/Users/USER/Herd/evaluationsystem/docker/entrypoint.sh)):
   - **Docker Layer Caching:** Copied `composer.json`, `package.json`, and `python/requirements.txt` manifests prior to full codebase copy, preventing source edits from invalidating package install layers.
   - **Image Size Reduction:** Stripped `node_modules` after `npm run build` to prune ~150MB–200MB of unused frontend build dependencies from the production image.

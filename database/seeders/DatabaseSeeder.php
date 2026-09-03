@@ -1198,7 +1198,10 @@ class DatabaseSeeder extends Seeder
             DB::table('class_student')->insert($chunk);
         }
 
-        // Call Phase 2 Seeder
+        // Call Phase 2 Seeder (Active Sem: 2026-2027 1st Sem)
         $this->call(EvaluationPhase2Seeder::class);
+
+        // Call Historical Sem Seeder (Prior Comparison Sem: 2025-2026 2nd Sem)
+        $this->call(Semester20272028Seeder::class);
     }
 }
