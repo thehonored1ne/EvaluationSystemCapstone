@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Jobs\ProcessEvaluationSubmission;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\LogOptions;
@@ -172,8 +173,10 @@ class Evaluation extends Model
 
     /**
      * Get the sentiment analysis details associated with this evaluation.
+     *
+     * @return HasOne<EvaluationSentiment, $this>
      */
-    public function sentiment()
+    public function sentiment(): HasOne
     {
         return $this->hasOne(EvaluationSentiment::class);
     }

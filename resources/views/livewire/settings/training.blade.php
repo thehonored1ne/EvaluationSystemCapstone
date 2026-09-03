@@ -30,9 +30,22 @@ new class extends Component {
 
     public function runTraining(): void
     {
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         try {
             $exitCode = \Illuminate\Support\Facades\Artisan::call('ai:train');
             $output = \Illuminate\Support\Facades\Artisan::output();
+
+            if ($exitCode !== 0) {
+                \Flux::toast(
+                    heading: 'Training Error',
+                    text: 'Training failed. Ensure the AI service is accessible and check logs.',
+                    variant: 'danger'
+                );
+
+                return;
+            }
 
             activity('admin')
                 ->causedBy(auth()->user())

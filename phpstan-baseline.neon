@@ -13,18 +13,6 @@ parameters:
 			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Evaluation\:\:\$sentiment\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Console/Commands/TrainAI.php
-
-		-
-			message: '#^Relation ''sentiment'' is not found in App\\Models\\Evaluation model\.$#'
-			identifier: larastan.relationExistence
-			count: 2
-			path: app/Console/Commands/TrainAI.php
-
-		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.expr
 			count: 1

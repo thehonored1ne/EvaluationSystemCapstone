@@ -145,7 +145,7 @@ class Semester20272028Seeder extends Seeder
         $now = now()->toDateTimeString();
 
         // 4. Helper for answers and scoring
-        $generateAnswersAndScore = function (string $evalType, string $sentiment) use (&$questionsData, $sem) {
+        $generateAnswersAndScore = function (string $evalType, string $sentiment) use ($questionsData, $sem) {
             $questions = $questionsData[$evalType] ?? [];
             if (empty($questions)) {
                 return ['answers' => [], 'rating_average' => 4.0, 'raw_score' => 40.0, 'max_score' => 40.0, 'weighted_score' => 20.0];
@@ -157,13 +157,16 @@ class Semester20272028Seeder extends Seeder
 
             foreach ($questions as $q) {
                 if ($sentiment === 'positive') {
-                    $rating = mt_rand(1, 100) <= 72 ? 5 : 4;
+                    // Historical positive baseline averages ~4.40
+                    $rating = mt_rand(1, 100) <= 42 ? 5 : 4;
                 } elseif ($sentiment === 'neutral') {
+                    // Historical neutral baseline averages ~3.35
                     $rand = mt_rand(1, 100);
-                    $rating = $rand <= 40 ? 3 : ($rand <= 80 ? 4 : 5);
+                    $rating = $rand <= 60 ? 3 : ($rand <= 90 ? 4 : 5);
                 } else {
+                    // Historical negative baseline averages ~2.10
                     $rand = mt_rand(1, 100);
-                    $rating = $rand <= 50 ? 2 : ($rand <= 85 ? 1 : 3);
+                    $rating = $rand <= 60 ? 2 : ($rand <= 85 ? 1 : 3);
                 }
 
                 $answers[$q['id']] = $rating;
@@ -242,71 +245,127 @@ class Semester20272028Seeder extends Seeder
         ];
         $rooms = ['Room 101', 'Room 102', 'Room 201', 'Room 202', 'Room 301', 'Lab 1', 'Lab 2', 'AVR'];
 
-        // 6. Generate Academic Classes covering ALL 3,200 students across all sections
+        // 6. Generate Academic Classes with authentic 2nd Semester curriculum schedules
         $studentsBySection = $students->groupBy('section');
-        $this->command->info('Creating Classes and Enrollments for all 3,200 students across '.$studentsBySection->count().' sections...');
+        $this->command->info('Creating Classes and Enrollments for all 3,200 students across '.$studentsBySection->count().' sections (2nd Semester curriculum schedules)...');
+
+        $sectionSubjectsMap = [
+            // CCS (IT / CS) 2nd Semester Curricula
+            'IT 1' => ['ITP2', 'ITP2L', 'AVE', 'AVEL', 'KOMFIL', 'MATHWRLD', 'PATHFIT1', 'PURPCOMM'],
+            'IT 2' => ['DBMSYS', 'DBMSYSL', 'IPT1', 'IPT1L', 'NW1', 'NW1L', 'WST', 'WSTL'],
+            'IT 3' => ['SIA2', 'SIA2L', 'PRELEC2', 'PRELEC2L', 'PT', 'PTL', 'DMATH', 'CAO'],
+            'IT 4' => ['CAPS2', 'CAPS2L', 'IAS2', 'IAS2L', 'BUSANA', 'SPI', 'LEAD 7'],
+
+            // COA (Accountancy) 2nd Semester Curricula
+            'ACC 1' => ['FINACC', 'FUNDACC 1', 'MANECO', 'KOMFIL', 'QM-TQM', 'PATHFIT1', 'UNDSELF', 'CONWRLD'],
+            'ACC 2' => ['INTACC 2', 'SCOSMAN', 'BLAWREG', 'INCTAX', 'IT-ATB', 'MANSCI', 'ETHICS'],
+            'ACC 3' => ['AACAP 1', 'AAPRIN', 'ACCBC', 'ACCST', 'FINMAN', 'STASSAP', 'HUBEORG'],
+            'ACC 4' => ['ACCINTERN', 'ACCRES', 'SBUSANA', 'LEAD 7', 'AACAP 1', 'FINMAN'],
+
+            // COE (Education) 2nd Semester Curricula
+            'EDUC 1' => ['EDTECH 1', 'TPROF', 'FALECT', 'FOSPED', 'ENVISCI', 'ARTAPP', 'MATHINV', 'KOMFIL'],
+            'ELEM 2' => ['TMATH 1', 'TSS 1', 'TFIL 1', 'TSCI 1', 'SOSLIT', 'PATHFIT3', 'LEAD 3'],
+            'FIL 2' => ['LINGGWIS', 'RIZAL', 'PANREH', 'SOSLIT', 'PATHFIT3', 'LEAD 3', 'EDTECH 1'],
+            'ENG 2' => ['LCS', 'ESTRUCT', 'SOSLIT', 'PATHFIT3', 'LEAD 3', 'EDTECH 1', 'BENLAC'],
+            'SOCSCI 2' => ['POLGOV', 'PLANDWORLD', 'SOSLIT', 'RIZAL', 'PATHFIT3', 'LEAD 3', 'EDTECH 1'],
+            'VAL 2' => ['PHILLET', 'PHILSOC', 'SOSLIT', 'PATHFIT3', 'LEAD 3', 'EDTECH 1', 'BENLAC'],
+            'ELEM 3' => ['EPP', 'FERCE', 'TSS 2', 'LEAD 5', 'TLARTS', 'TMUSIC', 'TLIT'],
+            'FIL 3' => ['BARWIKA', 'DULA', 'OBRABASA', 'PANPAM', 'KWENBEL', 'LEAD 5', 'SALIN'],
+            'ENG 3' => ['TASLIT', 'CAMJOURN', 'CREWRIT', 'TASGRAM', 'TASMAC', 'LEAD 5', 'CHILDLIT'],
+            'SOC 3' => ['WORLDHIS1', 'PRODMAT', 'APPSOC', 'MACROECO', 'CONTPHIL', 'TRENDSOC', 'LEAD 5'],
+            'VAL 3' => ['APPVAL', 'INTROGUIDE', 'FATPRAC', 'DEVMAT', 'LEAD 5', 'CONTFALI', 'TRANSED'],
+            'ELEM 4' => ['FS 2', 'RES 2', 'LEAD 7', 'FS 1'],
+            'ENG 4' => ['FS 2', 'RES 2', 'LEAD 7', 'REMINST'],
+            'TCP' => ['TCP 2', 'TCP 3', 'TCP 1'],
+
+            // CBAE (Business & Entrep) 2nd Semester Curricula
+            'FM 1' => ['FUNDACC', 'P.MGT', 'P.MKTG', 'MATHWRLD', 'NSTP 1', 'PATHFIT1', 'PURPCOMM', 'UNDSELF'],
+            'EN 1' => ['P.MGT', 'P.MKTG', 'ARTAPP', 'ETHICS', 'NSTP 1', 'PATHFIT1', 'LEAD 1', 'UNDSELF'],
+            'MM 1' => ['P.MGT', 'P.MKTG', 'GGSR', 'SOSLIT', 'MATHINV', 'ARTAPP', 'PATHFIT1', 'UNDSELF'],
+            'HR 1' => ['P.MGT', 'P.MKTG', 'MATHINV', 'ETHICS', 'NSTP 1', 'PATHFIT1', 'KOMFIL', 'UNDSELF'],
+            'FM 2' => ['FINMAN', 'FRANCH', 'RIZAL', 'CONWRLD', 'PATHFIT3', 'LEAD 3', 'BUSLAW'],
+            'EN 2' => ['HRMAN', 'OPPOSE', 'ENTREBE', 'SOSLIT', 'PATHFIT3', 'LEAD 3', 'MANACC'],
+            'MM 2' => ['FILDIS', 'ADVER', 'RIZAL', 'ADVCOM', 'OPMAN', 'PATHFIT3', 'LEAD 3'],
+            'HR 2' => ['MARMAN', 'GGSR', 'TAX', 'SOSLIT', 'RECSEL', 'PATHFIT3', 'LEAD 3'],
+            'FM 3' => ['BANFIN', 'STRAMAN', 'STATRES', 'BEHFIN', 'LEAD 5', 'OPMAN', 'MOPCEB'],
+            'EN 3' => ['ENTREMAR', 'E-COMM', 'OPMAN', 'LEAD 5', 'TRACK 1', 'SOCENT', 'INOVMN'],
+            'MM 3' => ['MARKRES', 'PRODMAN', 'LEAD 5', 'PRISTRAT', 'INTEBUS', 'DISMAN', 'MICECO'],
+            'HR 3' => ['STRAMAN', 'LOGMAN', 'LEAD 5', 'OPMAN', 'COMPAD', 'INTEBUS', 'STATRES'],
+            'EN 4' => ['TRACK 3', 'BP IMPLE1', 'LEAD 7'],
+            'MM 4' => ['THESIS', 'MARKDEV', 'LEAD 7'],
+            'HR 4' => ['THESIS', 'LABREL', 'LEAD 7'],
+        ];
+
+        $getSubjectListForSection = function ($secName) use ($sectionSubjectsMap, $subjects) {
+            foreach ($sectionSubjectsMap as $key => $subjs) {
+                if (str_starts_with($secName, $key)) {
+                    return $subjs;
+                }
+            }
+
+            return $subjects->take(7)->pluck('code')->all();
+        };
+
+        $subjectsByCode = $subjects->keyBy('code');
         $classInserts = [];
         $enrollmentInserts = [];
-        $classIdCounter = (int) DB::table('classes')->max('id') + 1;
-
-        $times = [
-            'Mon/Wed 07:30 AM - 09:00 AM',
-            'Mon/Wed 09:00 AM - 10:30 AM',
-            'Mon/Wed 10:30 AM - 12:00 PM',
-            'Tue/Thu 01:00 PM - 02:30 PM',
-            'Tue/Thu 02:30 PM - 04:00 PM',
-            'Fri 08:00 AM - 11:00 AM',
-        ];
-        $rooms = ['Room 101', 'Room 102', 'Room 201', 'Room 202', 'Room 301', 'Lab 1', 'Lab 2', 'AVR'];
-
         $createdClasses = [];
+        $classIdCounter = (int) DB::table('classes')->max('id') + 1;
         $secIndex = 0;
 
         foreach ($studentsBySection as $secName => $secStudents) {
             $firstStudent = $secStudents->first();
             $deptId = $firstStudent->program?->department_id;
             $deptFaculty = $facultyUsers->where('employee.department_id', $deptId)->values();
-            if ($deptFaculty->isEmpty()) {
+            if ($deptFaculty->count() < 3) {
                 $deptFaculty = $facultyUsers->values();
             }
 
-            $fUser = $deptFaculty[$secIndex % $deptFaculty->count()];
-            $fEmp = $fUser->employee;
+            $subjCodes = $getSubjectListForSection($secName);
 
-            $deptSubjs = $subjects->take(15);
-            $subj = $deptSubjs->random();
-            $cId = $classIdCounter++;
-            $sched = $times[$secIndex % count($times)];
-            $room = $rooms[$secIndex % count($rooms)];
+            foreach ($subjCodes as $subjIdx => $code) {
+                $subj = $subjectsByCode[$code] ?? $subjects->get($subjIdx % $subjects->count());
+                if (! $subj) {
+                    continue;
+                }
 
-            $classInserts[] = [
-                'id' => $cId,
-                'subject_id' => $subj->id,
-                'semester_id' => $sem->id,
-                'teacher_id' => $fEmp->id,
-                'section' => $secName,
-                'schedule' => $sched,
-                'room' => $room,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+                // Rotate faculty assignments across semesters using offset
+                $fUser = $deptFaculty[($secIndex * 7 + $subjIdx + 13) % $deptFaculty->count()];
+                $fEmp = $fUser->employee;
 
-            // Enroll ALL students in this section (guarantees all 3,200 students are enrolled)
-            foreach ($secStudents as $st) {
-                $enrollmentInserts[] = [
-                    'class_id' => $cId,
-                    'student_id' => $st->id,
+                $cId = $classIdCounter++;
+                $sched = $times[($secIndex * 7 + $subjIdx) % count($times)];
+                $room = $rooms[($secIndex * 7 + $subjIdx) % count($rooms)];
+
+                $classInserts[] = [
+                    'id' => $cId,
+                    'subject_id' => $subj->id,
+                    'semester_id' => $sem->id,
+                    'teacher_id' => $fEmp->id,
+                    'section' => $secName,
+                    'schedule' => $sched,
+                    'room' => $room,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
-            }
 
-            $createdClasses[] = [
-                'class_id' => $cId,
-                'teacher_user_id' => $fUser->id,
-                'department_id' => $deptId,
-                'enrolled_students' => $secStudents,
-            ];
+                // Enroll ALL students in this section into this subject class
+                foreach ($secStudents as $st) {
+                    $enrollmentInserts[] = [
+                        'class_id' => $cId,
+                        'student_id' => $st->id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                $createdClasses[] = [
+                    'class_id' => $cId,
+                    'teacher_user_id' => $fUser->id,
+                    'department_id' => $deptId,
+                    'enrolled_students' => $secStudents,
+                ];
+            }
 
             $secIndex++;
         }
@@ -317,7 +376,7 @@ class Semester20272028Seeder extends Seeder
         foreach (array_chunk($enrollmentInserts, 500) as $chunk) {
             DB::table('class_student')->insert($chunk);
         }
-        $this->command->info('Created '.count($classInserts).' classes and enrolled all '.count($enrollmentInserts).' students.');
+        $this->command->info('Created '.count($classInserts).' classes and enrolled all '.count($enrollmentInserts).' students across 2nd Semester curriculum schedules.');
 
         // 7. Seed Multi-Role Evaluations
         $evalIdCounter = (int) DB::table('evaluations')->max('id') + 1;
@@ -342,11 +401,20 @@ class Semester20272028Seeder extends Seeder
             }
         };
 
-        // A. Student -> Teacher Evaluations (~75% turnout per class)
-        $this->command->info('Seeding Student Evaluations for 2027-2028 2nd Semester...');
+        // Distinct department completion benchmarks (e.g. CCS: 73.8%, COA: 72.4%, COE: 70.1%, CBAE: 71.6%)
+        $deptTurnoutRates = [
+            1 => 0.738, // CCS
+            2 => 0.724, // COA
+            3 => 0.701, // COE
+            4 => 0.716, // CBAE
+        ];
+
+        // A. Student -> Teacher Evaluations (~71.5% historical completion turnout)
+        $this->command->info('Seeding Student Evaluations for 2025-2026 2nd Semester...');
         foreach ($createdClasses as $cData) {
             $enrolled = $cData['enrolled_students'];
-            $studentsToEval = (int) ceil($enrolled->count() * 0.75);
+            $turnoutRate = $deptTurnoutRates[$cData['department_id']] ?? 0.715;
+            $studentsToEval = (int) round($enrolled->count() * $turnoutRate);
 
             foreach ($enrolled->take($studentsToEval) as $st) {
                 if (! $st->user) {
@@ -354,8 +422,8 @@ class Semester20272028Seeder extends Seeder
                 }
 
                 $rand = mt_rand(1, 100);
-                // Sentiment tuned for ~4.18 historical baseline
-                $sentiment = $rand <= 68 ? 'positive' : ($rand <= 88 ? 'neutral' : 'negative');
+                // Sentiment distribution: 64% positive, 24% neutral, 12% negative
+                $sentiment = $rand <= 64 ? 'positive' : ($rand <= 88 ? 'neutral' : 'negative');
                 $calc = $generateAnswersAndScore('upward_student', $sentiment);
                 $commentPool = $studentComments[$sentiment];
                 $comment = $commentPool[array_rand($commentPool)];

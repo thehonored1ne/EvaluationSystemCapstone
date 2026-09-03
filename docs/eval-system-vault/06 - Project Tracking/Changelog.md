@@ -15,6 +15,19 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-04]
+
+- **Authentic 2nd Semester Curriculum & Historical Analytical Differentiation** ([`Semester20272028Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/Semester20272028Seeder.php)):
+  - Scheduled 157 distinct 2nd Semester continuation subjects (`ITP2`, `DBMSYS`, `INTACC 2`, `FS 2`, `SIA2`, `FINMAN`, etc.) across 697 classes, ensuring students take authentic term-specific courses distinct from 1st Semester offerings.
+  - Rotated faculty teaching assignments with cyclical offsets across sections so students evaluate different instructors across terms.
+  - Seeded realistic historical performance baselines: average rating of **3.93** (vs 4.28 active sem), 71.5% historical completion turnout (with department benchmarks: CCS 73.8%, COA 72.4%, COE 70.1%, CBAE 71.6%), and a 64% positive, 24% neutral, 12% negative sentiment split across 16,860 reviews.
+- **AI Model Retraining Memory Optimization & Safety Safeguards** ([`TrainAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php), [`training.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/settings/training.blade.php), [`Evaluation.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Evaluation.php)):
+  - Resolved `Allowed memory size of 134217728 bytes exhausted` 500 error during model retraining across large seeded datasets (26,000+ comments).
+  - Replaced full Eloquent collection hydration with optimized direct database column selections (`comments`, `rating_average`, `manual_label`).
+  - Prioritized all human-corrected sentiment labels (`manual_label IS NOT NULL`) alongside a capped representative sample of 2,000 general comments.
+  - Converted unanalyzed comment backfilling into chunked `chunkById(100)` batches to guarantee minimal memory overhead.
+  - Added explicit `sentiment(): HasOne` relation type hint on `Evaluation.php` and cleaned up static analyzer baselines.
+
 ## [2026-09-03]
 
 - **DatabaseSeeder Orchestration for Historical Comparison Semester** ([`DatabaseSeeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/DatabaseSeeder.php)):
