@@ -31,6 +31,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public ?User $deletingUser = null;
 
+    public bool $deletingUserHasHistory = false;
+
     // Student specific
     public string $student_number = '';
 
@@ -271,12 +273,27 @@ new #[Layout('components.layouts.app')] class extends Component
     public function confirmDelete(User $user)
     {
         $this->deletingUser = $user;
+        $this->deletingUserHasHistory = DB::table('evaluations')
+            ->where('evaluator_id', $user->id)
+            ->orWhere('evaluatee_id', $user->id)
+            ->exists();
         $this->showDeleteModal = true;
     }
 
     public function deleteUser()
     {
         if (! $this->deletingUser) {
+            return;
+        }
+
+        if ($this->deletingUserHasHistory) {
+            $this->showDeleteModal = false;
+            \Flux::toast(
+                heading: 'Deletion Blocked',
+                text: 'This student has historical evaluation records that must be preserved. Deactivate their account or update their status to Graduated/Inactive instead.',
+                variant: 'danger'
+            );
+
             return;
         }
 
@@ -294,6 +311,27 @@ new #[Layout('components.layouts.app')] class extends Component
         \Flux::toast(
             heading: 'Student Deleted',
             text: 'The student account has been successfully deleted.',
+            variant: 'success'
+        );
+    }
+
+    public function deactivateUserInstead()
+    {
+        if (! $this->deletingUser) {
+            return;
+        }
+
+        $this->deletingUser->update(['is_active' => false]);
+        if ($this->deletingUser->student) {
+            $this->deletingUser->student->update(['status' => 'inactive']);
+        }
+
+        $this->showDeleteModal = false;
+        $this->deletingUser = null;
+
+        \Flux::toast(
+            heading: 'Account Deactivated',
+            text: 'The student account has been deactivated. Historical evaluation records remain safely preserved.',
             variant: 'success'
         );
     }
@@ -839,11 +877,17 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Delete Confirmation Modal -->
     @if($showDeleteModal && $deletingUser)
     <x-confirmation-modal 
-        title="Delete Student Account" 
-        on-confirm="deleteUser" 
+        :title="$deletingUserHasHistory ? 'Account Cannot Be Deleted' : 'Delete Student Account'" 
+        :on-confirm="$deletingUserHasHistory ? 'deactivateUserInstead' : 'deleteUser'" 
         on-cancel="$set('showDeleteModal', false)"
+        :confirm-text="$deletingUserHasHistory ? 'Deactivate Account Instead' : 'Delete Account'"
+        :variant="$deletingUserHasHistory ? 'primary' : 'danger'"
     >
-        Are you sure you want to delete this student account? This action cannot be undone and will remove all login access.
+        @if($deletingUserHasHistory)
+            This student has submitted or received evaluation records. To protect institutional audit data, historical ratings, and past semester reports, this account cannot be deleted. You can safely deactivate the account to disable login access.
+        @else
+            Are you sure you want to delete this student account? This action cannot be undone and will remove all login access.
+        @endif
 
         <x-slot:details>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -871,9 +915,9 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </x-slot:details>
 
-        @if(\App\Models\Evaluation::where('evaluator_id', $deletingUser->id)->orWhere('evaluatee_id', $deletingUser->id)->exists())
+        @if($deletingUserHasHistory)
             <x-slot:warning>
-                Deleting this student will permanently delete all evaluations they submitted or received.
+                Audit Protection: Historical evaluation records are permanently preserved. Deactivating will immediately revoke login access.
             </x-slot:warning>
         @elseif($deletingUser->student?->classes()->exists())
             <x-slot:warning>

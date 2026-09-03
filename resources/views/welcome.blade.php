@@ -14,19 +14,103 @@
     <!-- Premium background overlay for depth & readability -->
     <div class="absolute inset-0 bg-black/25 dark:bg-black/45 backdrop-blur-[2px] pointer-events-none"></div>
 
+    @php
+        $activeSemester = \App\Models\Semester::getActive();
+        $announcement = null;
+
+        if ($activeSemester) {
+            $starts = $activeSemester->evaluation_starts_at;
+            $ends = $activeSemester->evaluation_ends_at;
+            $now = \Illuminate\Support\Carbon::now('Asia/Manila');
+
+            if ($activeSemester->is_evaluation_open) {
+                if ($starts && $ends) {
+                    $startsManila = $starts->copy()->timezone('Asia/Manila');
+                    $endsManila = $ends->copy()->timezone('Asia/Manila');
+
+                    if ($now->lt($startsManila)) {
+                        $announcement = 'Evaluation is open from ' . $startsManila->format('g:ia n/j/y') . ' to ' . $endsManila->format('g:ia n/j/y');
+                    } elseif ($now->gt($endsManila)) {
+                        $announcement = 'Evaluation is closed ' . $endsManila->diffForHumans();
+                    } else {
+                        $announcement = 'Evaluation is open from ' . $startsManila->format('g:ia n/j/y') . ' to ' . $endsManila->format('g:ia n/j/y');
+                    }
+                } else {
+                    $announcement = 'Evaluation is currently open';
+                }
+            } else {
+                if ($ends) {
+                    $endsManila = $ends->copy()->timezone('Asia/Manila');
+                    $announcement = 'Evaluation is closed ' . $endsManila->diffForHumans();
+                } else {
+                    $announcement = 'Evaluation is currently closed';
+                }
+            }
+        } else {
+            $announcement = 'Evaluation is currently closed';
+        }
+    @endphp
+
     <!-- Center Hero Section -->
-    <div class="relative z-10 flex flex-col items-center justify-center w-full max-w-2xl px-6 text-center transition-opacity opacity-100 duration-700 starting:opacity-0">
+    <div class="relative z-10 flex flex-col items-center justify-center w-full max-w-3xl px-6 text-center transition-opacity opacity-100 duration-700 starting:opacity-0">
         <main class="w-full flex flex-col items-center justify-center">
-            
-            <!-- Brand Logo -->
-            <div class="mb-8 flex justify-center">
-                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Online Evaluation Logo" class="h-24 md:h-28 w-auto object-contain drop-shadow-[0_4px_25px_rgba(255,255,255,0.55)] transition-transform duration-300 hover:scale-105" />
+
+            <!-- 1-Liner Evaluation Announcement Pill (Positioned well above logo) -->
+            @if($announcement)
+                <div class="mb-14 sm:mb-20 flex justify-center">
+                    <span class="inline-flex items-center px-5 py-2 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-white/95 text-xs sm:text-sm font-semibold tracking-wide shadow-lg drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+                        {{ $announcement }}
+                    </span>
+                </div>
+            @endif
+
+            <!-- Brand Logo (Enlarged with Luminous Glow) -->
+            <div class="mb-6 sm:mb-8 flex justify-center">
+                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Online Evaluation Logo" class="h-32 sm:h-40 md:h-48 w-auto object-contain drop-shadow-[0_6px_35px_rgba(255,255,255,0.65)] transition-transform duration-300 hover:scale-105" />
             </div>
-            
-            <!-- Subtitle (Inter Font, Elegant light tracking) -->
-            <p class="text-white/90 dark:text-zinc-200 text-base md:text-lg font-light tracking-wide leading-relaxed mb-12 max-w-md drop-shadow-[0_1px_8px_rgba(0,0,0,0.2)]">
-                Welcome to the official portal for academic and performance evaluations.
-            </p>
+
+            <!-- Typewriter Tagline Animation (Zero CLS: Cycles Word by Word: Type -> Delete -> Next Word) -->
+            <div 
+                x-data="{
+                    words: ['TOUCHING HEARTS', 'RENEWING MINDS', 'TRANSFORMING LIVES'],
+                    wordIndex: 0,
+                    text: '',
+                    charIndex: 0,
+                    isDeleting: false,
+                    type() {
+                        const currentWord = this.words[this.wordIndex];
+
+                        if (!this.isDeleting) {
+                            this.text = currentWord.substring(0, this.charIndex + 1);
+                            this.charIndex++;
+
+                            if (this.charIndex === currentWord.length) {
+                                this.isDeleting = true;
+                                setTimeout(() => this.type(), 2000);
+                                return;
+                            }
+                            setTimeout(() => this.type(), 80);
+                        } else {
+                            this.text = currentWord.substring(0, this.charIndex - 1);
+                            this.charIndex--;
+
+                            if (this.charIndex === 0) {
+                                this.isDeleting = false;
+                                this.wordIndex = (this.wordIndex + 1) % this.words.length;
+                                setTimeout(() => this.type(), 400);
+                                return;
+                            }
+                            setTimeout(() => this.type(), 40);
+                        }
+                    }
+                }"
+                x-init="type()"
+                class="h-8 mb-16 sm:mb-20 flex items-center justify-center px-4 text-center overflow-hidden"
+            >
+                <p class="text-white text-xs sm:text-sm md:text-base font-extrabold tracking-[0.25em] sm:tracking-[0.3em] uppercase leading-none drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)] whitespace-nowrap">
+                    <span x-text="text"></span><span class="inline-block w-[2.5px] h-[1.15em] ml-1.5 bg-white animate-pulse align-middle"></span>
+                </p>
+            </div>
             
             <!-- Primary Action Button (Log In / Dashboard) -->
             <div>

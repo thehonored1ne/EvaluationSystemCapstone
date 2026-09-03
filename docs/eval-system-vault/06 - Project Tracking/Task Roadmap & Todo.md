@@ -9,6 +9,52 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [ ] In Manage Subjects Page
+- fix and redesign the 3 cards, it needs to tell useful information to admin.
+
+- [ ] in Manage Classes & Enrollment Page
+- make the table default sort to alphabetical a-z of the assigned professor last name.
+- remove the all professors filter and replace it with a sort by subject name, a-z and z-a option
+- regarding the all subject filter. in the dropdown i noticed that you combine subject code and name, make it only name so it doesn't look crowded.
+- remove the schedule column because it don't see it useful in this system and to the admin. remove also the schedule picker when adding a new class.
+
+- [ ] in  Manage Departments Page
+- fix and redesign the 4 cards, it needs to tell useful information to admin.
+- in the table "head" column, the column name just said head but the rows in it shows the head name, the id, and the assigned dean. remove the last 2 and just show the head name for cleaner
+- in the members column, the row in it have pills right? add a function that when that pill click it will show a modal, the modal will show the list of that members.
+- fix the table column spacing
+
+- [ ] in  Manage Academic Programs Page
+- fix and redesign the 4 cards, it needs to tell useful information to admin.
+- fix the all department filter. right now it shows even the administrative dept. since academic programs is only for academic, so the filter should only show the academic dept
+
+- [ ] in  Completion Tracking page
+- fix and redesign the 4 cards, it needs to tell useful information to admin.
+- make the send reminders button have the same function that in the admin dashboard.
+- analyze if there's a bug in calculations.
+- there's a problem with the all departments filter. I'm now in student tab, and when i click other depts it shows nothing which is good but the filter needs some work.
+
+- [ ] in Results page
+- the table and the layout doesn't take space like other space that's why there's a large gap in left and right.
+- the total submissions column need some rework because its vague and doesn't show useful info.
+- in breakdown modal, the Overall Mean Score, but the next 2 cards is not specific and the information its trying to tell is vague. in  Evaluation Breakdown by Source, the cards need some rework and redesign the information its trying to tell is unclear. instead of showing Feedback Comments & Notes which shows a lot of comments. we have pipeline right we can replace it with that and it will tell the admin about the analysis of ai about the comments he/she received. below it add a summary on what's the information trying to tell. include our new tfidf
+
+- [ ] in rankings page
+- in all department filter. the option. instead of showing code and dept name, just the code is enough.
+- analyze the 4 cards, if it already telling useful information, or it need some redesign and rework. tell me first.
+- the evaluations column, first the column name and the row of it is vague. tell me what you think
+
+- [ ] my concern need to verify
+- if the student or an evaluator already evaluated and somehow hes assigned to wrong person, when updating, will the system prevents me because he has evaluation record in current sem? or theyre are way to scrap his evaluation so he can assign to correct person and just redo the evaluation? confirm it for me.
+
+
+- [ ] align the skeleton loaders to the content of the page 1:1, the skeleton loaders should show the simplicity the shape of the component or the parent container for simplicity
+
+
+
+
+
+
 - [X] **Rankings Bug Fix, Evaluation Type Unification & Custom Error Pages (2026-08-30)**:
   - Removed demo fallback / synthetic score generator in `rankings.blade.php` that fabricated scores (3.50–5.00) and evaluation counts on terms with zero evaluations.
   - Implemented proper `No Evaluations` status badge (`variant="zinc"`), `0 evals`, unranked display (`—`), and `N/A` for summary KPI cards when no evaluations exist.

@@ -106,7 +106,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col gap-2 text-center">
         <h1 class="text-2xl font-black tracking-tight text-[#7a0000]">{{ __('Log in to your account') }}</h1>
-        <p class="text-center text-sm font-medium text-zinc-600">{{ __('Enter your Student/Employee ID or Email and password below to log in') }}</p>
+
     </div>
 
     <!-- Session Status -->
@@ -116,7 +116,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         <!-- Identifier -->
         <div class="flex flex-col gap-1.5 text-left">
             <label for="identifier" class="block text-xs font-bold uppercase tracking-wider text-[#7a0000]">
-                {{ __('Student ID / Employee ID / Email Address') }}
+                {{ __('Student/Employee ID or Email Address') }}
             </label>
             <div class="relative">
                 <input 

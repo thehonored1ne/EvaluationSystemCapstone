@@ -11,10 +11,14 @@
             "id": "97e9bab23a096d75",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "06 - Project Tracking/Task Roadmap & Todo.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Task Roadmap & Todo"
             }
           }
         ]

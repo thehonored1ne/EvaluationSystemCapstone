@@ -167,7 +167,7 @@ test('admin dashboard renders evaluation analytics visual charts', function () {
         ->actingAs($this->adminUser)
         ->test('admin.dashboard')
         ->assertSee('Completion Rate by Role')
-        ->assertSee('Department Performance vs. Benchmark');
+        ->assertSee('Completion Rate by Department');
 });
 
 test('admin can edit questionnaire part name and max points via modal', function () {

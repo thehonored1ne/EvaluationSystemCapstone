@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     supervisor \
+    ca-certificates \
     gettext-base \
     git \
     curl \
@@ -45,18 +46,28 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application files
-COPY . .
+# 1. Copy dependency manifests first for optimal Docker layer caching
+COPY composer.json composer.lock package.json package-lock.json ./
+COPY python/requirements.txt ./python/
 
-# Install Python requirements and Gunicorn
+# Install Python requirements and download VADER lexicon
 RUN pip3 install --no-cache-dir --break-system-packages -r python/requirements.txt gunicorn \
     && python3 -c "import nltk; nltk.download('vader_lexicon')"
 
-# Install PHP dependencies (production only)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Install PHP dependencies without scripts (scripts need app source files)
+RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
 
-# Install frontend dependencies and build Vite assets
-RUN npm ci && npm run build
+# Install frontend dependencies
+RUN npm ci
+
+# 2. Copy application files
+COPY . .
+
+# Complete Composer autoloader generation & optimization with full codebase
+RUN composer dump-autoload --optimize --no-dev
+
+# Build Vite assets and prune node_modules to reduce final container size
+RUN npm run build && rm -rf node_modules
 
 # Remove default Nginx site config
 RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf

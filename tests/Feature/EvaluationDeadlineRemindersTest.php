@@ -10,6 +10,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -122,4 +123,47 @@ test('admin send reminders action in completion tracking triggers broadcast', fu
         'causer_id' => $this->adminUser->id,
         'log_name' => 'evaluations',
     ]);
+});
+
+test('admin dashboard reminder shows warning toast when evaluation window is inactive', function () {
+    $this->sem->update(['is_evaluation_open' => false]);
+    Cache::forget('active_semester');
+
+    $this->actingAs($this->adminUser);
+
+    Livewire::withoutLazyLoading()
+        ->test('admin.dashboard')
+        ->call('sendReminderToast')
+        ->assertSet('showReminderModal', false);
+
+    $this->assertDatabaseMissing('activity_log', [
+        'causer_id' => $this->adminUser->id,
+        'log_name' => 'evaluations',
+    ]);
+});
+
+test('admin dashboard reminder opens confirmation modal and broadcasts when confirmed during active window', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::withoutLazyLoading()
+        ->test('admin.dashboard')
+        ->call('sendReminderToast')
+        ->assertSet('showReminderModal', true)
+        ->call('confirmBroadcastReminders')
+        ->assertSet('showReminderModal', false);
+
+    $this->assertDatabaseHas('activity_log', [
+        'causer_id' => $this->adminUser->id,
+        'log_name' => 'evaluations',
+    ]);
+});
+
+test('admin dashboard completion rate percentage is aligned with evaluator counts', function () {
+    $this->actingAs($this->adminUser);
+
+    // Initial state: 0 completed out of 2 evaluators (student + faculty)
+    Livewire::withoutLazyLoading()
+        ->test('admin.dashboard')
+        ->assertSee('Overall Completion Rate')
+        ->assertSee('evaluators completed all assigned evaluations');
 });

@@ -43,6 +43,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public ?User $deletingUser = null;
 
+    public bool $deletingUserHasHistory = false;
+
     public bool $showImportModal = false;
 
     public $importFile = null;
@@ -349,6 +351,15 @@ new #[Layout('components.layouts.app')] class extends Component
         }
 
         $this->deletingUser = $user;
+        $hasEvals = DB::table('evaluations')
+            ->where('evaluator_id', $user->id)
+            ->orWhere('evaluatee_id', $user->id)
+            ->exists();
+        $hasClasses = false;
+        if ($user->employee) {
+            $hasClasses = DB::table('classes')->where('teacher_id', $user->employee->id)->exists();
+        }
+        $this->deletingUserHasHistory = $hasEvals || $hasClasses;
         $this->showDeleteModal = true;
     }
 
@@ -369,6 +380,17 @@ new #[Layout('components.layouts.app')] class extends Component
             return;
         }
 
+        if ($this->deletingUserHasHistory) {
+            $this->showDeleteModal = false;
+            Flux::toast(
+                heading: 'Deletion Blocked',
+                text: 'This employee has historical academic classes or evaluation records that must be preserved. Deactivate their account or update their status to Inactive/Resigned instead.',
+                variant: 'danger'
+            );
+
+            return;
+        }
+
         DB::transaction(function () {
             $employee = $this->deletingUser->employee;
             $this->deletingUser->delete();
@@ -383,6 +405,27 @@ new #[Layout('components.layouts.app')] class extends Component
         Flux::toast(
             heading: 'Employee Deleted',
             text: 'The employee account has been deleted.',
+            variant: 'success'
+        );
+    }
+
+    public function deactivateUserInstead()
+    {
+        if (! $this->deletingUser) {
+            return;
+        }
+
+        $this->deletingUser->update(['is_active' => false]);
+        if ($this->deletingUser->employee) {
+            $this->deletingUser->employee->update(['status' => 'inactive']);
+        }
+
+        $this->showDeleteModal = false;
+        $this->deletingUser = null;
+
+        Flux::toast(
+            heading: 'Account Deactivated',
+            text: 'The employee account has been deactivated. Historical classes and evaluation records remain safely preserved.',
             variant: 'success'
         );
     }
@@ -942,11 +985,17 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Delete Confirmation Modal -->
     @if($showDeleteModal && $deletingUser)
     <x-confirmation-modal 
-        title="Delete Employee Account" 
-        on-confirm="deleteUser" 
+        :title="$deletingUserHasHistory ? 'Employee Cannot Be Deleted' : 'Delete Employee Account'" 
+        :on-confirm="$deletingUserHasHistory ? 'deactivateUserInstead' : 'deleteUser'" 
         on-cancel="$set('showDeleteModal', false)"
+        :confirm-text="$deletingUserHasHistory ? 'Deactivate Account Instead' : 'Delete Account'"
+        :variant="$deletingUserHasHistory ? 'primary' : 'danger'"
     >
-        Are you sure you want to delete this employee account? This action cannot be undone and will remove all login access and permissions.
+        @if($deletingUserHasHistory)
+            This employee has assigned academic classes or evaluation records. To protect institutional audit data, historical scorecard ratings, and past reports, this account cannot be deleted. You can safely deactivate the account to disable login access.
+        @else
+            Are you sure you want to delete this employee account? This action cannot be undone and will remove all login access and permissions.
+        @endif
 
         <x-slot:details>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -971,9 +1020,9 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </x-slot:details>
 
-        @if(\App\Models\Evaluation::where('evaluator_id', $deletingUser->id)->orWhere('evaluatee_id', $deletingUser->id)->exists())
+        @if($deletingUserHasHistory)
             <x-slot:warning>
-                Deleting this employee will permanently remove all associated evaluation records submitted by or for this employee.
+                Audit Protection: Historical classes and evaluation records are permanently preserved. Deactivating will immediately revoke login access.
             </x-slot:warning>
         @elseif($deletingUser->employee?->managedDepartment()->exists() || $deletingUser->employee?->managedProgram()->exists())
             <x-slot:warning>

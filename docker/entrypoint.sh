@@ -7,9 +7,15 @@ export PORT=${PORT:-10000}
 # Configure Nginx with dynamic port
 envsubst '${PORT}' < /var/www/html/docker/nginx.conf > /etc/nginx/conf.d/default.conf
 
+# Ensure SQLite database file exists if DB_CONNECTION is sqlite
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ] && [ ! -f /var/www/html/database/database.sqlite ]; then
+    mkdir -p /var/www/html/database
+    touch /var/www/html/database/database.sqlite
+fi
+
 # Ensure directory permissions
-chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
 
 # Run Laravel optimizations
 php /var/www/html/artisan storage:link --force || true

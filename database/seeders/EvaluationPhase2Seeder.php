@@ -554,7 +554,8 @@ class EvaluationPhase2Seeder extends Seeder
         foreach ($programHeadUsers as $idx => $phUser) {
             $phDeptId = $phUser->employee?->department_id;
             $deptFaculty = $facultyUsers->where('employee.department_id', $phDeptId);
-            $facultyToEval = (int) ceil($deptFaculty->count() * 0.75);
+            $isPhCompleted = ($idx < 3); // 3 of 4 Program Heads completed 100% of duties
+            $facultyToEval = $isPhCompleted ? $deptFaculty->count() : (int) ceil($deptFaculty->count() * 0.6);
 
             // Program Head -> Subordinate Faculty
             foreach ($deptFaculty->take($facultyToEval) as $fUser) {
@@ -604,7 +605,7 @@ class EvaluationPhase2Seeder extends Seeder
             }
 
             // Program Head -> Self (3 completed, 1 pending)
-            if ($idx < 3) {
+            if ($isPhCompleted) {
                 $calc = $generateAnswersAndScore('self', 'positive');
                 $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
                 $sentimentMeta = $determineSentimentData('positive', $calc['rating_average']);
@@ -649,7 +650,7 @@ class EvaluationPhase2Seeder extends Seeder
             }
 
             // Program Head -> Dean (Upward evaluation, 3 completed, 1 pending)
-            if ($idx < 3 && $deanUser) {
+            if ($isPhCompleted && $deanUser) {
                 $calc = $generateAnswersAndScore('upward_employee', 'positive');
                 $comment = $pickComment($supervisorComments, 'positive');
                 $sentimentMeta = $determineSentimentData('positive', $calc['rating_average']);
@@ -694,12 +695,13 @@ class EvaluationPhase2Seeder extends Seeder
             }
         }
 
-        $this->command->info('4. Seeding Faculty Peer, Self & Upward Evaluations (~75% completed)...');
+        $this->command->info('4. Seeding Faculty Peer, Self & Upward Evaluations (~72% completed)...');
         foreach ($facultyUsers as $fIdx => $fUser) {
             $fDeptId = $fUser->employee?->department_id;
+            $isFacCompleted = ($fIdx < 36); // 36 of 50 Faculty completed 100% of duties (72.0%)
 
-            // Faculty -> Self (35 completed, 15 pending)
-            if ($fIdx < 35) {
+            // Faculty -> Self (36 completed, 14 pending)
+            if ($isFacCompleted) {
                 $rand = mt_rand(1, 100);
                 $sentiment = $rand <= 80 ? 'positive' : 'neutral';
                 $calc = $generateAnswersAndScore('self', $sentiment);
@@ -745,9 +747,9 @@ class EvaluationPhase2Seeder extends Seeder
                 ];
             }
 
-            // Faculty -> Peers in same department (~75% completed)
+            // Faculty -> Peers in same department
             $peers = $facultyUsers->where('employee.department_id', $fDeptId)->where('id', '!==', $fUser->id);
-            $peerEvalCount = (int) ceil($peers->count() * 0.75);
+            $peerEvalCount = $isFacCompleted ? $peers->count() : (int) ceil($peers->count() * 0.6);
 
             foreach ($peers->take($peerEvalCount) as $peerUser) {
                 $rand = mt_rand(1, 100);
@@ -795,8 +797,8 @@ class EvaluationPhase2Seeder extends Seeder
                 ];
             }
 
-            // Faculty -> Program Head (Upward Evaluation, ~75% of faculty)
-            if ($fIdx % 4 !== 0) {
+            // Faculty -> Program Head (Upward Evaluation)
+            if ($isFacCompleted || ($fIdx % 4 !== 0)) {
                 $targetPH = $programHeadUsers->where('employee.department_id', $fDeptId)->first();
                 if ($targetPH) {
                     $rand = mt_rand(1, 100);
@@ -847,13 +849,13 @@ class EvaluationPhase2Seeder extends Seeder
         }
 
         $this->command->info('5. Seeding Department Heads & Staff Evaluations (~75% completed)...');
-        // Department Head -> Staff (Downward)
+        // Department Head -> Staff (Downward), Self & Dean
         foreach ($deptHeadUsers as $dhIdx => $dhUser) {
             $dhDeptId = $dhUser->employee?->department_id;
             $deptStaff = $staffUsers->where('employee.department_id', $dhDeptId);
-            $staffToEval = (int) ceil($deptStaff->count() * 0.75);
+            $staffToEval = $deptStaff->count(); // All 11 Department Heads evaluate 100% of their staff
 
-            foreach ($deptStaff->take($staffToEval) as $sUser) {
+            foreach ($deptStaff as $sUser) {
                 $rand = mt_rand(1, 100);
                 $sentiment = $rand <= 75 ? 'positive' : ($rand <= 90 ? 'neutral' : 'negative');
                 $calc = $generateAnswersAndScore('department_head', $sentiment);
@@ -899,10 +901,53 @@ class EvaluationPhase2Seeder extends Seeder
                 ];
             }
 
-            // Department Head -> Self (8 completed, 3 pending)
-            if ($dhIdx < 8) {
-                $calc = $generateAnswersAndScore('self', 'positive');
-                $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
+            // Department Head -> Self (All 11 completed)
+            $calc = $generateAnswersAndScore('self', 'positive');
+            $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
+            $sentimentMeta = $determineSentimentData('positive', $calc['rating_average']);
+
+            $currentEvalId = $evalIdCounter++;
+
+            $evalInserts[] = [
+                'id' => $currentEvalId,
+                'evaluator_id' => $dhUser->id,
+                'evaluatee_id' => $dhUser->id,
+                'semester_id' => $activeSemester->id,
+                'class_id' => null,
+                'evaluation_type' => 'self',
+                'rating_average' => $calc['rating_average'],
+                'raw_score' => $calc['raw_score'],
+                'max_score' => $calc['max_score'],
+                'weighted_score' => $calc['weighted_score'],
+                'comments' => $comment,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            foreach ($calc['answers'] as $qId => $rating) {
+                $answerInserts[] = [
+                    'evaluation_id' => $currentEvalId,
+                    'question_id' => $qId,
+                    'rating' => $rating,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            $sentimentInserts[] = [
+                'evaluation_id' => $currentEvalId,
+                'vader_score' => $sentimentMeta['vader_score'],
+                'vader_label' => $sentimentMeta['vader_label'],
+                'dt_label' => $sentimentMeta['dt_label'],
+                'manual_label' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            // Department Head -> Dean (Upward evaluation, all 11 completed)
+            if ($deanUser) {
+                $calc = $generateAnswersAndScore('upward_employee', 'positive');
+                $comment = $pickComment($supervisorComments, 'positive');
                 $sentimentMeta = $determineSentimentData('positive', $calc['rating_average']);
 
                 $currentEvalId = $evalIdCounter++;
@@ -910,10 +955,10 @@ class EvaluationPhase2Seeder extends Seeder
                 $evalInserts[] = [
                     'id' => $currentEvalId,
                     'evaluator_id' => $dhUser->id,
-                    'evaluatee_id' => $dhUser->id,
+                    'evaluatee_id' => $deanUser->id,
                     'semester_id' => $activeSemester->id,
                     'class_id' => null,
-                    'evaluation_type' => 'self',
+                    'evaluation_type' => 'upward_employee',
                     'rating_average' => $calc['rating_average'],
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
@@ -948,9 +993,12 @@ class EvaluationPhase2Seeder extends Seeder
         // Staff -> Self, Peers & Supervisor (DH)
         foreach ($staffUsers as $sIdx => $sUser) {
             $sDeptId = $sUser->employee?->department_id;
+            $deptStaffUsers = $staffUsers->where('employee.department_id', $sDeptId)->values();
+            $localIdx = $deptStaffUsers->search(fn ($u) => $u->id === $sUser->id);
+            $isStaffCompleted = ($localIdx !== false && $localIdx < (int) ceil($deptStaffUsers->count() * 0.72));
 
-            // Staff -> Self (42 completed, 15 pending)
-            if ($sIdx < 42) {
+            // Staff -> Self
+            if ($isStaffCompleted) {
                 $rand = mt_rand(1, 100);
                 $sentiment = $rand <= 80 ? 'positive' : 'neutral';
                 $calc = $generateAnswersAndScore('self', $sentiment);
@@ -998,7 +1046,7 @@ class EvaluationPhase2Seeder extends Seeder
 
             // Staff -> Peers in same admin dept
             $peers = $staffUsers->where('employee.department_id', $sDeptId)->where('id', '!==', $sUser->id);
-            $peerEvalCount = (int) ceil($peers->count() * 0.75);
+            $peerEvalCount = $isStaffCompleted ? $peers->count() : (int) ceil($peers->count() * 0.6);
 
             foreach ($peers->take($peerEvalCount) as $peerUser) {
                 $rand = mt_rand(1, 100);
@@ -1046,54 +1094,52 @@ class EvaluationPhase2Seeder extends Seeder
                 ];
             }
 
-            // Staff -> Department Head (Upward Evaluation, ~75% of staff)
-            if ($sIdx % 4 !== 0) {
-                $targetDH = $deptHeadUsers->where('employee.department_id', $sDeptId)->first();
-                if ($targetDH) {
-                    $rand = mt_rand(1, 100);
-                    $sentiment = $rand <= 80 ? 'positive' : 'neutral';
-                    $calc = $generateAnswersAndScore('upward_employee', $sentiment);
-                    $comment = $pickComment($supervisorComments, $sentiment);
-                    $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+            // Staff -> Department Head (Upward Evaluation)
+            $targetDH = $deptHeadUsers->where('employee.department_id', $sDeptId)->first();
+            if ($targetDH && ($isStaffCompleted || ($sIdx % 2 === 0))) {
+                $rand = mt_rand(1, 100);
+                $sentiment = $rand <= 80 ? 'positive' : 'neutral';
+                $calc = $generateAnswersAndScore('upward_employee', $sentiment);
+                $comment = $pickComment($supervisorComments, $sentiment);
+                $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
 
-                    $currentEvalId = $evalIdCounter++;
+                $currentEvalId = $evalIdCounter++;
 
-                    $evalInserts[] = [
-                        'id' => $currentEvalId,
-                        'evaluator_id' => $sUser->id,
-                        'evaluatee_id' => $targetDH->id,
-                        'semester_id' => $activeSemester->id,
-                        'class_id' => null,
-                        'evaluation_type' => 'upward_employee',
-                        'rating_average' => $calc['rating_average'],
-                        'raw_score' => $calc['raw_score'],
-                        'max_score' => $calc['max_score'],
-                        'weighted_score' => $calc['weighted_score'],
-                        'comments' => $comment,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
+                $evalInserts[] = [
+                    'id' => $currentEvalId,
+                    'evaluator_id' => $sUser->id,
+                    'evaluatee_id' => $targetDH->id,
+                    'semester_id' => $activeSemester->id,
+                    'class_id' => null,
+                    'evaluation_type' => 'upward_employee',
+                    'rating_average' => $calc['rating_average'],
+                    'raw_score' => $calc['raw_score'],
+                    'max_score' => $calc['max_score'],
+                    'weighted_score' => $calc['weighted_score'],
+                    'comments' => $comment,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
 
-                    foreach ($calc['answers'] as $qId => $rating) {
-                        $answerInserts[] = [
-                            'evaluation_id' => $currentEvalId,
-                            'question_id' => $qId,
-                            'rating' => $rating,
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
-                    }
-
-                    $sentimentInserts[] = [
+                foreach ($calc['answers'] as $qId => $rating) {
+                    $answerInserts[] = [
                         'evaluation_id' => $currentEvalId,
-                        'vader_score' => $sentimentMeta['vader_score'],
-                        'vader_label' => $sentimentMeta['vader_label'],
-                        'dt_label' => $sentimentMeta['dt_label'],
-                        'manual_label' => null,
+                        'question_id' => $qId,
+                        'rating' => $rating,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
                 }
+
+                $sentimentInserts[] = [
+                    'evaluation_id' => $currentEvalId,
+                    'vader_score' => $sentimentMeta['vader_score'],
+                    'vader_label' => $sentimentMeta['vader_label'],
+                    'dt_label' => $sentimentMeta['dt_label'],
+                    'manual_label' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
             }
         }
 

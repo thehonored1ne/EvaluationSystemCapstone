@@ -15,6 +15,114 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-03]
+
+- **Docker Build & Runtime Container Optimizations** ([`Dockerfile`](file:///c:/Users/USER/Herd/evaluationsystem/Dockerfile), [`docker/entrypoint.sh`](file:///c:/Users/USER/Herd/evaluationsystem/docker/entrypoint.sh)):
+  - **Docker Layer Caching:** Copied `composer.json`, `package.json`, and `python/requirements.txt` manifests prior to full codebase copy, preventing source edits from invalidating package install layers.
+  - **Image Size Reduction:** Stripped `node_modules` after `npm run build` to prune ~150MB–200MB of unused frontend build dependencies from the production image.
+  - **TLS/SSL Certificate Verification:** Added `ca-certificates` explicitly to system packages for secure TiDB Cloud Serverless SSL handshakes (`/etc/ssl/certs/ca-certificates.crt`).
+  - **SQLite Fallback Creation:** Added automated creation and permission assignment for `database/database.sqlite` in `entrypoint.sh` before running migrations when `DB_CONNECTION=sqlite`.
+- **Removed Redundant Department Progress Tab** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Removed the *Department Progress* tab button and its data table from the *System Activity & Progress Logs* component, eliminating redundancy with the *Completion Rate by Department* analytical chart above.
+- **Evaluation Period Status Card Layout Refinement** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Refined the *Evaluation Period Status* card layout:
+    - Added the active academic year & semester tag in the card header.
+    - Added a live **Timeline Progress Bar** tracking days elapsed, percentage of schedule completed, and days remaining (`Day X of Y (Z% elapsed) • N days left`).
+    - Pinned the `Edit Schedule` button cleanly in the bottom footer row with natural spacing.
+- **Admin Dashboard Visual Hierarchy Card Rearrangement** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Swapped the arrangement of the large dashboard panels to prioritize high-level analytical benchmarks directly below the executive KPI cards:
+    - **Top Analytics Row:** *Completion Rate by Role* (Left) and *Completion Rate by Department* (Right) with semester-over-semester grouped comparison and breakdown grids.
+    - **Bottom Operational Row:** *Evaluation Period Status* (Left) and *Overall Evaluation Feedback* (Right) with VADER sentiment distribution and AI-extracted thematic drivers.
+- **Toggleable Semester Comparison for Role Turnout & Department Benchmarks (Option A)** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - Implemented toggleable semester comparison for both Chart 1 (*Completion Rate by Role*) and Chart 2 (*Completion Rate by Department*):
+    - Added clean `[ Compare vs Last Sem ]` toggle buttons in the headers of both cards, visible whenever a chronologically prior semester with evaluation records exists.
+    - Chart 1 renders grouped paired horizontal bars: Current Term in theme status colors (Green $\ge 80\%$, Amber $50-79\%$, Crimson $<50\%$) alongside Prior Term in muted slate (`#71717a`).
+    - Chart 2 renders grouped paired vertical bars for Academic Colleges (CCS, COA, COE, CBAE) and Administrative Offices (11 departments).
+    - When active, an interactive top-right legend appears, and Chart.js tooltips dynamically calculate and display delta deltas (`▲ +X.X%` or `▼ -X.X%`).
+    - The metric breakdown cards below both charts dynamically surface color-coded semester-over-semester delta badges when comparison mode is activated.
+  - Added feature tests in [`DashboardSemesterComparisonTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/DashboardSemesterComparisonTest.php) verifying authentic prior metric computation and conditional UI rendering.
+  - Fixed mathematical distortion on Card 3 (Overall Completion Rate) where the delta showed `+63.7% vs last sem`:
+    - Replaced the erroneous comparison (which divided raw prior form submissions by the current active semester's expected enrollments) with an authentic prior evaluator completion rate calculation.
+    - Accurately counts distinct completed students and employees in the prior term, yielding an authentic semester-over-semester completion rate delta (`▼ -1.3% vs last sem` comparing active 75.3% to prior 76.6%).
+- **Admin Dashboard Card 4 Completed Evaluator Alignment (Option 2)** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Resolved the distinction between partial activity and 100% completion on Card 4 (Pending Evaluators):
+    - Aligned `$pendingDelta` directly with `$completedEvaluatorsCount` so Card 4 strictly tracks evaluators who have completely fulfilled all their evaluation duties.
+    - Updated the status label to `"2,522 completed in past 7 days"`, creating 100% mathematical consistency with Card 3 (`2,522 / 3,323 evaluators completed all assigned evaluations`) and Card 4 (`801 Pending`, where $2,522 + 801 = 3,323$).
+- **Historical Evaluation Audit Protection Against Accidental Deletions** ([`manage-students.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-students.blade.php), [`manage-employees.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-employees.blade.php)):
+  - Hardened `ManageStudents` and `ManageEmployees` against cascade deletion:
+    - Added evaluation history verification before allowing deletion.
+    - If a student or employee has submitted/received evaluations or has assigned classes, hard deletion is blocked both at the UI modal level and in the backend `deleteUser()` action.
+    - Updated the confirmation modal with a dynamic warning banner and converted the action to `"Deactivate Account Instead"`, which revokes login privileges (`is_active = false`, `status = 'inactive'`) while preserving 100% of historical ratings and institutional scorecard data.
+- **A.Y. 2025-2026 - 2nd Semester Full 3,200 Student Enrollment Calibration** ([`Semester20272028Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/Semester20272028Seeder.php)):
+  - Re-calibrated the historical seeder to enroll **all 3,200 students** across 101 section classes (CCS, COA, COE, CBAE).
+  - Seeded 3,481 total multi-role evaluations with 75% student completion per section, matching the institutional scale of the active semester.
+  - Calculated authentic historical baseline average rating of **`4.36`** (yielding an authentic delta of **`-0.08`** against the active term's `4.28`).
+- **Odometer Component Decimal Precision Display Fix** ([`odometer.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/odometer.blade.php), [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Fixed prop mismatch where `dashboard.blade.php` passed `precision="2"` while `odometer.blade.php` declared `@props(['decimals' => 0])`.
+  - The mismatch caused decimal values like `4.40` and `4.28` to fall back to 0 decimals and truncate via `Math.round()` as integer `"4 / 5.00"`.
+  - Added support for both `precision` and `decimals` props with `Number().toFixed()`, resolving display to exact 2-decimal ratings (`4.40 / 5.00` and `4.28 / 5.00`).
+- **A.Y. 2025-2026 - 2nd Semester Historical Term Seeder & Comparison** ([`Semester20272028Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/Semester20272028Seeder.php), [`Semester.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Semester.php), [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Configured A.Y. 2025-2026 - 2nd Semester as the authentic historical predecessor to A.Y. 2026-2027 - 1st Semester matching the institutional 2-semester academic calendar:
+    - Configured closed evaluation window dates (`2026-01-10` to `2026-02-28`).
+    - Seeded $100$ academic classes and $2,000$ student enrollments.
+    - Seeded $2,555$ multi-role evaluations with qualitative comments and VADER sentiment metadata (average rating: $4.40$).
+  - Added `evaluations()` `hasMany` relationship on `Semester.php`.
+  - Implemented strict chronological precedence methods on `Semester.php` (`getChronologicalKey()` and `getPreviousSemester()`).
+  - Updated `dashboard.blade.php` to use `$activeSem->getPreviousSemester(mustHaveEvaluations: true)`:
+    - Seamlessly recognizes `2025-2026 • 2nd Semester` (key: `20252`) as the immediate predecessor to `2026-2027 • 1st Semester` (key: `20261`).
+    - Authentically calculates and displays the comparison delta on Card 1 (`▼ -0.12 vs last sem`) and Card 2.
+  - Enabled historical reports, rankings, and evaluation results across semesters.
+- **Admin Dashboard Completion Rate by Department Visual Transformation** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js), [`EvaluationSettingsAndEnhancementsTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/EvaluationSettingsAndEnhancementsTest.php)):
+  - Transformed Chart 2 into an actionable **Completion Rate by Department** vertical column chart with Option 2 (Person-Level Evaluator Turnout).
+  - Added dedicated interactive tabs:
+    - **Academic (4 colleges):** Tracks distinct student turnout per college (`CCS: 605/800`, `CBAE: 607/800`, `COE: 604/800`, `COA: 600/800`), summing to exactly $2,416 / 3,200$ students ($75.5\%$) aligning with Chart 1.
+    - **Administrative (11 offices):** Fully unified with person-level completion tracking distinct completed employees: `ITOFF: 5/6 (83.3%)`, `ACCT: 5/7 (71.4%)`, `ADMIS: 5/7 (71.4%)`, and `4/6 (66.7%)` for remaining offices, aligning with Chart 1's Staff (`36/57`) and Dept. Head (`11/11`) metrics.
+  - Added an **80% Target Benchmark reference line** and an integrated **symmetrical breakdown grid** directly beneath the canvas:
+    - Formatted Academic colleges into a clean 2x2 grid displaying bold college codes (`COA`, `CBAE`, `CCS`, `COE`) with tooltip hover support and explicit `students` unit labels.
+    - Formatted Administrative offices with explicit `emps` unit labels.
+    - Rendered bold percentage labels inside the top of the columns in high-contrast white text, preventing collision with the 80% benchmark line.
+    - Increased bar thickness (`maxBarThickness: 38px`, `categoryPercentage: 0.88`, `barPercentage: 0.92`) and implemented responsive typography so numbers fit with generous margins across all 11 offices.
+    - Streamlined the card header by removing the stacked badge and keeping the Academic/Administrative tab toggle on the right on the same line.
+    - Restored the vertical dashed **`80% Target`** reference line and label across Chart 1 (`Completion Rate by Role`).
+  - Updated automated feature tests to assert `Completion Rate by Department`.
+- **Permanent Evaluation Seeder Completion Calibration for All Roles** ([`EvaluationPhase2Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/EvaluationPhase2Seeder.php)):
+  - Updated database seeding logic to permanently generate realistic person-level turnout across all roles upon deployment or `db:seed`:
+    - **Faculty:** $36 / 50$ completed ($72.0\%$) • $14$ pending.
+    - **Program Heads:** $3 / 4$ completed ($75.0\%$) • $1$ pending.
+    - **Department Heads:** $11 / 11$ completed ($100.0\%$).
+    - **Staff:** $36 / 57$ completed ($63.2\%$) • $21$ pending across 11 administrative offices.
+    - **Students:** $2,416 / 3,200$ completed ($75.5\%$) • $784$ pending across 4 academic colleges.
+  - Guarantees cloud deployments on Render and local Herd testing environments stay 100% synchronized with realistic, non-zero person completion data.
+- **Admin Dashboard TF-IDF Thematic Feedback Drivers Integration** ([`ThematicAnalysisService.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Services/ThematicAnalysisService.php), [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`DashboardThematicDriversTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/DashboardThematicDriversTest.php)):
+  - Built `ThematicAnalysisService` implementing multilingual (English + Tagalog/Filipino) TF-IDF extraction and academic theme pattern matching on evaluation qualitative comments with 30-minute caching.
+  - Upgraded the **Overall Evaluation Feedback** panel:
+    - Removed the redundant top sentiment banner (`Mostly Positive Feedback 70.6%`), eliminating $70\text{px}$ of wasted duplicate height and highlighting the 3 primary sentiment blocks.
+    - Integrated clean, balanced 5-row thematic drivers with dedicated mention count badges:
+      - **Top Strengths:** Concise commendations (`Approachable & Helpful`, `Clear Explanations`, `Well-Prepared for Class`, `Engaging Discussions`, `Patient with Questions`).
+      - **Focus Areas:** Actionable bottlenecks labeled with `Needs Attention` (`Delayed Return of Quizzes`, `Lecture Pacing Too Fast`, `Reading Directly Off Slides`, `Complex Topic Clarifications`, `Inconsistent Class Schedule`).
+      - Removed distracting progress bars and unified line heights with `whitespace-nowrap` badges, ensuring identical vertical rhythm and zero row-height disparity between columns.
+    - Added total reviews badge pill (`23,058 Reviews`) to the panel header for immediate high-level volume context.
+  - Added full automated Pest tests covering empty semesters, sentiment-aware extraction, and dashboard rendering.
+- **Admin Dashboard Completion Rate & Evaluator Count Alignment** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Aligned Card 3 (`Overall Completion Rate`) percentage and progress bar with the person-level completion subtext (`completedEvaluatorsCount / totalEvaluatorsCount`). Eliminates mathematical divergence between the displayed rate and the completed evaluators ratio.
+- **Admin Dashboard Reminder Window Guard & Broadcast Confirmation Modal** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`EvaluationDeadlineRemindersTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/EvaluationDeadlineRemindersTest.php)):
+  - Retained "Send Reminder" button clickability when the evaluation window is inactive/closed, triggering an informative warning toast alert (`Evaluation Period Inactive`) without firing a broadcast.
+  - Implemented a Flux confirmation modal (`showReminderModal`) when clicked during an active evaluation window, displaying the active period, count of pending evaluators, and explicit confirmation before executing `evaluations:send-reminders`.
+  - Added full automated Pest feature tests verifying inactive window rejection, modal triggering, and broadcast execution.
+- **Admin Dashboard Role Completion Headcount & Demographic Breakdown** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - Added an integrated 6-cell demographic headcount breakdown grid directly below the Chart.js visual (`submitted / expected` counts and pending backlog per role), eliminating the single-person distortion where 100% Deans (1 of 1) visually overshadowed larger cohorts.
+  - Clarified card subtitle to *"Turnout by evaluator group: distinct evaluators who completed 100% of assigned forms"*.
+  - Enhanced Chart.js tooltips and Y-axis labels to explicitly report evaluator groups, finished counts, and remaining pending backlog without clipping.
+  - Resolved mobile layout crowding by hiding the rotated Y-axis title on small screens (`< 640px`), expanding canvas right padding to `28px`, shortening long labels to `Dept. Heads` / `Prog. Heads`, and rendering labels inside long bars in white text to eliminate edge clipping on 100% bars.
+- **Admin Dashboard Pending Evaluators Weekly Activity Clarity** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - Replaced ambiguous `▼ -N vs past 7 days` delta notation with clear positive velocity phrasing: `N submitted in past 7 days` (or `0 submitted in past 7 days`), eliminating confusion around negative signs and comparative baseline wording.
+- **Welcome Page Announcement Spacing, Enlarged Logo & Zero-CLS Rotating Typewriter** ([`welcome.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/welcome.blade.php), [`ExampleTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/ExampleTest.php)):
+  - Positioned the glassmorphic evaluation announcement pill significantly further above the logo (`mb-14 sm:mb-20`) for clean visual separation.
+  - Enlarged the central institutional logo to `h-32 sm:h-40 md:h-48` with luminous white depth glow.
+  - Re-architected the typewriter animation to cycle phrase-by-phrase (`TOUCHING HEARTS` $\rightarrow$ delete $\rightarrow$ `RENEWING MINDS` $\rightarrow$ delete $\rightarrow$ `TRANSFORMING LIVES`) inside a fixed-height container (`h-8 overflow-hidden whitespace-nowrap`), completely eliminating Cumulative Layout Shift (CLS).
+
+
+
 ## [2026-09-02]
 
 ### Redesigned & Enhanced

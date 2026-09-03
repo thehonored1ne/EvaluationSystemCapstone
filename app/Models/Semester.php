@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
@@ -176,9 +177,61 @@ class Semester extends Model
 
     /**
      * Get the classes scheduled for this semester.
+     *
+     * @return HasMany<AcademicClass, $this>
      */
-    public function classes()
+    public function classes(): HasMany
     {
         return $this->hasMany(AcademicClass::class, 'semester_id');
+    }
+
+    /**
+     * Get the evaluations submitted for this semester.
+     *
+     * @return HasMany<Evaluation, $this>
+     */
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(Evaluation::class, 'semester_id');
+    }
+
+    /**
+     * Compute integer chronological sorting key: (start_year * 10) + term_order.
+     * e.g. "2026-2027 1st Semester" => 20261
+     *      "2026-2027 2nd Semester" => 20262
+     *      "2027-2028 2nd Semester" => 20272
+     */
+    public function getChronologicalKey(): int
+    {
+        $ayName = $this->academicYear->name ?? '';
+        preg_match('/\d{4}/', $ayName, $yearMatches);
+        $startYear = ! empty($yearMatches) ? (int) $yearMatches[0] : 2000;
+
+        $name = strtolower($this->name);
+        $termOrder = 1;
+        if (str_contains($name, '2nd') || str_contains($name, 'second')) {
+            $termOrder = 2;
+        } elseif (str_contains($name, '3rd') || str_contains($name, 'third') || str_contains($name, 'summer') || str_contains($name, 'midyear')) {
+            $termOrder = 3;
+        }
+
+        return ($startYear * 10) + $termOrder;
+    }
+
+    /**
+     * Find the immediately preceding semester that occurred chronologically before this one.
+     */
+    public function getPreviousSemester(bool $mustHaveEvaluations = true): ?self
+    {
+        $currentKey = $this->getChronologicalKey();
+
+        $candidates = self::with('academicYear')
+            ->where('id', '!=', $this->id)
+            ->when($mustHaveEvaluations, fn ($q) => $q->whereHas('evaluations'))
+            ->get()
+            ->filter(fn (self $s) => $s->getChronologicalKey() < $currentKey)
+            ->sortByDesc(fn (self $s) => $s->getChronologicalKey());
+
+        return $candidates->first();
     }
 }

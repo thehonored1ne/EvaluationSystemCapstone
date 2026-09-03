@@ -3,16 +3,21 @@
     'class' => '',
     'prefix' => '',
     'suffix' => '',
-    'decimals' => 0
+    'decimals' => 0,
+    'precision' => null,
 ])
+
+@php
+    $effectiveDecimals = (int) ($precision ?? $decimals ?? 0);
+@endphp
 
 <span 
     x-data="{
-        value: {{ $value ?? 0 }},
-        decimals: {{ $decimals ?? 0 }},
+        value: {{ (float) ($value ?? 0) }},
+        decimals: {{ $effectiveDecimals }},
         digits: [],
         init() {
-            let str = this.decimals > 0 ? this.value.toFixed(this.decimals) : Math.round(this.value).toString();
+            let str = this.decimals > 0 ? Number(this.value).toFixed(this.decimals) : Math.round(Number(this.value)).toString();
             this.digits = str.split('').map(c => (c >= '0' && c <= '9' ? '0' : c));
             
             this.$watch('value', (val) => {
@@ -24,11 +29,11 @@
             }, 50);
         },
         updateDigits(val) {
-            let str = this.decimals > 0 ? val.toFixed(this.decimals) : Math.round(val).toString();
+            let str = this.decimals > 0 ? Number(val).toFixed(this.decimals) : Math.round(Number(val)).toString();
             this.digits = str.split('');
         }
     }"
-    :data-value="value = {{ $value ?? 0 }}"
+    :data-value="value = {{ (float) ($value ?? 0) }}"
     class="inline-flex items-center {{ $class }}"
 >
     <!-- Prefix -->
