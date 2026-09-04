@@ -757,7 +757,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Create / Edit Student Modal -->
-    <flux:modal wire:model="showModal" class="min-w-[480px]">
+    <flux:modal wire:model="showModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-lg !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
                 <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
@@ -767,12 +767,12 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <form wire:submit="{{ $editingUser ? 'updateUser' : 'createUser' }}" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <flux:input wire:model="first_name" label="First Name" type="text" required />
                     <flux:input wire:model="middle_name" label="Middle Name (Optional)" type="text" />
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <flux:input wire:model="last_name" label="Last Name" type="text" required />
                     <flux:input wire:model="suffix" label="Suffix (Optional)" type="text" placeholder="e.g. Jr., Sr., III" />
                 </div>
@@ -781,7 +781,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
                 <flux:input wire:model="student_number" label="Student Number" type="text" placeholder="e.g. 2026-01-0001" required />
 
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Academic Program</label>
                         <select wire:model="program_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
@@ -832,7 +832,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </flux:modal>
 
     <!-- Bulk Import Students Modal -->
-    <flux:modal wire:model="showImportModal" class="min-w-[520px]">
+    <flux:modal wire:model="showImportModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-xl !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
                 <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Students</h2>

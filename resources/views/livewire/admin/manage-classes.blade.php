@@ -1235,7 +1235,7 @@ new #[Layout('components.layouts.app')] class extends Component
     @endif
 
     <!-- Bulk Import Classes & Rosters Modal -->
-    <flux:modal wire:model="showImportModal" class="min-w-[520px]">
+    <flux:modal wire:model="showImportModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-xl !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
                 <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Classes & Rosters</h2>

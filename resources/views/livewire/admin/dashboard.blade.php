@@ -642,6 +642,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 $totalEvaluatorsCount = $studentTotal + $employeeTotal;
                 $completedEvaluatorsCount = $studentCompleted + $employeeCompleted;
                 $pendingEvaluatorsCount = max(0, $totalEvaluatorsCount - $completedEvaluatorsCount);
+                $pendingStudentsCount = max(0, $studentTotal - $studentCompleted);
+                $pendingEmployeesCount = max(0, $employeeTotal - $employeeCompleted);
                 $pendingDelta = $completedEvaluatorsCount;
 
                 if ($totalEvaluatorsCount > 0) {
@@ -683,6 +685,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 'totalEvaluatorsCount' => $totalEvaluatorsCount,
                 'completedEvaluatorsCount' => $completedEvaluatorsCount,
                 'pendingEvaluatorsCount' => $pendingEvaluatorsCount,
+                'pendingStudentsCount' => $pendingStudentsCount ?? 0,
+                'pendingEmployeesCount' => $pendingEmployeesCount ?? 0,
                 'hasPrevComparison' => $hasPrevComparison,
                 'currentSemName' => $currentSemName,
                 'prevSemName' => $prevSemName,
@@ -719,6 +723,8 @@ new #[Layout('components.layouts.app')] class extends Component
         $totalEvaluatorsCount = $metrics['totalEvaluatorsCount'];
         $completedEvaluatorsCount = $metrics['completedEvaluatorsCount'];
         $pendingEvaluatorsCount = $metrics['pendingEvaluatorsCount'];
+        $pendingStudentsCount = $metrics['pendingStudentsCount'] ?? 0;
+        $pendingEmployeesCount = $metrics['pendingEmployeesCount'] ?? 0;
         $hasPrevComparison = $metrics['hasPrevComparison'] ?? false;
         $currentSemName = $metrics['currentSemName'] ?? 'Current Term';
         $prevSemName = $metrics['prevSemName'] ?? 'Prior Term';
@@ -850,11 +856,11 @@ new #[Layout('components.layouts.app')] class extends Component
         // Determine static styling classes for sentiment
         $avg = $sentimentStats['average'];
         if ($avg > 0.05) {
-            $sentimentTextClass = 'text-emerald-600 dark:text-emerald-400';
+            $sentimentTextClass = 'text-emerald-700 dark:text-emerald-400';
             $sentimentBadgeVariant = 'success';
             $sentimentLabel = 'Positive';
         } elseif ($avg < -0.05) {
-            $sentimentTextClass = 'text-rose-600 dark:text-rose-400';
+            $sentimentTextClass = 'text-rose-700 dark:text-rose-400';
             $sentimentBadgeVariant = 'danger';
             $sentimentLabel = 'Negative';
         } else {
@@ -1108,6 +1114,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'totalEvaluatorsCount' => $totalEvaluatorsCount,
             'completedEvaluatorsCount' => $completedEvaluatorsCount,
             'pendingEvaluatorsCount' => $pendingEvaluatorsCount,
+            'pendingStudentsCount' => $pendingStudentsCount,
+            'pendingEmployeesCount' => $pendingEmployeesCount,
             'thematicDrivers' => $thematicDrivers,
             'hasPrevComparison' => $hasPrevComparison,
             'currentSemName' => $currentSemName,
@@ -1122,24 +1130,52 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <div class="w-full flex flex-col gap-8">
-    <!-- Header Section -->
+    <!-- Header Section with Academic Term & Live Status Context -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <div class="flex items-center gap-3 flex-wrap">
-                <flux:heading size="xl" level="1" class="text-left">Admin Dashboard</flux:heading>
+                <flux:heading size="xl" level="1" class="text-left font-extrabold tracking-tight">Admin Dashboard</flux:heading>
+                @if($activeSemester)
+                    <flux:badge variant="neutral" size="sm" class="font-bold shrink-0">
+                        {{ $activeSemester->academicYear?->name }} &bull; {{ $activeSemester->name }}
+                    </flux:badge>
+                @endif
+                @if($scheduleStatus === 'active')
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Evaluation Open
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                        <span class="size-1.5 rounded-full bg-zinc-400"></span>
+                        Evaluation Closed
+                    </span>
+                @endif
             </div>
+
+        </div>
+        <div class="flex items-center gap-2">
+            <flux:button href="/admin/evaluation-settings" variant="subtle" size="sm" icon="cog-6-tooth">
+                Settings
+            </flux:button>
+            <flux:button href="/reports" variant="primary" size="sm" icon="printer" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
+                Reports
+            </flux:button>
         </div>
     </div>
 
-    <!-- Top Row: Unified Single-Surface Metric Strip (4 Executive KPI Cards) -->
-    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 dark:divide-zinc-800 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <!-- Top Row: 4 Executive KPI Cards (Consistent Borders & Hierarchy) -->
+    <!-- Top Row: 4 Executive KPI Cards (Consistent Height, Spacing & Aligned Baselines) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <!-- Card 1: Overall Institutional Rating -->
-        <div class="p-6 flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
             <div>
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Overall Institutional Rating</span>
-                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                <div class="h-6 flex items-center justify-between">
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Overall Institutional Rating</span>
+                </div>
+                <div class="flex items-baseline gap-2 mt-3.5 flex-wrap">
                     <div class="flex items-baseline gap-1.5">
-                        <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                        <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                             <x-odometer :value="$institutionalAverage" decimals="2" />
                         </span>
                         <span class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">/ 5.00</span>
@@ -1148,9 +1184,9 @@ new #[Layout('components.layouts.app')] class extends Component
                         {{ $ratingLabel }}
                     </span>
                 </div>
-                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs">
                     @if($ratingDelta !== null)
-                        <span class="font-semibold {{ $ratingDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                        <span class="font-semibold tabular-nums {{ $ratingDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
                             {{ $ratingDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($ratingDelta, 2) }} vs last sem
                         </span>
                         <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
@@ -1158,24 +1194,28 @@ new #[Layout('components.layouts.app')] class extends Component
                     <span class="text-zinc-500 dark:text-zinc-400 font-medium">Target: 3.50+</span>
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed">
                 Institutional rating mean across all 360° evaluation roles
             </span>
         </div>
 
         <!-- Card 2: Positive Feedback Rate -->
-        <div class="p-6 flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
             <div>
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Positive Feedback Rate</span>
-                <div class="flex items-baseline gap-2 mt-2">
-                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                <div class="h-6 flex items-center justify-between">
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Positive Feedback Rate</span>
+                </div>
+                <div class="flex items-baseline gap-2 mt-3.5 flex-wrap">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                         <x-odometer :value="$positivePct" suffix="%" />
                     </span>
-                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Positive</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                        Positive
+                    </span>
                 </div>
-                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs">
                     @if($negativePct > 0)
-                        <span class="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400">
+                        <span class="inline-flex items-center gap-1 font-semibold text-rose-700 dark:text-rose-400 tabular-nums">
                             <span class="size-1.5 rounded-full bg-rose-500"></span>
                             {{ $negativePct }}% flagged for review
                         </span>
@@ -1184,58 +1224,79 @@ new #[Layout('components.layouts.app')] class extends Component
                     @endif
                     @if($sentimentDelta !== null)
                         <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
-                        <span class="font-semibold {{ $sentimentDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                        <span class="font-semibold tabular-nums {{ $sentimentDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
                             {{ $sentimentDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($sentimentDelta, 1) }}% vs last sem
                         </span>
                     @endif
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed">
                 Based on {{ number_format($totalComments) }} evaluator comments analyzed
             </span>
         </div>
 
         <!-- Card 3: Overall Completion Rate -->
-        <div class="p-6 flex flex-col justify-between">
+        @php
+            $progressColorClass = match (true) {
+                $progressPercent >= 80 => 'bg-emerald-600 dark:bg-emerald-500',
+                $progressPercent >= 50 => 'bg-amber-500 dark:bg-amber-400',
+                default => 'bg-rose-600 dark:bg-rose-500',
+            };
+        @endphp
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
             <div>
-                <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Overall Completion Rate</span>
-                <div class="flex items-baseline justify-between mt-2">
-                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                <div class="h-6 flex items-center justify-between">
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Overall Completion Rate</span>
+                </div>
+                <div class="flex items-baseline gap-2 mt-3.5 flex-wrap">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                         <x-odometer :value="$progressPercent" suffix="%" />
                     </span>
-                    @if($completionDelta !== null)
-                        <span class="text-xs font-semibold {{ $completionDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
-                            {{ $completionDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($completionDelta, 1) }}% vs last sem
-                        </span>
-                    @endif
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $progressPercent >= 80 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : ($progressPercent >= 50 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800') }}">
+                        {{ $progressPercent >= 80 ? 'Target Met' : 'In Progress' }}
+                    </span>
                 </div>
-                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2.5 overflow-hidden">
-                    <div class="h-2 rounded-full transition-all duration-500 bg-[#9b0000] dark:bg-[#f89696]" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
+                <div class="mt-2.5 space-y-1.5">
+                    <div class="w-full bg-zinc-200/80 dark:bg-zinc-700 rounded-full h-2 overflow-hidden">
+                        <div class="h-2 rounded-full transition-all duration-500 {{ $progressColorClass }}" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                        @if($completionDelta !== null)
+                            <span class="font-semibold tabular-nums {{ $completionDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                                {{ $completionDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($completionDelta, 1) }}% vs last sem
+                            </span>
+                        @else
+                            <span>Active Period</span>
+                        @endif
+                        <span class="font-medium">Target: 80%</span>
+                    </div>
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums">
                 {{ number_format($completedEvaluatorsCount) }} / {{ number_format($totalEvaluatorsCount) }} evaluators completed all assigned evaluations
             </span>
         </div>
 
         <!-- Card 4: Pending Evaluators -->
-        <div class="p-6 flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
             <div>
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-xs text-zinc-600 dark:text-zinc-400 font-semibold uppercase tracking-wider block">Pending Evaluators</span>
-                    <flux:button wire:click="sendReminderToast" wire:loading.attr="disabled" variant="subtle" size="xs" icon="bell" class="font-bold text-[#9b0000] dark:text-[#f89696] hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer">
+                <div class="h-6 flex items-center justify-between gap-2">
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Pending Evaluators</span>
+                    <flux:button wire:click="sendReminderToast" wire:loading.attr="disabled" variant="subtle" size="xs" icon="bell" class="font-bold text-[#9b0000] dark:text-[#f89696] hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer h-6 text-[11px]">
                         Send Reminder
                     </flux:button>
                 </div>
-                <div class="flex items-baseline gap-2 mt-2">
-                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                <div class="flex items-baseline gap-2 mt-3.5 flex-wrap">
+                    <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                         <x-odometer :value="$pendingEvaluatorsCount" />
                     </span>
-                    <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Pending</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $pendingEvaluatorsCount > 0 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' }}">
+                        {{ $pendingEvaluatorsCount > 0 ? 'Pending' : 'All Clear' }}
+                    </span>
                 </div>
-                <div class="flex items-center gap-1.5 mt-2 flex-wrap text-xs">
+                <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs">
                     @if($pendingDelta !== null && $pendingDelta > 0)
-                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span class="font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
                             {{ number_format($pendingDelta) }} completed in past 7 days
                         </span>
                     @else
@@ -1245,8 +1306,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     @endif
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 block font-normal">
-                {{ number_format($pendingEvaluatorsCount) }} evaluators have incomplete evaluations
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums">
+                {{ number_format($pendingStudentsCount) }} students &bull; {{ number_format($pendingEmployeesCount) }} employees pending
             </span>
         </div>
     </div>
@@ -1274,64 +1335,53 @@ new #[Layout('components.layouts.app')] class extends Component
         adminDeptExpected: {{ json_encode(array_values(array_column($adminDeptScores, 'expected'))) }}
     })">
         <!-- Chart 1: Evaluation Turnout by Evaluator Role -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[380px]">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <div>
-                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Completion Rate by Role
-                    </h2>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <template x-if="hasPrevComparison">
-                        <button type="button" @click="toggleComparison('role')" 
-                            :class="compareRole ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs border-zinc-900 dark:border-zinc-100' : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/60'"
-                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer">
-                            <flux:icon name="arrows-right-left" class="size-3.5" />
-                            <span x-text="compareRole ? 'Hide Comparison' : 'Compare vs Last Sem'"></span>
-                        </button>
-                    </template>
+        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[400px]">
+            <div class="flex items-center justify-between gap-2 sm:gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    Completion Rate by Role
+                </h2>
+            </div>
+
+            <!-- Fixed-height Utility / Sub-bar with Persistent Active Term Legend -->
+            <div class="h-6 flex items-center justify-center text-xs px-0.5">
+                <div class="flex items-center gap-2 text-[11px]">
+                    <span class="inline-flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-300">
+                        <span class="size-2 rounded-xs bg-[#d97706] dark:bg-[#f59e0b]"></span>
+                        <span x-text="currentSemName" title="Current Active Semester" class="max-w-[120px] sm:max-w-[150px] truncate"></span>
+                    </span>
+                    <span x-show="compareRole" x-cloak class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                    <span x-show="compareRole" x-cloak class="inline-flex items-center gap-1.5 font-semibold text-zinc-500 dark:text-zinc-400">
+                        <span class="size-2 rounded-xs bg-zinc-400 dark:bg-zinc-500"></span>
+                        <span x-text="prevSemName" title="Prior Historical Semester" class="max-w-[120px] sm:max-w-[150px] truncate"></span>
+                    </span>
                 </div>
             </div>
 
             @if(count($roleTurnoutData) > 0)
-                <div class="h-64 w-full pt-1">
+                <div class="h-72 w-full pt-1.5">
                     <canvas x-ref="roleTurnoutChart" class="w-full h-full"></canvas>
                 </div>
 
-                <!-- Evaluator Group Headcount & Backlog Breakdown -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                    @foreach($roleTurnoutData as $roleItem)
-                        @php
-                            $rolePending = max(0, $roleItem['expected'] - $roleItem['submitted']);
-                        @endphp
-                        <div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 flex flex-col justify-between">
-                            <div class="flex items-center justify-between gap-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                                <span class="truncate" title="{{ $roleItem['role'] }}">{{ $roleItem['role'] }}</span>
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                    @if(isset($roleItem['prev_rate']))
-                                        @php
-                                            $rDelta = round($roleItem['rate'] - $roleItem['prev_rate'], 1);
-                                        @endphp
-                                        <span x-show="compareRole" x-cloak class="text-[10px] font-extrabold {{ $rDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}" title="Prior sem: {{ $roleItem['prev_rate'] }}%">
-                                            {{ $rDelta >= 0 ? '▲ +' : '▼ ' }}{{ $rDelta }}%
-                                        </span>
-                                    @endif
-                                    <span class="font-bold {{ $roleItem['rate'] >= 80 ? 'text-emerald-600 dark:text-emerald-400' : ($roleItem['rate'] >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400') }}">
-                                        {{ $roleItem['rate'] }}%
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="mt-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-                                <span class="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                                    {{ number_format($roleItem['submitted']) }}
-                                    <span class="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">/ {{ number_format($roleItem['expected']) }}</span>
-                                </span>
-                                <span class="text-[10px] whitespace-nowrap {{ $rolePending > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-medium' }}">
-                                    {{ $rolePending > 0 ? number_format($rolePending) . ' pending' : 'All done' }}
-                                </span>
-                            </div>
-                        </div>
-                    @endforeach
+                <!-- Footer Action Toolbar -->
+                <div class="flex items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                    <flux:modal.trigger name="role-breakdown-modal">
+                        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#f89696] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
+                            <flux:icon name="arrow-top-right-on-square" class="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                            <span>View detailed breakdown</span>
+                        </button>
+                    </flux:modal.trigger>
+
+                    <template x-if="hasPrevComparison">
+                        <button type="button" @click="toggleComparison('role')" 
+                            :title="compareRole ? 'Hide Comparison' : 'Compare vs Last Sem'"
+                            :aria-label="compareRole ? 'Hide Comparison' : 'Compare vs Last Sem'"
+                            :class="compareRole ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs border-zinc-900 dark:border-zinc-100' : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/60'"
+                            class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0">
+                            <flux:icon name="arrows-right-left" class="size-3.5" />
+                            <span class="hidden sm:inline" x-text="compareRole ? 'Hide Comparison' : 'Compare vs Last Sem'"></span>
+                            <span class="sm:hidden" x-text="compareRole ? 'Hide' : 'Compare'"></span>
+                        </button>
+                    </template>
                 </div>
             @else
                 <div class="flex flex-col items-center justify-center text-center p-8 flex-1 gap-2 h-72">
@@ -1342,115 +1392,62 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Chart 2: Completion Rate by Department -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[380px]">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <div>
-                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Completion Rate by Department
-                    </h2>
-                </div>
+        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[400px]">
+            <div class="flex items-center justify-between gap-2.5 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    Completion Rate by Department
+                </h2>
 
-                <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
-                    <template x-if="hasPrevComparison">
-                        <button type="button" @click="toggleComparison('dept')" 
-                            :class="compareDept ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs border-zinc-900 dark:border-zinc-100' : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/60'"
-                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer">
-                            <flux:icon name="arrows-right-left" class="size-3.5" />
-                            <span x-text="compareDept ? 'Hide Comparison' : 'Compare vs Last Sem'"></span>
-                        </button>
-                    </template>
-
-                    <!-- Academic vs Administrative Toggle -->
-                    <div class="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
-                        <button type="button" @click="switchDeptType('academic')" :class="activeDeptType === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer">
-                            Academic ({{ count($academicDeptScores) }})
-                        </button>
-                        <button type="button" @click="switchDeptType('administrative')" :class="activeDeptType === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer">
-                            Administrative ({{ count($adminDeptScores) }})
-                        </button>
-                    </div>
+                <!-- Academic vs Administrative Toggle (Anchored on the right, no layout shift) -->
+                <div class="flex items-center gap-0.5 sm:gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
+                    <button type="button" @click="switchDeptType('academic')" :class="activeDeptType === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
+                        Academic
+                    </button>
+                    <button type="button" @click="switchDeptType('administrative')" :class="activeDeptType === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
+                        Admin
+                    </button>
                 </div>
             </div>
 
-            <div class="h-60 w-full pt-1">
+            <!-- Fixed-height Utility / Sub-bar with Persistent Active Term Legend -->
+            <div class="h-6 flex items-center justify-center text-xs px-0.5">
+                <div class="flex items-center gap-2 text-[11px]">
+                    <span class="inline-flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-300">
+                        <span class="size-2 rounded-xs bg-[#d97706] dark:bg-[#f59e0b]"></span>
+                        <span x-text="currentSemName" title="Current Active Semester" class="max-w-[120px] sm:max-w-[150px] truncate"></span>
+                    </span>
+                    <span x-show="compareDept" x-cloak class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                    <span x-show="compareDept" x-cloak class="inline-flex items-center gap-1.5 font-semibold text-zinc-500 dark:text-zinc-400">
+                        <span class="size-2 rounded-xs bg-zinc-400 dark:bg-zinc-500"></span>
+                        <span x-text="prevSemName" title="Prior Historical Semester" class="max-w-[120px] sm:max-w-[150px] truncate"></span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="h-72 w-full pt-1.5">
                 <canvas x-ref="deptChart" class="w-full h-full"></canvas>
             </div>
 
-            <!-- Department Turnout Breakdown Grid (Exact Symmetry with Chart 1) -->
-            <div class="pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <!-- Academic Breakdown (4 Colleges: 2x2 Grid Matching Chart 1 Height) -->
-                <div x-show="activeDeptType === 'academic'" class="grid grid-cols-2 gap-2.5">
-                    @foreach($academicDeptScores as $deptItem)
-                        @php
-                            $deptPending = max(0, $deptItem['expected'] - $deptItem['submitted']);
-                        @endphp
-                        <div class="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 flex flex-col justify-between">
-                            <div class="flex items-center justify-between gap-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                                <span class="font-extrabold text-zinc-900 dark:text-zinc-100" title="{{ $deptItem['name'] }}">{{ $deptItem['code'] }}</span>
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                    @if(isset($deptItem['prev_rate']))
-                                        @php
-                                            $dDelta = round($deptItem['rate'] - $deptItem['prev_rate'], 1);
-                                        @endphp
-                                        <span x-show="compareDept" x-cloak class="text-[10px] font-extrabold {{ $dDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}" title="Prior sem: {{ $deptItem['prev_rate'] }}%">
-                                            {{ $dDelta >= 0 ? '▲ +' : '▼ ' }}{{ $dDelta }}%
-                                        </span>
-                                    @endif
-                                    <span class="font-bold {{ $deptItem['rate'] >= 80 ? 'text-emerald-600 dark:text-emerald-400' : ($deptItem['rate'] >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400') }}">
-                                        {{ $deptItem['rate'] }}%
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="mt-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
-                                <span class="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                                    {{ number_format($deptItem['submitted']) }}
-                                    <span class="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">/ {{ number_format($deptItem['expected']) }} students</span>
-                                </span>
-                                <span class="text-[10px] whitespace-nowrap {{ $deptPending > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-medium' }}">
-                                    {{ $deptPending > 0 ? number_format($deptPending) . ' pending' : 'All done' }}
-                                </span>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+            <!-- Footer Action Toolbar -->
+            <div class="flex items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                <flux:modal.trigger name="dept-breakdown-modal">
+                    <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#f89696] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
+                        <flux:icon name="arrow-top-right-on-square" class="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                        <span>View detailed breakdown</span>
+                    </button>
+                </flux:modal.trigger>
 
-                <!-- Administrative Breakdown (11 Offices: Distinct Employee Turnout) -->
-                <div x-cloak x-show="activeDeptType === 'administrative'" class="max-h-[125px] overflow-y-auto pr-1">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        @foreach($adminDeptScores as $adminItem)
-                            @php
-                                $adminPending = max(0, $adminItem['expected'] - $adminItem['submitted']);
-                            @endphp
-                            <div class="p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 flex flex-col justify-between">
-                                <div class="flex items-center justify-between gap-1 text-[10px] font-semibold text-zinc-600 dark:text-zinc-400">
-                                    <span class="truncate font-bold text-zinc-900 dark:text-zinc-100" title="{{ $adminItem['name'] }}">{{ $adminItem['code'] }}</span>
-                                    <div class="flex items-center gap-1.5 shrink-0">
-                                        @if(isset($adminItem['prev_rate']))
-                                            @php
-                                                $admDelta = round($adminItem['rate'] - $adminItem['prev_rate'], 1);
-                                            @endphp
-                                            <span x-show="compareDept" x-cloak class="text-[10px] font-extrabold {{ $admDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}" title="Prior sem: {{ $adminItem['prev_rate'] }}%">
-                                                {{ $admDelta >= 0 ? '▲ +' : '▼ ' }}{{ $admDelta }}%
-                                            </span>
-                                        @endif
-                                        <span class="font-bold {{ $adminItem['rate'] >= 80 ? 'text-emerald-600 dark:text-emerald-400' : ($adminItem['rate'] >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400') }}">
-                                            {{ $adminItem['rate'] }}%
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="mt-1 flex items-baseline justify-between gap-1">
-                                    <span class="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                                        {{ number_format($adminItem['submitted']) }}
-                                        <span class="text-[10px] font-normal text-zinc-500 dark:text-zinc-400">/ {{ number_format($adminItem['expected']) }} emps</span>
-                                    </span>
-                                    <span class="text-[9px] whitespace-nowrap {{ $adminPending > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-medium' }}">
-                                        {{ $adminPending > 0 ? number_format($adminPending) . ' pend.' : 'Done' }}
-                                    </span>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
+                <template x-if="hasPrevComparison">
+                    <button type="button" @click="toggleComparison('dept')" 
+                        :title="compareDept ? 'Hide Comparison' : 'Compare vs Last Sem'"
+                        :aria-label="compareDept ? 'Hide Comparison' : 'Compare vs Last Sem'"
+                        :class="compareDept ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs border-zinc-900 dark:border-zinc-100' : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/60'"
+                        class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0">
+                        <flux:icon name="arrows-right-left" class="size-3.5" />
+                        <span class="hidden sm:inline" x-text="compareDept ? 'Hide Comparison' : 'Compare vs Last Sem'"></span>
+                        <span class="sm:hidden" x-text="compareDept ? 'Hide' : 'Compare'"></span>
+                    </button>
+                </template>
             </div>
         </div>
     </div>
@@ -1607,21 +1604,21 @@ new #[Layout('components.layouts.app')] class extends Component
             @if($sentimentStats['total'] > 0)
                 <div class="space-y-4 flex-1 flex flex-col justify-between">
                     <!-- 3 Stat Blocks -->
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-[#dffbee] dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-[#035e44] dark:text-[#03dd9f] uppercase tracking-wider block">Positive</span>
-                            <span class="text-2xl font-black text-[#035e44] dark:text-[#03dd9f] block mt-1">{{ number_format($posCount) }}</span>
-                            <span class="text-xs text-[#035e44] dark:text-[#03dd9f] font-semibold">{{ $posPct }}%</span>
+                    <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                        <div class="bg-[#dffbee] dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-2 sm:p-3 rounded-xl text-center">
+                            <span class="text-[10px] sm:text-xs font-bold text-[#035e44] dark:text-[#03dd9f] uppercase tracking-wider block">Positive</span>
+                            <span class="text-lg sm:text-2xl font-black text-[#035e44] dark:text-[#03dd9f] block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($posCount) }}</span>
+                            <span class="text-[11px] sm:text-xs text-[#035e44] dark:text-[#03dd9f] font-semibold tabular-nums">{{ $posPct }}%</span>
                         </div>
-                        <div class="bg-[#fcf6e4] dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-[#843c06] dark:text-[#f7a15e] uppercase tracking-wider block">Neutral</span>
-                            <span class="text-2xl font-black text-[#843c06] dark:text-[#f7a15e] block mt-1">{{ number_format($neuCount) }}</span>
-                            <span class="text-xs text-[#843c06] dark:text-[#f7a15e] font-semibold">{{ $neuPct }}%</span>
+                        <div class="bg-[#fcf6e4] dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 p-2 sm:p-3 rounded-xl text-center">
+                            <span class="text-[10px] sm:text-xs font-bold text-[#843c06] dark:text-[#f7a15e] uppercase tracking-wider block">Neutral</span>
+                            <span class="text-lg sm:text-2xl font-black text-[#843c06] dark:text-[#f7a15e] block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($neuCount) }}</span>
+                            <span class="text-[11px] sm:text-xs text-[#843c06] dark:text-[#f7a15e] font-semibold tabular-nums">{{ $neuPct }}%</span>
                         </div>
-                        <div class="bg-[#fff1f2] dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 p-3 rounded-xl text-center">
-                            <span class="text-xs font-bold text-[#a30f34] dark:text-[#f89bb2] uppercase tracking-wider block">Negative</span>
-                            <span class="text-2xl font-black text-[#a30f34] dark:text-[#f89bb2] block mt-1">{{ number_format($negCount) }}</span>
-                            <span class="text-xs text-[#a30f34] dark:text-[#f89bb2] font-semibold">{{ $negPct }}%</span>
+                        <div class="bg-[#fff1f2] dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 p-2 sm:p-3 rounded-xl text-center">
+                            <span class="text-[10px] sm:text-xs font-bold text-[#a30f34] dark:text-[#f89bb2] uppercase tracking-wider block">Negative</span>
+                            <span class="text-lg sm:text-2xl font-black text-[#a30f34] dark:text-[#f89bb2] block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($negCount) }}</span>
+                            <span class="text-[11px] sm:text-xs text-[#a30f34] dark:text-[#f89bb2] font-semibold tabular-nums">{{ $negPct }}%</span>
                         </div>
                     </div>
 
@@ -1641,7 +1638,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <div class="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40 flex flex-col gap-2">
                                     <div class="flex items-center justify-between border-b border-emerald-100 dark:border-emerald-900/40 pb-1.5">
                                         <span class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">Top Strengths</span>
-                                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Praise</span>
+                                        <span class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">Praise</span>
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         @forelse($thematicDrivers['positive_drivers'] as $pDriver)
@@ -1659,7 +1656,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <div class="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/70 dark:border-rose-800/40 flex flex-col gap-2">
                                     <div class="flex items-center justify-between border-b border-rose-100 dark:border-rose-900/40 pb-1.5">
                                         <span class="text-[11px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wide">Focus Areas</span>
-                                        <span class="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Needs Attention</span>
+                                        <span class="text-[10px] text-rose-700 dark:text-rose-300 font-semibold">Needs Attention</span>
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         @forelse($thematicDrivers['constructive_drivers'] as $cDriver)
@@ -1985,10 +1982,10 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Broadcast Reminders Confirmation Modal -->
-    <flux:modal wire:model="showReminderModal" class="max-w-md">
+    <flux:modal wire:model="showReminderModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-6">
             <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-700 dark:text-amber-400">
                     <flux:icon icon="bell-alert" variant="outline" class="size-5" />
                 </div>
                 <div>
@@ -2023,6 +2020,222 @@ new #[Layout('components.layouts.app')] class extends Component
                     <span wire:loading.remove wire:target="confirmBroadcastReminders">Broadcast Reminders</span>
                     <span wire:loading wire:target="confirmBroadcastReminders">Broadcasting...</span>
                 </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Evaluator Turnout by Role Detailed Breakdown Modal -->
+    <flux:modal name="role-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full max-w-2xl !p-4 sm:!p-6 overflow-hidden">
+        <div class="space-y-4 w-full min-w-0 max-w-full">
+            <!-- Header (Exact Match with Chart Title, No Subheader) -->
+            <div class="pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    Completion Rate by Role
+                </h3>
+            </div>
+
+            <!-- Mobile scroll hint -->
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 sm:hidden">
+                <span>Scroll table horizontally to view all columns</span>
+                <flux:icon name="arrows-right-left" class="size-3.5" />
+            </div>
+
+            <!-- Role Breakdown Table -->
+            <div class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+                <table class="w-full text-left text-xs border-collapse min-w-[500px]">
+                    <thead>
+                        <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
+                            <th class="py-2.5 px-3 whitespace-nowrap">Role</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Submitted / Target</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Pending</th>
+                            <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
+                            @if($hasPrevComparison)
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                        @foreach($roleTurnoutData as $roleItem)
+                            @php
+                                $rolePending = max(0, $roleItem['expected'] - $roleItem['submitted']);
+                                $hasPrev = isset($roleItem['prev_rate']);
+                                $delta = $hasPrev ? round($roleItem['rate'] - $roleItem['prev_rate'], 1) : null;
+                            @endphp
+                            <tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td class="py-3 px-3 font-bold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">
+                                    {{ $roleItem['role'] }}
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
+                                    <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($roleItem['submitted']) }}</span> / {{ number_format($roleItem['expected']) }}
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums font-semibold whitespace-nowrap {{ $rolePending > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400' }}">
+                                    {{ $rolePending > 0 ? number_format($rolePending) : 'Completed' }}
+                                </td>
+                                <td class="py-3 px-3 text-right tabular-nums font-extrabold text-sm whitespace-nowrap {{ $roleItem['rate'] >= 80 ? 'text-emerald-700 dark:text-emerald-400' : ($roleItem['rate'] >= 50 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400') }}">
+                                    {{ $roleItem['rate'] }}%
+                                </td>
+                                @if($hasPrevComparison)
+                                    <td class="py-3 px-3 text-right tabular-nums font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                                        {{ $hasPrev ? $roleItem['prev_rate'] . '%' : '—' }}
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-extrabold whitespace-nowrap {{ $delta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                                        {{ $delta !== null ? ($delta >= 0 ? '+' : '') . $delta . '%' : '—' }}
+                                    </td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($roleTurnoutData) }} roles</strong>
+                </span>
+                <flux:modal.close>
+                    <flux:button variant="subtle" size="sm">Close</flux:button>
+                </flux:modal.close>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Department Completion Rate Detailed Breakdown Modal -->
+    <flux:modal name="dept-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full max-w-2xl !p-4 sm:!p-6 overflow-hidden">
+        <div class="space-y-4 w-full min-w-0 max-w-full" x-data="{ modalDeptTab: 'academic' }">
+            <!-- Header (Exact Match with Chart Title, No Subheader) -->
+            <div class="pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    Completion Rate by Department
+                </h3>
+            </div>
+
+            <!-- Department Type Segmented Switcher (Positioned cleanly below header, away from close button) -->
+            <div class="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs w-fit max-w-full overflow-x-auto">
+                <button type="button" @click="modalDeptTab = 'academic'" :class="modalDeptTab === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer text-xs whitespace-nowrap">
+                    Academic ({{ count($academicDeptScores) }})
+                </button>
+                <button type="button" @click="modalDeptTab = 'administrative'" :class="modalDeptTab === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer text-xs whitespace-nowrap">
+                    Administrative ({{ count($adminDeptScores) }})
+                </button>
+            </div>
+
+            <!-- Mobile scroll hint -->
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 sm:hidden">
+                <span>Scroll table horizontally to view all columns</span>
+                <flux:icon name="arrows-right-left" class="size-3.5" />
+            </div>
+
+            <!-- Academic Departments Table -->
+            <div x-show="modalDeptTab === 'academic'" class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+                <table class="w-full text-left text-xs border-collapse min-w-[520px]">
+                    <thead>
+                        <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
+                            <th class="py-2.5 px-3 whitespace-nowrap">College</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Submitted / Target</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Pending</th>
+                            <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
+                            @if($hasPrevComparison)
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                        @foreach($academicDeptScores as $deptItem)
+                            @php
+                                $deptPending = max(0, $deptItem['expected'] - $deptItem['submitted']);
+                                $hasPrev = isset($deptItem['prev_rate']);
+                                $delta = $hasPrev ? round($deptItem['rate'] - $deptItem['prev_rate'], 1) : null;
+                            @endphp
+                            <tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td class="py-3 px-3">
+                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">{{ $deptItem['code'] }}</span>
+                                    <span class="text-zinc-500 dark:text-zinc-400 text-xs ml-1.5 whitespace-nowrap">&mdash; {{ $deptItem['name'] }}</span>
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
+                                    <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($deptItem['submitted']) }}</span> / {{ number_format($deptItem['expected']) }}
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums font-semibold whitespace-nowrap {{ $deptPending > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400' }}">
+                                    {{ $deptPending > 0 ? number_format($deptPending) : 'Completed' }}
+                                </td>
+                                <td class="py-3 px-3 text-right tabular-nums font-extrabold text-sm whitespace-nowrap {{ $deptItem['rate'] >= 80 ? 'text-emerald-700 dark:text-emerald-400' : ($deptItem['rate'] >= 50 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400') }}">
+                                    {{ $deptItem['rate'] }}%
+                                </td>
+                                @if($hasPrevComparison)
+                                    <td class="py-3 px-3 text-right tabular-nums font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                                        {{ $hasPrev ? $deptItem['prev_rate'] . '%' : '—' }}
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-extrabold whitespace-nowrap {{ $delta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                                        {{ $delta !== null ? ($delta >= 0 ? '+' : '') . $delta . '%' : '—' }}
+                                    </td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Administrative Offices Table -->
+            <div x-cloak x-show="modalDeptTab === 'administrative'" class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+                <table class="w-full text-left text-xs border-collapse min-w-[520px]">
+                    <thead>
+                        <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
+                            <th class="py-2.5 px-3 whitespace-nowrap">Office</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Submitted / Target</th>
+                            <th class="py-2.5 px-3 text-center whitespace-nowrap">Pending</th>
+                            <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
+                            @if($hasPrevComparison)
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                        @foreach($adminDeptScores as $deptItem)
+                            @php
+                                $deptPending = max(0, $deptItem['expected'] - $deptItem['submitted']);
+                                $hasPrev = isset($deptItem['prev_rate']);
+                                $delta = $hasPrev ? round($deptItem['rate'] - $deptItem['prev_rate'], 1) : null;
+                            @endphp
+                            <tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td class="py-3 px-3">
+                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">{{ $deptItem['code'] }}</span>
+                                    <span class="text-zinc-500 dark:text-zinc-400 text-xs ml-1.5 whitespace-nowrap">&mdash; {{ $deptItem['name'] }}</span>
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
+                                    <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($deptItem['submitted']) }}</span> / {{ number_format($deptItem['expected']) }}
+                                </td>
+                                <td class="py-3 px-3 text-center tabular-nums font-semibold whitespace-nowrap {{ $deptPending > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400' }}">
+                                    {{ $deptPending > 0 ? number_format($deptPending) : 'Completed' }}
+                                </td>
+                                <td class="py-3 px-3 text-right tabular-nums font-extrabold text-sm whitespace-nowrap {{ $deptItem['rate'] >= 80 ? 'text-emerald-700 dark:text-emerald-400' : ($deptItem['rate'] >= 50 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400') }}">
+                                    {{ $deptItem['rate'] }}%
+                                </td>
+                                @if($hasPrevComparison)
+                                    <td class="py-3 px-3 text-right tabular-nums font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                                        {{ $hasPrev ? $deptItem['prev_rate'] . '%' : '—' }}
+                                    </td>
+                                    <td class="py-3 px-3 text-right tabular-nums font-extrabold whitespace-nowrap {{ $delta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                                        {{ $delta !== null ? ($delta >= 0 ? '+' : '') . $delta . '%' : '—' }}
+                                    </td>
+                                @endif
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span x-show="modalDeptTab === 'academic'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($academicDeptScores) }} academic colleges</strong></span>
+                    <span x-cloak x-show="modalDeptTab === 'administrative'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($adminDeptScores) }} administrative offices</strong></span>
+                </span>
+                <flux:modal.close>
+                    <flux:button variant="subtle" size="sm">Close</flux:button>
+                </flux:modal.close>
             </div>
         </div>
     </flux:modal>

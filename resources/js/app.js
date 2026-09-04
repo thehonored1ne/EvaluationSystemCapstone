@@ -56,10 +56,14 @@ window.dashboardAnalyticsCharts = function(config) {
                 this.renderAll();
             });
 
-            // Re-render instantly whenever dark/light class is toggled on <html>
+            // Re-render smoothly whenever dark/light class is toggled on <html>
             if (window.MutationObserver) {
+                let themeDebounce = null;
                 const observer = new MutationObserver(() => {
-                    this.renderAll();
+                    clearTimeout(themeDebounce);
+                    themeDebounce = setTimeout(() => {
+                        this.renderAll();
+                    }, 100);
                 });
                 observer.observe(document.documentElement, {
                     attributes: true,
@@ -68,8 +72,10 @@ window.dashboardAnalyticsCharts = function(config) {
             }
 
             // Also listen to Flux appearance change events
+            let fluxDebounce = null;
             window.addEventListener('flux:appearance:changed', () => {
-                setTimeout(() => this.renderAll(), 50);
+                clearTimeout(fluxDebounce);
+                fluxDebounce = setTimeout(() => this.renderAll(), 100);
             });
         },
 
@@ -87,8 +93,16 @@ window.dashboardAnalyticsCharts = function(config) {
         },
 
         renderRoleTurnout() {
-            if (!this.$refs.roleTurnoutChart || typeof Chart === 'undefined' || !this.roleLabels || this.roleLabels.length === 0) return;
+            const canvas = this.$refs.roleTurnoutChart;
+            if (!canvas || typeof Chart === 'undefined' || !this.roleLabels || this.roleLabels.length === 0) return;
+
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.stop();
+                existingChart.destroy();
+            }
             if (this.roleTurnoutInstance) {
+                this.roleTurnoutInstance.stop();
                 this.roleTurnoutInstance.destroy();
                 this.roleTurnoutInstance = null;
             }
@@ -98,18 +112,11 @@ window.dashboardAnalyticsCharts = function(config) {
             const gridColor = isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.06)';
             const trackColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
 
-            // Dynamic color coding: Green >= 80%, Amber 50-79%, Red < 50%
-            const backgroundColors = this.roleRates.map(rate => {
-                if (rate >= 80) return isDark ? '#22c55e' : '#16a34a';
-                if (rate >= 50) return isDark ? '#f59e0b' : '#d97706';
-                return isDark ? '#ef4444' : '#dc2626';
-            });
-
-            const hoverColors = this.roleRates.map(rate => {
-                if (rate >= 80) return isDark ? '#4ade80' : '#15803d';
-                if (rate >= 50) return isDark ? '#fbbf24' : '#b45309';
-                return isDark ? '#f87171' : '#b91c1c';
-            });
+            // Uniform primary brand/orange color for current semester, grey for prior semester
+            const primaryColor = isDark ? '#f59e0b' : '#d97706';
+            const primaryHoverColor = isDark ? '#fbbf24' : '#b45309';
+            const prevColor = isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)';
+            const prevHoverColor = isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)';
 
             const chartLabels = this.roleLabels.map(label => {
                 if (label === 'Department Heads') return 'Dept. Heads';
@@ -125,22 +132,22 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: this.currentSemName,
                         data: this.roleRates,
-                        backgroundColor: backgroundColors,
-                        hoverBackgroundColor: hoverColors,
-                        borderRadius: 4,
+                        backgroundColor: primaryColor,
+                        hoverBackgroundColor: primaryHoverColor,
+                        borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        barThickness: 11,
+                        barThickness: 13,
                         grouped: true,
                         order: 1,
                     },
                     {
                         label: this.prevSemName,
                         data: this.prevRoleRates,
-                        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)',
-                        hoverBackgroundColor: isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)',
-                        borderRadius: 4,
+                        backgroundColor: prevColor,
+                        hoverBackgroundColor: prevHoverColor,
+                        borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        barThickness: 11,
+                        barThickness: 13,
                         grouped: true,
                         order: 2,
                     }
@@ -152,27 +159,27 @@ window.dashboardAnalyticsCharts = function(config) {
                         data: this.roleRates.map(() => 100),
                         backgroundColor: trackColor,
                         hoverBackgroundColor: trackColor,
-                        borderRadius: 6,
+                        borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
-                        barThickness: 20,
+                        barThickness: 22,
                         grouped: false,
                         order: 2,
                     },
                     {
                         label: 'Completion Rate',
                         data: this.roleRates,
-                        backgroundColor: backgroundColors,
-                        hoverBackgroundColor: hoverColors,
-                        borderRadius: 6,
+                        backgroundColor: primaryColor,
+                        hoverBackgroundColor: primaryHoverColor,
+                        borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
-                        barThickness: 20,
+                        barThickness: 22,
                         grouped: false,
                         order: 1,
                     }
                 ];
             }
 
-            this.roleTurnoutInstance = new Chart(this.$refs.roleTurnoutChart.getContext('2d'), {
+            this.roleTurnoutInstance = new Chart(canvas, {
                 type: 'bar',
                 data: {
                     labels: chartLabels,
@@ -184,23 +191,15 @@ window.dashboardAnalyticsCharts = function(config) {
                     maintainAspectRatio: false,
                     layout: {
                         padding: {
-                            top: 16,
-                            right: 28,
+                            top: 22,
+                            right: 36,
+                            bottom: 4,
+                            left: 4,
                         }
                     },
                     plugins: {
                         legend: {
-                            display: isComparing,
-                            position: 'top',
-                            align: 'end',
-                            labels: {
-                                boxWidth: 10,
-                                boxHeight: 10,
-                                usePointStyle: true,
-                                pointStyle: 'rectRounded',
-                                color: textColor,
-                                font: { weight: '600', size: 10, family: 'Lexend, sans-serif' }
-                            }
+                            display: false,
                         },
                         tooltip: {
                             callbacks: {
@@ -259,37 +258,57 @@ window.dashboardAnalyticsCharts = function(config) {
                 plugins: [{
                     id: 'roleTurnoutLabels',
                     afterDatasetsDraw(chart) {
-                        const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+                        if (!chart || !chart.ctx) return;
+                        const { ctx, chartArea, scales: { x } } = chart;
+                        if (!ctx || !chartArea || !x) return;
+                        const { top, bottom, left, right } = chartArea;
 
                         if (x) {
                             const targetX = x.getPixelForValue(80);
                             if (targetX >= left && targetX <= right) {
                                 ctx.save();
-                                ctx.strokeStyle = isDark ? '#f87171' : '#dc2626';
+                                ctx.strokeStyle = isDark ? 'rgba(248, 113, 113, 0.75)' : 'rgba(185, 28, 28, 0.65)';
                                 ctx.lineWidth = 1.5;
-                                ctx.setLineDash([5, 4]);
+                                ctx.setLineDash([4, 4]);
                                 ctx.beginPath();
                                 ctx.moveTo(targetX, top);
                                 ctx.lineTo(targetX, bottom);
                                 ctx.stroke();
 
                                 ctx.setLineDash([]);
-                                ctx.fillStyle = isDark ? '#f87171' : '#dc2626';
-                                ctx.font = 'bold 10px Lexend, sans-serif';
+                                const badgeText = '80% Target';
+                                ctx.font = 'bold 9.5px Lexend, sans-serif';
+                                const textWidth = ctx.measureText(badgeText).width;
+                                const badgeW = textWidth + 10;
+                                const badgeH = 16;
+                                const badgeX = targetX - badgeW / 2;
+                                const badgeY = top - 18;
+
+                                ctx.fillStyle = isDark ? 'rgba(239, 68, 68, 0.18)' : 'rgba(254, 226, 226, 0.9)';
+                                if (ctx.roundRect) {
+                                    ctx.beginPath();
+                                    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+                                    ctx.fill();
+                                } else {
+                                    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+                                }
+
+                                ctx.fillStyle = isDark ? '#f87171' : '#b91c1c';
                                 ctx.textAlign = 'center';
-                                ctx.fillText('80% Target', targetX, top - 6);
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(badgeText, targetX, badgeY + badgeH / 2);
                                 ctx.restore();
                             }
                         }
 
-                        // 2. Draw percentage text on bars (only when not in comparison mode)
+                        // 2. Draw percentage text on bars (for both standard and comparison modes)
+                        ctx.save();
+                        ctx.textBaseline = 'middle';
+
                         if (!isComparing) {
                             const meta = chart.getDatasetMeta(1);
                             if (meta && meta.data) {
-                                ctx.save();
                                 ctx.font = 'bold 11px Lexend, sans-serif';
-                                ctx.textBaseline = 'middle';
-
                                 meta.data.forEach((bar, index) => {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
@@ -307,20 +326,57 @@ window.dashboardAnalyticsCharts = function(config) {
                                         }
                                     }
                                 });
-                                ctx.restore();
+                            }
+                        } else {
+                            const meta0 = chart.getDatasetMeta(0);
+                            const meta1 = chart.getDatasetMeta(1);
+                            ctx.font = 'bold 9.5px Lexend, sans-serif';
+
+                            if (meta0 && meta0.data) {
+                                meta0.data.forEach((bar, index) => {
+                                    const val = chart.data.datasets[0]?.data[index];
+                                    if (val !== undefined && val !== null) {
+                                        const pctText = `${Number(val).toFixed(1)}%`;
+                                        if (bar.width > 48) {
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.textAlign = 'right';
+                                            ctx.fillText(pctText, bar.x - 5, bar.y);
+                                        } else {
+                                            ctx.fillStyle = textColor;
+                                            ctx.textAlign = 'left';
+                                            ctx.fillText(pctText, bar.x + 4, bar.y);
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (meta1 && meta1.data) {
+                                meta1.data.forEach((bar, index) => {
+                                    const val = chart.data.datasets[1]?.data[index];
+                                    if (val !== undefined && val !== null) {
+                                        const pctText = `${Number(val).toFixed(1)}%`;
+                                        if (bar.width > 48) {
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.textAlign = 'right';
+                                            ctx.fillText(pctText, bar.x - 5, bar.y);
+                                        } else {
+                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#71717a';
+                                            ctx.textAlign = 'left';
+                                            ctx.fillText(pctText, bar.x + 4, bar.y);
+                                        }
+                                    }
+                                });
                             }
                         }
+                        ctx.restore();
                     }
                 }]
             });
         },
 
         renderDept() {
-            if (!this.$refs.deptChart || typeof Chart === 'undefined') return;
-            if (this.deptInstance) {
-                this.deptInstance.destroy();
-                this.deptInstance = null;
-            }
+            const canvas = this.$refs.deptChart;
+            if (!canvas || typeof Chart === 'undefined') return;
 
             const isAcademic = this.activeDeptType === 'academic';
             const labels = isAcademic ? this.academicDeptLabels : this.adminDeptLabels;
@@ -330,29 +386,31 @@ window.dashboardAnalyticsCharts = function(config) {
             const submitted = isAcademic ? this.academicDeptSubmitted : this.adminDeptSubmitted;
             const expected = isAcademic ? this.academicDeptExpected : this.adminDeptExpected;
 
-            if (!labels || labels.length === 0) return;
-
-            const isDark = this.isDarkMode();
-            const textColor = isDark ? '#f4f4f5' : '#18181b';
-            const mutedColor = isDark ? '#a1a1aa' : '#71717a';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
             const isComparing = this.compareDept && prevRates && prevRates.length > 0;
 
-            // Threshold color coding:
-            // >= 80%: Emerald green (High Turnout)
-            // 50% - 79.9%: Amber (Moderate)
-            // < 50%: Crimson/Rose (Needs Follow-up)
-            const backgroundColors = rates.map(rate => {
-                if (rate >= 80) return isDark ? '#22c55e' : '#16a34a';
-                if (rate >= 50) return isDark ? '#f59e0b' : '#d97706';
-                return isDark ? '#ef4444' : '#dc2626';
-            });
+            if (!labels || labels.length === 0) return;
 
-            const hoverColors = rates.map(rate => {
-                if (rate >= 80) return isDark ? '#4ade80' : '#15803d';
-                if (rate >= 50) return isDark ? '#fbbf24' : '#b45309';
-                return isDark ? '#f87171' : '#b91c1c';
-            });
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.stop();
+                existingChart.destroy();
+            }
+            if (this.deptInstance) {
+                this.deptInstance.stop();
+                this.deptInstance.destroy();
+                this.deptInstance = null;
+            }
+
+            const isDark = this.isDarkMode();
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+            const textColor = isDark ? '#a1a1aa' : '#71717a';
+            const trackColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
+
+            // Uniform primary brand/orange color for current semester, grey for prior semester
+            const primaryColor = isDark ? '#f59e0b' : '#d97706';
+            const primaryHoverColor = isDark ? '#fbbf24' : '#b45309';
+            const prevColor = isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)';
+            const prevHoverColor = isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)';
 
             let datasets;
             if (isComparing) {
@@ -360,68 +418,74 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: this.currentSemName,
                         data: rates,
-                        backgroundColor: backgroundColors,
-                        hoverBackgroundColor: hoverColors,
-                        borderRadius: 5,
+                        backgroundColor: primaryColor,
+                        hoverBackgroundColor: primaryHoverColor,
+                        borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        maxBarThickness: isAcademic ? 32 : 18,
-                        categoryPercentage: isAcademic ? 0.75 : 0.88,
-                        barPercentage: 0.9,
+                        barThickness: isAcademic ? 13 : 8.5,
+                        grouped: true,
+                        order: 1,
                     },
                     {
                         label: this.prevSemName,
                         data: prevRates,
-                        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)',
-                        hoverBackgroundColor: isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)',
-                        borderRadius: 5,
+                        backgroundColor: prevColor,
+                        hoverBackgroundColor: prevHoverColor,
+                        borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        maxBarThickness: isAcademic ? 32 : 18,
-                        categoryPercentage: isAcademic ? 0.75 : 0.88,
-                        barPercentage: 0.9,
+                        barThickness: isAcademic ? 13 : 8.5,
+                        grouped: true,
+                        order: 2,
                     }
                 ];
             } else {
-                datasets = [{
-                    label: 'Turnout',
-                    data: rates,
-                    backgroundColor: backgroundColors,
-                    hoverBackgroundColor: hoverColors,
-                    borderRadius: 6,
-                    borderSkipped: false,
-                    maxBarThickness: isAcademic ? 56 : 38,
-                    categoryPercentage: isAcademic ? 0.75 : 0.88,
-                    barPercentage: isAcademic ? 0.85 : 0.92,
-                }];
+                datasets = [
+                    {
+                        label: 'Track',
+                        data: rates.map(() => 100),
+                        backgroundColor: trackColor,
+                        hoverBackgroundColor: trackColor,
+                        borderRadius: { topRight: 6, bottomRight: 6 },
+                        borderSkipped: false,
+                        barThickness: isAcademic ? 22 : 13,
+                        grouped: false,
+                        order: 2,
+                    },
+                    {
+                        label: 'Completion Rate',
+                        data: rates,
+                        backgroundColor: primaryColor,
+                        hoverBackgroundColor: primaryHoverColor,
+                        borderRadius: { topRight: 6, bottomRight: 6 },
+                        borderSkipped: false,
+                        barThickness: isAcademic ? 22 : 13,
+                        grouped: false,
+                        order: 1,
+                    }
+                ];
             }
 
-            this.deptInstance = new Chart(this.$refs.deptChart.getContext('2d'), {
+            this.deptInstance = new Chart(canvas, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: datasets
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
                     layout: {
                         padding: {
-                            top: 16,
+                            top: 22,
+                            right: 36,
                             bottom: 4,
+                            left: 4,
                         }
                     },
                     plugins: {
                         legend: {
-                            display: isComparing,
-                            position: 'top',
-                            align: 'end',
-                            labels: {
-                                boxWidth: 10,
-                                boxHeight: 10,
-                                usePointStyle: true,
-                                pointStyle: 'rectRounded',
-                                color: textColor,
-                                font: { weight: '600', size: 10, family: 'Lexend, sans-serif' }
-                            }
+                            display: false,
                         },
                         tooltip: {
                             callbacks: {
@@ -431,6 +495,7 @@ window.dashboardAnalyticsCharts = function(config) {
                                     return names[index] || labels[index];
                                 },
                                 label: (ctx) => {
+                                    if (!isComparing && ctx.datasetIndex === 0) return null;
                                     const index = ctx.dataIndex;
                                     const rate = Number(ctx.raw).toFixed(1);
                                     if (isComparing) {
@@ -451,23 +516,23 @@ window.dashboardAnalyticsCharts = function(config) {
                     },
                     scales: {
                         x: {
-                            grid: { display: false },
-                            ticks: {
-                                color: textColor,
-                                font: { weight: '600', size: isAcademic ? 12 : 10, family: 'Lexend, sans-serif' },
-                                maxRotation: isAcademic ? 0 : 45,
-                                minRotation: 0,
-                            }
-                        },
-                        y: {
                             min: 0,
                             max: 100,
                             grid: { color: gridColor },
                             ticks: {
-                                stepSize: 25,
-                                color: mutedColor,
+                                color: textColor,
                                 font: { weight: '600', size: 11, family: 'Lexend, sans-serif' },
                                 callback: (v) => v + '%'
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                color: textColor,
+                                font: { weight: '600', size: isAcademic ? 11 : 9.5, family: 'Lexend, sans-serif' }
+                            },
+                            title: {
+                                display: false
                             }
                         }
                     }
@@ -475,55 +540,118 @@ window.dashboardAnalyticsCharts = function(config) {
                 plugins: [{
                     id: 'deptBenchmarkAndLabels',
                     afterDatasetsDraw(chart) {
-                        const { ctx, chartArea: { top, bottom, left, right }, scales: { y } } = chart;
-                        if (!y) return;
+                        if (!chart || !chart.ctx) return;
+                        const { ctx, chartArea, scales: { x } } = chart;
+                        if (!ctx || !chartArea || !x) return;
+                        const { top, bottom, left, right } = chartArea;
 
-                        // 1. Draw 80% Target Benchmark horizontal dashed line
-                        const targetY = y.getPixelForValue(80);
-                        if (targetY >= top && targetY <= bottom) {
+                        // 1. Draw 80% Target Benchmark vertical dashed line
+                        const targetX = x.getPixelForValue(80);
+                        if (targetX >= left && targetX <= right) {
                             ctx.save();
-                            ctx.strokeStyle = isDark ? '#f87171' : '#dc2626';
+                            ctx.strokeStyle = isDark ? 'rgba(248, 113, 113, 0.75)' : 'rgba(185, 28, 28, 0.65)';
                             ctx.lineWidth = 1.5;
-                            ctx.setLineDash([5, 4]);
+                            ctx.setLineDash([4, 4]);
                             ctx.beginPath();
-                            ctx.moveTo(left, targetY);
-                            ctx.lineTo(right, targetY);
+                            ctx.moveTo(targetX, top);
+                            ctx.lineTo(targetX, bottom);
                             ctx.stroke();
 
                             // Benchmark badge text above line
                             ctx.setLineDash([]);
-                            ctx.fillStyle = isDark ? '#f87171' : '#dc2626';
-                            ctx.font = 'bold 10px Lexend, sans-serif';
-                            ctx.textAlign = 'right';
-                            ctx.fillText('80% Target', right, targetY - 6);
-                            ctx.restore();
-                        }
+                            const badgeText = '80% Target';
+                            ctx.font = 'bold 9.5px Lexend, sans-serif';
+                            const textWidth = ctx.measureText(badgeText).width;
+                            const badgeW = textWidth + 10;
+                            const badgeH = 16;
+                            const badgeX = targetX - badgeW / 2;
+                            const badgeY = top - 18;
 
-                        // 2. Draw percentage text inside bar near top (only when not in comparison mode)
-                        if (!isComparing) {
-                            ctx.save();
+                            ctx.fillStyle = isDark ? 'rgba(239, 68, 68, 0.18)' : 'rgba(254, 226, 226, 0.9)';
+                            if (ctx.roundRect) {
+                                ctx.beginPath();
+                                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+                                ctx.fill();
+                            } else {
+                                ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+                            }
+
+                            ctx.fillStyle = isDark ? '#f87171' : '#b91c1c';
                             ctx.textAlign = 'center';
-
-                            chart.getDatasetMeta(0).data.forEach((bar, index) => {
-                                const rate = rates[index];
-                                if (rate !== undefined && rate !== null) {
-                                    const barW = bar.width || 30;
-                                    const fontSize = isAcademic ? 11.5 : (barW < 32 ? 9.5 : 10.5);
-                                    ctx.font = `bold ${fontSize}px Lexend, sans-serif`;
-
-                                    if (rate >= 25) {
-                                        ctx.fillStyle = '#ffffff';
-                                        ctx.textBaseline = 'top';
-                                        ctx.fillText(`${Number(rate).toFixed(1)}%`, bar.x, bar.y + 7);
-                                    } else {
-                                        ctx.fillStyle = textColor;
-                                        ctx.textBaseline = 'bottom';
-                                        ctx.fillText(`${Number(rate).toFixed(1)}%`, bar.x, bar.y - 4);
-                                    }
-                                }
-                            });
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(badgeText, targetX, badgeY + badgeH / 2);
                             ctx.restore();
                         }
+
+                        // 2. Draw percentage text on bars
+                        ctx.save();
+                        ctx.textBaseline = 'middle';
+
+                        if (!isComparing) {
+                            const meta = chart.getDatasetMeta(1);
+                            if (meta && meta.data) {
+                                ctx.font = `bold ${isAcademic ? 11 : 9.5}px Lexend, sans-serif`;
+                                meta.data.forEach((bar, index) => {
+                                    const val = chart.data.datasets[1]?.data[index];
+                                    if (val !== undefined && val !== null) {
+                                        const pctText = `${Number(val).toFixed(1)}%`;
+                                        const barWidth = bar.width;
+
+                                        if (val >= 50 || barWidth > 55) {
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.textAlign = 'right';
+                                            ctx.fillText(pctText, bar.x - 8, bar.y);
+                                        } else {
+                                            ctx.fillStyle = textColor;
+                                            ctx.textAlign = 'left';
+                                            ctx.fillText(pctText, bar.x + 6, bar.y);
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            const meta0 = chart.getDatasetMeta(0);
+                            const meta1 = chart.getDatasetMeta(1);
+                            const labelFont = isAcademic ? 'bold 9.5px Lexend, sans-serif' : 'bold 8px Lexend, sans-serif';
+                            ctx.font = labelFont;
+
+                            if (meta0 && meta0.data) {
+                                meta0.data.forEach((bar, index) => {
+                                    const val = chart.data.datasets[0]?.data[index];
+                                    if (val !== undefined && val !== null) {
+                                        const pctText = `${Number(val).toFixed(1)}%`;
+                                        if (bar.width > 44) {
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.textAlign = 'right';
+                                            ctx.fillText(pctText, bar.x - 4, bar.y);
+                                        } else {
+                                            ctx.fillStyle = textColor;
+                                            ctx.textAlign = 'left';
+                                            ctx.fillText(pctText, bar.x + 4, bar.y);
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (meta1 && meta1.data) {
+                                meta1.data.forEach((bar, index) => {
+                                    const val = chart.data.datasets[1]?.data[index];
+                                    if (val !== undefined && val !== null) {
+                                        const pctText = `${Number(val).toFixed(1)}%`;
+                                        if (bar.width > 44) {
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.textAlign = 'right';
+                                            ctx.fillText(pctText, bar.x - 4, bar.y);
+                                        } else {
+                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#71717a';
+                                            ctx.textAlign = 'left';
+                                            ctx.fillText(pctText, bar.x + 4, bar.y);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                        ctx.restore();
                     }
                 }]
             });
