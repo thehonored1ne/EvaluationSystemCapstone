@@ -1,7 +1,7 @@
 async function loadChartJs() {
     if (typeof window.Chart === 'undefined') {
-        const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } = await import('chart.js');
-        Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+        const { Chart, BarController, BarElement, LineController, LineElement, PointElement, Filler, CategoryScale, LinearScale, Tooltip, Legend } = await import('chart.js');
+        Chart.register(BarController, BarElement, LineController, LineElement, PointElement, Filler, CategoryScale, LinearScale, Tooltip, Legend);
         window.Chart = Chart;
     }
     return window.Chart;
@@ -12,6 +12,7 @@ window.dashboardAnalyticsCharts = function(config) {
     return {
         roleTurnoutInstance: null,
         deptInstance: null,
+        deptChartHeight: 275,
         activeDeptType: 'academic', // 'academic' | 'administrative'
         currentSemName: config?.currentSemName || 'Current Term',
         prevSemName: config?.prevSemName || 'Prior Term',
@@ -39,17 +40,29 @@ window.dashboardAnalyticsCharts = function(config) {
             return document.documentElement.classList.contains('dark');
         },
 
+        calculateDeptChartHeight() {
+            if (this.activeDeptType === 'academic') {
+                return 275;
+            }
+            const count = (this.adminDeptLabels && this.adminDeptLabels.length) ? this.adminDeptLabels.length : 11;
+            const isComparing = this.compareDept && this.prevAdminDeptRates && this.prevAdminDeptRates.length > 0;
+            const rowHeight = isComparing ? 56 : 36;
+            return Math.max(275, (count * rowHeight) + 35);
+        },
+
         toggleComparison(type) {
             if (type === 'role') {
                 this.compareRole = !this.compareRole;
                 this.$nextTick(() => this.renderRoleTurnout());
             } else if (type === 'dept') {
                 this.compareDept = !this.compareDept;
+                this.deptChartHeight = this.calculateDeptChartHeight();
                 this.$nextTick(() => this.renderDept());
             }
         },
 
         async init() {
+            this.deptChartHeight = this.calculateDeptChartHeight();
             await loadChartJs();
 
             this.$nextTick(() => {
@@ -77,10 +90,27 @@ window.dashboardAnalyticsCharts = function(config) {
                 clearTimeout(fluxDebounce);
                 fluxDebounce = setTimeout(() => this.renderAll(), 100);
             });
+
+            // Re-render when Livewire navigates or updates
+            document.addEventListener('livewire:navigated', () => {
+                this.$nextTick(() => this.renderAll());
+            });
+
+            if (window.Livewire) {
+                Livewire.hook('morph.updated', ({ el, component }) => {
+                    // If canvas elements lost their chart instances, re-render
+                    const canvasRole = this.$refs.roleTurnoutChart;
+                    const canvasDept = this.$refs.deptChart;
+                    if ((canvasRole && !this.roleTurnoutInstance) || (canvasDept && !this.deptInstance)) {
+                        this.$nextTick(() => this.renderAll());
+                    }
+                });
+            }
         },
 
         switchDeptType(type) {
             this.activeDeptType = type;
+            this.deptChartHeight = this.calculateDeptChartHeight();
             this.$nextTick(() => {
                 this.renderDept();
             });
@@ -313,14 +343,17 @@ window.dashboardAnalyticsCharts = function(config) {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        const barWidth = bar.width;
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 52;
 
-                                        if (val >= 50 || barWidth > 55) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 8, bar.y);
+                                        if (fitsInside) {
+                                            if (bar.width >= 36) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 8, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = textColor;
+                                            ctx.fillStyle = isDark ? '#f4f4f5' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 6, bar.y);
                                         }
@@ -330,19 +363,24 @@ window.dashboardAnalyticsCharts = function(config) {
                         } else {
                             const meta0 = chart.getDatasetMeta(0);
                             const meta1 = chart.getDatasetMeta(1);
-                            ctx.font = 'bold 9.5px Lexend, sans-serif';
+                            ctx.font = 'bold 10px Lexend, sans-serif';
 
                             if (meta0 && meta0.data) {
                                 meta0.data.forEach((bar, index) => {
                                     const val = chart.data.datasets[0]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        if (bar.width > 48) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 5, bar.y);
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 46;
+
+                                        if (fitsInside) {
+                                            if (bar.width >= 34) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 5, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = textColor;
+                                            ctx.fillStyle = isDark ? '#f4f4f5' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 4, bar.y);
                                         }
@@ -355,12 +393,17 @@ window.dashboardAnalyticsCharts = function(config) {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        if (bar.width > 48) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 5, bar.y);
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 46;
+
+                                        if (fitsInside) {
+                                            if (bar.width >= 34) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 5, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#71717a';
+                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 4, bar.y);
                                         }
@@ -422,7 +465,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         hoverBackgroundColor: primaryHoverColor,
                         borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        barThickness: isAcademic ? 13 : 8.5,
+                        barThickness: isAcademic ? 16 : 16,
                         grouped: true,
                         order: 1,
                     },
@@ -433,7 +476,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         hoverBackgroundColor: prevHoverColor,
                         borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
-                        barThickness: isAcademic ? 13 : 8.5,
+                        barThickness: isAcademic ? 16 : 16,
                         grouped: true,
                         order: 2,
                     }
@@ -447,7 +490,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         hoverBackgroundColor: trackColor,
                         borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
-                        barThickness: isAcademic ? 22 : 13,
+                        barThickness: isAcademic ? 22 : 18,
                         grouped: false,
                         order: 2,
                     },
@@ -458,7 +501,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         hoverBackgroundColor: primaryHoverColor,
                         borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
-                        barThickness: isAcademic ? 22 : 13,
+                        barThickness: isAcademic ? 22 : 18,
                         grouped: false,
                         order: 1,
                     }
@@ -529,7 +572,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             grid: { display: false },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: isAcademic ? 11 : 9.5, family: 'Lexend, sans-serif' }
+                                font: { weight: '600', size: isAcademic ? 11 : 10.5, family: 'Lexend, sans-serif' }
                             },
                             title: {
                                 display: false
@@ -590,19 +633,22 @@ window.dashboardAnalyticsCharts = function(config) {
                         if (!isComparing) {
                             const meta = chart.getDatasetMeta(1);
                             if (meta && meta.data) {
-                                ctx.font = `bold ${isAcademic ? 11 : 9.5}px Lexend, sans-serif`;
+                                ctx.font = `bold ${isAcademic ? 11 : 10.5}px Lexend, sans-serif`;
                                 meta.data.forEach((bar, index) => {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        const barWidth = bar.width;
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 52;
 
-                                        if (val >= 50 || barWidth > 55) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 8, bar.y);
+                                        if (fitsInside) {
+                                            if (bar.width >= 36) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 8, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = textColor;
+                                            ctx.fillStyle = isDark ? '#f4f4f5' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 6, bar.y);
                                         }
@@ -612,7 +658,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         } else {
                             const meta0 = chart.getDatasetMeta(0);
                             const meta1 = chart.getDatasetMeta(1);
-                            const labelFont = isAcademic ? 'bold 9.5px Lexend, sans-serif' : 'bold 8px Lexend, sans-serif';
+                            const labelFont = isAcademic ? 'bold 10px Lexend, sans-serif' : 'bold 10px Lexend, sans-serif';
                             ctx.font = labelFont;
 
                             if (meta0 && meta0.data) {
@@ -620,12 +666,17 @@ window.dashboardAnalyticsCharts = function(config) {
                                     const val = chart.data.datasets[0]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        if (bar.width > 44) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 4, bar.y);
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 44;
+
+                                        if (fitsInside) {
+                                            if (bar.width >= 34) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 4, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = textColor;
+                                            ctx.fillStyle = isDark ? '#f4f4f5' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 4, bar.y);
                                         }
@@ -638,12 +689,17 @@ window.dashboardAnalyticsCharts = function(config) {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
                                         const pctText = `${Number(val).toFixed(1)}%`;
-                                        if (bar.width > 44) {
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.textAlign = 'right';
-                                            ctx.fillText(pctText, bar.x - 4, bar.y);
+                                        const finalWidth = x ? (x.getPixelForValue(val) - x.getPixelForValue(0)) : bar.width;
+                                        const fitsInside = finalWidth > 44;
+
+                                        if (fitsInside) {
+                                            if (bar.width >= 34) {
+                                                ctx.fillStyle = '#000000';
+                                                ctx.textAlign = 'right';
+                                                ctx.fillText(pctText, bar.x - 4, bar.y);
+                                            }
                                         } else {
-                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#71717a';
+                                            ctx.fillStyle = isDark ? '#a1a1aa' : '#000000';
                                             ctx.textAlign = 'left';
                                             ctx.fillText(pctText, bar.x + 4, bar.y);
                                         }
@@ -658,3 +714,209 @@ window.dashboardAnalyticsCharts = function(config) {
         }
     };
 };
+
+// Global helper for Admin Dashboard Submission Velocity / Turnout Trend Chart
+window.submissionVelocityChart = function(config) {
+    return {
+        chartInstance: null,
+        mode: 'daily', // 'daily' | 'cumulative'
+        labels: config?.labels || [],
+        dailyData: config?.daily || [],
+        cumulativeData: config?.cumulative || [],
+        todayCount: config?.todayCount || 0,
+        peakCount: config?.peakCount || 0,
+        peakDate: config?.peakDate || '',
+        avgDaily: config?.avgDaily || 0,
+        totalExpected: config?.totalExpected || 0,
+
+        isDarkMode() {
+            return document.documentElement.classList.contains('dark');
+        },
+
+        async init() {
+            await loadChartJs();
+            this.$nextTick(() => {
+                this.renderChart();
+            });
+
+            // Re-render when theme changes
+            if (window.MutationObserver) {
+                let themeDebounce = null;
+                const observer = new MutationObserver(() => {
+                    clearTimeout(themeDebounce);
+                    themeDebounce = setTimeout(() => this.renderChart(), 100);
+                });
+                observer.observe(document.documentElement, {
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
+            }
+
+            // Flux appearance changed event
+            let fluxDebounce = null;
+            window.addEventListener('flux:appearance:changed', () => {
+                clearTimeout(fluxDebounce);
+                fluxDebounce = setTimeout(() => this.renderChart(), 100);
+            });
+
+            // Livewire navigation
+            document.addEventListener('livewire:navigated', () => {
+                this.$nextTick(() => this.renderChart());
+            });
+
+            // Livewire DOM morph re-attachment
+            if (window.Livewire) {
+                Livewire.hook('morph.updated', () => {
+                    const canvas = this.$refs.velocityCanvas;
+                    if (canvas && !this.chartInstance) {
+                        this.$nextTick(() => this.renderChart());
+                    }
+                });
+            }
+        },
+
+        setMode(newMode) {
+            if (this.mode === newMode) return;
+            this.mode = newMode;
+            this.$nextTick(() => this.renderChart());
+        },
+
+        renderChart() {
+            const canvas = this.$refs.velocityCanvas;
+            if (!canvas || typeof Chart === 'undefined') return;
+
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.stop();
+                existingChart.destroy();
+            }
+            if (this.chartInstance) {
+                this.chartInstance.stop();
+                this.chartInstance.destroy();
+                this.chartInstance = null;
+            }
+
+            if (!this.labels || this.labels.length === 0) return;
+
+            const isDark = this.isDarkMode();
+            const isDaily = this.mode === 'daily';
+            const dataSeries = isDaily ? this.dailyData : this.cumulativeData;
+
+            const lineColor = isDaily
+                ? (isDark ? '#f87171' : '#9b0000')
+                : (isDark ? '#fbbf24' : '#d97706');
+
+            const textColor = isDark ? '#a1a1aa' : '#52525b';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.05)';
+
+            const ctx = canvas.getContext('2d');
+            let gradient = null;
+            if (ctx) {
+                gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                if (isDaily) {
+                    gradient.addColorStop(0, isDark ? 'rgba(248, 113, 113, 0.32)' : 'rgba(155, 0, 0, 0.22)');
+                    gradient.addColorStop(1, isDark ? 'rgba(248, 113, 113, 0.01)' : 'rgba(155, 0, 0, 0.01)');
+                } else {
+                    gradient.addColorStop(0, isDark ? 'rgba(251, 191, 36, 0.32)' : 'rgba(217, 119, 6, 0.22)');
+                    gradient.addColorStop(1, isDark ? 'rgba(251, 191, 36, 0.01)' : 'rgba(217, 119, 6, 0.01)');
+                }
+            }
+
+            this.chartInstance = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: this.labels,
+                    datasets: [{
+                        label: isDaily ? 'Daily Submissions' : 'Cumulative Submissions',
+                        data: dataSeries,
+                        borderColor: lineColor,
+                        borderWidth: 2.5,
+                        backgroundColor: gradient || (isDark ? 'rgba(248, 113, 113, 0.1)' : 'rgba(155, 0, 0, 0.1)'),
+                        fill: true,
+                        tension: 0.32,
+                        pointRadius: this.labels.length > 20 ? 2 : 3.5,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: lineColor,
+                        pointBorderColor: isDark ? '#18181b' : '#ffffff',
+                        pointBorderWidth: 1.5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 8,
+                            right: 8,
+                            bottom: 0,
+                            left: 0,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? '#18181b' : '#ffffff',
+                            titleColor: isDark ? '#f4f4f5' : '#18181b',
+                            bodyColor: isDark ? '#d4d4d8' : '#3f3f46',
+                            borderColor: isDark ? '#27272a' : '#e4e4e7',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 4,
+                            usePointStyle: true,
+                            titleFont: { weight: 'bold', size: 12, family: 'Lexend, sans-serif' },
+                            bodyFont: { size: 11, family: 'Lexend, sans-serif' },
+                            callbacks: {
+                                label: (tooltipCtx) => {
+                                    const val = Number(tooltipCtx.raw || 0);
+                                    if (isDaily) {
+                                        return ` Submissions: ${val.toLocaleString()} forms`;
+                                    }
+                                    const totalExp = this.totalExpected;
+                                    const pct = totalExp > 0 ? ((val / totalExp) * 100).toFixed(1) : null;
+                                    const pctStr = pct !== null ? ` (${pct}% of expected)` : '';
+                                    return ` Total to Date: ${val.toLocaleString()} forms${pctStr}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: { weight: '600', size: 10.5, family: 'Lexend, sans-serif' },
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 8,
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: gridColor,
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: { weight: '600', size: 10.5, family: 'Lexend, sans-serif' },
+                                maxTicksLimit: 5,
+                                callback: (v) => {
+                                    if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+                                    return v;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    };
+};
+

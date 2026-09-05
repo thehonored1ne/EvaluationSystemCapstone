@@ -18,8 +18,169 @@ use Spatie\Activitylog\Models\Activity;
 new #[Layout('components.layouts.app')] class extends Component
 {
     public bool $showReminderModal = false;
+    public bool $showScheduleModal = false;
+    public bool $showScheduleRemoveModal = false;
+    public bool $showScheduleOverwriteModal = false;
+    public string $startsAt = '';
+    public string $endsAt = '';
 
     protected ?array $cachedData = null;
+
+    public function openScheduleModal(): void
+    {
+        $activeSem = Semester::getActive();
+        if ($activeSem) {
+            $this->startsAt = $activeSem->evaluation_starts_at ? $activeSem->evaluation_starts_at->format('Y-m-d\TH:i') : '';
+            $this->endsAt = $activeSem->evaluation_ends_at ? $activeSem->evaluation_ends_at->format('Y-m-d\TH:i') : '';
+        } else {
+            $this->startsAt = '';
+            $this->endsAt = '';
+        }
+
+        $this->showScheduleModal = true;
+    }
+
+    public function saveSchedule(): void
+    {
+        $this->validate([
+            'startsAt' => 'nullable|date',
+            'endsAt' => 'nullable|date|after_or_equal:startsAt',
+        ]);
+
+        $activeSem = Semester::getActive();
+        if (! $activeSem) {
+            Flux::toast(heading: 'No Active Semester', text: 'Please set an active semester first.', variant: 'danger');
+            return;
+        }
+
+        if ($activeSem->evaluation_starts_at || $activeSem->evaluation_ends_at) {
+            $this->showScheduleOverwriteModal = true;
+            return;
+        }
+
+        $this->commitScheduleUpdate($activeSem);
+    }
+
+    public function confirmSaveSchedule(): void
+    {
+        $this->showScheduleOverwriteModal = false;
+
+        $this->validate([
+            'startsAt' => 'nullable|date',
+            'endsAt' => 'nullable|date|after_or_equal:startsAt',
+        ]);
+
+        $activeSem = Semester::getActive();
+        if (! $activeSem) {
+            Flux::toast(heading: 'No Active Semester', text: 'Please set an active semester first.', variant: 'danger');
+            return;
+        }
+
+        $this->commitScheduleUpdate($activeSem);
+    }
+
+    protected function commitScheduleUpdate(Semester $activeSem): void
+    {
+        $activeSem->update([
+            'evaluation_starts_at' => $this->startsAt ? Carbon::parse($this->startsAt) : null,
+            'evaluation_ends_at' => $this->endsAt ? Carbon::parse($this->endsAt) : null,
+        ]);
+
+        $this->cachedData = null;
+        \Illuminate\Support\Facades\Cache::forget('admin_dashboard_metrics_'.$activeSem->id);
+
+        $this->showScheduleModal = false;
+
+        Flux::toast(
+            heading: 'Schedule Updated',
+            text: 'Evaluation schedule dates updated successfully.',
+            variant: 'success'
+        );
+    }
+
+    public function confirmRemoveSchedule(): void
+    {
+        $activeSem = Semester::getActive();
+        if ($activeSem && $activeSem->is_evaluation_open) {
+            Flux::toast(
+                heading: 'Action Restricted',
+                text: 'Cannot remove schedule: Please close the evaluation first.',
+                variant: 'warning'
+            );
+            return;
+        }
+
+        $this->showScheduleRemoveModal = true;
+    }
+
+    public function clearSchedule(): void
+    {
+        $this->showScheduleRemoveModal = false;
+
+        $activeSem = Semester::getActive();
+        if (! $activeSem) {
+            return;
+        }
+
+        if ($activeSem->is_evaluation_open) {
+            Flux::toast(
+                heading: 'Action Restricted',
+                text: 'Cannot remove schedule: Please close the evaluation first.',
+                variant: 'warning'
+            );
+            return;
+        }
+
+        $activeSem->update([
+            'evaluation_starts_at' => null,
+            'evaluation_ends_at' => null,
+        ]);
+
+        $this->startsAt = '';
+        $this->endsAt = '';
+
+        $this->cachedData = null;
+        \Illuminate\Support\Facades\Cache::forget('admin_dashboard_metrics_'.$activeSem->id);
+
+        Flux::toast(
+            heading: 'Schedule Cleared',
+            text: 'Evaluation schedule has been cleared.',
+            variant: 'success'
+        );
+    }
+
+    public function toggleEvaluation(): void
+    {
+        $activeSem = Semester::getActive();
+        if (! $activeSem) {
+            Flux::toast(heading: 'No Active Semester', text: 'No active semester configured.', variant: 'danger');
+            return;
+        }
+
+        if (! $activeSem->is_evaluation_open) {
+            if (! $activeSem->evaluation_starts_at || ! $activeSem->evaluation_ends_at) {
+                Flux::toast(
+                    heading: 'Cannot Open Evaluations',
+                    text: 'Please configure and save the evaluation window schedule dates first.',
+                    variant: 'warning'
+                );
+                return;
+            }
+        }
+
+        $activeSem->is_evaluation_open = ! $activeSem->is_evaluation_open;
+        $activeSem->save();
+
+        $this->cachedData = null;
+        \Illuminate\Support\Facades\Cache::forget('admin_dashboard_metrics_'.$activeSem->id);
+
+        $status = $activeSem->is_evaluation_open ? 'opened' : 'closed';
+        Flux::toast(
+            heading: 'Evaluation System '.ucfirst($status),
+            text: "Evaluations have been successfully {$status}.",
+            variant: $activeSem->is_evaluation_open ? 'success' : 'neutral'
+        );
+    }
 
     public function placeholder()
     {
@@ -657,6 +818,70 @@ new #[Layout('components.layouts.app')] class extends Component
 
             $thematicDrivers = \App\Services\ThematicAnalysisService::getThematicDrivers($activeSemId, 5);
 
+            // Submission Velocity / Turnout Trend
+            $velocityRaw = [];
+            if ($activeSemId) {
+                $velocityRaw = DB::table('evaluations')
+                    ->where('semester_id', $activeSemId)
+                    ->selectRaw('DATE(created_at) as sub_date, count(*) as count')
+                    ->groupBy('sub_date')
+                    ->orderBy('sub_date')
+                    ->pluck('count', 'sub_date')
+                    ->toArray();
+            }
+
+            $todayStr = Carbon::now('Asia/Manila')->format('Y-m-d');
+            $firstDate = !empty($velocityRaw) ? array_key_first($velocityRaw) : $todayStr;
+            $startDate = Carbon::parse($firstDate);
+            $endDate = Carbon::now('Asia/Manila');
+
+            if ($startDate->diffInDays($endDate) > 30) {
+                $startDate = $endDate->copy()->subDays(29);
+            }
+
+            $period = \Carbon\CarbonPeriod::create($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
+            $velocityLabels = [];
+            $velocityDaily = [];
+            $velocityCumulative = [];
+            $runningTotal = 0;
+
+            if (!empty($velocityRaw)) {
+                foreach ($velocityRaw as $d => $c) {
+                    if ($d < $startDate->format('Y-m-d')) {
+                        $runningTotal += (int) $c;
+                    }
+                }
+            }
+
+            foreach ($period as $dt) {
+                $dateKey = $dt->format('Y-m-d');
+                $velocityLabels[] = $dt->format('M d');
+                $c = (int) ($velocityRaw[$dateKey] ?? 0);
+                $velocityDaily[] = $c;
+                $runningTotal += $c;
+                $velocityCumulative[] = $runningTotal;
+            }
+
+            $todayCount = (int) ($velocityRaw[$todayStr] ?? 0);
+            $peakCount = !empty($velocityRaw) ? (int) max($velocityRaw) : 0;
+            $peakDayKey = !empty($velocityRaw) ? array_search($peakCount, $velocityRaw) : null;
+            $peakDateFormatted = $peakDayKey ? Carbon::parse($peakDayKey)->format('M d, Y') : 'N/A';
+            $daysActive = max(1, count($period));
+            $avgDailyVelocity = round($runningTotal / $daysActive, 1);
+
+            $submissionVelocityData = [
+                'labels' => $velocityLabels,
+                'daily' => $velocityDaily,
+                'cumulative' => $velocityCumulative,
+                'todayCount' => $todayCount,
+                'peakCount' => $peakCount,
+                'peakDate' => $peakDateFormatted,
+                'avgDaily' => $avgDailyVelocity,
+                'total' => $runningTotal,
+                'expected' => $expectedCount,
+                'daysActive' => $daysActive,
+            ];
+
             return [
                 'employeeCount' => $employeeCount,
                 'studentCount' => $studentCount,
@@ -693,6 +918,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 'prevRoleRates' => $prevRoleRates,
                 'prevAcademicDeptRates' => $prevAcademicDeptRates,
                 'prevAdminDeptRates' => $prevAdminDeptRates,
+                'submissionVelocityData' => $submissionVelocityData,
             ];
         });
 
@@ -731,6 +957,18 @@ new #[Layout('components.layouts.app')] class extends Component
         $prevRoleRates = $metrics['prevRoleRates'] ?? [];
         $prevAcademicDeptRates = $metrics['prevAcademicDeptRates'] ?? [];
         $prevAdminDeptRates = $metrics['prevAdminDeptRates'] ?? [];
+        $submissionVelocityData = $metrics['submissionVelocityData'] ?? [
+            'labels' => [],
+            'daily' => [],
+            'cumulative' => [],
+            'todayCount' => 0,
+            'peakCount' => 0,
+            'peakDate' => 'N/A',
+            'avgDaily' => 0,
+            'total' => 0,
+            'expected' => 0,
+            'daysActive' => 1,
+        ];
 
         // 7. Recent Submissions Anonymized Log
         $recentSubmissions = [];
@@ -1123,14 +1361,16 @@ new #[Layout('components.layouts.app')] class extends Component
             'prevRoleRates' => $prevRoleRates,
             'prevAcademicDeptRates' => $prevAcademicDeptRates,
             'prevAdminDeptRates' => $prevAdminDeptRates,
+            'submissionVelocityData' => $submissionVelocityData,
         ];
 
         return $this->cachedData;
     }
 }; ?>
 
-<div class="w-full flex flex-col gap-8">
-    <!-- Header Section with Academic Term & Live Status Context -->
+<div class="w-full">
+    <div class="w-full flex flex-col gap-8">
+        <!-- Header Section with Academic Term & Live Status Context -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
         <div class="flex flex-col items-start text-left">
             <div class="flex items-center gap-3 flex-wrap">
@@ -1154,10 +1394,41 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
         </div>
-        <div class="flex items-center gap-2">
-            <flux:button href="/admin/evaluation-settings" variant="subtle" size="sm" icon="cog-6-tooth">
-                Settings
-            </flux:button>
+        <div class="flex items-center gap-2.5 flex-wrap">
+            @php
+                $topStarts = $activeSemester?->evaluation_starts_at;
+                $topEnds = $activeSemester?->evaluation_ends_at;
+                $topNow = \Illuminate\Support\Carbon::now('Asia/Manila');
+                $topRemainingDays = ($topEnds && $topEnds->greaterThan($topNow)) ? max(0, (int) round($topNow->diffInDays($topEnds))) : 0;
+                $topOpensDays = ($topStarts && $topStarts->greaterThan($topNow)) ? max(0, (int) round($topNow->diffInDays($topStarts))) : 0;
+            @endphp
+            
+            <!-- Unified Evaluation Schedule Card Container -->
+            <div class="inline-flex items-center gap-2 p-1 pl-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
+                @if($scheduleStatus === 'active' && $topEnds)
+                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                        <flux:icon icon="clock" class="size-3.5 text-zinc-500 shrink-0" />
+                        <span class="hidden sm:inline">Ends in {{ $topRemainingDays }} {{ \Illuminate\Support\Str::plural('day', $topRemainingDays) }}</span>
+                        <span class="sm:hidden">{{ $topRemainingDays }}d left</span>
+                    </span>
+                @elseif($scheduleStatus === 'scheduled' && $topStarts)
+                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                        <flux:icon icon="clock" class="size-3.5 text-zinc-500 shrink-0" />
+                        <span class="hidden sm:inline">Opens in {{ $topOpensDays }} {{ \Illuminate\Support\Str::plural('day', $topOpensDays) }}</span>
+                        <span class="sm:hidden">{{ $topOpensDays }}d to open</span>
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                        <flux:icon icon="calendar" class="size-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                        <span>No schedule set</span>
+                    </span>
+                @endif
+
+                <flux:button wire:click="openScheduleModal" variant="primary" size="sm" icon="calendar" class="cursor-pointer font-bold bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
+                    Edit Schedule
+                </flux:button>
+            </div>
+
             <flux:button href="/reports" variant="primary" size="sm" icon="printer" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
                 Reports
             </flux:button>
@@ -1168,7 +1439,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Top Row: 4 Executive KPI Cards (Consistent Height, Spacing & Aligned Baselines) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <!-- Card 1: Overall Institutional Rating -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5.5 flex flex-col justify-between">
             <div>
                 <div class="h-6 flex items-center justify-between">
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Overall Institutional Rating</span>
@@ -1194,13 +1465,13 @@ new #[Layout('components.layouts.app')] class extends Component
                     <span class="text-zinc-500 dark:text-zinc-400 font-medium">Target: 3.50+</span>
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed min-h-[36px]">
                 Institutional rating mean across all 360° evaluation roles
             </span>
         </div>
 
         <!-- Card 2: Positive Feedback Rate -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5.5 flex flex-col justify-between">
             <div>
                 <div class="h-6 flex items-center justify-between">
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Positive Feedback Rate</span>
@@ -1230,7 +1501,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     @endif
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed min-h-[36px]">
                 Based on {{ number_format($totalComments) }} evaluator comments analyzed
             </span>
         </div>
@@ -1243,7 +1514,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 default => 'bg-rose-600 dark:bg-rose-500',
             };
         @endphp
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5.5 flex flex-col justify-between">
             <div>
                 <div class="h-6 flex items-center justify-between">
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Overall Completion Rate</span>
@@ -1272,13 +1543,13 @@ new #[Layout('components.layouts.app')] class extends Component
                     </div>
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums">
-                {{ number_format($completedEvaluatorsCount) }} / {{ number_format($totalEvaluatorsCount) }} evaluators completed all assigned evaluations
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums min-h-[36px]">
+                {{ number_format($completedEvaluatorsCount) }} / {{ number_format($totalEvaluatorsCount) }} evaluators completed all evaluations
             </span>
         </div>
 
         <!-- Card 4: Pending Evaluators -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] p-5.5 flex flex-col justify-between min-h-[196px]">
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5.5 flex flex-col justify-between">
             <div>
                 <div class="h-6 flex items-center justify-between gap-2">
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Pending Evaluators</span>
@@ -1306,14 +1577,14 @@ new #[Layout('components.layouts.app')] class extends Component
                     @endif
                 </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums min-h-[36px]">
                 {{ number_format($pendingStudentsCount) }} students &bull; {{ number_format($pendingEmployeesCount) }} employees pending
             </span>
         </div>
     </div>
 
     <!-- Analytics Charts Row: Evaluator Role Turnout & Department Performance Benchmark -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" x-data="dashboardAnalyticsCharts({
+    <div wire:ignore class="grid grid-cols-1 lg:grid-cols-2 gap-8" x-data="dashboardAnalyticsCharts({
         currentSemName: {{ json_encode($currentSemName) }},
         prevSemName: {{ json_encode($prevSemName) }},
         hasPrevComparison: {{ json_encode($hasPrevComparison) }},
@@ -1335,7 +1606,7 @@ new #[Layout('components.layouts.app')] class extends Component
         adminDeptExpected: {{ json_encode(array_values(array_column($adminDeptScores, 'expected'))) }}
     })">
         <!-- Chart 1: Evaluation Turnout by Evaluator Role -->
-        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[400px]">
+        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 min-h-[508px]">
             <div class="flex items-center justify-between gap-2 sm:gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
                     Completion Rate by Role
@@ -1392,7 +1663,7 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Chart 2: Completion Rate by Department -->
-        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] min-h-[400px]">
+        <div class="p-4 sm:p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 min-h-[508px]">
             <div class="flex items-center justify-between gap-2.5 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
                     Completion Rate by Department
@@ -1400,10 +1671,10 @@ new #[Layout('components.layouts.app')] class extends Component
 
                 <!-- Academic vs Administrative Toggle (Anchored on the right, no layout shift) -->
                 <div class="flex items-center gap-0.5 sm:gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
-                    <button type="button" @click="switchDeptType('academic')" :class="activeDeptType === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
+                    <button type="button" @click="switchDeptType('academic')" :class="activeDeptType === 'academic' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
                         Academic
                     </button>
-                    <button type="button" @click="switchDeptType('administrative')" :class="activeDeptType === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
+                    <button type="button" @click="switchDeptType('administrative')" :class="activeDeptType === 'administrative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs">
                         Admin
                     </button>
                 </div>
@@ -1424,8 +1695,10 @@ new #[Layout('components.layouts.app')] class extends Component
                 </div>
             </div>
 
-            <div class="h-72 w-full pt-1.5">
-                <canvas x-ref="deptChart" class="w-full h-full"></canvas>
+            <div class="h-72 w-full pt-1.5 overflow-y-auto overflow-x-hidden pr-1.5">
+                <div :style="'height: ' + deptChartHeight + 'px;'" class="w-full relative">
+                    <canvas x-ref="deptChart" class="w-full h-full"></canvas>
+                </div>
             </div>
 
             <!-- Footer Action Toolbar -->
@@ -1454,129 +1727,75 @@ new #[Layout('components.layouts.app')] class extends Component
 
     <!-- Middle Row: Evaluation Window Status & Overall Feedback Insights -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Panel 1: Evaluation Period Status -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
-            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
-                <div>
-                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Evaluation Period Status
-                    </h2>
+        <!-- Panel 1: Submission Velocity & Turnout Trend -->
+        <div wire:ignore class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-5 min-h-[477px]"
+             x-data="submissionVelocityChart({
+                 labels: {{ json_encode($submissionVelocityData['labels']) }},
+                 daily: {{ json_encode($submissionVelocityData['daily']) }},
+                 cumulative: {{ json_encode($submissionVelocityData['cumulative']) }},
+                 todayCount: {{ (int) $submissionVelocityData['todayCount'] }},
+                 peakCount: {{ (int) $submissionVelocityData['peakCount'] }},
+                 peakDate: {{ json_encode($submissionVelocityData['peakDate']) }},
+                 avgDaily: {{ (float) $submissionVelocityData['avgDaily'] }},
+                 totalExpected: {{ (int) $submissionVelocityData['expected'] }}
+             })">
+            <!-- Header Section with Title and Mode Switcher -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div>
+                        <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                            Submission Trend
+                        </h2>
+
+                    </div>
                 </div>
-                @if($activeSemester)
-                    <flux:badge variant="neutral" size="sm" class="font-bold shrink-0">
-                        {{ $activeSemester->academicYear?->name }} • {{ $activeSemester->name }}
-                    </flux:badge>
-                @endif
+
+                <!-- Daily vs Cumulative Segmented Pill Switcher -->
+                <div class="inline-flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start sm:self-auto">
+                    <button type="button"
+                            @click="setMode('daily')"
+                            :class="mode === 'daily' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold' : 'text-zinc-600 dark:text-zinc-300 font-medium hover:text-zinc-900 dark:hover:text-zinc-100'"
+                            class="px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer">
+                        Daily
+                    </button>
+                    <button type="button"
+                            @click="setMode('cumulative')"
+                            :class="mode === 'cumulative' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold' : 'text-zinc-600 dark:text-zinc-300 font-medium hover:text-zinc-900 dark:hover:text-zinc-100'"
+                            class="px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer">
+                        Cumulative
+                    </button>
+                </div>
             </div>
 
-            @if($activeSemester)
-                @php
-                    $startAt = $activeSemester->evaluation_starts_at;
-                    $endAt = $activeSemester->evaluation_ends_at;
-                    $now = \Illuminate\Support\Carbon::now('Asia/Manila');
-
-                    $totalDays = ($startAt && $endAt) ? max(1, (int) round($startAt->diffInDays($endAt))) : null;
-                    $elapsedDays = ($startAt && $now->greaterThan($startAt)) ? min($totalDays ?? 1, (int) round($startAt->diffInDays($now))) : 0;
-                    $remainingDays = ($endAt && $endAt->greaterThan($now)) ? max(0, (int) round($now->diffInDays($endAt))) : 0;
-
-                    $windowProgressPct = ($startAt && $endAt && $endAt->greaterThan($startAt))
-                        ? min(100, max(0, round(($startAt->diffInSeconds($now) / max(1, $startAt->diffInSeconds($endAt))) * 100)))
-                        : 0;
-                @endphp
-
-                <div class="space-y-3.5 flex-1 flex flex-col justify-between">
-                    <!-- Status Banner -->
-                    @if($scheduleStatus === 'active')
-                        <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 p-3.5 rounded-xl flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <span class="size-3.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
-                                <div>
-                                    <p class="text-sm font-bold text-emerald-900 dark:text-emerald-300">EVALUATION IS OPEN</p>
-                                    <p class="text-xs text-emerald-700 dark:text-emerald-400">Evaluators can submit evaluation forms right now.</p>
-                                </div>
-                            </div>
-                        </div>
-                    @else
-                        <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 p-3.5 rounded-xl flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <span class="size-3.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                                <div>
-                                    <p class="text-sm font-bold text-amber-900 dark:text-amber-300">EVALUATION IS CLOSED</p>
-                                    <p class="text-xs text-amber-700 dark:text-amber-400">No evaluation forms can be submitted right now.</p>
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- Scheduled Window & Timeline Progress Box -->
-                    <div class="bg-zinc-50 dark:bg-zinc-800/40 p-5 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex-1 flex flex-col justify-between gap-4">
-                        <div class="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-700/50 pb-2.5">
-                            <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
-                                Scheduled Window
-                            </span>
-                            <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                                {{ $scheduleMessage }}
-                            </span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 py-1">
-                            <div>
-                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Opens</span>
-                                <span class="text-base font-extrabold text-zinc-900 dark:text-zinc-100 block mt-1">
-                                    {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
-                                </span>
-                            </div>
-                            <div>
-                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Closes</span>
-                                <span class="text-base font-extrabold text-zinc-900 dark:text-zinc-100 block mt-1">
-                                    {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : 'Not Set' }}
-                                </span>
-                            </div>
-                        </div>
-
-                        @if($startAt && $endAt)
-                            <div class="pt-3 border-t border-zinc-200/60 dark:border-zinc-700/40 space-y-2">
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="font-medium text-zinc-600 dark:text-zinc-400">
-                                        @if($scheduleStatus === 'active')
-                                            Timeline: Day {{ max(1, $elapsedDays) }} of {{ $totalDays }} ({{ $windowProgressPct }}% elapsed)
-                                        @elseif($now->lt($startAt))
-                                            Opens in {{ $now->diffForHumans($startAt, ['parts' => 2, 'syntax' => \Carbon\CarbonInterface::DIFF_RELATIVE_TO_NOW]) }}
-                                        @else
-                                            Window ended {{ $endAt->diffForHumans() }}
-                                        @endif
-                                    </span>
-                                    <span class="font-bold text-zinc-900 dark:text-zinc-100">
-                                        @if($scheduleStatus === 'active')
-                                            {{ $remainingDays }} {{ \Illuminate\Support\Str::plural('day', $remainingDays) }} left
-                                        @endif
-                                    </span>
-                                </div>
-                                <div class="w-full bg-zinc-200 dark:bg-zinc-700/80 h-2.5 rounded-full overflow-hidden">
-                                    <div class="bg-emerald-500 dark:bg-emerald-400 h-2.5 rounded-full transition-all duration-500" style="width: {{ $windowProgressPct }}%"></div>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-auto">
-                        <flux:button href="/admin/evaluation-settings" variant="primary" size="sm" icon="cog">
-                            Edit Schedule
-                        </flux:button>
-                    </div>
+            <!-- 3 Stat Blocks (mirroring Panel 2's structure & visual balance) -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/50 p-2.5 sm:p-3 rounded-xl text-center">
+                    <span class="text-[10px] sm:text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider block">Today</span>
+                    <span class="text-lg sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['todayCount']) }}</span>
+                    <span class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-semibold tabular-nums">Submissions</span>
                 </div>
-            @else
-                <div class="flex flex-col items-center justify-center text-center p-6 flex-1 gap-2">
-                    <flux:icon name="exclamation-circle" class="size-10 text-zinc-300 dark:text-zinc-600" />
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">No active academic period configured.</p>
-                    <flux:button href="/admin/evaluation-settings" variant="primary" size="sm" class="mt-2">
-                        Configure Period
-                    </flux:button>
+                <div class="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 p-2.5 sm:p-3 rounded-xl text-center">
+                    <span class="text-[10px] sm:text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider block">Peak Day</span>
+                    <span class="text-lg sm:text-2xl font-black text-amber-900 dark:text-amber-300 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['peakCount']) }}</span>
+                    <span class="text-[11px] sm:text-xs text-amber-700 dark:text-amber-400 font-semibold tabular-nums truncate block" title="{{ $submissionVelocityData['peakDate'] }}">{{ $submissionVelocityData['peakDate'] }}</span>
                 </div>
-            @endif
+                <div class="bg-red-50/50 dark:bg-red-950/20 border border-red-200/70 dark:border-red-800/40 p-2.5 sm:p-3 rounded-xl text-center">
+                    <span class="text-[10px] sm:text-xs font-bold text-[#9b0000] dark:text-[#f87171] uppercase tracking-wider block">Daily Average</span>
+                    <span class="text-lg sm:text-2xl font-black text-[#9b0000] dark:text-[#f87171] block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['avgDaily']) }}</span>
+                    <span class="text-[11px] sm:text-xs text-red-700 dark:text-red-400 font-semibold tabular-nums">Forms / Day</span>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="h-56 sm:h-60 w-full pt-1">
+                <canvas x-ref="velocityCanvas" class="w-full h-full"></canvas>
+            </div>
+
+
         </div>
 
         <!-- Panel 2: Overall Evaluation Feedback Overview -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 min-h-[477px]">
             @php
                 $posCount = $sentimentStats['positive'];
                 $neuCount = $sentimentStats['neutral'];
@@ -1590,7 +1809,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
                     <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                        Overall Evaluation Feedback
+                        AI Feedback Analysis
                     </h2>
 
                 </div>
@@ -1684,7 +1903,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Unified High-Density Activity & Completion Table (Tables Over Cards) -->
-    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex flex-col overflow-hidden" x-data="{ activeTab: 'audit' }">
+    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col overflow-hidden" x-data="{ activeTab: 'audit' }">
         <!-- Tab Header Bar -->
         <div class="px-6 pt-5 pb-3 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -1764,7 +1983,8 @@ new #[Layout('components.layouts.app')] class extends Component
                             <th class="py-3.5 px-5 w-40 lg:w-[18%]">Evaluation Type</th>
                             <th class="py-3.5 px-5 w-44 lg:w-[22%]">Subject / Scope</th>
                             <th class="py-3.5 px-5 w-44 lg:w-[18%]">Target Faculty</th>
-                            <th class="py-3.5 px-5 min-w-[200px] lg:w-[24%]">Evaluation Flow</th>
+                            <th class="py-3.5 px-5 min-w-[160px] lg:w-[16%]">Evaluation Flow</th>
+                            <th class="py-3.5 px-5 w-28 text-right lg:w-[8%]">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 bg-white dark:bg-zinc-900">
@@ -1791,12 +2011,12 @@ new #[Layout('components.layouts.app')] class extends Component
                                     @endif
                                 </td>
                                 <td class="py-3.5 px-5 text-zinc-700 dark:text-zinc-300">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="truncate" title="{{ $sub['description'] }}">{{ $sub['description'] }}</span>
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
-                                            <flux:icon name="check" class="size-3" /> Submitted
-                                        </span>
-                                    </div>
+                                    <span class="truncate block" title="{{ $sub['description'] }}">{{ $sub['description'] }}</span>
+                                </td>
+                                <td class="py-3.5 px-5 text-right whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                        <flux:icon name="check" class="size-3" /> Submitted
+                                    </span>
                                 </td>
                             </tr>
                         @endforeach
@@ -1814,20 +2034,19 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Quick System Actions (Structured into 3 Functional Groups) -->
     <div class="flex flex-col gap-8 mt-2">
         <div>
-            <flux:heading size="lg">Quick System Actions</flux:heading>
-            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">Direct shortcuts to evaluation monitoring, questionnaire configuration, and master user records.</p>
+            <flux:heading size="lg" class="font-extrabold tracking-tight">Quick System Actions</flux:heading>
         </div>
 
         <!-- 1. Evaluation Monitoring & Reports -->
         <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+            <div class="flex items-center justify-between">
                 <span class="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Evaluation Monitoring & Reports</span>
                 <flux:badge variant="neutral" size="sm">4 shortcuts</flux:badge>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 1. Track Submissions -->
-                <a href="/manage-evaluations" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/manage-evaluations" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="chart-pie" class="size-5" />
                     </div>
@@ -1838,7 +2057,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 2. View Results -->
-                <a href="/evaluation-results" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/evaluation-results" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="clipboard-document-list" class="size-5" />
                     </div>
@@ -1849,7 +2068,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 3. Generate Reports -->
-                <a href="/reports" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/reports" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="printer" class="size-5" />
                     </div>
@@ -1860,7 +2079,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 4. Compare Rankings -->
-                <a href="/rankings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/rankings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="trophy" class="size-5" />
                     </div>
@@ -1874,14 +2093,14 @@ new #[Layout('components.layouts.app')] class extends Component
 
         <!-- 2. Schedules & Questionnaires -->
         <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+            <div class="flex items-center justify-between">
                 <span class="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Schedules & Questionnaires</span>
                 <flux:badge variant="neutral" size="sm">4 shortcuts</flux:badge>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 5. Configure Settings -->
-                <a href="/admin/evaluation-settings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/evaluation-settings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="cog-6-tooth" class="size-5" />
                     </div>
@@ -1892,7 +2111,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 6. Manage Questions -->
-                <a href="/admin/questions" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/questions" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="document-text" class="size-5" />
                     </div>
@@ -1903,7 +2122,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 7. Assign Classes -->
-                <a href="/admin/classes" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/classes" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="queue-list" class="size-5" />
                     </div>
@@ -1914,7 +2133,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 8. Manage Subjects -->
-                <a href="/admin/subjects" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/subjects" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="book-open" class="size-5" />
                     </div>
@@ -1928,14 +2147,14 @@ new #[Layout('components.layouts.app')] class extends Component
 
         <!-- 3. User Accounts & Organization -->
         <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+            <div class="flex items-center justify-between">
                 <span class="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">User Accounts & Organization</span>
                 <flux:badge variant="neutral" size="sm">4 shortcuts</flux:badge>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 9. Manage Students -->
-                <a href="/admin/students" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/students" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="academic-cap" class="size-5" />
                     </div>
@@ -1946,7 +2165,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 10. Manage Employees -->
-                <a href="/admin/employees" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/employees" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="users" class="size-5" />
                     </div>
@@ -1957,7 +2176,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 11. Manage Departments -->
-                <a href="/admin/departments" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/departments" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="building-office-2" class="size-5" />
                     </div>
@@ -1968,7 +2187,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </a>
 
                 <!-- 12. Manage Programs -->
-                <a href="/admin/programs" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex items-start gap-3.5 group cursor-pointer text-left">
+                <a href="/admin/programs" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
                     <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="academic-cap" class="size-5" />
                     </div>
@@ -1980,7 +2199,10 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </div>
     </div>
+</div>
 
+<!-- Modals & Dialogs Container (outside flex-col gap-8 to prevent phantom layout gaps) -->
+<div>
     <!-- Broadcast Reminders Confirmation Modal -->
     <flux:modal wire:model="showReminderModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-6">
@@ -2025,7 +2247,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </flux:modal>
 
     <!-- Evaluator Turnout by Role Detailed Breakdown Modal -->
-    <flux:modal name="role-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full max-w-2xl !p-4 sm:!p-6 overflow-hidden">
+    <flux:modal name="role-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full sm:max-w-3xl lg:max-w-4xl !p-4 sm:!p-6 overflow-hidden">
         <div class="space-y-4 w-full min-w-0 max-w-full">
             <!-- Header (Exact Match with Chart Title, No Subheader) -->
             <div class="pb-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -2041,7 +2263,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <!-- Role Breakdown Table -->
-            <div class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+            <div class="w-full min-w-0 max-w-full max-h-[70vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
                 <table class="w-full text-left text-xs border-collapse min-w-[500px]">
                     <thead>
                         <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
@@ -2051,7 +2273,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
                             @if($hasPrevComparison)
                                 <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
-                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Change</th>
                             @endif
                         </tr>
                     </thead>
@@ -2102,7 +2324,7 @@ new #[Layout('components.layouts.app')] class extends Component
     </flux:modal>
 
     <!-- Department Completion Rate Detailed Breakdown Modal -->
-    <flux:modal name="dept-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full max-w-2xl !p-4 sm:!p-6 overflow-hidden">
+    <flux:modal name="dept-breakdown-modal" class="w-[calc(100vw-2rem)] sm:w-full sm:max-w-3xl lg:max-w-4xl !p-4 sm:!p-6 overflow-hidden">
         <div class="space-y-4 w-full min-w-0 max-w-full" x-data="{ modalDeptTab: 'academic' }">
             <!-- Header (Exact Match with Chart Title, No Subheader) -->
             <div class="pb-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -2128,17 +2350,17 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <!-- Academic Departments Table -->
-            <div x-show="modalDeptTab === 'academic'" class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+            <div x-show="modalDeptTab === 'academic'" class="w-full min-w-0 max-w-full max-h-[70vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
                 <table class="w-full text-left text-xs border-collapse min-w-[520px]">
                     <thead>
                         <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
-                            <th class="py-2.5 px-3 whitespace-nowrap">College</th>
+                            <th class="py-2.5 px-3 whitespace-nowrap">Department</th>
                             <th class="py-2.5 px-3 text-center whitespace-nowrap">Submitted / Target</th>
                             <th class="py-2.5 px-3 text-center whitespace-nowrap">Pending</th>
                             <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
                             @if($hasPrevComparison)
                                 <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
-                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Change</th>
                             @endif
                         </tr>
                     </thead>
@@ -2150,9 +2372,8 @@ new #[Layout('components.layouts.app')] class extends Component
                                 $delta = $hasPrev ? round($deptItem['rate'] - $deptItem['prev_rate'], 1) : null;
                             @endphp
                             <tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                                <td class="py-3 px-3">
-                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">{{ $deptItem['code'] }}</span>
-                                    <span class="text-zinc-500 dark:text-zinc-400 text-xs ml-1.5 whitespace-nowrap">&mdash; {{ $deptItem['name'] }}</span>
+                                <td class="py-3 px-3 font-semibold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">
+                                    {{ $deptItem['name'] }}
                                 </td>
                                 <td class="py-3 px-3 text-center tabular-nums text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
                                     <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($deptItem['submitted']) }}</span> / {{ number_format($deptItem['expected']) }}
@@ -2178,17 +2399,17 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <!-- Administrative Offices Table -->
-            <div x-cloak x-show="modalDeptTab === 'administrative'" class="w-full min-w-0 max-w-full max-h-[60vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
+            <div x-cloak x-show="modalDeptTab === 'administrative'" class="w-full min-w-0 max-w-full max-h-[70vh] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200/80 dark:border-zinc-800">
                 <table class="w-full text-left text-xs border-collapse min-w-[520px]">
                     <thead>
                         <tr class="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[11px] sticky top-0 bg-white dark:bg-zinc-900 z-10">
-                            <th class="py-2.5 px-3 whitespace-nowrap">Office</th>
+                            <th class="py-2.5 px-3 whitespace-nowrap">Department</th>
                             <th class="py-2.5 px-3 text-center whitespace-nowrap">Submitted / Target</th>
                             <th class="py-2.5 px-3 text-center whitespace-nowrap">Pending</th>
                             <th class="py-2.5 px-3 text-right whitespace-nowrap">Rate</th>
                             @if($hasPrevComparison)
                                 <th class="py-2.5 px-3 text-right whitespace-nowrap">Prior Sem</th>
-                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Delta</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap">Change</th>
                             @endif
                         </tr>
                     </thead>
@@ -2200,9 +2421,8 @@ new #[Layout('components.layouts.app')] class extends Component
                                 $delta = $hasPrev ? round($deptItem['rate'] - $deptItem['prev_rate'], 1) : null;
                             @endphp
                             <tr class="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                                <td class="py-3 px-3">
-                                    <span class="font-bold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">{{ $deptItem['code'] }}</span>
-                                    <span class="text-zinc-500 dark:text-zinc-400 text-xs ml-1.5 whitespace-nowrap">&mdash; {{ $deptItem['name'] }}</span>
+                                <td class="py-3 px-3 font-semibold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">
+                                    {{ $deptItem['name'] }}
                                 </td>
                                 <td class="py-3 px-3 text-center tabular-nums text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
                                     <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($deptItem['submitted']) }}</span> / {{ number_format($deptItem['expected']) }}
@@ -2230,8 +2450,8 @@ new #[Layout('components.layouts.app')] class extends Component
             <!-- Footer -->
             <div class="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800">
                 <span class="text-xs text-zinc-500 dark:text-zinc-400">
-                    <span x-show="modalDeptTab === 'academic'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($academicDeptScores) }} academic colleges</strong></span>
-                    <span x-cloak x-show="modalDeptTab === 'administrative'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($adminDeptScores) }} administrative offices</strong></span>
+                    <span x-show="modalDeptTab === 'academic'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($academicDeptScores) }} academic departments</strong></span>
+                    <span x-cloak x-show="modalDeptTab === 'administrative'">Total: <strong class="text-zinc-700 dark:text-zinc-300">{{ count($adminDeptScores) }} administrative departments</strong></span>
                 </span>
                 <flux:modal.close>
                     <flux:button variant="subtle" size="sm">Close</flux:button>
@@ -2239,6 +2459,181 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </div>
     </flux:modal>
+
+    <!-- Edit Evaluation Schedule Modal -->
+    <flux:modal wire:model.self="showScheduleModal" class="w-full max-w-lg">
+        <div class="space-y-6">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+                        <flux:icon icon="calendar-days" class="size-5" />
+                    </div>
+                    <flux:heading size="lg" level="2" class="font-bold text-zinc-900 dark:text-zinc-100">Edit Evaluation Schedule</flux:heading>
+                </div>
+            </div>
+
+            @if($activeSemester)
+                <!-- Current Saved Schedule Banner -->
+                @if($activeSemester->evaluation_starts_at || $activeSemester->evaluation_ends_at)
+                    <div class="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1.5">
+                                <flux:icon icon="calendar" class="size-4 shrink-0" />
+                                Current Saved Schedule
+                            </span>
+                            @if($activeSemester->is_evaluation_open)
+                                <span class="text-xs text-zinc-400 dark:text-zinc-500 italic">Locked while open</span>
+                            @else
+                                <button
+                                    type="button"
+                                    wire:click="confirmRemoveSchedule"
+                                    class="text-xs font-semibold text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                                >
+                                    Clear Schedule
+                                </button>
+                            @endif
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <p class="text-zinc-500 font-medium">Opens On</p>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                    {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : '—' }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-zinc-500 font-medium">Closes On</p>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                    {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : '—' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Schedule Input Form -->
+                <form wire:submit.prevent="saveSchedule" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <flux:input
+                            type="datetime-local"
+                            wire:model="startsAt"
+                            label="Start Date & Time"
+                        />
+                        <flux:input
+                            type="datetime-local"
+                            wire:model="endsAt"
+                            label="End Date & Time"
+                        />
+                    </div>
+
+                    <div class="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2">
+                        <flux:modal.close>
+                            <flux:button variant="subtle" size="sm">Cancel</flux:button>
+                        </flux:modal.close>
+                        <div class="flex items-center gap-2">
+                            <flux:button
+                                type="button"
+                                wire:click="toggleEvaluation"
+                                variant="{{ $activeSemester->is_evaluation_open ? 'danger' : 'outline' }}"
+                                size="sm"
+                                icon="{{ $activeSemester->is_evaluation_open ? 'lock-closed' : 'lock-open' }}"
+                                class="font-bold"
+                            >
+                                {{ $activeSemester->is_evaluation_open ? 'Close Evaluation' : 'Open Evaluation' }}
+                            </flux:button>
+                            <flux:button type="submit" variant="primary" size="sm" icon="calendar" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
+                                Save Schedule
+                            </flux:button>
+                        </div>
+                    </div>
+                </form>
+            @else
+                <p class="text-xs text-zinc-400">No active semester selected.</p>
+                <div class="flex justify-end pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                    <flux:modal.close>
+                        <flux:button variant="subtle" size="sm">Close</flux:button>
+                    </flux:modal.close>
+                </div>
+            @endif
+        </div>
+    </flux:modal>
+
+    <!-- Overwrite Schedule Confirmation Modal -->
+    @if($showScheduleOverwriteModal && $activeSemester)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-6 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                    <flux:icon icon="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Overwrite Existing Schedule?</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                        There is already a saved evaluation schedule. Saving now will
+                        <span class="font-semibold text-amber-600 dark:text-amber-400">overwrite</span>
+                        the current schedule with your new dates.
+                    </p>
+                </div>
+            </div>
+
+            @if($activeSemester->evaluation_starts_at || $activeSemester->evaluation_ends_at)
+                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-xs space-y-1.5">
+                    <p class="text-zinc-500 font-semibold mb-1">Being replaced:</p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">Start:</span>
+                        {{ $activeSemester->evaluation_starts_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        <span class="font-semibold">End:</span>
+                        {{ $activeSemester->evaluation_ends_at?->format('M d, Y h:i A') ?? '—' }}
+                    </p>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-2 pt-1">
+                <flux:button size="sm" wire:click="$set('showScheduleOverwriteModal', false)">
+                    Cancel
+                </flux:button>
+                <flux:button size="sm" variant="danger" wire:click="confirmSaveSchedule">
+                    Yes, Overwrite
+                </flux:button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Remove Schedule Confirmation Modal -->
+    @if($showScheduleRemoveModal && $activeSemester)
+    <x-confirmation-modal 
+        title="Remove Schedule" 
+        on-confirm="clearSchedule" 
+        on-cancel="$set('showScheduleRemoveModal', false)" 
+        confirm-text="Yes, Remove"
+    >
+        This will permanently clear the saved evaluation window schedule. The <span class="font-semibold text-rose-600 dark:text-rose-400">Open Evaluation</span> button will also stop working until a new schedule is set.
+
+        @if($activeSemester->evaluation_starts_at || $activeSemester->evaluation_ends_at)
+            <x-slot:details>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Start Date & Time</span>
+                        <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                            {{ $activeSemester->evaluation_starts_at ? $activeSemester->evaluation_starts_at->format('M d, Y \a\t h:i A') : '—' }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">End Date & Time</span>
+                        <span class="font-bold text-zinc-900 dark:text-zinc-150">
+                            {{ $activeSemester->evaluation_ends_at ? $activeSemester->evaluation_ends_at->format('M d, Y \a\t h:i A') : '—' }}
+                        </span>
+                    </div>
+                </div>
+            </x-slot:details>
+        @endif
+    </x-confirmation-modal>
+    @endif
+    </div>
 </div>
 
 

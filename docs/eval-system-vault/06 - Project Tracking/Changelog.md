@@ -15,6 +15,70 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-05]
+
+- **Dashboard Clean Styling & 1:1 Skeleton Loader Alignment** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`admin-dashboard-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/admin-dashboard-skeleton.blade.php)):
+  - **Accent Bar Removal (Option 1):** Removed all left accent borders (`border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]`) across all 4 Executive KPI cards, Analytics Charts, Middle Row cards (Submission Trend and Overall Evaluation Feedback), Activity Table, and 12 Quick System Action shortcut cards for a clean, modern aesthetic.
+  - **1:1 Skeleton Loader Structural Sync (Zero CLS):**
+    - Removed left accent borders from all skeleton card elements.
+    - Updated Header right controls to mirror the unified schedule status card and reports action button (`h-4 w-28` text + `h-8 w-28` button + `h-8 w-20` button).
+    - Completely refreshed Panel 1 skeleton to mirror the new **Submission Trend** card 1:1: title + pill switcher header, 3 stat metric shapes (`grid grid-cols-3 gap-2 sm:gap-3`), and canvas container (`h-56 sm:h-60`).
+    - Aligned Middle Row container padding and removed outdated `min-h-[420px]` constraint to prevent layout shifting during Livewire hydration.
+    - **System Activity & Progress Logs Table Height Parity:** Replaced generic `min-h-[300px]` placeholder with an exact `h-[380px]` structured table skeleton featuring a simulated sticky `thead` and 6 full-width divided table rows, perfectly matching the live component's `max-h-[380px]` table scroll container and eliminating an ~80px vertical layout jump during Livewire hydration.
+  - **Quick System Actions Visual Refinement:**
+    - Increased header font weight to extra-bold (`font-extrabold tracking-tight`).
+    - Removed redundant descriptive subheader to minimize vertical clutter.
+    - Removed horizontal divider lines (`border-b border-zinc-200 dark:border-zinc-800 pb-2`) from category section headers across both live dashboard and skeleton placeholder.
+  - **Zero-CLS Automated Playwright Layout Verification:**
+    - Executed automated frame-by-frame DOM bounding box measurements during the Livewire skeleton-to-hydrated reload transition.
+    - Verified 1:1 pixel parity across all 6 dashboard sections: Header (42px/42px), KPI Cards (229.8px/229.8px), Analytics Charts (508px/508px), Middle Row (477px/477px), Activity Table (453px/453px), and Quick Actions (540px/540px), confirming **0px total component shift**.
+  - **Monochrome Skeleton Neutralization:**
+    - Replaced colored green (`emerald-*`) and red (`rose-*`) containers and shimmer bars in the feedback highlights skeleton with standard neutral zinc styling (`border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30`), maintaining consistent monochromatic loader styling throughout the entire page.
+  - **Panel Title Refinement to "AI Feedback Analysis":**
+    - Updated Middle Row Panel 2 header from *"Overall Evaluation Feedback"* to **"AI Feedback Analysis"** across both [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php) and [`admin-dashboard-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/admin-dashboard-skeleton.blade.php), explicitly communicating to academic panelists that the card showcases natural language processing sentiment classification and thematic keyword extraction outputs.
+  - **KPI Card 3 Footnote Optimization & Test Suite Sync:**
+    - Trimmed the text in Card 3 from `"evaluators completed all assigned evaluations"` to `"evaluators completed all evaluations"` in [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), preventing an unwanted multi-line text wrap and vertical height expansion when the sidebar is expanded.
+    - Aligned the assertion in [`EvaluationDeadlineRemindersTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/EvaluationDeadlineRemindersTest.php) to match the trimmed text (`assertSee('evaluators completed all evaluations')`), achieving 100% test pass (9/9 passed).
+  - **Recent Submissions Table Status Column Alignment:**
+    - Decoupled the submission status badge from the "Evaluation Flow" cell into a dedicated right-aligned `<th class="text-right">Status</th>` column with corresponding `<td>` in [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php).
+    - Synchronized the table thead skeleton in [`admin-dashboard-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/admin-dashboard-skeleton.blade.php) with matching 6-column widths to preserve zero CLS.
+
+
+- **Submission Trend Chart & Terminology Refinement** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - **Replaced Redundant Panel 1:** Replaced the redundant "Evaluation Period Status" panel with an actionable, real-time **Submission Trend** chart providing operational intelligence on daily submissions and cumulative completion.
+  - **Refined Academic Terminology:**
+    - Title updated to **Submission Trend** with subtitle *"Daily submissions and overall progress across the evaluation period"*.
+    - Segmented buttons streamlined to **Daily** and **Cumulative**.
+    - Stat card renamed to **Daily Average** with subtext `Forms / Day`.
+    - Insight note updated to **Peak submission was X forms on [Date]**.
+  - **Removed Redundant Action Button:** Removed the non-existent `/admin/evaluations` ("View Records") button to keep the card focused and avoid 404 dead ends.
+  - **Dual View Modes (Segmented Pill Switcher):**
+    - **Daily:** Area line chart visualizing daily submission counts across active dates (in deep maroon `#9b0000` / dark mode `#f87171` with subtle vertical gradient fill).
+    - **Cumulative:** Progressive trajectory curve climbing towards the total turnout target (styled in brand amber `#d97706` / dark mode `#fbbf24`).
+  - **Balanced Metric Row (3 Stat Cards):** 1:1 visual symmetry with the adjacent "Overall Evaluation Feedback" panel for Today, Peak Day, and Daily Average.
+  - **Chart.js Modular Architecture & Alpine Integration:**
+    - Extended `loadChartJs()` in `app.js` with `LineController, LineElement, PointElement, Filler`.
+    - Created dedicated `window.submissionVelocityChart(config)` Alpine component with automatic theme reactivity (MutationObserver, Flux appearance changes), morph protection (`Livewire.hook('morph.updated')`), and navigation re-hydration (`livewire:navigated`).
+
+- **Dashboard Header Quick Evaluation Schedule Modal & Live Indicator** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - **Chart Canvas Morphing Protection:** Resolved the issue where Chart.js canvas elements wiped when opening or interacting with modals by adding `wire:ignore` to the analytics charts grid container and attaching `livewire:navigated` and `morph.updated` listeners in `app.js` to ensure chart instances remain mounted and fully visible during Livewire DOM updates.
+  - **Unified Schedule Status Card Container:** Unified the schedule countdown label and the **Edit Schedule** action button into a single subtle card container (`border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg p-1 pl-2.5`). Styled the **Edit Schedule** button with matching maroon brand colors (`bg-[#9b0000] text-white`) identical to the Reports button, and added a clean `No schedule set` fallback state.
+  - **Inline Schedule Modal with 100% Feature Parity & Direct Evaluation Controls:**
+    - Simplified the modal header by eliminating clutter (removed redundant subheader and duplicated academic semester badge).
+    - Current saved schedule window banner with Start/End preview and Clear Schedule action.
+    - Added direct **Open Evaluation** / **Close Evaluation** button beside **Save Schedule**, allowing admins to open/close evaluations directly from the modal without having to visit the Evaluation Settings page.
+    - Start and End `datetime-local` inputs with automatic overwrite protection.
+    - "Locked while evaluations are open" guard preventing schedule removal while the window is active.
+    - Full removal confirmation modal with date details.
+    - Automatic dashboard metrics cache invalidation and reactivity upon update or clearance.
+
+- **Department & Role Turnout Chart Label Readability & Animation Polish** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - **High-Contrast Black Label Typography:** Updated all in-bar percentage labels across both *Completion Rate by Role* and *Completion Rate by Department* to pure black (`#000000`) for maximum contrast against the primary orange and comparison grey bars, resolving low-contrast white label illegibility (exceeding WCAG AAA standards).
+  - **Comparison Bar Thickness Increase:** Increased bar thickness on the Department chart in comparison mode from 13px to **16px** across both Academic and Administrative views, with matching row height expansion to 56px.
+  - **Animation Jumping Stabilization:** Fixed the visual artifact where labels rendered outside the bar before jumping back inside during compare mode toggling. Position calculation now anchors to the target scale width (`fitsInside = finalWidth > 44`) and renders inside only when the bar has expanded enough (`bar.width >= 34`), eliminating flicker.
+  - **Detailed Breakdown Modal Widescreen Optimization & Clean Labels:** Expanded modal dialogs for both *Completion Rate by Role* and *Completion Rate by Department* to `sm:max-w-3xl lg:max-w-4xl` and capped table container bounds at `max-h-[70vh]`, ensuring current rows fit cleanly while future-proofing internal vertical scrolling with sticky headers and pinned footer controls if more departments are added. Standardized the first column header to **Department** (replacing "College" and "Office") with department names only (removing code prefixes), and replaced "Delta" with the user-friendly term **Change**.
+  - **Dynamic Row-Based Canvas Height & Smooth Scroll:** Replaced fixed `h-72` (288px) canvas constraint with dynamically calculated canvas height (`deptChartHeight`) inside an `overflow-y-auto overflow-x-hidden pr-1.5` container with subtle scrollbars. Academic view (4 departments) maintains an exact fit (275px) without scrollbars, while Administrative view (11+ departments) dynamically allocates 36px/dept in standard mode (~430px) and 56px/dept in comparison mode (~650px).
+
 ## [2026-09-04]
 
 - **Admin Dashboard Visual Refinement & Comparison Chart Polish** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):

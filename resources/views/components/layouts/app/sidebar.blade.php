@@ -244,7 +244,12 @@
                                     </flux:navlist.item>
                                 </flux:tooltip>
 
-                                <div x-show="open" class="sidebar-sublist pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2">
+                                <div 
+                                    x-cloak 
+                                    x-show="open" 
+                                    style="display: {{ request()->routeIs('admin.employees', 'admin.students') ? 'flex' : 'none' }};"
+                                    class="sidebar-sublist pl-6 flex flex-col gap-1 border-l border-zinc-200 dark:border-zinc-700 ml-3.5 mt-1 mb-2"
+                                >
                                     <flux:navlist.item :href="route('admin.employees')" :current="request()->routeIs('admin.employees')" aria-label="Employees" wire:navigate class="text-xs">Employees</flux:navlist.item>
                                     <flux:navlist.item :href="route('admin.students')" :current="request()->routeIs('admin.students')" aria-label="Students" wire:navigate class="text-xs">Students</flux:navlist.item>
                                 </div>

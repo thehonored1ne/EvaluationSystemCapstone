@@ -165,5 +165,5 @@ test('admin dashboard completion rate percentage is aligned with evaluator count
     Livewire::withoutLazyLoading()
         ->test('admin.dashboard')
         ->assertSee('Overall Completion Rate')
-        ->assertSee('evaluators completed all assigned evaluations');
+        ->assertSee('evaluators completed all evaluations');
 });
