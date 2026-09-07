@@ -18,6 +18,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $middle_name
  * @property string|null $suffix
  * @property string $role
+ * @property string $employment_type
  * @property string $status
  * @property int|null $department_id
  * @property-read User|null $user
@@ -46,6 +47,7 @@ class Employee extends Model
         'middle_name',
         'suffix',
         'role',
+        'employment_type',
         'status',
         'department_id',
     ];

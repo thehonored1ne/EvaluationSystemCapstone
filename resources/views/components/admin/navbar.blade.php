@@ -2,9 +2,11 @@
     $user = auth()->user();
     $roleRaw = $user ? ($user->getRoleNames()->first() ?? 'User') : 'User';
     $roleName = ucwords(str_replace(['_', '-'], ' ', $roleRaw));
+    $activeSemester = \App\Models\Semester::getActive();
+    $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
 @endphp
 
-<flux:header class="border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden px-3 sm:px-4">
+<flux:header class="sticky top-0 z-30 border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden px-3 sm:px-4">
     <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
     <div class="flex items-center gap-3 sm:gap-4 -ml-1 sm:-ml-1.5">
         <button 
@@ -33,10 +35,17 @@
             <flux:icon icon="bars-2" class="size-5 block lg:hidden" />
         </button>
 
-        <div class="hidden sm:flex items-center text-xs font-medium">
+        <div class="hidden sm:flex items-center gap-2 text-xs font-medium">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-semibold shadow-xs">
                 Logged as {{ $roleName }}
             </span>
+
+            @if($activeSemester)
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 border border-white/15 text-xs font-medium shadow-xs">
+                    
+                    <span>{{ $activeSemester->academicYear?->name }} &bull; {{ $shortSemName }}</span>
+                </span>
+            @endif
         </div>
     </div>
 

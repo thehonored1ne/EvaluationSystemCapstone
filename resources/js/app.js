@@ -142,9 +142,14 @@ window.dashboardAnalyticsCharts = function(config) {
             const gridColor = isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.06)';
             const trackColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
 
-            // Uniform primary brand/orange color for current semester, grey for prior semester
-            const primaryColor = isDark ? '#f59e0b' : '#d97706';
-            const primaryHoverColor = isDark ? '#fbbf24' : '#b45309';
+            // Dynamic bar colors: Amber if in progress (<100%), Green if 100% completed
+            const amberColor = isDark ? '#f59e0b' : '#d97706';
+            const amberHoverColor = isDark ? '#fbbf24' : '#b45309';
+            const greenColor = isDark ? '#34d399' : '#10b981';
+            const greenHoverColor = isDark ? '#6ee7b7' : '#059669';
+
+            const roleBarColors = this.roleRates.map(rate => Number(rate) >= 100 ? greenColor : amberColor);
+            const roleBarHoverColors = this.roleRates.map(rate => Number(rate) >= 100 ? greenHoverColor : amberHoverColor);
             const prevColor = isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)';
             const prevHoverColor = isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)';
 
@@ -162,8 +167,8 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: this.currentSemName,
                         data: this.roleRates,
-                        backgroundColor: primaryColor,
-                        hoverBackgroundColor: primaryHoverColor,
+                        backgroundColor: roleBarColors,
+                        hoverBackgroundColor: roleBarHoverColors,
                         borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
                         barThickness: 13,
@@ -198,8 +203,8 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: 'Completion Rate',
                         data: this.roleRates,
-                        backgroundColor: primaryColor,
-                        hoverBackgroundColor: primaryHoverColor,
+                        backgroundColor: roleBarColors,
+                        hoverBackgroundColor: roleBarHoverColors,
                         borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
                         barThickness: 22,
@@ -449,9 +454,14 @@ window.dashboardAnalyticsCharts = function(config) {
             const textColor = isDark ? '#a1a1aa' : '#71717a';
             const trackColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)';
 
-            // Uniform primary brand/orange color for current semester, grey for prior semester
-            const primaryColor = isDark ? '#f59e0b' : '#d97706';
-            const primaryHoverColor = isDark ? '#fbbf24' : '#b45309';
+            // Dynamic bar colors: Amber if in progress (<100%), Green if 100% completed
+            const amberColor = isDark ? '#f59e0b' : '#d97706';
+            const amberHoverColor = isDark ? '#fbbf24' : '#b45309';
+            const greenColor = isDark ? '#34d399' : '#10b981';
+            const greenHoverColor = isDark ? '#6ee7b7' : '#059669';
+
+            const deptBarColors = rates.map(rate => Number(rate) >= 100 ? greenColor : amberColor);
+            const deptBarHoverColors = rates.map(rate => Number(rate) >= 100 ? greenHoverColor : amberHoverColor);
             const prevColor = isDark ? 'rgba(161, 161, 170, 0.45)' : 'rgba(113, 113, 122, 0.45)';
             const prevHoverColor = isDark ? 'rgba(161, 161, 170, 0.75)' : 'rgba(113, 113, 122, 0.75)';
 
@@ -461,8 +471,8 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: this.currentSemName,
                         data: rates,
-                        backgroundColor: primaryColor,
-                        hoverBackgroundColor: primaryHoverColor,
+                        backgroundColor: deptBarColors,
+                        hoverBackgroundColor: deptBarHoverColors,
                         borderRadius: { topRight: 4, bottomRight: 4 },
                         borderSkipped: false,
                         barThickness: isAcademic ? 16 : 16,
@@ -497,8 +507,8 @@ window.dashboardAnalyticsCharts = function(config) {
                     {
                         label: 'Completion Rate',
                         data: rates,
-                        backgroundColor: primaryColor,
-                        hoverBackgroundColor: primaryHoverColor,
+                        backgroundColor: deptBarColors,
+                        hoverBackgroundColor: deptBarHoverColors,
                         borderRadius: { topRight: 6, bottomRight: 6 },
                         borderSkipped: false,
                         barThickness: isAcademic ? 22 : 18,

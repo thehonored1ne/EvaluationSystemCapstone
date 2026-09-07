@@ -41,6 +41,14 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### September 7, 2026
+- **Admin Dashboard Header Toolbar & Schedule Modal Refinement**:
+  - Moved the primary Open / Close Evaluation toggle button out of the schedule modal and placed it in the dashboard top-right header toolbar.
+  - Implemented high-contrast green (`#059669` / emerald) open state and red (`#e11d48` / rose) close state with dynamic countdown indicator.
+  - Styled the Edit Schedule button with a subtle appearance and eliminated redundant Reports button.
+  - Added enhanced modal backdrop darken and blur (`backdrop-filter: blur(4px)`) in `app.css` and removed redundant cancel button from the schedule modal.
+  - Synchronized the 1:1 skeleton loader (`admin-dashboard-skeleton.blade.php`).
+
 ### August 26, 2026
 - **Cloud Production Deployment (Render + TiDB Cloud Serverless MySQL)**:
   - Containerized full application stack (`Dockerfile`, `supervisord.conf`, `nginx.conf`, `entrypoint.sh`): Nginx, PHP 8.3 FPM, Python Flask AI (`127.0.0.1:5001`), and Laravel queue workers running concurrently in a single lightweight container.

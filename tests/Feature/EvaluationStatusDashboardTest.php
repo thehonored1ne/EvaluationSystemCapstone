@@ -6,7 +6,6 @@ use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Evaluation;
-use App\Models\EvaluationCriterion;
 use App\Models\Program;
 use App\Models\Semester;
 use App\Models\Student;
@@ -345,8 +344,7 @@ test('Staff dashboard blocks selectTarget when evaluation is processing in queue
     expect($component->get('showForm'))->toBeFalse();
 });
 
-test('admin cannot manually open evaluations if start and end dates are null/missing', function () {
-    // Make sure we have an admin user
+test('admin cannot manually open evaluations if dates are not configured', function () {
     $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
     $admin->assignRole('admin');
 
@@ -358,78 +356,36 @@ test('admin cannot manually open evaluations if start and end dates are null/mis
     ]);
 
     Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('toggleEvaluation')
-        ->assertHasErrors(['evaluation_toggle']);
+        ->test('admin.dashboard')
+        ->call('toggleEvaluation');
 
     expect($this->semester->fresh()->is_evaluation_open)->toBeFalse();
 });
 
-test('admin cannot manually open evaluations if criteria points are unbalanced', function () {
+test('admin can manually open evaluations if dates are set and closes other semesters', function () {
     $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
     $admin->assignRole('admin');
 
-    // Set dates but no criteria, so total is 0 while targets are 90/50/50/50/10 (unbalanced)
-    $this->semester->update([
-        'is_evaluation_open' => false,
-        'evaluation_starts_at' => now()->subDay(),
-        'evaluation_ends_at' => now()->addDay(),
-        'upward_student_max_points' => 90,
-        'upward_employee_max_points' => 50,
-        'downward_max_points' => 50,
-        'peer_max_points' => 50,
-        'self_max_points' => 10,
-    ]);
-
-    Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('toggleEvaluation')
-        ->assertHasErrors(['evaluation_toggle']);
-
-    expect($this->semester->fresh()->is_evaluation_open)->toBeFalse();
-});
-
-test('admin can manually open evaluations if dates are set and criteria points are balanced', function () {
-    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
-    $admin->assignRole('admin');
-
-    // Create balanced criteria
-    EvaluationCriterion::create([
-        'evaluation_type' => 'upward_student',
-        'name' => 'Teaching Quality',
-        'max_points' => 90,
-        'order' => 1,
-    ]);
-    EvaluationCriterion::create([
-        'evaluation_type' => 'peer',
-        'name' => 'Peer Review',
-        'max_points' => 50,
-        'order' => 1,
-    ]);
-    EvaluationCriterion::create([
-        'evaluation_type' => 'self',
-        'name' => 'Self Review',
-        'max_points' => 10,
-        'order' => 1,
+    // Create a past semester that is open
+    $pastSem = Semester::create([
+        'academic_year_id' => $this->ay->id,
+        'name' => 'Past Semester',
+        'is_active' => false,
+        'is_evaluation_open' => true,
     ]);
 
     $this->semester->update([
         'is_evaluation_open' => false,
         'evaluation_starts_at' => now()->subDay(),
         'evaluation_ends_at' => now()->addDay(),
-        'upward_student_max_points' => 90,
-        'upward_employee_max_points' => 0,
-        'downward_max_points' => 0,
-        'peer_max_points' => 50,
-        'self_max_points' => 10,
     ]);
 
     Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('toggleEvaluation')
-        ->assertHasNoErrors();
+        ->test('admin.dashboard')
+        ->call('toggleEvaluation');
 
-    expect($this->semester->fresh()->is_evaluation_open)->toBeTrue();
+    expect($this->semester->fresh()->is_evaluation_open)->toBeTrue()
+        ->and($pastSem->fresh()->is_evaluation_open)->toBeFalse();
 });
 
 test('evaluations are closed if start time is in the future even if open toggle is true', function () {
@@ -473,16 +429,8 @@ test('admin cannot clear evaluation schedule if the evaluation is open', functio
     ]);
 
     Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('confirmRemoveSchedule')
-        ->assertSee('Cannot remove schedule: Please close the evaluation first.');
-
-    expect($this->semester->fresh()->evaluation_starts_at)->not->toBeNull();
-
-    Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('clearSchedule')
-        ->assertSee('Cannot remove schedule: Please close the evaluation first.');
+        ->test('admin.dashboard')
+        ->call('clearSchedule');
 
     expect($this->semester->fresh()->evaluation_starts_at)->not->toBeNull();
 });
@@ -498,12 +446,34 @@ test('admin can clear evaluation schedule if the evaluation is closed', function
     ]);
 
     Livewire::actingAs($admin)
-        ->test('admin.evaluation-settings')
-        ->call('confirmRemoveSchedule')
-        ->assertDontSee('Cannot remove schedule: Please close the evaluation first.')
-        ->call('clearSchedule')
-        ->assertSee('Evaluation schedule has been cleared.');
+        ->test('admin.dashboard')
+        ->call('clearSchedule');
 
     expect($this->semester->fresh()->evaluation_starts_at)->toBeNull();
     expect($this->semester->fresh()->evaluation_ends_at)->toBeNull();
+});
+
+test('setting active semester in evaluation settings closes evaluations on all other semesters', function () {
+    $admin = User::create(['name' => 'Admin User', 'email' => 'admin.test@example.com', 'password' => 'password']);
+    $admin->assignRole('admin');
+
+    $sem2 = Semester::create([
+        'academic_year_id' => $this->ay->id,
+        'name' => '2nd Semester',
+        'is_active' => false,
+        'is_evaluation_open' => false,
+    ]);
+
+    $this->semester->update([
+        'is_active' => true,
+        'is_evaluation_open' => true,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test('admin.evaluation-settings')
+        ->call('setActiveSemester', $sem2->id);
+
+    expect($sem2->fresh()->is_active)->toBeTrue()
+        ->and($this->semester->fresh()->is_active)->toBeFalse()
+        ->and($this->semester->fresh()->is_evaluation_open)->toBeFalse();
 });

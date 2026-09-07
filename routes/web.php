@@ -96,6 +96,11 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.ai');
 
+    Volt::route('/admin/activity', 'admin.manage-activity')
+        ->lazy()
+        ->middleware('role:admin')
+        ->name('admin.activity');
+
     // Dean Dashboard
     Volt::route('/dean/dashboard', 'dean.dashboard')
         ->lazy()

@@ -67,6 +67,11 @@ ui-sidebar [data-flux-navlist-group-heading],
     display: none !important;
 }
 
+/* Global scrollbar stability to prevent layout shifts */
+html {
+    scrollbar-gutter: stable;
+}
+
 @layer base {
 
     *,
@@ -75,6 +80,33 @@ ui-sidebar [data-flux-navlist-group-heading],
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+/* Enhanced Flux Modal Backdrop Darken & Blur */
+[data-flux-modal] > dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+.dark [data-flux-modal] > dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* Mobile Sidebar Drawer & Backdrop Stacking over Sticky Navbar (z-30) */
+@media (max-width: 1023px) {
+    ui-sidebar-toggle[data-flux-sidebar-backdrop] {
+        z-index: 40 !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        backdrop-filter: blur(2px) !important;
+        -webkit-backdrop-filter: blur(2px) !important;
+    }
+
+    ui-sidebar[data-flux-sidebar] {
+        z-index: 50 !important;
     }
 }
 
@@ -282,6 +314,14 @@ a[data-variant="primary"]:hover,
 
 .dark * {
     scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+}
+
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
 }
 
 /* ==========================================================================

@@ -1001,3 +1001,53 @@ test('admin can assign the same supervising dean to multiple academic and admini
         ->assertSee('COA')
         ->assertSee('REG');
 });
+
+test('admin can manage employee employment type and handle resigned status deactivation', function () {
+    $this->actingAs($this->adminUser);
+
+    // Create a part-time faculty
+    $partTimeEmp = Employee::create([
+        'employee_number' => 'PT-101',
+        'first_name' => 'Grace',
+        'last_name' => 'Hopper',
+        'role' => 'faculty',
+        'employment_type' => 'part_time',
+        'status' => 'active',
+        'department_id' => $this->dept->id,
+    ]);
+    $ptUser = User::create([
+        'name' => 'Grace Hopper',
+        'email' => 'grace.hopper@example.com',
+        'employee_id' => $partTimeEmp->id,
+        'password' => 'password',
+        'is_active' => true,
+    ]);
+    $ptUser->assignRole('faculty');
+
+    // Verify filter by employment type and role
+    Volt::test('admin.manage-employees')
+        ->set('selectedRole', 'faculty')
+        ->set('selectedEmploymentType', 'part_time')
+        ->assertSee('PT-101')
+        ->assertSee('Part-Time')
+        ->set('selectedEmploymentType', 'full_time')
+        ->assertDontSee('PT-101');
+
+    // Edit employee to Resigned status
+    Volt::test('admin.manage-employees')
+        ->call('editUser', $ptUser)
+        ->set('status', 'resigned')
+        ->call('updateUser')
+        ->assertHasNoErrors();
+
+    expect($partTimeEmp->refresh()->status)->toBe('resigned');
+    expect($ptUser->refresh()->is_active)->toBeFalse(); // Auto-deactivated login
+
+    // Verify filter by status
+    Volt::test('admin.manage-employees')
+        ->set('selectedStatus', 'resigned')
+        ->assertSee('PT-101')
+        ->assertSee('Resigned')
+        ->set('selectedStatus', 'active')
+        ->assertDontSee('PT-101');
+});

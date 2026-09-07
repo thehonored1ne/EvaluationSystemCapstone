@@ -68,48 +68,98 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public string $sortDirection = 'asc'; // 'asc' (A-Z) or 'desc' (Z-A)
 
-    public function updatedSelectedProgramId()
+    // Bulk Operations
+    /** @var array<int, string> */
+    public array $selectedIds = [];
+
+    public bool $selectAll = false;
+
+    public bool $showBulkStatusModal = false;
+
+    public string $bulkStatus = 'regular';
+
+    public bool $showBulkYearModal = false;
+
+    public string $bulkYearLevel = '1';
+
+    public bool $showBulkDeleteModal = false;
+
+    public int $bulkDeleteEligibleCount = 0;
+
+    public int $bulkDeleteBlockedCount = 0;
+
+    /** @var array<int, string> */
+    public array $bulkDeleteEligibleIds = [];
+
+    public bool $showReviewSelectionModal = false;
+
+    public function deselectAll(): void
     {
-        $this->resetPage();
+        $this->selectedIds = [];
+        $this->selectAll = false;
+        $this->showReviewSelectionModal = false;
+        $this->dispatch('clear-selected-storage');
     }
 
-    public function updatedSelectedYearLevel()
+    /**
+     * @param array<int, string|int> $ids
+     */
+    public function restoreSelectedIds(array $ids): void
     {
-        $this->resetPage();
+        if (empty($ids)) {
+            return;
+        }
+
+        $validIds = User::whereIn('id', $ids)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'student'))
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        $this->selectedIds = $validIds;
+        $this->updatedSelectedIds();
     }
 
-    public function updatedStatusFilter()
+    public function removeSelected($userId): void
     {
-        $this->resetPage();
+        $this->selectedIds = array_values(array_diff($this->selectedIds, [(string) $userId]));
+        $this->updatedSelectedIds();
+
+        if (empty($this->selectedIds)) {
+            $this->showReviewSelectionModal = false;
+        }
     }
 
-    public function updatedSortDirection()
+    public function updatedSelectedIds(): void
     {
-        $this->resetPage();
+        $currentPageIds = $this->getCurrentPageStudentIds();
+        $this->selectAll = ! empty($currentPageIds) && empty(array_diff($currentPageIds, $this->selectedIds));
     }
 
-    public function updatedSearch()
+    public function updatedSelectAll($value): void
     {
-        $this->resetPage();
+        $currentPageIds = $this->getCurrentPageStudentIds();
+
+        if ($value) {
+            $this->selectedIds = array_values(array_unique(array_merge($this->selectedIds, $currentPageIds)));
+        } else {
+            $this->selectedIds = array_values(array_diff($this->selectedIds, $currentPageIds));
+        }
     }
 
-    public function clearFilters()
+    /**
+     * @return array<int, string>
+     */
+    protected function getCurrentPageStudentIds(): array
     {
-        $this->reset(['search', 'selectedProgramId', 'selectedYearLevel', 'statusFilter', 'sortDirection']);
-        $this->resetPage();
+        return $this->getFilteredStudentsQuery()
+            ->paginate(10)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->toArray();
     }
 
-    public function prepareCreate()
-    {
-        $this->reset([
-            'email', 'editingUser',
-            'student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'program_id', 'year_level', 'section', 'status',
-        ]);
-        $this->status = 'regular';
-        $this->showModal = true;
-    }
-
-    public function with(): array
+    protected function getFilteredStudentsQuery()
     {
         $query = User::query()
             ->join('students', 'students.id', '=', 'users.student_id')
@@ -142,12 +192,277 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
 
+        return $query->orderBy('students.last_name', $orderDirection)
+            ->orderBy('students.first_name', $orderDirection);
+    }
+
+    public function updatedSelectedProgramId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedYearLevel(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSortDirection(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'selectedProgramId', 'selectedYearLevel', 'statusFilter', 'sortDirection']);
+        $this->resetPage();
+    }
+
+    public function bulkSetStatus(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $this->validate([
+            'bulkStatus' => 'required|string|in:regular,irregular,loa,dropped,graduated,inactive',
+        ]);
+
+        $count = count($this->selectedIds);
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->selectedIds)->with('student')->get();
+            $studentIds = $users->pluck('student_id')->filter()->toArray();
+
+            Student::whereIn('id', $studentIds)->update(['status' => $this->bulkStatus]);
+
+            $shouldDeactivate = in_array($this->bulkStatus, ['dropped', 'graduated', 'inactive']);
+            if ($shouldDeactivate) {
+                User::whereIn('id', $this->selectedIds)->update(['is_active' => false]);
+            }
+        });
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk updated status to '{$this->bulkStatus}' for {$count} student(s)");
+
+        $this->deselectAll();
+        $this->showBulkStatusModal = false;
+
+        \Flux::toast(
+            heading: 'Status Updated',
+            text: "Successfully updated status for {$count} student(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkSetYearLevel(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $this->validate([
+            'bulkYearLevel' => 'required|integer|between:1,4',
+        ]);
+
+        $count = count($this->selectedIds);
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->selectedIds)->with('student')->get();
+            $studentIds = $users->pluck('student_id')->filter()->toArray();
+
+            Student::whereIn('id', $studentIds)->update(['year_level' => (int) $this->bulkYearLevel]);
+        });
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk updated year level to Year {$this->bulkYearLevel} for {$count} student(s)");
+
+        $this->deselectAll();
+        $this->showBulkYearModal = false;
+
+        \Flux::toast(
+            heading: 'Year Level Updated',
+            text: "Successfully updated year level for {$count} student(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkSetActive(bool $status): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $count = count($this->selectedIds);
+
+        User::whereIn('id', $this->selectedIds)->update(['is_active' => $status]);
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log(($status ? 'Bulk enabled login access' : 'Bulk disabled login access')." for {$count} student(s)");
+
+        $this->deselectAll();
+
+        \Flux::toast(
+            heading: $status ? 'Accounts Enabled' : 'Accounts Disabled',
+            text: "Successfully updated login access for {$count} student(s).",
+            variant: 'success'
+        );
+    }
+
+    public function confirmBulkDelete(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $evaluatorIds = DB::table('evaluations')
+            ->whereIn('evaluator_id', $this->selectedIds)
+            ->pluck('evaluator_id')
+            ->map(fn ($id) => (string) $id);
+
+        $evaluateeIds = DB::table('evaluations')
+            ->whereIn('evaluatee_id', $this->selectedIds)
+            ->pluck('evaluatee_id')
+            ->map(fn ($id) => (string) $id);
+
+        $usersWithHistory = $evaluatorIds->concat($evaluateeIds)->unique()->toArray();
+
+        $this->bulkDeleteEligibleIds = array_values(array_diff($this->selectedIds, $usersWithHistory));
+        $this->bulkDeleteEligibleCount = count($this->bulkDeleteEligibleIds);
+        $this->bulkDeleteBlockedCount = count($this->selectedIds) - $this->bulkDeleteEligibleCount;
+
+        $this->showBulkDeleteModal = true;
+    }
+
+    public function bulkDelete(): void
+    {
+        if (empty($this->bulkDeleteEligibleIds)) {
+            $this->showBulkDeleteModal = false;
+            \Flux::toast(
+                heading: 'Deletion Blocked',
+                text: 'All selected students have historical evaluation records that must be preserved.',
+                variant: 'danger'
+            );
+
+            return;
+        }
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->bulkDeleteEligibleIds)->get();
+            $studentIds = $users->pluck('student_id')->filter()->toArray();
+
+            User::whereIn('id', $this->bulkDeleteEligibleIds)->delete();
+            Student::whereIn('id', $studentIds)->delete();
+        });
+
+        $deletedCount = $this->bulkDeleteEligibleCount;
+        $blockedCount = $this->bulkDeleteBlockedCount;
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk deleted {$deletedCount} student account(s)");
+
+        $this->deselectAll();
+        $this->showBulkDeleteModal = false;
+        $this->bulkDeleteEligibleIds = [];
+
+        $msg = "Deleted {$deletedCount} student account(s).";
+        if ($blockedCount > 0) {
+            $msg .= " ({$blockedCount} preserved due to evaluation history).";
+        }
+
+        \Flux::toast(
+            heading: 'Bulk Deletion Complete',
+            text: $msg,
+            variant: 'success'
+        );
+    }
+
+    public function bulkDeactivateSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->selectedIds)->get();
+            $studentIds = $users->pluck('student_id')->filter()->toArray();
+
+            User::whereIn('id', $this->selectedIds)->update(['is_active' => false]);
+            Student::whereIn('id', $studentIds)->update(['status' => 'inactive']);
+        });
+
+        $count = count($this->selectedIds);
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk deactivated {$count} student account(s) instead of deleting");
+
+        $this->deselectAll();
+        $this->showBulkDeleteModal = false;
+
+        \Flux::toast(
+            heading: 'Accounts Deactivated',
+            text: "Successfully deactivated {$count} student account(s). Historical records are safely preserved.",
+            variant: 'success'
+        );
+    }
+
+    public function prepareCreate(): void
+    {
+        $this->reset([
+            'email', 'editingUser',
+            'student_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'program_id', 'year_level', 'section', 'status',
+        ]);
+        $this->status = 'regular';
+        $this->showModal = true;
+    }
+
+    public function with(): array
+    {
+        $users = $this->getFilteredStudentsQuery()
+            ->with(['student.program', 'roles'])
+            ->paginate(10);
+
+        $currentPageIds = $users->pluck('id')->map(fn ($id) => (string) $id)->toArray();
+        $this->selectAll = ! empty($currentPageIds) && empty(array_diff($currentPageIds, $this->selectedIds));
+
+        $hasSelectedInactive = false;
+        $hasSelectedActive = false;
+
+        if (! empty($this->selectedIds)) {
+            $selectedStatuses = User::whereIn('id', $this->selectedIds)->pluck('is_active');
+            $hasSelectedInactive = $selectedStatuses->contains(false);
+            $hasSelectedActive = $selectedStatuses->contains(true);
+        }
+
+        $selectedUsersList = ! empty($this->selectedIds)
+            ? User::whereIn('id', $this->selectedIds)->with('student.program')->get()
+            : collect();
+
         return [
-            'users' => $query->with(['student.program', 'roles'])
-                ->orderBy('students.last_name', $orderDirection)
-                ->orderBy('students.first_name', $orderDirection)
-                ->paginate(10),
+            'users' => $users,
             'programs' => Program::orderBy('name')->get(),
+            'hasSelectedInactive' => $hasSelectedInactive,
+            'hasSelectedActive' => $hasSelectedActive,
+            'selectedUsersList' => $selectedUsersList,
         ];
     }
 
@@ -184,7 +499,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 'email' => strtolower(trim($this->email)),
                 'student_id' => $student->id,
                 'password' => Hash::make('password'),
-                'is_active' => true,
+                'is_active' => ! in_array($this->status, ['dropped', 'graduated', 'inactive']),
             ]);
 
             $user->assignRole('student');
@@ -244,10 +559,16 @@ new #[Layout('components.layouts.app')] class extends Component
                 'status' => $this->status,
             ]);
 
-            $this->editingUser->update([
+            $userData = [
                 'name' => $this->editingUser->student->fresh()->formatted_name,
                 'email' => strtolower(trim($this->email)),
-            ]);
+            ];
+
+            if (in_array($this->status, ['dropped', 'graduated', 'inactive'])) {
+                $userData['is_active'] = false;
+            }
+
+            $this->editingUser->update($userData);
         });
 
         $this->showModal = false;
@@ -571,10 +892,39 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="w-full flex flex-col gap-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div class="space-y-6"
+    x-data="{
+        storageKey: 'selected_students_admin_{{ auth()->id() ?? 'guest' }}',
+        init() {
+            const saved = sessionStorage.getItem(this.storageKey);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        $wire.restoreSelectedIds(parsed);
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem(this.storageKey);
+                }
+            }
+
+            if (typeof $wire !== 'undefined' && $wire.$watch) {
+                $wire.$watch('selectedIds', (ids) => {
+                    if (Array.isArray(ids) && ids.length > 0) {
+                        sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
+                    } else {
+                        sessionStorage.removeItem(this.storageKey);
+                    }
+                });
+            }
+        }
+    }"
+    @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
+>
+    <!-- Header -->
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <flux:heading size="xl" level="1">Manage Students</flux:heading>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Manage Students</h1>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportStudents">
@@ -583,20 +933,22 @@ new #[Layout('components.layouts.app')] class extends Component
             <flux:button variant="outline" icon="arrow-up-tray" wire:click="$set('showImportModal', true)">
                 Import Students
             </flux:button>
-            <flux:button variant="primary" wire:click="prepareCreate" icon="plus">
-                Create Student
+            <flux:button variant="primary" icon="plus" wire:click="prepareCreate">
+                Add Student
             </flux:button>
         </div>
     </div>
     
-    <!-- Filters Bar -->
-    <div class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-gray-200 dark:border-zinc-700">
-        <div class="flex-1 w-full min-w-[260px]">
+    <!-- Search & Filters Bar -->
+    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <!-- Search -->
+        <div class="flex-1 min-w-0">
             <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or student ID..." />
         </div>
         
-        <div class="w-full md:w-52">
-            <flux:select wire:model.live="selectedProgramId" placeholder="Filter by Program">
+        <!-- Program Filter Dropdown -->
+        <div class="w-full sm:w-48 shrink-0">
+            <flux:select wire:model.live="selectedProgramId" placeholder="All Programs">
                 <flux:select.option value="">All Programs</flux:select.option>
                 <flux:select.option value="none">Unassigned (None)</flux:select.option>
                 @foreach($programs as $prog)
@@ -605,9 +957,10 @@ new #[Layout('components.layouts.app')] class extends Component
             </flux:select>
         </div>
 
-        <div class="w-full md:w-40">
-            <flux:select wire:model.live="selectedYearLevel" placeholder="Filter by Year Level">
-                <flux:select.option value="">All Year Levels</flux:select.option>
+        <!-- Year Level Filter Dropdown -->
+        <div class="w-full sm:w-36 shrink-0">
+            <flux:select wire:model.live="selectedYearLevel" placeholder="All Years">
+                <flux:select.option value="">All Years</flux:select.option>
                 <flux:select.option value="1">1st Year</flux:select.option>
                 <flux:select.option value="2">2nd Year</flux:select.option>
                 <flux:select.option value="3">3rd Year</flux:select.option>
@@ -615,9 +968,10 @@ new #[Layout('components.layouts.app')] class extends Component
             </flux:select>
         </div>
 
-        <div class="w-full md:w-44">
-            <flux:select wire:model.live="statusFilter" placeholder="Filter by Status">
-                <flux:select.option value="">All Statuses</flux:select.option>
+        <!-- Enrollment Status Filter Dropdown -->
+        <div class="w-full sm:w-40 shrink-0">
+            <flux:select wire:model.live="statusFilter" placeholder="All Student Types">
+                <flux:select.option value="">All Student Types</flux:select.option>
                 <flux:select.option value="regular">Regular</flux:select.option>
                 <flux:select.option value="irregular">Irregular</flux:select.option>
                 <flux:select.option value="loa">Leave of Absence (LOA)</flux:select.option>
@@ -627,7 +981,8 @@ new #[Layout('components.layouts.app')] class extends Component
             </flux:select>
         </div>
         
-        <div class="flex items-center gap-2">
+        <!-- Sort Order & Clear Action Group -->
+        <div class="flex items-center gap-2 shrink-0">
             <flux:dropdown align="end">
                 <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
                     {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
@@ -644,48 +999,102 @@ new #[Layout('components.layouts.app')] class extends Component
             </flux:dropdown>
 
             @if($search || $selectedProgramId || $selectedYearLevel || $statusFilter || $sortDirection !== 'asc')
-                <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" />
+                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" />
             @endif
         </div>
     </div>
     
-    <div wire:loading wire:target="search, selectedProgramId, selectedYearLevel, statusFilter, sortDirection, gotoPage, nextPage, previousPage" class="w-full">
-        <x-skeleton type="table" :rows="5" :cols="7" />
-    </div>
+    <!-- Bulk Actions Bar -->
+    @if(count($selectedIds) > 0)
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-zinc-900 text-white dark:bg-zinc-800 dark:border dark:border-zinc-700 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            <div class="flex items-center justify-between sm:justify-start gap-2.5 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center bg-zinc-800 dark:bg-zinc-700 text-zinc-100 font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-zinc-700 dark:border-zinc-600 tabular-nums">
+                        {{ count($selectedIds) }} Selected
+                    </span>
+                    <flux:button size="xs" variant="ghost" class="!text-zinc-300 hover:!text-white underline underline-offset-4 text-xs font-semibold" wire:click="$set('showReviewSelectionModal', true)">
+                        Review Selection
+                    </flux:button>
+                </div>
 
-    <div wire:loading.remove wire:target="search, selectedProgramId, selectedYearLevel, statusFilter, sortDirection, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
-        <div class="w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700 shadow-2xs">
-            <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
-                <thead class="bg-gray-50 dark:bg-zinc-800">
+                <div class="sm:hidden">
+                    <flux:button size="xs" variant="ghost" class="!text-zinc-400 hover:!text-white !px-2" wire:click="deselectAll" icon="x-mark">
+                        Deselect
+                    </flux:button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none sm:flex-wrap sm:justify-end -mx-1 px-1 sm:mx-0 sm:px-0">
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="arrow-path-rounded-square" wire:click="$set('showBulkStatusModal', true)">
+                    Change Student Type
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="academic-cap" wire:click="$set('showBulkYearModal', true)">
+                    Set Year Level
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed" icon="play-circle" wire:click="bulkSetActive(true)" :disabled="!$hasSelectedInactive">
+                    Enable Access
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed" icon="pause-circle" wire:click="bulkSetActive(false)" :disabled="!$hasSelectedActive">
+                    Disable Access
+                </flux:button>
+
+                <flux:button size="xs" variant="danger" class="shrink-0" icon="trash" wire:click="confirmBulkDelete">
+                    Delete
+                </flux:button>
+
+                <flux:button size="xs" variant="ghost" class="hidden sm:inline-flex shrink-0 !text-zinc-400 hover:!text-white" wire:click="deselectAll">
+                    Deselect
+                </flux:button>
+            </div>
+        </div>
+    @endif
+    
+    <!-- Table -->
+    <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden shadow-xs">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm min-w-[920px] lg:min-w-0 lg:table-fixed">
+                <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
                     <tr>
-                        <th class="w-[14%] min-w-[120px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Student ID</th>
-                        <th class="w-[20%] min-w-[170px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Full Name</th>
-                        <th class="w-[18%] min-w-[150px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Email</th>
-                        <th class="w-[14%] min-w-[130px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 whitespace-nowrap">Program & Section</th>
-                        <th class="w-[10%] min-w-[90px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Year</th>
-                        <th class="w-[12%] min-w-[110px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-center whitespace-nowrap">Enrollment Status</th>
-                        <th class="w-[12%] min-w-[90px] px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100 text-right whitespace-nowrap">Action</th>
+                        <th class="py-3.5 px-3 w-10 lg:w-[4%] text-center">
+                            <input type="checkbox" wire:model.live="selectAll" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select all students on current page" />
+                        </th>
+                        <th class="py-3.5 px-4 w-28 lg:w-[11%] font-semibold">Student ID</th>
+                        <th class="py-3.5 px-4 w-44 lg:w-[19%] font-semibold">Full Name</th>
+                        <th class="py-3.5 px-4 w-44 lg:w-[17%] font-semibold">Email</th>
+                        <th class="py-3.5 px-4 w-40 lg:w-[15%] font-semibold">Program & Section</th>
+                        <th class="py-3.5 px-4 w-24 lg:w-[10%] font-semibold">Year Level</th>
+                        <th class="py-3.5 px-4 w-24 lg:w-[10%] font-semibold">Student Type</th>
+                        <th class="py-3.5 px-4 w-20 lg:w-[8%] font-semibold">Status</th>
+                        <th class="py-3.5 px-4 w-16 lg:w-[6%] font-semibold text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @forelse ($users as $user)
-                        <tr wire:key="{{ $user->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-colors">
-                            <td class="px-4 py-3 dark:text-zinc-300 font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                                {{ $user->student?->student_number }}
+                        <tr wire:key="student-user-{{ $user->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors {{ in_array((string)$user->id, $selectedIds) ? 'bg-zinc-50/80 dark:bg-zinc-800/40' : '' }}">
+                            <td class="py-3.5 px-3 text-center">
+                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $user->id }}" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select student {{ $user->student?->student_number ?? $user->name }}" />
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-300 font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $user->student?->formatted_name ?? $user->name }}
+                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                                {{ $user->student?->student_number ?? 'N/A' }}
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-400 text-xs">
+                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-white truncate">
+                                <span class="truncate">{{ $user->student?->formatted_name ?? $user->name }}</span>
+                            </td>
+                            <td class="py-3.5 px-4 text-xs text-zinc-600 dark:text-zinc-400 truncate" title="{{ $user->email }}">
                                 {{ $user->email }}
                             </td>
-                            <td class="px-4 py-3 dark:text-zinc-300 text-xs whitespace-nowrap">
-                                <span class="font-bold block text-zinc-900 dark:text-zinc-100">{{ $user->student?->program?->code ?: 'Unassigned' }}</span>
-                                @if($user->student?->section)
-                                    <span class="text-zinc-500 dark:text-zinc-400 font-mono text-[11px] block">{{ $user->student->section }}</span>
-                                @endif
+                            <td class="py-3.5 px-4 text-zinc-600 dark:text-zinc-300 truncate">
+                                <div class="truncate">
+                                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $user->student?->program?->code ?: 'Unassigned' }}</span>
+                                    @if($user->student?->section)
+                                        <span class="text-zinc-400 dark:text-zinc-500 font-mono text-xs ml-1.5">{{ $user->student->section }}</span>
+                                    @endif
+                                </div>
                             </td>
-                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                            <td class="py-3.5 px-4 text-zinc-600 dark:text-zinc-300 font-medium truncate">
                                 @php
                                     $yr = $user->student?->year_level;
                                     $yrLabel = match((int)$yr) {
@@ -696,27 +1105,32 @@ new #[Layout('components.layouts.app')] class extends Component
                                         default => $yr ? "Year {$yr}" : '—'
                                     };
                                 @endphp
-                                <flux:badge variant="neutral" size="sm" class="font-semibold whitespace-nowrap">
-                                    {{ $yrLabel }}
-                                </flux:badge>
+                                {{ $yrLabel }}
                             </td>
-                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                            <td class="py-3.5 px-4">
                                 @php
-                                    $st = $user->student?->status ?? 'regular';
-                                    $stBadge = match($st) {
-                                        'regular' => ['variant' => 'success', 'label' => 'Regular'],
-                                        'irregular' => ['variant' => 'warning', 'label' => 'Irregular'],
-                                        'loa' => ['variant' => 'neutral', 'label' => 'LOA'],
-                                        'dropped' => ['variant' => 'danger', 'label' => 'Dropped'],
-                                        'graduated' => ['variant' => 'primary', 'label' => 'Graduated'],
-                                        default => ['variant' => 'neutral', 'label' => ucfirst($st)]
-                                    };
+                                    $st = strtolower($user->student?->status ?? 'regular');
                                 @endphp
-                                <flux:badge :variant="$stBadge['variant']" size="sm" class="font-bold">
-                                    {{ $stBadge['label'] }}
+                                @if($st === 'regular')
+                                    <flux:badge color="emerald" size="sm" class="font-semibold">Regular</flux:badge>
+                                @elseif($st === 'irregular')
+                                    <flux:badge color="amber" size="sm" class="font-semibold">Irregular</flux:badge>
+                                @elseif($st === 'loa')
+                                    <flux:badge color="zinc" size="sm" class="font-semibold">LOA</flux:badge>
+                                @elseif($st === 'dropped')
+                                    <flux:badge color="rose" size="sm" class="font-semibold">Dropped</flux:badge>
+                                @elseif($st === 'graduated')
+                                    <flux:badge color="purple" size="sm" class="font-semibold">Graduated</flux:badge>
+                                @else
+                                    <flux:badge color="zinc" size="sm" class="font-semibold capitalize">{{ $st }}</flux:badge>
+                                @endif
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <flux:badge size="sm" :color="$user->is_active ? 'emerald' : 'zinc'" class="font-semibold">
+                                    {{ $user->is_active ? 'Active' : 'Disabled' }}
                                 </flux:badge>
                             </td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <td class="py-3.5 px-4 text-right">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action
@@ -742,8 +1156,8 @@ new #[Layout('components.layouts.app')] class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-zinc-400">
-                                No student accounts found matching your criteria.
+                            <td colspan="9" class="px-6 py-12 text-center text-zinc-500 dark:text-zinc-400">
+                                No student accounts found matching your filters.
                             </td>
                         </tr>
                     @endforelse
@@ -751,9 +1165,11 @@ new #[Layout('components.layouts.app')] class extends Component
             </table>
         </div>
 
-        <div>
-            {{ $users->links() }}
-        </div>
+        @if($users->hasPages())
+            <div class="border-t border-zinc-200 px-6 py-4 dark:border-zinc-700">
+                {{ $users->links() }}
+            </div>
+        @endif
     </div>
 
     <!-- Create / Edit Student Modal -->
@@ -926,4 +1342,217 @@ new #[Layout('components.layouts.app')] class extends Component
         @endif
     </x-confirmation-modal>
     @endif
+
+    <!-- Bulk Change Status Modal -->
+    <flux:modal wire:model="showBulkStatusModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                    Update Student Type for {{ count($selectedIds) }} Students
+                </h2>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                    Select the new student type to apply to all selected students.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <flux:select wire:model="bulkStatus" label="New Student Type">
+                    <flux:select.option value="regular">Regular</flux:select.option>
+                    <flux:select.option value="irregular">Irregular</flux:select.option>
+                    <flux:select.option value="loa">Leave of Absence (LOA)</flux:select.option>
+                    <flux:select.option value="dropped">Dropped (Deactivates Account)</flux:select.option>
+                    <flux:select.option value="graduated">Graduated (Deactivates Account)</flux:select.option>
+                    <flux:select.option value="inactive">Inactive (Deactivates Account)</flux:select.option>
+                </flux:select>
+
+                @if(in_array($bulkStatus, ['dropped', 'graduated', 'inactive']))
+                    <div class="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300">
+                        <strong>Security Notice:</strong> Setting student type to <strong>{{ ucfirst($bulkStatus) }}</strong> will automatically deactivate login access for these accounts while preserving all historical records.
+                    </div>
+                @endif
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkStatusModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="bulkSetStatus">
+                    Apply Student Type
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Change Year Level Modal -->
+    <flux:modal wire:model="showBulkYearModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                    Update Year Level for {{ count($selectedIds) }} Students
+                </h2>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                    Select the target academic year level for all selected students.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <flux:select wire:model="bulkYearLevel" label="Target Year Level">
+                    <flux:select.option value="1">1st Year</flux:select.option>
+                    <flux:select.option value="2">2nd Year</flux:select.option>
+                    <flux:select.option value="3">3rd Year</flux:select.option>
+                    <flux:select.option value="4">4th Year</flux:select.option>
+                </flux:select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkYearModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="bulkSetYearLevel">
+                    Apply Year Level
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Delete Confirmation Modal -->
+    <flux:modal wire:model="showBulkDeleteModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                    Bulk Delete Students
+                </h2>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                    Review accounts eligible for deletion.
+                </p>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                @if($bulkDeleteEligibleCount > 0)
+                    <p class="text-zinc-700 dark:text-zinc-300">
+                        You have selected <strong class="font-semibold text-zinc-900 dark:text-white">{{ $bulkDeleteEligibleCount }}</strong> account(s) that have zero evaluation history and can be safely deleted.
+                    </p>
+                @endif
+
+                @if($bulkDeleteBlockedCount > 0)
+                    <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                        <p class="font-semibold">Audit Protection Notice:</p>
+                        <p>{{ $bulkDeleteBlockedCount }} of the selected student(s) have historical evaluation records. To protect academic audit integrity, those accounts will <strong>not</strong> be deleted.</p>
+                    </div>
+                @endif
+
+                @if($bulkDeleteEligibleCount === 0)
+                    <p class="text-rose-600 dark:text-rose-400 font-medium">
+                        None of the selected students can be deleted because all of them have historical evaluations. You can deactivate their accounts instead.
+                    </p>
+                @endif
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkDeleteModal', false)">Cancel</flux:button>
+                @if($bulkDeleteBlockedCount > 0)
+                    <flux:button variant="subtle" wire:click="bulkDeactivateSelected">
+                        Deactivate Accounts Instead
+                    </flux:button>
+                @endif
+                @if($bulkDeleteEligibleCount > 0)
+                    <flux:button variant="danger" wire:click="bulkDelete">
+                        Delete {{ $bulkDeleteEligibleCount }} Account(s)
+                    </flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Review Selected Students Modal -->
+    <flux:modal wire:model="showReviewSelectionModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-3xl !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-10">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <span>Selected Students</span>
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums">
+                        {{ count($selectedIds) }}
+                    </span>
+                </h2>
+                @if(count($selectedIds) > 0)
+                    <flux:button size="xs" variant="subtle" icon="trash" class="mr-6" wire:click="deselectAll">
+                        Clear All
+                    </flux:button>
+                @endif
+            </div>
+
+            <div class="max-h-[380px] overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm min-w-[580px]">
+                        <thead class="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-800/90 backdrop-blur-xs border-b border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400">
+                            <tr>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-28">Student ID</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs">Full Name</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs">Program & Section</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-28">Student Type</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-14 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @forelse($selectedUsersList as $selUser)
+                                <tr wire:key="selected-preview-{{ $selUser->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-2.5 px-3 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                                        {{ $selUser->student?->student_number ?: 'N/A' }}
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                                {{ $selUser->student?->formatted_name ?? $selUser->name }}
+                                            </p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                                {{ $selUser->email }}
+                                            </p>
+                                        </div>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-xs text-zinc-600 dark:text-zinc-300">
+                                        <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selUser->student?->program?->code ?: 'Unassigned' }}</span>
+                                        @if($selUser->student?->section)
+                                            <span class="text-zinc-400 dark:text-zinc-500 font-mono ml-1">{{ $selUser->student->section }}</span>
+                                        @endif
+                                        @if($selUser->student?->year_level)
+                                            <span class="text-zinc-500 dark:text-zinc-400">· Yr {{ $selUser->student->year_level }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-2.5 px-3 whitespace-nowrap">
+                                        @php
+                                            $selSt = strtolower($selUser->student?->status ?? 'regular');
+                                        @endphp
+                                        @if($selSt === 'regular')
+                                            <flux:badge color="emerald" size="sm">Regular</flux:badge>
+                                        @elseif($selSt === 'irregular')
+                                            <flux:badge color="amber" size="sm">Irregular</flux:badge>
+                                        @elseif($selSt === 'loa')
+                                            <flux:badge color="zinc" size="sm">LOA</flux:badge>
+                                        @elseif($selSt === 'dropped')
+                                            <flux:badge color="rose" size="sm">Dropped</flux:badge>
+                                        @elseif($selSt === 'graduated')
+                                            <flux:badge color="purple" size="sm">Graduated</flux:badge>
+                                        @else
+                                            <flux:badge color="zinc" size="sm" class="capitalize">{{ $selSt }}</flux:badge>
+                                        @endif
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                                        <flux:button size="xs" variant="ghost" icon="x-mark" class="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400" wire:click="removeSelected({{ $selUser->id }})" title="Remove from selection" />
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="py-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                                        No students are currently selected.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showReviewSelectionModal', false)">
+                    Done
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

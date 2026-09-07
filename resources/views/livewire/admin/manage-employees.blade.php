@@ -26,6 +26,12 @@ new #[Layout('components.layouts.app')] class extends Component
     public string $selectedRole = ''; // '', 'dean', 'program head', 'faculty', 'staff'
 
     #[Url]
+    public string $selectedEmploymentType = ''; // '', 'full_time', 'part_time'
+
+    #[Url]
+    public string $selectedStatus = ''; // '', 'active', 'disabled', 'on_leave', 'resigned', 'retired'
+
+    #[Url]
     public string $selectedDepartmentId = '';
 
     #[Url]
@@ -64,9 +70,147 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public string $role = 'faculty'; // Default role: faculty, dean, program head, staff
 
+    public string $employment_type = 'full_time'; // 'full_time', 'part_time'
+
+    public string $status = 'active'; // 'active', 'on_leave', 'resigned', 'retired'
+
     public string $department_id = '';
 
+    // Bulk Operations
+    /** @var array<int, string> */
+    public array $selectedIds = [];
+
+    public bool $selectAll = false;
+
+    public bool $showBulkStatusModal = false;
+
+    public string $bulkStatus = 'active';
+
+    public bool $showBulkDeptModal = false;
+
+    public string $bulkDepartmentId = '';
+
+    public bool $showBulkEmploymentModal = false;
+
+    public string $bulkEmploymentType = 'full_time';
+
+    public bool $showBulkDeleteModal = false;
+
+    public int $bulkDeleteEligibleCount = 0;
+
+    public int $bulkDeleteBlockedCount = 0;
+
+    /** @var array<int, string> */
+    public array $bulkDeleteEligibleIds = [];
+
+    public bool $showReviewSelectionModal = false;
+
+    public function deselectAll(): void
+    {
+        $this->selectedIds = [];
+        $this->selectAll = false;
+        $this->showReviewSelectionModal = false;
+        $this->dispatch('clear-selected-storage');
+    }
+
+    /**
+     * @param array<int, string|int> $ids
+     */
+    public function restoreSelectedIds(array $ids): void
+    {
+        if (empty($ids)) {
+            return;
+        }
+
+        $validIds = User::whereIn('id', $ids)
+            ->whereNotNull('employee_id')
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        $this->selectedIds = $validIds;
+        $this->updatedSelectedIds();
+    }
+
+    public function removeSelected($userId): void
+    {
+        $this->selectedIds = array_values(array_diff($this->selectedIds, [(string) $userId]));
+        $this->updatedSelectedIds();
+
+        if (empty($this->selectedIds)) {
+            $this->showReviewSelectionModal = false;
+        }
+    }
+
+    public function updatedSelectedIds(): void
+    {
+        $currentPageIds = $this->getCurrentPageEmployeeIds();
+        $this->selectAll = ! empty($currentPageIds) && empty(array_diff($currentPageIds, $this->selectedIds));
+    }
+
+    public function updatedSelectAll($value): void
+    {
+        $currentPageIds = $this->getCurrentPageEmployeeIds();
+
+        if ($value) {
+            $this->selectedIds = array_values(array_unique(array_merge($this->selectedIds, $currentPageIds)));
+        } else {
+            $this->selectedIds = array_values(array_diff($this->selectedIds, $currentPageIds));
+        }
+    }
+
+    protected function getCurrentPageEmployeeIds(): array
+    {
+        $query = $this->getFilteredUsersQuery();
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $paginator */
+        $paginator = $query->paginate(10);
+
+        return collect($paginator->items())
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function getHasSelectedInactiveProperty(): bool
+    {
+        if (empty($this->selectedIds)) {
+            return false;
+        }
+
+        return User::whereIn('id', $this->selectedIds)->where('is_active', false)->exists();
+    }
+
+    public function getHasSelectedActiveProperty(): bool
+    {
+        if (empty($this->selectedIds)) {
+            return false;
+        }
+
+        return User::whereIn('id', $this->selectedIds)->where('is_active', true)->exists();
+    }
+
+    public function getSelectedUsersListProperty()
+    {
+        if (empty($this->selectedIds)) {
+            return collect();
+        }
+
+        return User::whereIn('id', $this->selectedIds)
+            ->with(['employee.department'])
+            ->get();
+    }
+
     public function updatedSelectedRole()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedEmploymentType()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedStatus()
     {
         $this->resetPage();
     }
@@ -88,7 +232,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function clearFilters()
     {
-        $this->reset(['search', 'selectedRole', 'selectedDepartmentId', 'sortDirection']);
+        $this->reset(['search', 'selectedRole', 'selectedEmploymentType', 'selectedStatus', 'selectedDepartmentId', 'sortDirection']);
         $this->resetPage();
     }
 
@@ -101,17 +245,38 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->role = in_array($this->selectedRole, ['admin', 'dean', 'department head', 'program head', 'faculty', 'staff'])
             ? $this->selectedRole
             : 'faculty';
+        $this->employment_type = in_array($this->selectedEmploymentType, ['full_time', 'part_time'])
+            ? $this->selectedEmploymentType
+            : 'full_time';
+        $this->status = 'active';
         $this->showModal = true;
     }
 
-    public function with(): array
+    protected function getFilteredUsersQuery()
     {
         $query = User::query()
             ->join('employees', 'employees.id', '=', 'users.employee_id')
-            ->select('users.*');
+            ->select('users.*')
+            ->with(['employee.department', 'employee.supervisedDepartments', 'roles']);
 
         if ($this->selectedRole) {
             $query->where('employees.role', $this->selectedRole);
+        }
+
+        if ($this->selectedEmploymentType) {
+            $query->where('employees.employment_type', $this->selectedEmploymentType);
+        }
+
+        if ($this->selectedStatus === 'active') {
+            $query->where('employees.status', 'active')->where('users.is_active', true);
+        } elseif ($this->selectedStatus === 'disabled') {
+            $query->where('users.is_active', false)->whereNotIn('employees.status', ['resigned', 'retired']);
+        } elseif ($this->selectedStatus === 'on_leave') {
+            $query->where('employees.status', 'on_leave');
+        } elseif ($this->selectedStatus === 'resigned') {
+            $query->where('employees.status', 'resigned');
+        } elseif ($this->selectedStatus === 'retired') {
+            $query->where('employees.status', 'retired');
         }
 
         if ($this->selectedDepartmentId === 'none') {
@@ -132,14 +297,30 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $orderDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
 
+        return $query->orderBy('employees.last_name', $orderDirection)
+            ->orderBy('employees.first_name', $orderDirection);
+    }
+
+    public function with(): array
+    {
         $roleCounts = Employee::selectRaw('role, count(*) as count')->groupBy('role')->pluck('count', 'role');
         $allCount = (int) $roleCounts->sum();
 
+        $hasSelectedInactive = false;
+        $hasSelectedActive = false;
+
+        if (! empty($this->selectedIds)) {
+            $selectedStatuses = User::whereIn('id', $this->selectedIds)->pluck('is_active');
+            $hasSelectedInactive = $selectedStatuses->contains(false);
+            $hasSelectedActive = $selectedStatuses->contains(true);
+        }
+
+        $selectedUsersList = ! empty($this->selectedIds)
+            ? User::whereIn('id', $this->selectedIds)->with(['employee.department'])->get()
+            : collect();
+
         return [
-            'users' => $query->with(['employee.department', 'employee.supervisedDepartments', 'roles'])
-                ->orderBy('employees.last_name', $orderDirection)
-                ->orderBy('employees.first_name', $orderDirection)
-                ->paginate(10),
+            'users' => $this->getFilteredUsersQuery()->paginate(10),
             'departments' => Department::orderBy('name')->get(),
             'counts' => [
                 'all' => $allCount,
@@ -150,7 +331,272 @@ new #[Layout('components.layouts.app')] class extends Component
                 'faculty' => (int) ($roleCounts['faculty'] ?? 0),
                 'staff' => (int) ($roleCounts['staff'] ?? 0),
             ],
+            'hasSelectedInactive' => $hasSelectedInactive,
+            'hasSelectedActive' => $hasSelectedActive,
+            'selectedUsersList' => $selectedUsersList,
         ];
+    }
+
+    public function bulkSetStatus(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $this->validate([
+            'bulkStatus' => 'required|string|in:active,on_leave,resigned,retired,inactive',
+        ]);
+
+        $count = count($this->selectedIds);
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->selectedIds)->with('employee')->get();
+            $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+            Employee::whereIn('id', $employeeIds)->update(['status' => $this->bulkStatus]);
+
+            if (in_array($this->bulkStatus, ['resigned', 'retired', 'inactive'])) {
+                User::whereIn('id', $this->selectedIds)->update(['is_active' => false]);
+            }
+        });
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk updated status to '{$this->bulkStatus}' for {$count} employee(s)");
+
+        $this->deselectAll();
+        $this->showBulkStatusModal = false;
+
+        Flux::toast(
+            heading: 'Status Updated',
+            text: "Successfully updated status for {$count} employee(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkSetDepartment(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $this->validate([
+            'bulkDepartmentId' => 'nullable|string',
+        ]);
+
+        $deptId = ($this->bulkDepartmentId === 'none' || empty($this->bulkDepartmentId)) ? null : (int) $this->bulkDepartmentId;
+        $count = count($this->selectedIds);
+
+        DB::transaction(function () use ($deptId) {
+            $users = User::whereIn('id', $this->selectedIds)->with('employee')->get();
+            $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+            Employee::whereIn('id', $employeeIds)->update(['department_id' => $deptId]);
+        });
+
+        $deptName = $deptId ? (Department::find($deptId)?->code ?? 'Selected') : 'Unassigned';
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk assigned department '{$deptName}' to {$count} employee(s)");
+
+        $this->deselectAll();
+        $this->showBulkDeptModal = false;
+
+        Flux::toast(
+            heading: 'Department Assigned',
+            text: "Successfully assigned department to {$count} employee(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkSetEmploymentType(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $this->validate([
+            'bulkEmploymentType' => 'required|string|in:full_time,part_time',
+        ]);
+
+        $count = count($this->selectedIds);
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->selectedIds)->with('employee')->get();
+            $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+            Employee::whereIn('id', $employeeIds)->update(['employment_type' => $this->bulkEmploymentType]);
+        });
+
+        $typeLabel = $this->bulkEmploymentType === 'part_time' ? 'Part-Time' : 'Full-Time';
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk updated employment type to '{$typeLabel}' for {$count} employee(s)");
+
+        $this->deselectAll();
+        $this->showBulkEmploymentModal = false;
+
+        Flux::toast(
+            heading: 'Employment Type Updated',
+            text: "Successfully set employment type to {$typeLabel} for {$count} employee(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkSetActive(bool $active): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $targetIds = $this->selectedIds;
+        if (! $active) {
+            $targetIds = array_values(array_filter($targetIds, fn ($id) => (int) $id !== (int) auth()->id()));
+        }
+
+        $count = count($targetIds);
+        if ($count === 0) {
+            $this->deselectAll();
+
+            return;
+        }
+
+        DB::transaction(function () use ($targetIds, $active) {
+            User::whereIn('id', $targetIds)->update(['is_active' => $active]);
+
+            if ($active) {
+                $users = User::whereIn('id', $targetIds)->with('employee')->get();
+                $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+                Employee::whereIn('id', $employeeIds)
+                    ->whereIn('status', ['inactive', 'resigned', 'retired'])
+                    ->update(['status' => 'active']);
+            }
+        });
+
+        $actionName = $active ? 'enabled' : 'disabled';
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk {$actionName} login access for {$count} employee(s)");
+
+        $this->deselectAll();
+
+        Flux::toast(
+            heading: 'Access Updated',
+            text: "Successfully {$actionName} login access for {$count} employee(s).",
+            variant: 'success'
+        );
+    }
+
+    public function confirmBulkDelete(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $users = User::whereIn('id', $this->selectedIds)->with('employee')->get();
+
+        $this->bulkDeleteEligibleIds = [];
+        $this->bulkDeleteBlockedCount = 0;
+
+        foreach ($users as $user) {
+            if ($user->id === auth()->id()) {
+                $this->bulkDeleteBlockedCount++;
+                continue;
+            }
+
+            $hasEvals = DB::table('evaluations')
+                ->where('evaluator_id', $user->id)
+                ->orWhere('evaluatee_id', $user->id)
+                ->exists();
+
+            $hasClasses = false;
+            if ($user->employee) {
+                $hasClasses = DB::table('classes')->where('teacher_id', $user->employee->id)->exists();
+            }
+
+            if ($hasEvals || $hasClasses) {
+                $this->bulkDeleteBlockedCount++;
+            } else {
+                $this->bulkDeleteEligibleIds[] = (string) $user->id;
+            }
+        }
+
+        $this->bulkDeleteEligibleCount = count($this->bulkDeleteEligibleIds);
+        $this->showBulkDeleteModal = true;
+    }
+
+    public function bulkDelete(): void
+    {
+        if (empty($this->bulkDeleteEligibleIds)) {
+            $this->showBulkDeleteModal = false;
+
+            return;
+        }
+
+        $count = count($this->bulkDeleteEligibleIds);
+
+        DB::transaction(function () {
+            $users = User::whereIn('id', $this->bulkDeleteEligibleIds)->with('employee')->get();
+            $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+            User::whereIn('id', $this->bulkDeleteEligibleIds)->delete();
+            Employee::whereIn('id', $employeeIds)->delete();
+        });
+
+        activity('admin')
+            ->causedBy(auth()->user())
+            ->event('bulk_updated')
+            ->log("Bulk deleted {$count} employee account(s)");
+
+        $this->deselectAll();
+        $this->showBulkDeleteModal = false;
+
+        Flux::toast(
+            heading: 'Employees Deleted',
+            text: "Successfully deleted {$count} employee account(s).",
+            variant: 'success'
+        );
+    }
+
+    public function bulkDeactivateSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            return;
+        }
+
+        $targetIds = array_values(array_filter($this->selectedIds, fn ($id) => (int) $id !== (int) auth()->id()));
+        $count = count($targetIds);
+
+        if ($count > 0) {
+            DB::transaction(function () use ($targetIds) {
+                $users = User::whereIn('id', $targetIds)->with('employee')->get();
+                $employeeIds = $users->pluck('employee_id')->filter()->toArray();
+
+                User::whereIn('id', $targetIds)->update(['is_active' => false]);
+                Employee::whereIn('id', $employeeIds)->update(['status' => 'inactive']);
+            });
+
+            activity('admin')
+                ->causedBy(auth()->user())
+                ->event('bulk_updated')
+                ->log("Bulk deactivated {$count} employee account(s)");
+
+            Flux::toast(
+                heading: 'Accounts Deactivated',
+                text: "Successfully deactivated {$count} employee account(s). Historical records are preserved.",
+                variant: 'success'
+            );
+        }
+
+        $this->deselectAll();
+        $this->showBulkDeleteModal = false;
     }
 
     public function createUser()
@@ -162,6 +608,7 @@ new #[Layout('components.layouts.app')] class extends Component
             'last_name' => 'required|string|max:255',
             'suffix' => 'nullable|string|max:255',
             'role' => 'required|in:admin,dean,department head,program head,faculty,staff',
+            'employment_type' => 'required|in:full_time,part_time',
             'department_id' => 'nullable|exists:departments,id',
             'email' => 'required|email|unique:users,email',
         ]);
@@ -174,6 +621,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 'last_name' => trim($this->last_name),
                 'suffix' => $this->suffix ? trim($this->suffix) : null,
                 'role' => $this->role,
+                'employment_type' => $this->employment_type,
                 'status' => 'active',
                 'department_id' => $this->department_id ?: null,
             ]);
@@ -237,6 +685,8 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->last_name = $user->employee->last_name ?? '';
         $this->suffix = $user->employee->suffix ?? '';
         $this->role = $user->employee->role ?? 'faculty';
+        $this->employment_type = $user->employee->employment_type ?? 'full_time';
+        $this->status = $user->employee->status ?? 'active';
         $this->department_id = (string) ($user->employee->department_id ?? '');
 
         $this->showModal = true;
@@ -251,6 +701,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'last_name' => 'required|string|max:255',
             'suffix' => 'nullable|string|max:255',
             'role' => 'required|in:admin,dean,department head,program head,faculty,staff',
+            'employment_type' => 'required|in:full_time,part_time',
+            'status' => 'required|in:active,on_leave,resigned,retired',
             'department_id' => 'nullable|exists:departments,id',
             'email' => 'required|email|unique:users,email,'.$this->editingUser->id,
         ]);
@@ -265,13 +717,22 @@ new #[Layout('components.layouts.app')] class extends Component
                 'last_name' => trim($this->last_name),
                 'suffix' => $this->suffix ? trim($this->suffix) : null,
                 'role' => $this->role,
+                'employment_type' => $this->employment_type,
+                'status' => $this->status,
                 'department_id' => $this->department_id ?: null,
             ]);
 
-            $this->editingUser->update([
+            $userData = [
                 'name' => $this->editingUser->employee->fresh()->formatted_name,
                 'email' => strtolower(trim($this->email)),
-            ]);
+            ];
+
+            // If an employee is marked resigned or retired, automatically disable their login
+            if (in_array($this->status, ['resigned', 'retired'])) {
+                $userData['is_active'] = false;
+            }
+
+            $this->editingUser->update($userData);
 
             if ($oldRole && $oldRole !== $this->role) {
                 $this->editingUser->syncRoles([$this->role]);
@@ -437,15 +898,15 @@ new #[Layout('components.layouts.app')] class extends Component
             'Content-Disposition' => 'attachment; filename="employees_template.csv"',
         ];
 
-        $columns = ['employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'role', 'department_code', 'status'];
+        $columns = ['employee_number', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'role', 'employment_type', 'department_code', 'status'];
 
         $callback = function () use ($columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
             // Sample rows
-            fputcsv($file, ['FAC-001', 'Juan', '', 'Dela Cruz', '', 'juan.delacruz@grc.edu.ph', 'faculty', 'CCS', 'active']);
-            fputcsv($file, ['STF-001', 'Maria', 'Clara', 'Santos', '', 'maria.santos@grc.edu.ph', 'staff', 'REG', 'active']);
-            fputcsv($file, ['PH-001', 'Alan', '', 'Turing', '', 'alan.turing@grc.edu.ph', 'program head', 'CCS', 'active']);
+            fputcsv($file, ['FAC-001', 'Juan', '', 'Dela Cruz', '', 'juan.delacruz@grc.edu.ph', 'faculty', 'full_time', 'CCS', 'active']);
+            fputcsv($file, ['STF-001', 'Maria', 'Clara', 'Santos', '', 'maria.santos@grc.edu.ph', 'staff', 'full_time', 'REG', 'active']);
+            fputcsv($file, ['PH-001', 'Alan', '', 'Turing', '', 'alan.turing@grc.edu.ph', 'program head', 'full_time', 'CCS', 'active']);
             fclose($file);
         };
 
@@ -461,6 +922,22 @@ new #[Layout('components.layouts.app')] class extends Component
 
         if ($this->selectedRole) {
             $query->where('employees.role', $this->selectedRole);
+        }
+
+        if ($this->selectedEmploymentType) {
+            $query->where('employees.employment_type', $this->selectedEmploymentType);
+        }
+
+        if ($this->selectedStatus === 'active') {
+            $query->where('employees.status', 'active')->where('users.is_active', true);
+        } elseif ($this->selectedStatus === 'disabled') {
+            $query->where('users.is_active', false)->whereNotIn('employees.status', ['resigned', 'retired']);
+        } elseif ($this->selectedStatus === 'on_leave') {
+            $query->where('employees.status', 'on_leave');
+        } elseif ($this->selectedStatus === 'resigned') {
+            $query->where('employees.status', 'resigned');
+        } elseif ($this->selectedStatus === 'retired') {
+            $query->where('employees.status', 'retired');
         }
 
         if ($this->selectedDepartmentId === 'none') {
@@ -491,7 +968,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $callback = function () use ($employees) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['Employee Number', 'First Name', 'Middle Name', 'Last Name', 'Suffix', 'Email', 'Role', 'Department Code', 'Department Name', 'Status', 'Account Status']);
+            fputcsv($file, ['Employee Number', 'First Name', 'Middle Name', 'Last Name', 'Suffix', 'Email', 'Role', 'Employment Type', 'Department Code', 'Department Name', 'Status', 'Account Status']);
 
             foreach ($employees as $user) {
                 $e = $user->employee;
@@ -503,6 +980,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     $e?->suffix ?? '',
                     $user->email,
                     $e?->role ?? 'faculty',
+                    $e?->employment_type === 'part_time' ? 'Part-Time' : 'Full-Time',
                     $e?->department?->code ?? 'None',
                     $e?->department?->name ?? 'None',
                     $e?->status ?? 'active',
@@ -523,11 +1001,17 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $path = $this->importFile->getRealPath();
         $file = fopen($path, 'r');
-        $header = fgetcsv($file);
-        if (! $header) {
+        $rawHeader = fgetcsv($file);
+        if (! $rawHeader) {
             $this->addError('importFile', 'The CSV file is empty or corrupted.');
 
             return;
+        }
+
+        $headerMap = [];
+        foreach ($rawHeader as $idx => $h) {
+            $cleaned = strtolower(trim(str_replace([' ', '-'], '_', $h)));
+            $headerMap[$cleaned] = $idx;
         }
 
         $rows = [];
@@ -555,15 +1039,26 @@ new #[Layout('components.layouts.app')] class extends Component
         DB::beginTransaction();
         try {
             foreach ($rows as $index => $row) {
-                $empNumber = trim($row[0] ?? '');
-                $firstName = trim($row[1] ?? '');
-                $middleName = trim($row[2] ?? '') ?: null;
-                $lastName = trim($row[3] ?? '');
-                $suffix = trim($row[4] ?? '') ?: null;
-                $email = strtolower(trim($row[5] ?? ''));
-                $role = strtolower(trim($row[6] ?? 'faculty'));
-                $deptCode = strtoupper(trim($row[7] ?? ''));
-                $status = strtolower(trim($row[8] ?? 'active')) ?: 'active';
+                $getVal = function ($keys, $fallbackIdx = null) use ($row, $headerMap) {
+                    foreach ((array) $keys as $k) {
+                        if (isset($headerMap[$k]) && isset($row[$headerMap[$k]])) {
+                            return trim($row[$headerMap[$k]]);
+                        }
+                    }
+
+                    return ($fallbackIdx !== null && isset($row[$fallbackIdx])) ? trim($row[$fallbackIdx]) : '';
+                };
+
+                $empNumber = $getVal('employee_number', 0);
+                $firstName = $getVal('first_name', 1);
+                $middleName = $getVal('middle_name', 2) ?: null;
+                $lastName = $getVal('last_name', 3);
+                $suffix = $getVal('suffix', 4) ?: null;
+                $email = strtolower($getVal('email', 5));
+                $role = strtolower($getVal('role', 6) ?: 'faculty');
+                $rawEmpType = strtolower($getVal('employment_type'));
+                $deptCode = strtoupper($getVal(['department_code', 'department'], 7));
+                $status = strtolower($getVal('status', 8) ?: 'active');
 
                 if (! $empNumber || ! $firstName || ! $lastName) {
                     continue; // Skip invalid row
@@ -571,6 +1066,11 @@ new #[Layout('components.layouts.app')] class extends Component
 
                 if (! in_array($role, $validRoles)) {
                     $role = 'faculty';
+                }
+
+                $empType = in_array(str_replace(['-', ' '], '_', $rawEmpType), ['part_time', 'parttime', 'part']) ? 'part_time' : 'full_time';
+                if (! in_array($status, ['active', 'on_leave', 'resigned', 'retired', 'inactive'])) {
+                    $status = 'active';
                 }
 
                 if (! $email) {
@@ -589,14 +1089,20 @@ new #[Layout('components.layouts.app')] class extends Component
                         'last_name' => $lastName,
                         'suffix' => $suffix,
                         'role' => $role,
+                        'employment_type' => $empType,
                         'department_id' => $deptId ?? $employee->department_id,
                         'status' => $status,
                     ]);
 
                     if ($employee->user) {
-                        $employee->user->update([
+                        $userData = [
                             'name' => $employee->fresh()->formatted_name,
-                        ]);
+                        ];
+                        if (in_array($status, ['resigned', 'retired', 'inactive'])) {
+                            $userData['is_active'] = false;
+                        }
+                        $employee->user->update($userData);
+
                         if ($oldRole !== $role) {
                             $employee->user->syncRoles([$role]);
                         }
@@ -612,6 +1118,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         'last_name' => $lastName,
                         'suffix' => $suffix,
                         'role' => $role,
+                        'employment_type' => $empType,
                         'department_id' => $deptId,
                         'status' => $status,
                     ]);
@@ -621,7 +1128,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         'email' => $email,
                         'employee_id' => $employee->id,
                         'password' => $defaultPassword,
-                        'is_active' => true,
+                        'is_active' => ! in_array($status, ['resigned', 'retired', 'inactive']),
                     ]);
 
                     $user->assignRole($role);
@@ -653,7 +1160,35 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="space-y-6">
+<div class="space-y-6"
+    x-data="{
+        storageKey: 'selected_employees_admin_{{ auth()->id() ?? 'guest' }}',
+        init() {
+            const saved = sessionStorage.getItem(this.storageKey);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        $wire.restoreSelectedIds(parsed);
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem(this.storageKey);
+                }
+            }
+
+            if (typeof $wire !== 'undefined' && $wire.$watch) {
+                $wire.$watch('selectedIds', (ids) => {
+                    if (Array.isArray(ids) && ids.length > 0) {
+                        sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
+                    } else {
+                        sessionStorage.removeItem(this.storageKey);
+                    }
+                });
+            }
+        }
+    }"
+    @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
+>
     <!-- Header -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -672,53 +1207,60 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
     </div>
 
-    <!-- Role Filter Tabs -->
-    <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3">
-        @php
-            $tabs = [
-                '' => ['label' => 'All Employees', 'count' => $counts['all']],
-                'admin' => ['label' => 'Admin', 'count' => $counts['admin']],
-                'dean' => ['label' => 'Deans', 'count' => $counts['dean']],
-                'department head' => ['label' => 'Department Heads', 'count' => $counts['department head']],
-                'program head' => ['label' => 'Program Heads', 'count' => $counts['program head']],
-                'faculty' => ['label' => 'Faculty / Professors', 'count' => $counts['faculty']],
-                'staff' => ['label' => 'Staff', 'count' => $counts['staff']],
-            ];
-        @endphp
-
-        @foreach($tabs as $roleKey => $tab)
-            @php $isActive = ($selectedRole === $roleKey); @endphp
-            <button 
-                wire:click="$set('selectedRole', '{{ $roleKey }}')" 
-                @if($isActive)
-                    style="background-color: #9b0000 !important; color: #ffffff !important;"
-                    class="px-4 py-2 text-xs font-semibold rounded-lg border border-[#9b0000] shadow-sm cursor-pointer"
-                @else
-                    class="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-900 text-zinc-900 hover:bg-zinc-100 dark:border-zinc-300 dark:text-zinc-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer"
-                @endif
-            >
-                {{ $tab['label'] }} <span class="ml-1 opacity-90">({{ $tab['count'] }})</span>
-            </button>
-        @endforeach
-    </div>
-
     <!-- Search & Filters Bar -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 items-center">
-        <div class="sm:col-span-2">
+    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <!-- Search -->
+        <div class="flex-1 min-w-0">
             <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or employee ID..." />
         </div>
-        <div class="flex items-center gap-2">
-            <div class="flex-1">
-                <flux:select wire:model.live="selectedDepartmentId" placeholder="Filter by Department">
-                    <flux:select.option value="">All Departments</flux:select.option>
-                    <flux:select.option value="none">Unassigned (None)</flux:select.option>
-                    @foreach($departments as $dept)
-                        <flux:select.option value="{{ $dept->id }}">{{ $dept->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            </div>
 
-            <!-- Filter Icon Dropdown (A-Z / Z-A) -->
+        <!-- Role Filter Dropdown -->
+        <div class="w-full sm:w-44 shrink-0">
+            <flux:select wire:model.live="selectedRole" placeholder="All Roles">
+                <flux:select.option value="">All Roles ({{ $counts['all'] }})</flux:select.option>
+                <flux:select.option value="faculty">Faculty ({{ $counts['faculty'] }})</flux:select.option>
+                <flux:select.option value="dean">Dean ({{ $counts['dean'] }})</flux:select.option>
+                <flux:select.option value="department head">Dept Head ({{ $counts['department head'] }})</flux:select.option>
+                <flux:select.option value="program head">Prog Head ({{ $counts['program head'] }})</flux:select.option>
+                <flux:select.option value="staff">Staff ({{ $counts['staff'] }})</flux:select.option>
+                <flux:select.option value="admin">Admin ({{ $counts['admin'] }})</flux:select.option>
+            </flux:select>
+        </div>
+
+        <!-- Employment Type Filter Dropdown -->
+        <div class="w-full sm:w-36 shrink-0">
+            <flux:select wire:model.live="selectedEmploymentType" placeholder="All Types">
+                <flux:select.option value="">All Types</flux:select.option>
+                <flux:select.option value="full_time">Full-Time</flux:select.option>
+                <flux:select.option value="part_time">Part-Time</flux:select.option>
+            </flux:select>
+        </div>
+
+        <!-- Status Filter Dropdown -->
+        <div class="w-full sm:w-36 shrink-0">
+            <flux:select wire:model.live="selectedStatus" placeholder="All Status">
+                <flux:select.option value="">All Status</flux:select.option>
+                <flux:select.option value="active">Active</flux:select.option>
+                <flux:select.option value="disabled">Disabled</flux:select.option>
+                <flux:select.option value="on_leave">On Leave</flux:select.option>
+                <flux:select.option value="resigned">Resigned</flux:select.option>
+                <flux:select.option value="retired">Retired</flux:select.option>
+            </flux:select>
+        </div>
+
+        <!-- Department Filter Dropdown -->
+        <div class="w-full sm:w-48 shrink-0">
+            <flux:select wire:model.live="selectedDepartmentId" placeholder="All Departments">
+                <flux:select.option value="">All Departments</flux:select.option>
+                <flux:select.option value="none">Unassigned (None)</flux:select.option>
+                @foreach($departments as $dept)
+                    <flux:select.option value="{{ $dept->id }}">{{ $dept->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </div>
+
+        <!-- Sort Order & Clear Action Group -->
+        <div class="flex items-center gap-2 shrink-0">
             <flux:dropdown align="end">
                 <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
                     {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
@@ -734,62 +1276,104 @@ new #[Layout('components.layouts.app')] class extends Component
                 </flux:menu>
             </flux:dropdown>
 
-            @if($search || $selectedDepartmentId || $sortDirection !== 'asc')
+            @if($search || $selectedRole || $selectedEmploymentType || $selectedStatus || $selectedDepartmentId || $sortDirection !== 'asc')
                 <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" />
             @endif
         </div>
     </div>
 
+    <!-- Bulk Actions Floating Bar -->
+    @if(count($selectedIds) > 0)
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-zinc-900 text-white dark:bg-zinc-800 dark:border dark:border-zinc-700 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            <div class="flex items-center justify-between sm:justify-start gap-2.5 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center bg-zinc-800 dark:bg-zinc-700 text-zinc-100 font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-zinc-700 dark:border-zinc-600 tabular-nums">
+                        {{ count($selectedIds) }} Selected
+                    </span>
+                    <flux:button size="xs" variant="ghost" class="!text-zinc-300 hover:!text-white underline underline-offset-4 text-xs font-semibold" wire:click="$set('showReviewSelectionModal', true)">
+                        Review Selection
+                    </flux:button>
+                </div>
+
+                <div class="sm:hidden">
+                    <flux:button size="xs" variant="ghost" class="!text-zinc-400 hover:!text-white !px-2" wire:click="deselectAll" icon="x-mark">
+                        Deselect
+                    </flux:button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none sm:flex-wrap sm:justify-end -mx-1 px-1 sm:mx-0 sm:px-0">
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="identification" wire:click="$set('showBulkStatusModal', true)">
+                    Change Status
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="building-office-2" wire:click="$set('showBulkDeptModal', true)">
+                    Assign Dept
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="briefcase" wire:click="$set('showBulkEmploymentModal', true)">
+                    Set Employment
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed" icon="play-circle" wire:click="bulkSetActive(true)" :disabled="!$hasSelectedInactive">
+                    Enable Access
+                </flux:button>
+
+                <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed" icon="pause-circle" wire:click="bulkSetActive(false)" :disabled="!$hasSelectedActive">
+                    Disable Access
+                </flux:button>
+
+                <flux:button size="xs" variant="danger" class="shrink-0" icon="trash" wire:click="confirmBulkDelete">
+                    Delete
+                </flux:button>
+
+                <flux:button size="xs" variant="ghost" class="hidden sm:inline-flex shrink-0 !text-zinc-400 hover:!text-white" wire:click="deselectAll">
+                    Deselect
+                </flux:button>
+            </div>
+        </div>
+    @endif
+
     <!-- Table -->
     <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden shadow-xs">
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm min-w-[800px]">
+            <table class="w-full text-left text-sm min-w-[920px] lg:min-w-0 lg:table-fixed">
                 <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
                     <tr>
-                        <th class="px-6 py-3.5 font-semibold">Employee ID</th>
-                        <th class="px-6 py-3.5 font-semibold">Full Name</th>
-                        <th class="px-6 py-3.5 font-semibold">Role</th>
-                        <th class="px-6 py-3.5 font-semibold">Department</th>
-                        <th class="px-6 py-3.5 font-semibold">Email</th>
-                        <th class="px-6 py-3.5 font-semibold">Account Status</th>
-                        <th class="px-6 py-3.5 font-semibold text-right">Action</th>
+                        <th class="py-3.5 px-3 w-10 lg:w-[4%] text-center">
+                            <input type="checkbox" wire:model.live="selectAll" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select all employees on current page" />
+                        </th>
+                        <th class="py-3.5 px-4 w-28 lg:w-[10%] font-semibold">Employee ID</th>
+                        <th class="py-3.5 px-4 w-44 lg:w-[18%] font-semibold">Full Name</th>
+                        <th class="py-3.5 px-4 w-28 lg:w-[10%] font-semibold">Role</th>
+                        <th class="py-3.5 px-4 w-52 lg:w-[19%] font-semibold">Department</th>
+                        <th class="py-3.5 px-4 w-28 lg:w-[10%] font-semibold">Employment</th>
+                        <th class="py-3.5 px-4 w-44 lg:w-[16%] font-semibold">Email</th>
+                        <th class="py-3.5 px-4 w-20 lg:w-[7%] font-semibold">Status</th>
+                        <th class="py-3.5 px-4 w-16 lg:w-[6%] font-semibold text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @forelse($users as $user)
-                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                            <td class="px-6 py-4 font-mono text-xs font-semibold text-zinc-900 dark:text-white">
+                        <tr wire:key="emp-user-{{ $user->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors {{ in_array((string)$user->id, $selectedIds) ? 'bg-zinc-50/80 dark:bg-zinc-800/40' : '' }}">
+                            <td class="py-3.5 px-3 text-center">
+                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $user->id }}" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select employee {{ $user->employee?->employee_number ?? $user->name }}" />
+                            </td>
+                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-white truncate">
                                 {{ $user->employee->employee_number ?? 'N/A' }}
                             </td>
-                            <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">
-                                <div class="flex items-center gap-2">
-                                    <span>{{ $user->employee->formatted_name ?? $user->name }}</span>
+                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-white truncate">
+                                <div class="flex items-center gap-2 truncate">
+                                    <span class="truncate">{{ $user->employee->formatted_name ?? $user->name }}</span>
                                     @if($user->id === auth()->id())
-                                        <flux:badge color="indigo" size="sm" class="font-bold text-[10px] uppercase">You</flux:badge>
+                                        <flux:badge color="indigo" size="sm" class="font-bold text-[10px] uppercase shrink-0">You</flux:badge>
                                     @endif
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
-                                @php
-                                    $empRole = strtolower($user->employee->role ?? 'employee');
-                                @endphp
-                                @if($empRole === 'admin')
-                                    <flux:badge color="rose" size="sm" class="capitalize font-semibold">Admin</flux:badge>
-                                @elseif($empRole === 'dean')
-                                    <flux:badge color="amber" size="sm" class="capitalize font-semibold">Dean</flux:badge>
-                                @elseif($empRole === 'program head')
-                                    <flux:badge color="purple" size="sm" class="capitalize font-semibold">Program Head</flux:badge>
-                                @elseif($empRole === 'faculty')
-                                    <flux:badge color="indigo" size="sm" class="capitalize font-semibold">Faculty</flux:badge>
-                                @elseif($empRole === 'staff')
-                                    <flux:badge color="emerald" size="sm" class="capitalize font-semibold">Staff</flux:badge>
-                                @elseif($empRole === 'department head')
-                                    <flux:badge color="sky" size="sm" class="capitalize font-semibold">Department Head</flux:badge>
-                                @else
-                                    <flux:badge color="zinc" size="sm" class="capitalize">{{ $empRole }}</flux:badge>
-                                @endif
+                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-zinc-100 capitalize truncate">
+                                {{ $user->employee->role ?? 'employee' }}
                             </td>
-                            <td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">
+                            <td class="py-3.5 px-4 text-zinc-600 dark:text-zinc-300 truncate">
                                 @php
                                     $emp = $user->employee;
                                     $homeDept = $emp?->department?->name;
@@ -797,7 +1381,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 @endphp
 
                                 @if($emp && $emp->role === 'dean' && $supervised && $supervised->isNotEmpty())
-                                    <div>
+                                    <div class="truncate">
                                         @if($supervised->count() === 1)
                                             <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $supervised->first()->code }}</span>
                                             <span class="text-[11px] text-indigo-600 dark:text-indigo-400 block font-medium">Supervising Dean</span>
@@ -813,28 +1397,42 @@ new #[Layout('components.layouts.app')] class extends Component
                                         @endif
                                     </div>
                                 @elseif($homeDept)
-                                    <span>{{ $homeDept }}</span>
+                                    <span class="truncate" title="{{ $homeDept }}">{{ $homeDept }}</span>
                                 @else
                                     <span class="text-zinc-400 italic">Unassigned</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-xs text-zinc-600 dark:text-zinc-400">
+                            <td class="py-3.5 px-4 text-zinc-600 dark:text-zinc-300 font-medium truncate">
+                                {{ ($user->employee->employment_type ?? 'full_time') === 'part_time' ? 'Part-Time' : 'Full-Time' }}
+                            </td>
+                            <td class="py-3.5 px-4 text-xs text-zinc-600 dark:text-zinc-400 truncate" title="{{ $user->email }}">
                                 {{ $user->email }}
                             </td>
-                            <td class="px-6 py-4">
-                                @if($user->id === auth()->id())
-                                    <flux:badge color="emerald" size="sm" title="Active logged-in session">Active</flux:badge>
+                            <td class="py-3.5 px-4">
+                                @php
+                                    $empStatus = strtolower($user->employee->status ?? 'active');
+                                @endphp
+                                @if($empStatus === 'resigned')
+                                    <flux:badge color="rose" size="sm" class="font-semibold">Resigned</flux:badge>
+                                @elseif($empStatus === 'retired')
+                                    <flux:badge color="purple" size="sm" class="font-semibold">Retired</flux:badge>
+                                @elseif($empStatus === 'on_leave')
+                                    <flux:badge color="amber" size="sm" class="font-semibold">On Leave</flux:badge>
                                 @else
-                                    <button wire:click="toggleActive({{ $user->id }})" class="cursor-pointer">
-                                        @if($user->is_active)
-                                            <flux:badge color="emerald" size="sm">Active</flux:badge>
-                                        @else
-                                            <flux:badge color="zinc" size="sm">Disabled</flux:badge>
-                                        @endif
-                                    </button>
+                                    @if($user->id === auth()->id())
+                                        <flux:badge color="emerald" size="sm" title="Active logged-in session">Active</flux:badge>
+                                    @else
+                                        <button wire:click="toggleActive({{ $user->id }})" class="cursor-pointer" title="{{ $user->is_active ? 'Click to disable' : 'Click to enable' }}">
+                                            @if($user->is_active)
+                                                <flux:badge color="emerald" size="sm">Active</flux:badge>
+                                            @else
+                                                <flux:badge color="zinc" size="sm">Disabled</flux:badge>
+                                            @endif
+                                        </button>
+                                    @endif
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="py-3.5 px-4 text-right">
                                 <flux:dropdown align="end">
                                     <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
                                         Action
@@ -862,7 +1460,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-zinc-500 dark:text-zinc-400">
+                            <td colspan="9" class="px-6 py-12 text-center text-zinc-500 dark:text-zinc-400">
                                 No employee accounts found matching your filters.
                             </td>
                         </tr>
@@ -889,19 +1487,46 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <form wire:submit="{{ $editingUser ? 'updateUser' : 'createUser' }}" class="space-y-4">
-                <!-- Role Selection -->
-                <div>
-                    <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employee Role</label>
-                    <select wire:model="role" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
-                        <option value="faculty">Faculty / Professor</option>
-                        <option value="admin">Administrator (Admin)</option>
-                        <option value="dean">Dean</option>
-                        <option value="department head">Department Head</option>
-                        <option value="program head">Program Head</option>
-                        <option value="staff">Staff</option>
-                    </select>
-                    @error('role') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Role Selection -->
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employee Role</label>
+                        <select wire:model="role" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                            <option value="faculty">Faculty / Professor</option>
+                            <option value="admin">Administrator (Admin)</option>
+                            <option value="dean">Dean</option>
+                            <option value="department head">Department Head</option>
+                            <option value="program head">Program Head</option>
+                            <option value="staff">Staff</option>
+                        </select>
+                        @error('role') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
+                    <!-- Employment Type -->
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employment Type</label>
+                        <select wire:model="employment_type" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                            <option value="full_time">Full-Time</option>
+                            <option value="part_time">Part-Time</option>
+                        </select>
+                        @error('employment_type') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
                 </div>
+
+                @if($editingUser)
+                    <!-- Employment Status (Edit Mode Only) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employment Status</label>
+                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                            <option value="active">Active</option>
+                            <option value="on_leave">On Leave</option>
+                            <option value="resigned">Resigned</option>
+                            <option value="retired">Retired</option>
+                        </select>
+                        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">Setting status to Resigned or Retired automatically deactivates user login while preserving all historical evaluation records.</p>
+                        @error('status') <span class="text-xs text-rose-500 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+                @endif
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <flux:input wire:model="first_name" label="First Name" type="text" required />
@@ -951,7 +1576,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 <ul class="list-disc list-inside text-zinc-600 dark:text-zinc-400 space-y-1">
                     <li>Required Columns: <code class="font-mono text-zinc-900 dark:text-zinc-100 font-bold">employee_number, first_name, last_name, role</code></li>
                     <li>Accepted Roles: <code class="font-mono text-zinc-700 dark:text-zinc-300">faculty, dean, department head, program head, staff, admin</code></li>
-                    <li>Optional Columns: <code class="font-mono text-zinc-700 dark:text-zinc-300">middle_name, suffix, email, department_code, status</code></li>
+                    <li>Optional Columns: <code class="font-mono text-zinc-700 dark:text-zinc-300">middle_name, suffix, email, employment_type (full_time / part_time), department_code, status</code></li>
                     <li>Existing employee numbers update details and roles; new employee numbers provision login accounts (default password: <code class="font-mono font-bold">password</code>).</li>
                 </ul>
             </div>
@@ -1031,4 +1656,223 @@ new #[Layout('components.layouts.app')] class extends Component
         @endif
     </x-confirmation-modal>
     @endif
+
+    <!-- Bulk Status Modal -->
+    <flux:modal wire:model="showBulkStatusModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Change Employee Status</h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Apply a new employment status to all <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
+                </p>
+            </div>
+
+            <div class="space-y-3">
+                <flux:field>
+                    <flux:label>Employment Status</flux:label>
+                    <flux:select wire:model="bulkStatus">
+                        <flux:select.option value="active">Active</flux:select.option>
+                        <flux:select.option value="on_leave">On Leave</flux:select.option>
+                        <flux:select.option value="resigned">Resigned</flux:select.option>
+                        <flux:select.option value="retired">Retired</flux:select.option>
+                        <flux:select.option value="inactive">Inactive</flux:select.option>
+                    </flux:select>
+                    <flux:error name="bulkStatus" />
+                </flux:field>
+
+                <p class="text-xs text-amber-600 dark:text-amber-400">
+                    Note: Setting status to Resigned, Retired, or Inactive will automatically disable login access.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkStatusModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="bulkSetStatus">Update Status</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Department Modal -->
+    <flux:modal wire:model="showBulkDeptModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Assign Department</h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Assign a department to all <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
+                </p>
+            </div>
+
+            <div class="space-y-3">
+                <flux:field>
+                    <flux:label>Department</flux:label>
+                    <flux:select wire:model="bulkDepartmentId" placeholder="Select Department">
+                        <flux:select.option value="none">Unassigned (None)</flux:select.option>
+                        @foreach($departments as $dept)
+                            <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="bulkDepartmentId" />
+                </flux:field>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkDeptModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="bulkSetDepartment">Assign Department</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Employment Type Modal -->
+    <flux:modal wire:model="showBulkEmploymentModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Set Employment Type</h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Update employment classification for <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
+                </p>
+            </div>
+
+            <div class="space-y-3">
+                <flux:field>
+                    <flux:label>Employment Classification</flux:label>
+                    <flux:select wire:model="bulkEmploymentType">
+                        <flux:select.option value="full_time">Full-Time</flux:select.option>
+                        <flux:select.option value="part_time">Part-Time</flux:select.option>
+                    </flux:select>
+                    <flux:error name="bulkEmploymentType" />
+                </flux:field>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkEmploymentModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="bulkSetEmploymentType">Update Classification</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Bulk Delete Confirmation Modal -->
+    <flux:modal wire:model="showBulkDeleteModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-lg !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div class="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                <flux:icon name="exclamation-triangle" class="size-6 shrink-0" />
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Delete Selected Employees</h2>
+            </div>
+
+            <div class="text-sm text-zinc-600 dark:text-zinc-400 space-y-2">
+                <p>
+                    You have selected <span class="font-bold text-zinc-900 dark:text-white">{{ count($selectedIds) }}</span> employee account(s).
+                </p>
+                @if($bulkDeleteBlockedCount > 0)
+                    <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-200">
+                        <span class="font-bold">{{ $bulkDeleteBlockedCount }} account(s)</span> cannot be deleted because they have historical classes, evaluation records, or include your active session. Their historical audit records must be preserved.
+                    </div>
+                @endif
+                @if($bulkDeleteEligibleCount > 0)
+                    <p>
+                        <span class="font-bold text-zinc-900 dark:text-white">{{ $bulkDeleteEligibleCount }}</span> account(s) have no linked historical records and will be permanently deleted.
+                    </p>
+                @endif
+                @if($bulkDeleteEligibleCount === 0)
+                    <p class="text-rose-600 dark:text-rose-400 font-medium">
+                        None of the selected employees can be deleted due to audit protection constraints. You can deactivate their accounts instead.
+                    </p>
+                @endif
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showBulkDeleteModal', false)">Cancel</flux:button>
+                @if($bulkDeleteBlockedCount > 0)
+                    <flux:button variant="subtle" wire:click="bulkDeactivateSelected">
+                        Deactivate Accounts Instead
+                    </flux:button>
+                @endif
+                @if($bulkDeleteEligibleCount > 0)
+                    <flux:button variant="danger" wire:click="bulkDelete">
+                        Delete {{ $bulkDeleteEligibleCount }} Account(s)
+                    </flux:button>
+                @endif
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Review Selected Employees Modal -->
+    <flux:modal wire:model="showReviewSelectionModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-3xl !p-4 sm:!p-6">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-10">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <span>Selected Employees</span>
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums">
+                        {{ count($selectedIds) }}
+                    </span>
+                </h2>
+                @if(count($selectedIds) > 0)
+                    <flux:button size="xs" variant="subtle" icon="trash" class="mr-6" wire:click="deselectAll">
+                        Clear All
+                    </flux:button>
+                @endif
+            </div>
+
+            <div class="max-h-[380px] overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm min-w-[580px]">
+                        <thead class="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-800/90 backdrop-blur-xs border-b border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400">
+                            <tr>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-28">Employee ID</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs">Full Name</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs">Department</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-24">Role</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-20">Status</th>
+                                <th class="py-2.5 px-3 font-semibold text-xs w-14 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                            @forelse($selectedUsersList as $selUser)
+                                <tr wire:key="selected-emp-preview-{{ $selUser->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-2.5 px-3 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                                        {{ $selUser->employee?->employee_number ?: 'N/A' }}
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                                {{ $selUser->employee?->formatted_name ?? $selUser->name }}
+                                            </p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                                {{ $selUser->email }}
+                                            </p>
+                                        </div>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-xs text-zinc-600 dark:text-zinc-300">
+                                        {{ $selUser->employee?->department?->code ?? 'Unassigned' }}
+                                    </td>
+                                    <td class="py-2.5 px-3 capitalize text-xs font-medium text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+                                        {{ $selUser->employee?->role ?? 'employee' }}
+                                    </td>
+                                    <td class="py-2.5 px-3 whitespace-nowrap">
+                                        <flux:badge size="sm" :color="$selUser->is_active ? 'emerald' : 'zinc'">
+                                            {{ $selUser->is_active ? 'Active' : 'Disabled' }}
+                                        </flux:badge>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                                        <flux:button size="xs" variant="ghost" icon="x-mark" class="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400" wire:click="removeSelected({{ $selUser->id }})" title="Remove from selection" />
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="py-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                                        No employees are currently selected.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                <flux:button variant="ghost" wire:click="$set('showReviewSelectionModal', false)">
+                    Done
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

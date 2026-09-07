@@ -99,3 +99,55 @@ test('user model ignores notification viewed timestamp and dismissed notificatio
 
     expect(Activity::count())->toBe(0);
 });
+
+test('admin can access system activity page and view audit logs and submissions ledger', function () {
+    Role::firstOrCreate(['name' => 'admin']);
+    $admin = User::factory()->create([
+        'name' => 'Activity Admin',
+        'email' => 'activityadmin@grc.edu.ph',
+    ]);
+    $admin->assignRole('admin');
+
+    // Create an audited action
+    Department::create([
+        'name' => 'College of Business',
+        'code' => 'COB',
+        'type' => 'academic',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.activity'))
+        ->assertOk();
+
+    Livewire::withoutLazyLoading()
+        ->actingAs($admin)
+        ->test('admin.manage-activity')
+        ->assertSee('System Activity')
+        ->assertSee('System Audit Trail')
+        ->assertSee('Submissions Ledger')
+        ->assertSee('College of Business')
+        // Test switching to submissions tab
+        ->set('activeTab', 'submissions')
+        ->assertSee('Submissions Ledger')
+        ->assertSee('Target Faculty')
+        ->assertSee('Evaluation Flow')
+        ->assertDontSee('Score')
+        // Test audit filter
+        ->set('activeTab', 'audit')
+        ->set('searchAudit', 'College of Business')
+        ->assertSee('College of Business')
+        // Test datetime range filter
+        ->set('auditDateFrom', '2026-09-01T00:00')
+        ->set('auditDateTo', '2026-09-30T23:59')
+        ->assertSee('College of Business');
+});
+
+test('non-admin cannot access system activity page', function () {
+    Role::firstOrCreate(['name' => 'student']);
+    $student = User::factory()->create();
+    $student->assignRole('student');
+
+    $this->actingAs($student)
+        ->get(route('admin.activity'))
+        ->assertForbidden();
+});

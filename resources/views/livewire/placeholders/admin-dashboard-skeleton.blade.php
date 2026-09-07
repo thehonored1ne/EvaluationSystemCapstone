@@ -5,17 +5,15 @@
             <div class="flex flex-col items-start text-left">
                 <div class="flex items-center gap-3 flex-wrap">
                     <flux:heading size="xl" level="1" class="text-left font-extrabold tracking-tight">Admin Dashboard</flux:heading>
-                    <div class="h-6 w-36 bg-zinc-200 dark:bg-zinc-800 rounded-md shimmer"></div>
-                    <div class="h-6 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-full shimmer"></div>
                 </div>
             </div>
             <div class="flex items-center gap-2.5 flex-wrap">
-                <!-- Unified Evaluation Schedule Card Skeleton -->
-                <div class="inline-flex items-center gap-2 p-1 pl-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
-                    <div class="h-4 w-28 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
-                    <div class="h-8 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
-                </div>
-                <div class="h-8 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
+                <!-- Live Status & Countdown Context Pill Skeleton -->
+                <div class="h-8 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
+                <!-- Open/Close Evaluation Button Skeleton -->
+                <div class="h-8 w-34 bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
+                <!-- Edit Schedule Button Skeleton -->
+                <div class="h-8 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
             </div>
         </div>
 
@@ -67,12 +65,7 @@
                         <div class="h-9 bg-zinc-200 dark:bg-zinc-800 rounded-md w-20 shimmer"></div>
                         <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-24 shimmer"></div>
                     </div>
-                    <div class="mt-2.5 space-y-1.5">
-                        <div class="w-full bg-zinc-200/80 dark:bg-zinc-700 rounded-full h-2 overflow-hidden">
-                            <div class="h-2 rounded-full w-2/3 bg-zinc-300 dark:bg-zinc-600 shimmer"></div>
-                        </div>
-                        <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-24 shimmer"></div>
-                    </div>
+                    <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-36 shimmer mt-2.5"></div>
                 </div>
                 <div class="mt-auto pt-3.5 min-h-[36px] flex flex-col justify-end gap-1.5">
                     <div class="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-full shimmer"></div>
@@ -262,8 +255,11 @@
             <!-- Tab Header Bar Skeleton -->
             <div class="px-6 pt-5 pb-3 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded w-56 shimmer"></div>
-                <!-- Tab Switcher Skeleton (h-[38px] matching live 38px button toolbar) -->
-                <div class="h-[38px] bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 w-64 shimmer"></div>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <!-- Tab Switcher Skeleton (h-[38px] matching live 38px button toolbar) -->
+                    <div class="h-[38px] bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 w-64 shimmer"></div>
+                    <div class="h-[34px] w-24 bg-zinc-200 dark:bg-zinc-700 rounded-lg shimmer"></div>
+                </div>
             </div>
 
             <!-- Table Container Skeleton (exact 380px height to match live max-h-[380px]) -->

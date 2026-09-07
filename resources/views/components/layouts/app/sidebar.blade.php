@@ -85,7 +85,6 @@
                 html.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
                 html.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
                 html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-sublist,
-                html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-active-term,
                 html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-big-logo,
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
                 body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
@@ -94,7 +93,6 @@
                 body.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
                 body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
                 body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-sublist,
-                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-active-term,
                 body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-big-logo {
                     opacity: 0 !important;
                     display: none !important;
@@ -169,7 +167,7 @@
             <flux:sidebar 
                 sticky 
                 stashable 
-                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] shrink-0 print:hidden"
+                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] shrink-0 print:hidden max-lg:!z-50"
             >
                 <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
@@ -184,21 +182,6 @@
                         <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#f89696] fill-current"></x-app-logo-icon>
                     </div>
                 </a>
-
-                @php
-                    $activeSemester = \App\Models\Semester::getActive();
-                    $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
-                @endphp
-
-                <!-- Active Term Indicator -->
-                <div class="sidebar-active-term px-2 mb-3">
-                    <div class="flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium tracking-wide text-center">
-                        <span class="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300 leading-none">Active Term</span>
-                        <span class="truncate font-semibold text-xs mt-0.5">
-                            {{ $activeSemester ? $activeSemester->academicYear?->name . ' • ' . $shortSemName : 'No Active Term' }}
-                        </span>
-                    </div>
-                </div>
 
                 <flux:navlist variant="outline">
                     @php
@@ -367,6 +350,12 @@
                             <flux:tooltip content="Reports" position="right">
                                 <flux:navlist.item icon="document-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" aria-label="Reports" wire:navigate>Reports</flux:navlist.item>
                             </flux:tooltip>
+
+                            @if($user->hasRole('admin'))
+                                <flux:tooltip content="Activity Logs" position="right">
+                                    <flux:navlist.item icon="clock" :href="route('admin.activity')" :current="request()->routeIs('admin.activity')" aria-label="Activity Logs" wire:navigate>Activity Logs</flux:navlist.item>
+                                </flux:tooltip>
+                            @endif
                         </flux:navlist.group>
                     @endif
                 </flux:navlist>

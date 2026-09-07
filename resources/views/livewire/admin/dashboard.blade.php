@@ -171,6 +171,10 @@ new #[Layout('components.layouts.app')] class extends Component
         $activeSem->is_evaluation_open = ! $activeSem->is_evaluation_open;
         $activeSem->save();
 
+        if ($activeSem->is_evaluation_open) {
+            Semester::where('id', '!=', $activeSem->id)->update(['is_evaluation_open' => false]);
+        }
+
         $this->cachedData = null;
         \Illuminate\Support\Facades\Cache::forget('admin_dashboard_metrics_'.$activeSem->id);
 
@@ -1375,25 +1379,9 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="flex flex-col items-start text-left">
             <div class="flex items-center gap-3 flex-wrap">
                 <flux:heading size="xl" level="1" class="text-left font-extrabold tracking-tight">Admin Dashboard</flux:heading>
-                @if($activeSemester)
-                    <flux:badge variant="neutral" size="sm" class="font-bold shrink-0">
-                        {{ $activeSemester->academicYear?->name }} &bull; {{ $activeSemester->name }}
-                    </flux:badge>
-                @endif
-                @if($scheduleStatus === 'active')
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Evaluation Open
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
-                        <span class="size-1.5 rounded-full bg-zinc-400"></span>
-                        Evaluation Closed
-                    </span>
-                @endif
             </div>
-
         </div>
+
         <div class="flex items-center gap-2.5 flex-wrap">
             @php
                 $topStarts = $activeSemester?->evaluation_starts_at;
@@ -1401,36 +1389,71 @@ new #[Layout('components.layouts.app')] class extends Component
                 $topNow = \Illuminate\Support\Carbon::now('Asia/Manila');
                 $topRemainingDays = ($topEnds && $topEnds->greaterThan($topNow)) ? max(0, (int) round($topNow->diffInDays($topEnds))) : 0;
                 $topOpensDays = ($topStarts && $topStarts->greaterThan($topNow)) ? max(0, (int) round($topNow->diffInDays($topStarts))) : 0;
+                $isOpen = (bool) ($activeSemester?->is_evaluation_open);
             @endphp
             
-            <!-- Unified Evaluation Schedule Card Container -->
-            <div class="inline-flex items-center gap-2 p-1 pl-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
-                @if($scheduleStatus === 'active' && $topEnds)
-                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
-                        <flux:icon icon="clock" class="size-3.5 text-zinc-500 shrink-0" />
-                        <span class="hidden sm:inline">Ends in {{ $topRemainingDays }} {{ \Illuminate\Support\Str::plural('day', $topRemainingDays) }}</span>
-                        <span class="sm:hidden">{{ $topRemainingDays }}d left</span>
+            <!-- Live Status & Countdown Context Pill -->
+            @if($isOpen)
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs">
+                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                    <span>Open</span>
+                    <span class="text-emerald-300 dark:text-emerald-700">&bull;</span>
+                    <span class="tabular-nums font-semibold">
+                        @if($topEnds && $topEnds->greaterThan($topNow))
+                            {{ $topRemainingDays }}d left
+                        @else
+                            Active
+                        @endif
                     </span>
-                @elseif($scheduleStatus === 'scheduled' && $topStarts)
-                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
-                        <flux:icon icon="clock" class="size-3.5 text-zinc-500 shrink-0" />
-                        <span class="hidden sm:inline">Opens in {{ $topOpensDays }} {{ \Illuminate\Support\Str::plural('day', $topOpensDays) }}</span>
-                        <span class="sm:hidden">{{ $topOpensDays }}d to open</span>
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                        <flux:icon icon="calendar" class="size-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                        <span>No schedule set</span>
-                    </span>
-                @endif
+                </div>
+            @elseif($topStarts && $topStarts->greaterThan($topNow))
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-bold shadow-2xs">
+                    <span class="size-2 rounded-full bg-amber-500 shrink-0"></span>
+                    <span>Closed</span>
+                    <span class="text-amber-300 dark:text-amber-700">&bull;</span>
+                    <span class="tabular-nums font-semibold">Opens in {{ $topOpensDays }}d</span>
+                </div>
+            @else
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium shadow-2xs">
+                    <span class="size-2 rounded-full bg-zinc-400 shrink-0"></span>
+                    <span>Closed</span>
+                    <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                    <span>No schedule</span>
+                </div>
+            @endif
 
-                <flux:button wire:click="openScheduleModal" variant="primary" size="sm" icon="calendar" class="cursor-pointer font-bold bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
-                    Edit Schedule
+            <!-- Open / Close Evaluation Action Button -->
+            @if($isOpen)
+                <flux:button
+                    wire:click="toggleEvaluation"
+                    wire:loading.attr="disabled"
+                    size="sm"
+                    icon="lock-closed"
+                    class="cursor-pointer font-bold !bg-rose-600 hover:!bg-rose-700 !text-white dark:!bg-rose-600 dark:hover:!bg-rose-700 !border-rose-600 dark:!border-rose-700 shadow-2xs transition-colors"
+                >
+                    Close Evaluation
                 </flux:button>
-            </div>
+            @else
+                <flux:button
+                    wire:click="toggleEvaluation"
+                    wire:loading.attr="disabled"
+                    size="sm"
+                    icon="lock-open"
+                    class="cursor-pointer font-bold !bg-emerald-600 hover:!bg-emerald-700 !text-white dark:!bg-emerald-600 dark:hover:!bg-emerald-700 !border-emerald-600 dark:!border-emerald-700 shadow-2xs transition-colors"
+                >
+                    Open Evaluation
+                </flux:button>
+            @endif
 
-            <flux:button href="/reports" variant="primary" size="sm" icon="printer" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
-                Reports
+            <!-- Edit Schedule Button (Subtle Style) -->
+            <flux:button
+                wire:click="openScheduleModal"
+                variant="subtle"
+                size="sm"
+                icon="calendar"
+                class="cursor-pointer font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+            >
+                Edit Schedule
             </flux:button>
         </div>
     </div>
@@ -1507,13 +1530,6 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Card 3: Overall Completion Rate -->
-        @php
-            $progressColorClass = match (true) {
-                $progressPercent >= 80 => 'bg-emerald-600 dark:bg-emerald-500',
-                $progressPercent >= 50 => 'bg-amber-500 dark:bg-amber-400',
-                default => 'bg-rose-600 dark:bg-rose-500',
-            };
-        @endphp
         <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5.5 flex flex-col justify-between">
             <div>
                 <div class="h-6 flex items-center justify-between">
@@ -1527,20 +1543,14 @@ new #[Layout('components.layouts.app')] class extends Component
                         {{ $progressPercent >= 80 ? 'Target Met' : 'In Progress' }}
                     </span>
                 </div>
-                <div class="mt-2.5 space-y-1.5">
-                    <div class="w-full bg-zinc-200/80 dark:bg-zinc-700 rounded-full h-2 overflow-hidden">
-                        <div class="h-2 rounded-full transition-all duration-500 {{ $progressColorClass }}" style="width: {{ max(0, min(100, (float)$progressPercent)) }}% !important;"></div>
-                    </div>
-                    <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                        @if($completionDelta !== null)
-                            <span class="font-semibold tabular-nums {{ $completionDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
-                                {{ $completionDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($completionDelta, 1) }}% vs last sem
-                            </span>
-                        @else
-                            <span>Active Period</span>
-                        @endif
-                        <span class="font-medium">Target: 80%</span>
-                    </div>
+                <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs">
+                    @if($completionDelta !== null)
+                        <span class="font-semibold tabular-nums {{ $completionDelta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
+                            {{ $completionDelta >= 0 ? '▲ +' : '▼ ' }}{{ number_format($completionDelta, 1) }}% vs last sem
+                        </span>
+                    @else
+                        <span class="text-zinc-500 dark:text-zinc-400 font-medium">Active Period</span>
+                    @endif
                 </div>
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed tabular-nums min-h-[36px]">
@@ -1774,15 +1784,15 @@ new #[Layout('components.layouts.app')] class extends Component
                     <span class="text-lg sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['todayCount']) }}</span>
                     <span class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-semibold tabular-nums">Submissions</span>
                 </div>
-                <div class="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 p-2.5 sm:p-3 rounded-xl text-center">
-                    <span class="text-[10px] sm:text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider block">Peak Day</span>
-                    <span class="text-lg sm:text-2xl font-black text-amber-900 dark:text-amber-300 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['peakCount']) }}</span>
-                    <span class="text-[11px] sm:text-xs text-amber-700 dark:text-amber-400 font-semibold tabular-nums truncate block" title="{{ $submissionVelocityData['peakDate'] }}">{{ $submissionVelocityData['peakDate'] }}</span>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/50 p-2.5 sm:p-3 rounded-xl text-center">
+                    <span class="text-[10px] sm:text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider block">Peak Day</span>
+                    <span class="text-lg sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['peakCount']) }}</span>
+                    <span class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-semibold tabular-nums truncate block" title="{{ $submissionVelocityData['peakDate'] }}">{{ $submissionVelocityData['peakDate'] }}</span>
                 </div>
-                <div class="bg-red-50/50 dark:bg-red-950/20 border border-red-200/70 dark:border-red-800/40 p-2.5 sm:p-3 rounded-xl text-center">
-                    <span class="text-[10px] sm:text-xs font-bold text-[#9b0000] dark:text-[#f87171] uppercase tracking-wider block">Daily Average</span>
-                    <span class="text-lg sm:text-2xl font-black text-[#9b0000] dark:text-[#f87171] block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['avgDaily']) }}</span>
-                    <span class="text-[11px] sm:text-xs text-red-700 dark:text-red-400 font-semibold tabular-nums">Forms / Day</span>
+                <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/50 p-2.5 sm:p-3 rounded-xl text-center">
+                    <span class="text-[10px] sm:text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider block">Daily Average</span>
+                    <span class="text-lg sm:text-2xl font-black text-zinc-900 dark:text-zinc-100 block mt-0.5 sm:mt-1 tabular-nums tracking-tight">{{ number_format($submissionVelocityData['avgDaily']) }}</span>
+                    <span class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-semibold tabular-nums">Forms / Day</span>
                 </div>
             </div>
 
@@ -1912,14 +1922,21 @@ new #[Layout('components.layouts.app')] class extends Component
                 </h2>
             </div>
 
-            <!-- Tab Switcher -->
-            <div class="flex items-center gap-1 overflow-x-auto max-w-full p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
-                <button type="button" @click="activeTab = 'audit'" :class="activeTab === 'audit' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors shrink-0 whitespace-nowrap">
-                    Audit Log ({{ count($auditLogs) }})
-                </button>
-                <button type="button" @click="activeTab = 'submissions'" :class="activeTab === 'submissions' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors shrink-0 whitespace-nowrap">
-                    Recent Submissions ({{ count($recentSubmissions) }})
-                </button>
+            <!-- Tab Switcher & View All Link -->
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <div class="flex items-center gap-1 overflow-x-auto max-w-full p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs shrink-0">
+                    <button type="button" @click="activeTab = 'audit'" :class="activeTab === 'audit' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors shrink-0 whitespace-nowrap">
+                        Audit Log ({{ count($auditLogs) }})
+                    </button>
+                    <button type="button" @click="activeTab = 'submissions'" :class="activeTab === 'submissions' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'" class="px-3 py-1.5 rounded-md font-semibold transition-colors shrink-0 whitespace-nowrap">
+                        Recent Submissions ({{ count($recentSubmissions) }})
+                    </button>
+                </div>
+
+                <a href="{{ route('admin.activity') }}" wire:navigate class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs shrink-0">
+                    <span>View All</span>
+                    <flux:icon icon="arrow-top-right-on-square" class="size-3.5 text-zinc-400" />
+                </a>
             </div>
         </div>
 
@@ -2527,25 +2544,10 @@ new #[Layout('components.layouts.app')] class extends Component
                         />
                     </div>
 
-                    <div class="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2">
-                        <flux:modal.close>
-                            <flux:button variant="subtle" size="sm">Cancel</flux:button>
-                        </flux:modal.close>
-                        <div class="flex items-center gap-2">
-                            <flux:button
-                                type="button"
-                                wire:click="toggleEvaluation"
-                                variant="{{ $activeSemester->is_evaluation_open ? 'danger' : 'outline' }}"
-                                size="sm"
-                                icon="{{ $activeSemester->is_evaluation_open ? 'lock-closed' : 'lock-open' }}"
-                                class="font-bold"
-                            >
-                                {{ $activeSemester->is_evaluation_open ? 'Close Evaluation' : 'Open Evaluation' }}
-                            </flux:button>
-                            <flux:button type="submit" variant="primary" size="sm" icon="calendar" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
-                                Save Schedule
-                            </flux:button>
-                        </div>
+                    <div class="flex items-center justify-end pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                        <flux:button type="submit" variant="primary" size="sm" icon="calendar" class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000]">
+                            Save Schedule
+                        </flux:button>
                     </div>
                 </form>
             @else
