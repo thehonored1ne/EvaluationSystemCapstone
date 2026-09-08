@@ -78,7 +78,7 @@ class ProfanityFilterService
     /**
      * Clean and normalize incoming text by stripping profanity, including leetspeak and spaced evasions.
      */
-    public function clean(?string $text): string
+    public function clean(?string $text, bool $trimAndNormalizeWhitespace = true): string
     {
         if (! $text) {
             return '';
@@ -91,10 +91,14 @@ class ProfanityFilterService
             $cleaned = (string) preg_replace($pattern, '', $cleaned);
         }
 
-        // Clean up multi-spaces and trim punctuation artifacts
-        $cleaned = (string) preg_replace('/\s+/', ' ', $cleaned);
+        if ($trimAndNormalizeWhitespace) {
+            // Clean up multi-spaces and trim punctuation artifacts
+            $cleaned = (string) preg_replace('/\s+/', ' ', $cleaned);
 
-        return trim($cleaned);
+            return trim($cleaned);
+        }
+
+        return $cleaned;
     }
 
     /**
@@ -142,11 +146,6 @@ class ProfanityFilterService
         // Join multiple words allowing variable whitespace
         $fullBody = implode('\s+', $patternParts);
 
-        // Determine if boundary is required
-        if (in_array(strtolower($phrase), $this->strictBoundaryWords, true)) {
-            return '/(?<![a-zA-Z0-9])'.$fullBody.'(?![a-zA-Z0-9])/i';
-        }
-
-        return '/(?<![a-zA-Z0-9])?'.$fullBody.'(?![a-zA-Z0-9])?/i';
+        return '/(?<![a-zA-Z0-9])'.$fullBody.'(?![a-zA-Z0-9])/i';
     }
 }

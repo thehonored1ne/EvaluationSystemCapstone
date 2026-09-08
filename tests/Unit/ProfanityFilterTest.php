@@ -46,10 +46,18 @@ test('preserves legitimate words with strict boundaries without false positives'
         'Mabait si sir at madaling lapitan.',
         'Mahirap ang subject pero passionate ang professor.',
         'Very helpful in clarifying our doubts.',
+        'so far, magaling',
+        'so far, magaling magturo at mabait',
     ];
 
     foreach ($cleanComments as $comment) {
         expect($this->filter->hasProfanity($comment))->toBeFalse()
             ->and($this->filter->clean($comment))->toBe($comment);
     }
+});
+
+test('allows preserving whitespace when explicitly configured', function () {
+    $input = " so far, magaling \n and helpful ";
+    expect($this->filter->hasProfanity($input))->toBeFalse()
+        ->and($this->filter->clean($input, false))->toBe($input);
 });

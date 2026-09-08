@@ -19,10 +19,10 @@ new class extends Component {
 
     public function updatedComments($value)
     {
-        $filtered = $this->filterProfanity($value);
+        $filterService = app(\App\Services\ProfanityFilterService::class);
 
-        if ($filtered !== $value) {
-            $this->comments = $filtered;
+        if ($filterService->hasProfanity($value)) {
+            $this->comments = $filterService->clean($value);
 
             \Flux::toast(
                 heading: 'Respectful Feedback Required',
@@ -665,7 +665,6 @@ new class extends Component {
                     </label>
                     <textarea 
                         id="comments" 
-                        x-model="comments"
                         wire:model.live.debounce.300ms="comments" 
                         rows="3" 
                         placeholder="Share constructive feedback here (required, min 3 characters)..." 
@@ -722,16 +721,16 @@ new class extends Component {
                             wire:target="submit"
                             :disabled="!isReadyToSubmit"
                             @click="if (!isReadyToSubmit) { $event.preventDefault(); $event.stopPropagation(); return false; }"
-                            class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 flex items-center gap-2 border shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 inline-flex items-center gap-2 border shadow-md whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             :class="isReadyToSubmit ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] dark:border-[#b93b3b] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
                         >
-                            <span wire:loading.remove wire:target="submit" class="flex items-center gap-1.5">
-                                <flux:icon icon="paper-airplane" class="size-4" />
-                                Submit Evaluation
+                            <span wire:loading.remove wire:target="submit" class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <flux:icon icon="paper-airplane" class="size-4 shrink-0" />
+                                <span>Submit Evaluation</span>
                             </span>
-                            <span wire:loading wire:target="submit" class="flex items-center gap-1.5">
-                                <flux:icon icon="arrow-path" class="size-4 animate-spin" />
-                                Submitting...
+                            <span wire:loading.inline-flex wire:target="submit" class="items-center gap-1.5 whitespace-nowrap">
+                                <flux:icon icon="arrow-path" class="size-4 shrink-0 animate-spin" />
+                                <span>Submitting...</span>
                             </span>
                         </button>
                     </div>
