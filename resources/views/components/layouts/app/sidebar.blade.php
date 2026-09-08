@@ -19,6 +19,21 @@
                 color: #ffffff !important;
             }
 
+            .dark [data-flux-sidebar] [data-flux-navlist-item][data-current] {
+                background-color: rgba(224, 122, 122, 0.12) !important;
+                color: #e07a7a !important;
+                border-color: rgba(224, 122, 122, 0.25) !important;
+            }
+            .dark [data-flux-sidebar] [data-flux-navlist-item][data-current] svg,
+            .dark [data-flux-sidebar] [data-flux-navlist-item][data-current] span,
+            .dark [data-flux-sidebar] [data-flux-navlist-item][data-current] div {
+                color: #e07a7a !important;
+            }
+            .dark [data-flux-sidebar] [data-flux-navlist-item][data-current]:hover {
+                background-color: rgba(224, 122, 122, 0.20) !important;
+                color: #ea8c8c !important;
+            }
+
             /* Sidebar Group Headings High-Contrast Accessibility */
             [data-flux-sidebar] [data-flux-navlist-group-heading],
             [data-flux-sidebar] [data-flux-navlist-group-heading] div {
@@ -161,13 +176,13 @@
         }" 
         @toggle-sidebar.window="toggle()" 
         :class="sidebarCollapsed ? 'sidebar-is-collapsed' : ''"
-        class="min-h-screen bg-[#fafafa] dark:bg-[#252525]"
+        class="min-h-screen bg-[#fafafa] dark:bg-[#111113]"
     >
         <div class="flex min-h-screen w-full">
             <flux:sidebar 
                 sticky 
                 stashable 
-                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#171717] shrink-0 print:hidden max-lg:!z-50"
+                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shrink-0 print:hidden max-lg:!z-50"
             >
                 <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
@@ -178,8 +193,8 @@
                         <x-app-logo class="w-full"></x-app-logo>
                     </div>
                     <!-- Small Logo Icon: Desktop only, shown when html.sidebar-is-collapsed -->
-                    <div class="sidebar-small-logo hidden items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#f89696]">
-                        <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#f89696] fill-current"></x-app-logo-icon>
+                    <div class="sidebar-small-logo hidden items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#e07a7a]">
+                        <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#e07a7a] fill-current"></x-app-logo-icon>
                     </div>
                 </a>
 
@@ -263,60 +278,70 @@
                             </flux:tooltip>
                         @endif
 
-                        @if(!$user->hasRole('admin'))
-                            <div x-data="{ open: {{ request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'department-head.dashboard', 'program-head.dashboard') ? 'true' : 'false' }} }" class="w-full min-w-0 max-w-full">
-                                <flux:tooltip content="My Evaluations" position="right">
-                                    <flux:navlist.item 
-                                        icon="clipboard-document-check" 
-                                        as="button"
-                                        @click.prevent="if (sidebarCollapsed) { toggle(); open = true; } else { open = !open; }" 
-                                        :current="request()->routeIs('student.dashboard', 'faculty.dashboard', 'staff.dashboard', 'dean.dashboard', 'department-head.dashboard', 'program-head.dashboard')"
-                                        aria-label="My Evaluations"
-                                        class="cursor-pointer w-full text-left min-w-0 max-w-full overflow-hidden"
-                                    >
-                                        <div class="flex justify-between items-center w-full min-w-0">
-                                            <span class="truncate">My Evaluations</span>
-                                            <flux:icon icon="chevron-down" class="size-4 shrink-0 transition-transform duration-200" ::class="open ? 'rotate-180' : ''" />
-                                        </div>
-                                    </flux:navlist.item>
-                                </flux:tooltip>
+                        @if($user->hasRole('student'))
+                            <flux:tooltip content="Evaluate Professors" position="right">
+                                <flux:navlist.item icon="academic-cap" :href="route('student.dashboard')" :current="request()->routeIs('student.dashboard')" aria-label="Evaluate Professors" wire:navigate>Evaluate Professors</flux:navlist.item>
+                            </flux:tooltip>
+                        @endif
 
-                                <div x-show="open" class="sidebar-sublist pl-3 flex flex-col gap-1 border-l-2 border-zinc-200 dark:border-zinc-700 ml-2.5 mt-1 mb-2 min-w-0 max-w-full">
-                                    @if($user->hasRole('dean'))
-                                        <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self Evaluation" title="Self Evaluation" wire:navigate class="text-xs truncate min-w-0">Self Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'faculty'" aria-label="Faculty Evaluations" title="Faculty Evaluations" wire:navigate class="text-xs truncate min-w-0">Faculty</flux:navlist.item>
-                                        <flux:navlist.item :href="route('dean.dashboard', ['tab' => 'program-heads'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'program-heads'" aria-label="Program Head Evaluations" title="Program Head Evaluations" wire:navigate class="text-xs truncate min-w-0">Program Heads</flux:navlist.item>
-                                    @endif
+                        @if($user->hasRole('faculty'))
+                            <flux:tooltip content="Self" position="right">
+                                <flux:navlist.item icon="user" :href="route('faculty.dashboard', ['tab' => 'self'])" :current="request()->routeIs('faculty.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self" wire:navigate>Self</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Peer Professor" position="right">
+                                <flux:navlist.item icon="users" :href="route('faculty.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'peer'" aria-label="Peer Professor" wire:navigate>Peer Professor</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Program Head" position="right">
+                                <flux:navlist.item icon="academic-cap" :href="route('faculty.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'supervisor'" aria-label="Program Head" wire:navigate>Program Head</flux:navlist.item>
+                            </flux:tooltip>
+                        @endif
 
-                                    @if($user->hasRole('department head'))
-                                        <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'self'" aria-label="Self Evaluation" title="Self Evaluation" wire:navigate class="text-xs truncate min-w-0">Self Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'staff'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'staff'" aria-label="Staff Evaluation" title="Staff Evaluation" wire:navigate class="text-xs truncate min-w-0">Staff</flux:navlist.item>
-                                        <flux:navlist.item :href="route('department-head.dashboard', ['tab' => 'dean'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'dean'" aria-label="Dean Evaluation" title="Dean Evaluation" wire:navigate class="text-xs truncate min-w-0">Dean</flux:navlist.item>
-                                    @endif
+                        @if($user->hasRole('staff'))
+                            <flux:tooltip content="Self" position="right">
+                                <flux:navlist.item icon="user" :href="route('staff.dashboard', ['tab' => 'self'])" :current="request()->routeIs('staff.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self" wire:navigate>Self</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Peer Staff" position="right">
+                                <flux:navlist.item icon="users" :href="route('staff.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'peer'" aria-label="Peer Staff" wire:navigate>Peer Staff</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Department Head" position="right">
+                                <flux:navlist.item icon="building-office-2" :href="route('staff.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'supervisor'" aria-label="Department Head" wire:navigate>Department Head</flux:navlist.item>
+                            </flux:tooltip>
+                        @endif
 
-                                    @if($user->hasRole('program head'))
-                                        <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'self'" aria-label="Self Evaluation" title="Self Evaluation" wire:navigate class="text-xs truncate min-w-0">Self Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'supervisor'" aria-label="Supervisor Evaluation" title="Supervisor Evaluation" wire:navigate class="text-xs truncate min-w-0">Supervisor</flux:navlist.item>
-                                        <flux:navlist.item :href="route('program-head.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'faculty'" aria-label="Faculty Evaluations" title="Faculty Evaluations" wire:navigate class="text-xs truncate min-w-0">Faculty</flux:navlist.item>
-                                    @endif
+                        @if($user->hasRole('program head'))
+                            <flux:tooltip content="Self" position="right">
+                                <flux:navlist.item icon="user" :href="route('program-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('program-head.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self" wire:navigate>Self</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Faculty" position="right">
+                                <flux:navlist.item icon="academic-cap" :href="route('program-head.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'faculty'" aria-label="Faculty" wire:navigate>Faculty</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Dean" position="right">
+                                <flux:navlist.item icon="building-library" :href="route('program-head.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('program-head.dashboard') && request('tab') === 'supervisor'" aria-label="Dean" wire:navigate>Dean</flux:navlist.item>
+                            </flux:tooltip>
+                        @endif
 
-                                    @if($user->hasRole('student'))
-                                        <flux:navlist.item :href="route('student.dashboard')" :current="request()->routeIs('student.dashboard')" aria-label="Evaluate Professors" title="Evaluate Professors" wire:navigate class="text-xs truncate min-w-0">Evaluate Professors</flux:navlist.item>
-                                    @endif
+                        @if($user->hasRole('department head'))
+                            <flux:tooltip content="Self" position="right">
+                                <flux:navlist.item icon="user" :href="route('department-head.dashboard', ['tab' => 'self'])" :current="request()->routeIs('department-head.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self" wire:navigate>Self</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Staff" position="right">
+                                <flux:navlist.item icon="user-group" :href="route('department-head.dashboard', ['tab' => 'staff'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'staff'" aria-label="Staff" wire:navigate>Staff</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Dean" position="right">
+                                <flux:navlist.item icon="building-library" :href="route('department-head.dashboard', ['tab' => 'dean'])" :current="request()->routeIs('department-head.dashboard') && request('tab') === 'dean'" aria-label="Dean" wire:navigate>Dean</flux:navlist.item>
+                            </flux:tooltip>
+                        @endif
 
-                                    @if($user->hasRole('faculty'))
-                                        <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'self'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'self'" aria-label="Self Evaluation" title="Self Evaluation" wire:navigate class="text-xs truncate min-w-0">Self Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'peer'" aria-label="Peer Evaluation" title="Peer Evaluation" wire:navigate class="text-xs truncate min-w-0">Peer Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('faculty.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('faculty.dashboard') && request('tab') === 'supervisor'" aria-label="Supervisor Evaluation" title="Supervisor Evaluation" wire:navigate class="text-xs truncate min-w-0">Supervisor</flux:navlist.item>
-                                    @endif
-
-                                    @if($user->hasRole('staff'))
-                                        <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'self'])" :current="request()->routeIs('staff.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self Evaluation" title="Self Evaluation" wire:navigate class="text-xs truncate min-w-0">Self Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'peer'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'peer'" aria-label="Peer Evaluation" title="Peer Evaluation" wire:navigate class="text-xs truncate min-w-0">Peer Evaluation</flux:navlist.item>
-                                        <flux:navlist.item :href="route('staff.dashboard', ['tab' => 'supervisor'])" :current="request()->routeIs('staff.dashboard') && request('tab') === 'supervisor'" aria-label="Supervisor Evaluation" title="Supervisor Evaluation" wire:navigate class="text-xs truncate min-w-0">Supervisor</flux:navlist.item>
-                                    @endif
-                                </div>
-                            </div>
+                        @if($user->hasRole('dean'))
+                            <flux:tooltip content="Self" position="right">
+                                <flux:navlist.item icon="user" :href="route('dean.dashboard', ['tab' => 'self'])" :current="request()->routeIs('dean.dashboard') && (request('tab') === 'self' || !request('tab'))" aria-label="Self" wire:navigate>Self</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Faculty" position="right">
+                                <flux:navlist.item icon="academic-cap" :href="route('dean.dashboard', ['tab' => 'faculty'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'faculty'" aria-label="Faculty" wire:navigate>Faculty</flux:navlist.item>
+                            </flux:tooltip>
+                            <flux:tooltip content="Program Heads" position="right">
+                                <flux:navlist.item icon="user-group" :href="route('dean.dashboard', ['tab' => 'program-heads'])" :current="request()->routeIs('dean.dashboard') && request('tab') === 'program-heads'" aria-label="Program Heads" wire:navigate>Program Heads</flux:navlist.item>
+                            </flux:tooltip>
                         @endif
 
                         @if($user->hasRole('admin'))

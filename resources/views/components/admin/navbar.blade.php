@@ -6,14 +6,14 @@
     $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
 @endphp
 
-<flux:header class="sticky top-0 z-30 border-b border-red-900/40 bg-[#9b0000] text-white shadow-md print:hidden px-3 sm:px-4">
+<flux:header class="sticky top-0 z-30 border-b border-red-900/40 dark:border-zinc-800 bg-[#9b0000] dark:bg-[#161619] text-white dark:text-zinc-200 shadow-md dark:shadow-none print:hidden px-3 sm:px-4">
     <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
     <div class="flex items-center gap-3 sm:gap-4 -ml-1 sm:-ml-1.5">
         <button 
             type="button" 
             @click="if (window.innerWidth >= 1024) { $dispatch('toggle-sidebar'); } else { $dispatch('flux-sidebar-toggle'); }" 
             data-flux-sidebar-toggle
-            class="cursor-pointer p-1.5 sm:p-2 rounded-lg text-white hover:bg-white/10 transition-colors shrink-0"
+            class="cursor-pointer p-1.5 sm:p-2 rounded-lg text-white hover:bg-white/10 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors shrink-0"
             :title="sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
             aria-label="Toggle Sidebar"
         >
@@ -36,12 +36,12 @@
         </button>
 
         <div class="hidden sm:flex items-center gap-2 text-xs font-medium">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-semibold shadow-xs">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-zinc-800 text-white dark:text-zinc-200 border border-white/20 dark:border-zinc-700 text-xs font-semibold shadow-xs">
                 Logged as {{ $roleName }}
             </span>
 
             @if($activeSemester)
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 border border-white/15 text-xs font-medium shadow-xs">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 dark:bg-zinc-800/60 text-white/90 dark:text-zinc-400 border border-white/15 dark:border-zinc-700/60 text-xs font-medium shadow-xs">
                     
                     <span>{{ $activeSemester->academicYear?->name }} &bull; {{ $shortSemName }}</span>
                 </span>
@@ -59,7 +59,7 @@
             type="button" 
             x-data
             @click="$flux.appearance = $flux.appearance === 'dark' ? 'light' : 'dark'" 
-            class="relative p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer"
+            class="relative p-2 rounded-lg text-white hover:bg-white/10 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             :title="$flux.appearance === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
             aria-label="Toggle Dark / Light Theme"
         >
@@ -78,14 +78,14 @@
 
         <!-- Admin Profile Quick Dropdown -->
         <flux:dropdown position="bottom" align="end">
-            <button type="button" aria-label="User Account Menu" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                <span class="flex h-7 w-7 items-center justify-center rounded-md bg-white/20 text-white text-xs font-bold shadow-sm border border-white/30">
+            <button type="button" aria-label="User Account Menu" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md bg-white/20 dark:bg-zinc-800 text-white dark:text-zinc-200 text-xs font-bold shadow-sm border border-white/30 dark:border-zinc-700">
                     {{ auth()->user()->initials() }}
                 </span>
-                <span class="hidden md:inline-block text-xs font-semibold text-white max-w-[120px] truncate">
+                <span class="hidden md:inline-block text-xs font-semibold text-white dark:text-zinc-200 max-w-[120px] truncate">
                     {{ auth()->user()->name }}
                 </span>
-                <flux:icon icon="chevron-down" class="size-3 text-red-200" />
+                <flux:icon icon="chevron-down" class="size-3 text-red-200 dark:text-zinc-400" />
             </button>
 
             <flux:menu class="w-56">

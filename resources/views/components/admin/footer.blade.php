@@ -1,11 +1,11 @@
-<footer class="mt-12 md:mt-16 w-full bg-[#e5e6eb] dark:bg-[#171717] text-zinc-700 dark:text-zinc-300 py-5 px-6 text-center text-xs shadow-xs border-t border-zinc-300 dark:border-zinc-800 shrink-0 print:hidden">
+<footer class="mt-12 md:mt-16 w-full bg-[#e5e6eb] dark:bg-[#18181b] text-zinc-700 dark:text-zinc-400 py-5 px-6 text-center text-xs shadow-xs border-t border-zinc-300 dark:border-zinc-800 shrink-0 print:hidden">
     <div class="w-full flex flex-col items-center justify-center gap-1.5 mx-auto">
-        <div class="flex flex-wrap items-center justify-center gap-2 font-semibold tracking-wide text-zinc-900 dark:text-zinc-100">
+        <div class="flex flex-wrap items-center justify-center gap-2 font-semibold tracking-wide text-zinc-900 dark:text-zinc-200">
             <span>© 2026 Academic Evaluation System</span>
             <span class="opacity-60">•</span>
             <span>Global Reciprocal Colleges</span>
         </div>
-        <div class="flex flex-wrap items-center justify-center gap-3 text-zinc-600 dark:text-zinc-300 text-xs font-medium">
+        <div class="flex flex-wrap items-center justify-center gap-3 text-zinc-600 dark:text-zinc-400 text-xs font-medium">
             <span class="inline-flex items-center gap-1.5">
                 <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 System Operational
@@ -17,7 +17,7 @@
                 type="button" 
                 onclick="window.dispatchEvent(new CustomEvent('open-terms-modal'))"
                 @click="$dispatch('open-terms-modal')" 
-                class="hover:underline hover:text-[#9b0000] dark:hover:text-[#f89696] transition-colors cursor-pointer"
+                class="hover:underline hover:text-[#9b0000] dark:hover:text-[#e07a7a] transition-colors cursor-pointer"
             >
                 Terms & Privacy
             </button>

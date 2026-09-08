@@ -2,7 +2,7 @@
     <!-- Header with real text + 3 action buttons skeleton -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Manage Students</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Students</h1>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <div class="h-10 w-[124px] bg-zinc-200 dark:bg-zinc-800 rounded-lg shimmer"></div>
@@ -46,7 +46,7 @@
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @for($i = 0; $i < 10; $i++)
-                        <tr wire:key="student-skeleton-{{ $i }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                             <!-- Checkbox -->
                             <td class="py-3.5 px-3 text-center">
                                 <div class="h-4 w-4 bg-zinc-200 dark:bg-zinc-800 rounded shimmer mx-auto"></div>

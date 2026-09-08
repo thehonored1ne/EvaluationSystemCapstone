@@ -103,10 +103,9 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-6" x-init="sessionStorage.removeItem('default_password_modal_dismissed')">
     <div class="flex w-full flex-col gap-2 text-center">
         <h1 class="text-2xl font-black tracking-tight text-[#7a0000]">{{ __('Log in to your account') }}</h1>
-
     </div>
 
     <!-- Session Status -->

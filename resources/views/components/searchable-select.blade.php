@@ -68,7 +68,7 @@
             <template x-for="opt in filteredOptions" :key="opt.value">
                 <div @mousedown="select(opt.value, opt.label)"
                      class="px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex justify-between items-center"
-                     :class="{'bg-zinc-50 dark:bg-zinc-850 font-semibold text-zinc-900 dark:text-zinc-100': opt.value == selectedVal}">
+                     :class="{'bg-zinc-50 dark:bg-zinc-800 font-semibold text-zinc-900 dark:text-zinc-100': opt.value == selectedVal}">
                     <span x-text="opt.label"></span>
                     <span x-show="opt.value == selectedVal" class="text-indigo-600 dark:text-indigo-400">
                         <flux:icon icon="check" variant="mini" class="size-4" />

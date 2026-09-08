@@ -5,6 +5,7 @@
     }" 
     @open-terms-modal.window="open = true; if ($event.detail?.tab) activeTab = $event.detail.tab" 
     @keydown.escape.window="open = false" 
+    class="contents"
     x-cloak
 >
     <div 
@@ -58,7 +59,7 @@
                     <button 
                         type="button" 
                         @click="activeTab = 'terms'" 
-                        :class="activeTab === 'terms' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium'"
+                        :class="activeTab === 'terms' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium'"
                         class="pb-3 text-xs sm:text-sm border-b-2 transition-all cursor-pointer px-3 flex items-center gap-2"
                     >
                         <flux:icon icon="document-text" class="size-4" />
@@ -67,7 +68,7 @@
                     <button 
                         type="button" 
                         @click="activeTab = 'privacy'" 
-                        :class="activeTab === 'privacy' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium'"
+                        :class="activeTab === 'privacy' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium'"
                         class="pb-3 text-xs sm:text-sm border-b-2 transition-all cursor-pointer px-3 flex items-center gap-2"
                     >
                         <flux:icon icon="shield-check" class="size-4" />
@@ -84,7 +85,7 @@
                     <!-- 1. Acceptable Use -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="chat-bubble-bottom-center-text" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="chat-bubble-bottom-center-text" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Constructive & Honest Feedback</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -95,7 +96,7 @@
                     <!-- 2. Account Responsibility -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="key" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="key" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Account Security</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -106,7 +107,7 @@
                     <!-- 3. Submission Finality -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="check-badge" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="check-badge" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Submission Finality</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -117,7 +118,7 @@
                     <!-- 4. Non-Retaliation Policy -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="shield-exclamation" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="shield-exclamation" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Strict Non-Retaliation</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -131,7 +132,7 @@
                     <!-- 1. Evaluator Anonymity -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="eye-slash" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="eye-slash" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Guaranteed Anonymity</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -142,7 +143,7 @@
                     <!-- 2. Data Privacy Compliance -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="lock-closed" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="lock-closed" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>Data Protection & Privacy</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">
@@ -153,7 +154,7 @@
                     <!-- 3. AI Sentiment Analysis -->
                     <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50 space-y-1.5">
                         <div class="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-semibold text-sm">
-                            <flux:icon icon="cpu-chip" class="size-4 text-[#9b0000] dark:text-[#f89696]" />
+                            <flux:icon icon="cpu-chip" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
                             <span>AI Sentiment Analysis Disclosure</span>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-normal">

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Models\Department;
 use App\Models\Employee;
@@ -1563,7 +1563,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <div>
                 <div class="h-6 flex items-center justify-between gap-2">
                     <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">Pending Evaluators</span>
-                    <flux:button wire:click="sendReminderToast" wire:loading.attr="disabled" variant="subtle" size="xs" icon="bell" class="font-bold text-[#9b0000] dark:text-[#f89696] hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer h-6 text-[11px]">
+                    <flux:button wire:click="sendReminderToast" wire:loading.attr="disabled" variant="subtle" size="xs" icon="bell" class="font-bold text-[#9b0000] dark:text-[#e07a7a] hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer h-6 text-[11px]">
                         Send Reminder
                     </flux:button>
                 </div>
@@ -1646,7 +1646,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 <!-- Footer Action Toolbar -->
                 <div class="flex items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                     <flux:modal.trigger name="role-breakdown-modal">
-                        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#f89696] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
+                        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
                             <flux:icon name="arrow-top-right-on-square" class="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                             <span>View detailed breakdown</span>
                         </button>
@@ -1714,7 +1714,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <!-- Footer Action Toolbar -->
             <div class="flex items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 <flux:modal.trigger name="dept-breakdown-modal">
-                    <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#f89696] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
+                    <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:text-[#800000] dark:hover:text-[#fca5a5] transition-colors cursor-pointer group">
                         <flux:icon name="arrow-top-right-on-square" class="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                         <span>View detailed breakdown</span>
                     </button>
@@ -2064,44 +2064,44 @@ new #[Layout('components.layouts.app')] class extends Component
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 1. Track Submissions -->
                 <a href="/manage-evaluations" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="chart-pie" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Track Submissions</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Track Submissions</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">See who has submitted and send deadline reminders.</span>
                     </div>
                 </a>
 
                 <!-- 2. View Results -->
                 <a href="/evaluation-results" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="clipboard-document-list" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">View Results</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">View Results</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">View raw scores, question ratings, and comments.</span>
                     </div>
                 </a>
 
                 <!-- 3. Generate Reports -->
                 <a href="/reports" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="printer" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Generate Reports</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Generate Reports</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Export official 2-page scorecards and AI analysis to PDF.</span>
                     </div>
                 </a>
 
                 <!-- 4. Compare Rankings -->
                 <a href="/rankings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="trophy" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Compare Rankings</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Compare Rankings</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Compare top-rated teachers and highest-ranked colleges.</span>
                     </div>
                 </a>
@@ -2118,44 +2118,44 @@ new #[Layout('components.layouts.app')] class extends Component
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 5. Configure Settings -->
                 <a href="/admin/evaluation-settings" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="cog-6-tooth" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Configure Settings</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Configure Settings</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Open or close periods and set score weight percentages.</span>
                     </div>
                 </a>
 
                 <!-- 6. Manage Questions -->
                 <a href="/admin/questions" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="document-text" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Questions</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Questions</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, edit, or reorder questions for all evaluation forms.</span>
                     </div>
                 </a>
 
                 <!-- 7. Assign Classes -->
                 <a href="/admin/classes" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="queue-list" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Assign Classes</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Assign Classes</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Assign teachers to subjects and enroll students into sections.</span>
                     </div>
                 </a>
 
                 <!-- 8. Manage Subjects -->
                 <a href="/admin/subjects" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="book-open" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Subjects</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Subjects</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, edit, or import course subjects and unit credits.</span>
                     </div>
                 </a>
@@ -2172,44 +2172,44 @@ new #[Layout('components.layouts.app')] class extends Component
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 9. Manage Students -->
                 <a href="/admin/students" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="academic-cap" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Students</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Students</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Add, edit, import, or search student profiles and status.</span>
                     </div>
                 </a>
 
                 <!-- 10. Manage Employees -->
                 <a href="/admin/employees" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="users" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Employees</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Employees</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Manage faculty, deans, department heads, and staff accounts.</span>
                     </div>
                 </a>
 
                 <!-- 11. Manage Departments -->
                 <a href="/admin/departments" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="building-office-2" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Departments</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Departments</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Configure academic colleges, offices, and assign heads.</span>
                     </div>
                 </a>
 
                 <!-- 12. Manage Programs -->
                 <a href="/admin/programs" wire:navigate class="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-all duration-150 flex items-start gap-3.5 group cursor-pointer text-left h-[104px]">
-                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#f89696] shrink-0 group-hover:scale-105 transition-transform">
+                    <div class="p-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[#9b0000] dark:text-[#e07a7a] shrink-0 group-hover:scale-105 transition-transform">
                         <flux:icon name="academic-cap" class="size-5" />
                     </div>
                     <div class="min-w-0">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#f89696] transition-colors">Manage Programs</span>
+                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100 block truncate group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a] transition-colors">Manage Programs</span>
                         <span class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 block line-clamp-2">Setup degree courses (BSIT, BSA, etc.) and assign program heads.</span>
                     </div>
                 </a>
@@ -2244,7 +2244,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="font-semibold text-zinc-500 dark:text-zinc-400">Pending Evaluators:</span>
-                    <span class="font-bold text-[#9b0000] dark:text-[#f89696]">{{ number_format($pendingEvaluatorsCount) }} evaluators</span>
+                    <span class="font-bold text-[#9b0000] dark:text-[#e07a7a]">{{ number_format($pendingEvaluatorsCount) }} evaluators</span>
                 </div>
                 <p class="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/50 text-zinc-500 dark:text-zinc-400">
                     This will send automated notification alerts to all students and employees who have not completed their evaluations.

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
@@ -666,7 +666,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <button 
             type="button"
             wire:click="$set('activeTab', 'individual')"
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'individual' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'individual' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="user" class="size-4" />
             Individual Teaching Effectiveness Report
@@ -675,7 +675,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         <button 
             type="button"
             wire:click="$set('activeTab', 'summary')"
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'summary' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'summary' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             <flux:icon icon="chart-bar-square" class="size-4" />
             Evaluation Summary Report
@@ -1136,7 +1136,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <!-- Prescriptive AI Action Cards -->
                     <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
                         <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-sm uppercase tracking-wider flex items-center gap-2">
-                            <flux:icon icon="bolt" class="size-4 text-black dark:text-white" />
+                            <flux:icon icon="bolt" class="size-4 text-black dark:text-zinc-100" />
                             Prescriptive AI Executive Insights & Priorities
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1157,7 +1157,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         <div class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-6">
                             <div class="flex items-center justify-between">
                                 <h3 class="font-black text-zinc-900 dark:text-zinc-50 print:text-black text-sm uppercase tracking-wider flex items-center gap-2">
-                                    <flux:icon icon="exclamation-triangle" class="size-4 text-black dark:text-white" />
+                                    <flux:icon icon="exclamation-triangle" class="size-4 text-black dark:text-zinc-100" />
                                     Faculty Requiring Pedagogical Attention (Score < 3.50 or ≥30% Constructive)
                                 </h3>
                                 <span class="text-xs font-bold text-zinc-500">{{ count($summary->faculty_attention) }} Instructors Flagged</span>

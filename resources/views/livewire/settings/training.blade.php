@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 use Illuminate\Support\Facades\Auth;
@@ -73,11 +73,11 @@ new class extends Component {
         <div class="my-6 w-full space-y-6">
             
             <!-- Sidebar Visibility Toggle Card -->
-            <div class="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
                 <div class="flex items-start justify-between gap-3">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                            <flux:icon icon="beaker" class="size-5 text-[#9b0000] dark:text-[#f89696] shrink-0" />
+                            <flux:icon icon="beaker" class="size-5 text-[#9b0000] dark:text-[#e07a7a] shrink-0" />
                             <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Sidebar AI Pipeline Navigation</h3>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -109,10 +109,10 @@ new class extends Component {
 
             @if(auth()->user()->hasRole('admin'))
                 <!-- Model Retraining Card -->
-                <div class="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+                <div class="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                            <flux:icon icon="cpu-chip" class="size-5 text-[#9b0000] dark:text-[#f89696] shrink-0" />
+                            <flux:icon icon="cpu-chip" class="size-5 text-[#9b0000] dark:text-[#e07a7a] shrink-0" />
                             <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">AI Sentiment Model Training</h3>
                         </div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">

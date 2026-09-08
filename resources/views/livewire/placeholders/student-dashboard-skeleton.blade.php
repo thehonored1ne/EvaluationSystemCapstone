@@ -1,4 +1,4 @@
-<div class="space-y-8 text-left w-full">
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6">
     <!-- Header with real text + Progress Badge skeleton -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
@@ -8,7 +8,7 @@
     </div>
 
     <!-- Active Schedule Status Banner -->
-    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
         <div class="space-y-2">
             <div class="flex items-center gap-3">
                 <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 shimmer"></div>
@@ -29,7 +29,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @for ($i = 0; $i < 6; $i++)
-                <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+                <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between gap-6 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
                     <div class="space-y-3">
                         <div class="flex justify-between items-start">
                             <div class="h-6 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-md shimmer"></div>

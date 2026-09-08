@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Models\AcademicClass;
 use App\Models\Department;
@@ -876,7 +876,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
                             <!-- Subject -->
                             <td class="px-4 py-3.5 whitespace-nowrap">
-                                <span class="font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] block">
+                                <span class="font-mono text-xs font-bold text-[#9b0000] dark:text-[#e07a7a] block">
                                     {{ $classItem->subject->code }}
                                 </span>
                                 <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block max-w-[170px]" title="{{ $classItem->subject->name }}">
@@ -1238,7 +1238,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showImportModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-xl !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Classes & Rosters</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Bulk Import Classes & Rosters</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing section schedules and student ID allocations for the active semester.</p>
             </div>
 
@@ -1254,7 +1254,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <form wire:submit="importClasses" class="space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white">Select Spreadsheet (.CSV)</label>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Select Spreadsheet (.CSV)</label>
                         <flux:button size="xs" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
                             Download Template
                         </flux:button>

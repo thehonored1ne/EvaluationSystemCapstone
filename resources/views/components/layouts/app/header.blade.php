@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
@@ -56,7 +56,7 @@
                             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                 <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                     <span
-                                        class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white"
+                                        class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-zinc-100"
                                     >
                                         {{ auth()->user()->initials() }}
                                     </span>

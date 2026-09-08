@@ -16,21 +16,21 @@
     --color-brand: #9b0000;
     --color-brand-hover: #7a0000;
     --color-brand-subtle: #9c2121;
-    --color-brand-dark: #f89696;
-    --color-brand-dark-hover: #f57575;
-    --color-brand-dark-subtle: #fcc5c5;
+    --color-brand-dark: #e07a7a;
+    --color-brand-dark-hover: #ea8c8c;
+    --color-brand-dark-subtle: rgba(224, 122, 122, 0.15);
 
     --color-zinc-50: #fafafa;
-    --color-zinc-100: #f5f5f5;
-    --color-zinc-200: #e5e5e5;
-    --color-zinc-300: #d4d4d4;
-    --color-zinc-400: #a3a3a3;
-    --color-zinc-500: #737373;
-    --color-zinc-600: #525252;
-    --color-zinc-700: #404040;
-    --color-zinc-800: #262626;
-    --color-zinc-900: #171717;
-    --color-zinc-950: #0a0a0a;
+    --color-zinc-100: #f4f4f5;
+    --color-zinc-200: #e4e4e7;
+    --color-zinc-300: #d4d4d8;
+    --color-zinc-400: #a1a1aa;
+    --color-zinc-500: #71717a;
+    --color-zinc-600: #52525b;
+    --color-zinc-700: #3f3f46;
+    --color-zinc-800: #27272a;
+    --color-zinc-900: #18181b;
+    --color-zinc-950: #111113;
 
     --color-accent: #9b0000;
     --color-accent-content: #9b0000;
@@ -39,9 +39,9 @@
 
 @layer theme {
     .dark {
-        --color-accent: #f89696;
-        --color-accent-content: #f89696;
-        --color-accent-foreground: #171717;
+        --color-accent: #e07a7a;
+        --color-accent-content: #e07a7a;
+        --color-accent-foreground: #18181b;
     }
 }
 
@@ -91,7 +91,7 @@ html {
 }
 
 .dark [data-flux-modal] > dialog::backdrop {
-    background-color: rgba(0, 0, 0, 0.75) !important;
+    background-color: rgba(15, 15, 20, 0.70) !important;
     backdrop-filter: blur(4px) !important;
     -webkit-backdrop-filter: blur(4px) !important;
 }
@@ -121,7 +121,7 @@ html {
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-[#9b0000] dark:ring-[#f89696] ring-offset-2 ring-offset-accent-foreground;
+    @apply outline-hidden ring-2 ring-[#9b0000] dark:ring-[#e07a7a] ring-offset-2 ring-offset-accent-foreground;
 }
 
 /* \[:where(&)\]:size-4 {
@@ -153,23 +153,23 @@ select:focus[data-flux-control] {
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] > div {
-    background-color: #450a0a !important;
-    border-color: #F89BB2 !important;
-    color: #F89BB2 !important;
+    background-color: #3b1219 !important;
+    border-color: #e07a7a !important;
+    color: #e07a7a !important;
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] div {
-    color: #F89BB2 !important;
+    color: #e07a7a !important;
 }
 
 .dark [data-flux-toast-dialog][data-variant="danger"] ui-close button {
-    color: #F89BB2 !important;
+    color: #e07a7a !important;
 }
 
 /* ==========================================================================
    Unified Call To Action (CTA) Button Tokens (Light & Dark Mode)
    Light Mode: Background #9b0000, Hover #7a0000, Text #ffffff
-   Dark Mode:  Background #f89696, Hover #f57575, Text #171717
+   Dark Mode:  Background #a82e2e, Hover #b93838, Text #f4f4f5
    ========================================================================== */
 [data-flux-button][data-variant="primary"],
 button[data-variant="primary"],
@@ -202,9 +202,9 @@ a[data-variant="primary"]:hover,
 .dark a[data-variant="primary"],
 .dark .btn-cta,
 .dark .login-btn-darkred {
-    background-color: #f89696 !important;
-    color: #171717 !important;
-    border-color: #f89696 !important;
+    background-color: #a82e2e !important;
+    color: #f4f4f5 !important;
+    border-color: #b93b3b !important;
 }
 
 .dark [data-flux-button][data-variant="primary"]:hover,
@@ -212,15 +212,15 @@ a[data-variant="primary"]:hover,
 .dark a[data-variant="primary"]:hover,
 .dark .btn-cta:hover,
 .dark .login-btn-darkred:hover {
-    background-color: #f57575 !important;
-    color: #171717 !important;
-    border-color: #f57575 !important;
+    background-color: #b93838 !important;
+    color: #ffffff !important;
+    border-color: #c94a4a !important;
 }
 
 .dark [data-flux-button][data-variant="primary"] span,
 .dark [data-flux-button][data-variant="primary"] svg,
 .dark [data-flux-button][data-variant="primary"] [data-flux-icon] {
-    color: #171717 !important;
+    color: #f4f4f5 !important;
 }
 
 /* Premium CSS Shimmer Sweep Animation (Hardware-Accelerated) */

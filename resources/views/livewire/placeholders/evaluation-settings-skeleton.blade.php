@@ -7,7 +7,7 @@
     </div>
 
     <!-- SECTION 1: Academic Years & Semesters Period Management Table -->
-    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-4 sm:gap-6 w-full">
+    <div id="academic-periods-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-4 sm:gap-6 w-full">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
                 <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Academic Years & Semesters</h2>
@@ -26,7 +26,7 @@
     </div>
 
     <!-- SECTION 2: Evaluation Weights & Questionnaire Parts Allocation -->
-    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
                 <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">Evaluation Weights & Questionnaire Parts Allocation</h2>

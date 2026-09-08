@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
@@ -233,43 +233,43 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-2 md:gap-4 overflow-x-auto pb-0">
         <button 
             wire:click="selectTab('student')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'student' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'student' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Student
         </button>
         <button 
             wire:click="selectTab('dean')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'dean' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'dean' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Dean
         </button>
         <button 
             wire:click="selectTab('program_head')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'program_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'program_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Program Head
         </button>
         <button 
             wire:click="selectTab('department_head')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'department_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'department_head' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Department Head
         </button>
         <button 
             wire:click="selectTab('peer')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'peer' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'peer' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Peer
         </button>
         <button 
             wire:click="selectTab('superior')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'superior' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'superior' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Supervisor
         </button>
         <button 
             wire:click="selectTab('self')" 
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'self' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap {{ $activeTab === 'self' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
         >
             Self
         </button>
@@ -313,11 +313,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                 $questions = $groupedQuestions->get($criterion->id, collect());
             @endphp
 
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
                 <!-- Group Header -->
                 <div class="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/40 p-4 border-b border-zinc-200 dark:border-zinc-800">
                     <div class="flex items-center gap-3">
-                        <span class="bg-[#9b0000]/10 text-[#9b0000] dark:bg-red-950/60 dark:text-[#f89696] text-xs font-bold px-2.5 py-0.5 rounded-full">
+                        <span class="bg-[#9b0000]/10 text-[#9b0000] dark:bg-red-950/60 dark:text-[#e07a7a] text-xs font-bold px-2.5 py-0.5 rounded-full">
                             Part {{ $criterion->order }}
                         </span>
                         <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{{ $criterion->name }}</h2>
@@ -429,7 +429,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <textarea 
                         wire:model="questionText" 
                         rows="3" 
-                        class="w-full text-sm rounded-lg border border-zinc-200 dark:border-zinc-800 p-2.5 bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#9b0000] dark:focus:ring-[#f89696] font-medium"
+                        class="w-full text-sm rounded-lg border border-zinc-200 dark:border-zinc-800 p-2.5 bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#9b0000] dark:focus:ring-[#e07a7a] font-medium"
                         placeholder="e.g. The instructor displays a thorough understanding of the subject matter."
                         required
                     ></textarea>

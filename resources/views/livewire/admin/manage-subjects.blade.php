@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Models\AcademicClass;
 use App\Models\Employee;
@@ -515,24 +515,24 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Top Row Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- Card 1: Total Subjects -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Subjects</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalSubjects" /></span>
                 </div>
-                <flux:icon name="book-open" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon name="book-open" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
 
         <!-- Card 2: Active Classes Assigned -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Active Classes Assigned</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$activeClassesCount" /></span>
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">
                 {{ $activeSemester ? 'Classes in ' . $activeSemester->name : 'Total class assignments' }}
@@ -540,13 +540,13 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Card 3: Unassigned Subjects -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-start">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Unassigned Subjects</span>
                     <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$unassignedSubjectsCount" /></span>
                 </div>
-                <flux:icon name="exclamation-triangle" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon name="exclamation-triangle" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
     </div>
@@ -632,7 +632,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     @forelse ($subjects as $subject)
                         <tr wire:key="{{ $subject->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Code -->
-                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#f89696] whitespace-nowrap">
+                            <td class="px-4 py-3.5 font-mono text-xs font-bold text-[#9b0000] dark:text-[#e07a7a] whitespace-nowrap">
                                 {{ $subject->code }}
                             </td>
 
@@ -780,7 +780,7 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-lg border border-zinc-200 dark:border-zinc-800 overflow-y-auto max-h-[90vh] space-y-4">
             <div class="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <div>
-                    <span class="text-xs font-mono font-bold text-[#9b0000] dark:text-[#f89696] uppercase tracking-wider block">
+                    <span class="text-xs font-mono font-bold text-[#9b0000] dark:text-[#e07a7a] uppercase tracking-wider block">
                         {{ $selectedSubjectForClass->code }}
                     </span>
                     <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
@@ -850,7 +850,7 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl border border-zinc-200 dark:border-zinc-800 space-y-4 overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-start border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div>
-                    <span class="text-xs font-mono font-bold text-[#9b0000] dark:text-[#f89696] uppercase tracking-wider block">
+                    <span class="text-xs font-mono font-bold text-[#9b0000] dark:text-[#e07a7a] uppercase tracking-wider block">
                         {{ $viewingSubject->code }}
                     </span>
                     <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
@@ -955,10 +955,10 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Import Subjects Modal -->
     @if($showImportModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-2xl w-full max-w-md border border-zinc-200 dark:border-zinc-800 space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-2xl w-full max-w-md border border-zinc-200 dark:border-zinc-800 space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <div class="flex items-center gap-2">
-                    <flux:icon name="document-arrow-up" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                    <flux:icon name="document-arrow-up" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
                     <flux:heading size="lg">Import Subjects</flux:heading>
                 </div>
                 <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="$set('showImportModal', false)" />
@@ -974,7 +974,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         type="file" 
                         wire:model="importFile" 
                         accept=".csv,.txt,.xlsx,.xls"
-                        class="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000]/10 file:text-[#9b0000] dark:file:text-[#f89696] hover:file:bg-[#9b0000]/20 cursor-pointer border border-zinc-200 dark:border-zinc-700 rounded-lg p-2" 
+                        class="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#9b0000]/10 file:text-[#9b0000] dark:file:text-[#e07a7a] hover:file:bg-[#9b0000]/20 cursor-pointer border border-zinc-200 dark:border-zinc-700 rounded-lg p-2" 
                     />
                     @error('importFile')
                         <span class="text-xs text-rose-500 font-semibold block mt-1">{{ $message }}</span>
@@ -986,7 +986,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 </div>
 
                 <div class="flex justify-between items-center pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                    <button type="button" wire:click="downloadTemplate" class="text-xs text-[#9b0000] dark:text-[#f89696] font-semibold hover:underline flex items-center gap-1">
+                    <button type="button" wire:click="downloadTemplate" class="text-xs text-[#9b0000] dark:text-[#e07a7a] font-semibold hover:underline flex items-center gap-1">
                         <flux:icon name="arrow-down-tray" class="size-3.5" />
                         Download Template
                     </button>

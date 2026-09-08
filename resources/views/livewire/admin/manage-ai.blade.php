@@ -202,7 +202,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                 <div class="w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <table class="w-full table-fixed divide-y divide-zinc-200 dark:divide-zinc-700 text-sm text-left">
-                        <thead class="bg-zinc-50 dark:bg-zinc-850">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800">
                             <tr>
                                 <th class="w-[75%] px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">Evaluation Review</th>
                                 <th class="w-[25%] px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 text-right">Correct Sentiment</th>

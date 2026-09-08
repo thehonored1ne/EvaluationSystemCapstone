@@ -1,4 +1,4 @@
-<div class="space-y-8 w-full text-left">
+<div class="w-full flex flex-col gap-6 text-left">
     <!-- Header & Tab Navigation Bar with real text -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
         <div>
@@ -32,7 +32,7 @@
     <!-- 2-Column AI Executive Insights & Attention Alert Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Faculty Requiring Attention Card -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div class="space-y-1">
                     <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 shimmer"></div>
@@ -44,7 +44,7 @@
         </div>
 
         <!-- Prescriptive Recommendations Card -->
-        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div class="space-y-1">
                     <div class="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-48 shimmer"></div>

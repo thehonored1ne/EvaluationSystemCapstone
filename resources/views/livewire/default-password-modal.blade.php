@@ -37,11 +37,13 @@ new class extends Component {
     }
 }; ?>
 
-<div>
+<div class="contents">
     @if($this->shouldShow())
         <div 
+            x-cloak
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
-            x-data="{ show: !sessionStorage.getItem('default_password_modal_dismissed') }"
+            x-data="{ show: true }"
+            x-init="sessionStorage.removeItem('default_password_modal_dismissed')"
             x-show="show"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="opacity-0 transform scale-95"
@@ -56,20 +58,20 @@ new class extends Component {
             <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-lg overflow-hidden transform transition-all duration-300">
                 
                 <!-- Modal Top Accent Banner -->
-                <div class="h-2 bg-gradient-to-r from-[#7a0000] via-[#9b0000] to-[#f89696]"></div>
+                <div class="h-2 bg-gradient-to-r from-[#7a0000] via-[#9b0000] to-[#e07a7a]"></div>
 
                 <!-- Modal Body -->
                 <div class="p-6 sm:p-7">
                     <div class="flex items-start gap-4">
                         <!-- Shield Key Security Icon -->
-                        <div class="shrink-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 flex items-center justify-center text-[#9b0000] dark:text-[#f89696] shadow-xs">
+                        <div class="shrink-0 w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 flex items-center justify-center text-[#9b0000] dark:text-[#e07a7a] shadow-xs">
                             <flux:icon icon="key" variant="outline" class="size-6" />
                         </div>
 
                         <!-- Content Details -->
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap mb-1">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-950/60 text-[#9b0000] dark:text-[#f89696] border border-rose-200 dark:border-rose-800/60">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-950/60 text-[#9b0000] dark:text-[#e07a7a] border border-rose-200 dark:border-rose-800/60">
                                     Security Advisory
                                 </span>
                             </div>
@@ -97,7 +99,7 @@ new class extends Component {
                 <div class="px-6 py-4 bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3">
                     <button 
                         type="button" 
-                        @click="sessionStorage.setItem('default_password_modal_dismissed', '1'); show = false"
+                        @click="show = false"
                         wire:click="dismissLater" 
                         class="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-center"
                     >
@@ -106,7 +108,7 @@ new class extends Component {
 
                     <button 
                         type="button" 
-                        @click="sessionStorage.setItem('default_password_modal_dismissed', '1'); show = false"
+                        @click="show = false"
                         wire:click="goToChangePassword" 
                         class="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#7a0000] hover:bg-[#9b0000] active:bg-[#600000] shadow-sm hover:shadow transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
                     >

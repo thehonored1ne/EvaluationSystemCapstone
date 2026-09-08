@@ -129,20 +129,18 @@ test('sidebar renders correct evaluator submenus depending on user role', functi
     // 1. Student
     $this->actingAs($this->studUser);
     $response = $this->get('/notifications'); // any page showing layout/sidebar
-    $response->assertSee('My Evaluations');
+    $response->assertSee('Evaluations');
     $response->assertSee('Evaluate Professors');
-    $response->assertDontSee('Self Evaluation');
-    $response->assertDontSee('Peer Evaluation');
-    $response->assertDontSee('Overview');
+    $response->assertDontSee('Self');
+    $response->assertDontSee('Peer Professor');
 
     // 2. Faculty
     $this->actingAs($this->facUser);
     $response = $this->get('/notifications');
-    $response->assertSee('My Evaluations');
-    $response->assertSee('Self Evaluation');
-    $response->assertSee('Peer Evaluation');
-    $response->assertSee('Supervisor Evaluation');
-    $response->assertDontSee('Overview');
+    $response->assertSee('Evaluations');
+    $response->assertSee('Self');
+    $response->assertSee('Peer Professor');
+    $response->assertSee('Program Head');
 
     // 3. Staff (create a staff user for test)
     $staffEmp = Employee::create(['employee_number' => 'S-99', 'first_name' => 'St', 'last_name' => 'Ff', 'role' => 'staff', 'status' => 'active']);
@@ -151,26 +149,23 @@ test('sidebar renders correct evaluator submenus depending on user role', functi
 
     $this->actingAs($staffUser);
     $response = $this->get('/notifications');
-    $response->assertSee('My Evaluations');
-    $response->assertSee('Self Evaluation');
-    $response->assertSee('Peer Evaluation');
-    $response->assertSee('Supervisor Evaluation');
-    $response->assertDontSee('Overview');
+    $response->assertSee('Evaluations');
+    $response->assertSee('Self');
+    $response->assertSee('Peer Staff');
+    $response->assertSee('Department Head');
 
     // 4. Dean
     $this->actingAs($this->deanUser);
     $response = $this->get('/notifications');
-    $response->assertSee('My Evaluations');
-    $response->assertSee('Self Evaluation');
-    $response->assertSee('Program Head Evaluations');
-    $response->assertDontSee('Overview');
+    $response->assertSee('Evaluations');
+    $response->assertSee('Self');
+    $response->assertSee('Program Heads');
 
     // 5. Program Head
     $this->actingAs($this->phUser);
     $response = $this->get('/notifications');
-    $response->assertSee('My Evaluations');
-    $response->assertSee('Self Evaluation');
-    $response->assertSee('Supervisor Evaluation');
-    $response->assertSee('Faculty Evaluations');
-    $response->assertDontSee('Overview');
+    $response->assertSee('Evaluations');
+    $response->assertSee('Self');
+    $response->assertSee('Dean');
+    $response->assertSee('Faculty');
 });

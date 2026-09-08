@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 
@@ -89,9 +89,9 @@ new class extends Component {
             <!-- Dropdown Header -->
             <div class="flex items-center justify-between px-3.5 sm:px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 gap-2">
                 <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <span class="text-sm font-bold text-zinc-900 dark:text-white">Notifications</span>
+                    <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Notifications</span>
                     @if($this->unreadCount > 0)
-                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-[#f89696] border border-red-200 dark:border-red-900/40 whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-[#e07a7a] border border-red-200 dark:border-red-900/40 whitespace-nowrap">
                             {{ $this->unreadCount }} new
                         </span>
                     @endif
@@ -114,7 +114,7 @@ new class extends Component {
                         <button 
                             type="button" 
                             wire:click="clearAll" 
-                            class="text-xs font-semibold text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-[#f89696] flex items-center gap-1 hover:underline cursor-pointer transition-colors whitespace-nowrap"
+                            class="text-xs font-semibold text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-[#e07a7a] flex items-center gap-1 hover:underline cursor-pointer transition-colors whitespace-nowrap"
                             title="Clear all notifications"
                         >
                             <flux:icon icon="trash" class="size-3.5 shrink-0" />
@@ -148,7 +148,7 @@ new class extends Component {
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 sm:gap-2">
                                     <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                                         @if($isUnread)
-                                            <span class="size-1.5 rounded-full bg-[#9b0000] dark:bg-[#f89696] shrink-0"></span>
+                                            <span class="size-1.5 rounded-full bg-[#9b0000] dark:bg-[#e07a7a] shrink-0"></span>
                                         @endif
                                         <span>{{ $notification->title ?? 'Notification' }}</span>
                                     </p>
@@ -186,7 +186,7 @@ new class extends Component {
                 <a 
                     href="{{ route('notifications') }}" 
                     wire:navigate 
-                    class="font-semibold text-[#9b0000] dark:text-[#f89696] hover:underline cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
+                    class="font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:underline cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
                 >
                     <span>View all notifications</span>
                     <flux:icon icon="arrow-right" class="size-3 shrink-0" />

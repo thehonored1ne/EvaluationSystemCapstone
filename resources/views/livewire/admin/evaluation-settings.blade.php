@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -739,7 +739,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endphp
 
     <!-- SECTION 3: UNIFIED Evaluation Weights & Questionnaire Parts Setup -->
-    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
         
         <!-- Section Header -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
@@ -768,7 +768,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <button 
                 type="button"
                 wire:click="$set('weightsReportTab', 'teaching_effectiveness')" 
-                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'teaching_effectiveness' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'teaching_effectiveness' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
                 <flux:icon icon="academic-cap" class="size-4 shrink-0" />
                 Individual Teaching Effectiveness
@@ -776,7 +776,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <button 
                 type="button"
                 wire:click="$set('weightsReportTab', 'global_targets')" 
-                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'global_targets' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'global_targets' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
             >
                 <flux:icon icon="adjustments-vertical" class="size-4 shrink-0" />
                 All Categories & Extended Roles
@@ -798,7 +798,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                             variant="subtle" 
                             size="sm" 
                             icon="arrow-path" 
-                            class="font-semibold text-xs border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-[#9b0000] dark:hover:text-[#f89696] shadow-2xs"
+                            class="font-semibold text-xs border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-[#9b0000] dark:hover:text-[#e07a7a] shadow-2xs"
                         >
                             Reset to GRC Standard (40-20-20-15-5)
                         </flux:button>
@@ -1382,10 +1382,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     <!-- Unified Add Academic Period Modal -->
     @if($showPeriodModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-md border border-zinc-200 dark:border-zinc-800 space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl w-full max-w-md border border-zinc-200 dark:border-zinc-800 space-y-4 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <div class="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <div class="flex items-center gap-2">
-                    <flux:icon name="calendar" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                    <flux:icon name="calendar" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
                     <flux:heading size="lg">Add Academic Period</flux:heading>
                 </div>
                 <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="$set('showPeriodModal', false)" />

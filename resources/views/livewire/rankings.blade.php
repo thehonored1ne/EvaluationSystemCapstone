@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Models\Department;
 use App\Models\Employee;
@@ -287,7 +287,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <!-- Card 1: Top Performing Faculty -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Top Performing Faculty</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono">
@@ -309,7 +309,7 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Card 2: Top Department -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Highest Rated Department</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-2xl font-bold text-[#035e44] dark:text-[#03dd9f] font-mono">
@@ -331,7 +331,7 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Card 3: Total Faculty Monitored -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Faculty Monitored</span>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -349,17 +349,17 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- Card 4: Institutional Mean Rating -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-2 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
             <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Institutional Mean Score</span>
             <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-bold text-[#9b0000] dark:text-[#f89696] font-mono">
+                <span class="text-3xl font-bold text-[#9b0000] dark:text-[#e07a7a] font-mono">
                     @if($instAverage > 0)
                         {{ number_format($instAverage, 2) }}
                     @else
                         <span class="text-zinc-400 text-lg font-sans">N/A</span>
                     @endif
                 </span>
-                <flux:icon icon="chart-bar" class="size-6 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon icon="chart-bar" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <span class="text-xs font-semibold {{ $instAverage > 0 ? 'text-[#035e44] dark:text-[#03dd9f]' : 'text-zinc-400 font-normal' }}">
                 {{ $instLevel }}
@@ -372,7 +372,7 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="$set('activeTab', 'faculty')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'faculty' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'faculty' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
         >
             <flux:icon icon="trophy" class="size-4" />
             Faculty Leaderboard
@@ -381,7 +381,7 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="$set('activeTab', 'department')"
-            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'department' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#f89696] dark:text-[#f89696]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
+            class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 {{ $activeTab === 'department' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a]' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300' }}"
         >
             <flux:icon icon="academic-cap" class="size-4" />
             Department Leaderboard

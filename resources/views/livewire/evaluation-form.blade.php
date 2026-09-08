@@ -458,7 +458,7 @@ new class extends Component {
                     >
                         <!-- Question Header Info -->
                         <div class="flex items-center justify-between gap-2 pb-2.5 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
-                            <span class="px-2.5 sm:px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#f89696] text-[11px] sm:text-xs font-bold border border-red-900/20 truncate max-w-[180px] sm:max-w-none">
+                            <span class="px-2.5 sm:px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#e07a7a] text-[11px] sm:text-xs font-bold border border-red-900/20 truncate max-w-[180px] sm:max-w-none">
                                 {{ $q['criterion_name'] }}
                             </span>
                             <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
@@ -484,12 +484,12 @@ new class extends Component {
                                         class="w-full max-w-[3.5rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-base sm:text-2xl md:text-3xl font-black transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none shrink-0 shadow-sm group"
                                         :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
                                             ? 'bg-[#9b0000] border-[#9b0000] text-white shadow-xl shadow-red-950/50 scale-105 sm:scale-110 ring-2 sm:ring-4 ring-red-900/30'
-                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#f89696] hover:text-[#9b0000] dark:hover:text-[#f89696]'"
+                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#e07a7a] hover:text-[#9b0000] dark:hover:text-[#e07a7a]'"
                                         title="Press {{ $ratingVal }} on keyboard"
                                     >
                                         <span class="leading-none">{{ $ratingVal }}</span>
                                         <span class="hidden sm:inline-block text-[9px] font-mono font-semibold opacity-60 tracking-tight mt-0.5"
-                                              :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-[#9b0000] dark:group-hover:text-[#f89696]'">
+                                              :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a]'">
                                             [{{ $ratingVal }}]
                                         </span>
                                     </button>
@@ -527,7 +527,7 @@ new class extends Component {
                                 <button 
                                     type="button" 
                                     @click="nextQuestion()" 
-                                    class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] text-xs sm:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#f89696]"
+                                    class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] text-xs sm:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#b93b3b]"
                                 >
                                     <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
                                 </button>
@@ -681,13 +681,13 @@ new class extends Component {
 
                 <!-- Terms & Privacy Confirmation Notice -->
                 <div class="p-3.5 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-xl flex items-start gap-2.5 text-xs text-zinc-600 dark:text-zinc-300">
-                    <flux:icon icon="shield-check" class="size-4.5 text-[#9b0000] dark:text-[#f89696] shrink-0 mt-0.5" />
+                    <flux:icon icon="shield-check" class="size-4.5 text-[#9b0000] dark:text-[#e07a7a] shrink-0 mt-0.5" />
                     <div class="leading-relaxed">
                         By submitting this evaluation, you confirm that your feedback is constructive, truthful, and adheres to institutional guidelines. All evaluation responses are processed in accordance with the 
                         <button 
                             type="button" 
                             @click="$dispatch('open-terms-modal')" 
-                            class="font-bold underline text-[#9b0000] dark:text-[#f89696] hover:opacity-80 transition-opacity cursor-pointer inline-flex items-center gap-0.5"
+                            class="font-bold underline text-[#9b0000] dark:text-[#e07a7a] hover:opacity-80 transition-opacity cursor-pointer inline-flex items-center gap-0.5"
                         >
                             Terms of Use & Privacy Policy
                         </button>.
@@ -723,7 +723,7 @@ new class extends Component {
                             :disabled="!isReadyToSubmit"
                             @click="if (!isReadyToSubmit) { $event.preventDefault(); $event.stopPropagation(); return false; }"
                             class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 flex items-center gap-2 border shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                            :class="isReadyToSubmit ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#f89696] dark:hover:bg-[#f57575] dark:text-[#171717] dark:border-[#f89696] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
+                            :class="isReadyToSubmit ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] dark:border-[#b93b3b] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
                         >
                             <span wire:loading.remove wire:target="submit" class="flex items-center gap-1.5">
                                 <flux:icon icon="paper-airplane" class="size-4" />

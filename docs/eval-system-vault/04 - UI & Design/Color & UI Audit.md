@@ -19,41 +19,41 @@ This document provides a comprehensive audit of all colors utilized across the *
 
 | Token Name                | Light Mode Value    | Dark Mode Value    | Tailwind Class | Usage / Target                                                                      |
 | :------------------------ | :------------------ | :----------------- | :------------- | :---------------------------------------------------------------------------------- |
-| `--color-brand-primary` | `#9b0000 -passed` | `#F89696-passed` |                | Main navbar, active sidebar tab, brand accents, primary buttons, wizard active step |
-| `--color-brand-hover`   | `#7A0000 -passed` | `#F57575-passed` |                | Hover states on primary buttons & active navigation tabs                            |
-| `--color-brand-subtle`  | `#9C2121 -passed` | `#FCC5C5-passed` |                | Selected container backgrounds, brand tag backgrounds                               |
-| `--color-brand-border`  | `#9b0000 -passed` | `#F89696-passed` |                | Navbar bottom border, logo icon frame border, accent card borders                   |
-| `--color-brand-ring`    | `#9b0000 -passed` | `#F89696-passed` |                | Focus outlines on form inputs & selected rating pills                               |
+| `--color-brand-primary` | `#9b0000 -passed` | `#e07a7a -passed` |                | Main navbar, active sidebar tab, brand accents, primary buttons, wizard active step |
+| `--color-brand-hover`   | `#7A0000 -passed` | `#ea8c8c -passed` |                | Hover states on primary buttons & active navigation tabs                            |
+| `--color-brand-subtle`  | `#9C2121 -passed` | `rgba(224, 122, 122, 0.15) -passed` | | Selected container backgrounds, brand tag backgrounds                               |
+| `--color-brand-border`  | `#9b0000 -passed` | `#e07a7a -passed` |                | Navbar bottom border, logo icon frame border, accent card borders                   |
+| `--color-brand-ring`    | `#9b0000 -passed` | `#e07a7a -passed` |                | Focus outlines on form inputs & selected rating pills                               |
 
 ---
 
-## 3. Semantic Surface & Background Tokens
+## 3. Semantic Surface & Background Tokens (Lightness Elevation Hierarchy)
 
 | Semantic Token            | Light Mode (CSS / Hex)         | Dark Mode (CSS / Hex)          | Tailwind Utility | Component Application                               |
 | :------------------------ | :----------------------------- | :----------------------------- | :--------------- | :-------------------------------------------------- |
-| `--surface-canvas`      | `#fafafa-passed`             | `#252525-passed`             |                  | Root app background, viewport wrapper               |
-| `--surface-sidebar`     | `#ffffff-passed`             | `#171717-passed`             |                  | Collapsible sidebar, mini-sidebar rail              |
-| `--surface-card`        | `#ffffff-passed`             | `#171717-passed`             |                  | Stat metric cards, leaderboard rows, content panels |
-| `--surface-card-subtle` | `#ffffff-passed`             | `#171717-passed`             |                  | Card header bars, secondary table header strips     |
-| `--surface-elevated`    | `#ffffff-passed`             | `#171717-passed`             |                  | Dropdown menus, modal dialogs, flyout tooltips      |
-| `--surface-header-nav`  | `#9b0000 -passed`            | `#F89696-passed`             |                  | Top navigation header across all evaluator portals  |
-| `--surface-footer`      | `#e5e6eb-passed`             | `#e5e6eb-passed`             |                  | Fixed/Sticky full-width application footer          |
-| `--surface-input`       | `#ffffff-passed`             | `#171717-passed`             |                  | Form text fields, textareas, search bars            |
-| `--surface-muted`       | `#525260-passed`             | `#B9B9BB-passed`             |                  | Inactive rating buttons, skeleton placeholders      |
-| `--surface-overlay`     | `rgba(0, 0, 0, 0.25)-passed` | `rgba(0, 0, 0, 0.45)-passed` |                  | Modal backdrop, welcome hero overlay                |
+| `--surface-canvas`      | `#fafafa -passed`            | `#111113 -passed`            |                  | Level 0: Root app background, viewport wrapper      |
+| `--surface-sidebar`     | `#ffffff -passed`            | `#18181b -passed`            |                  | Level 1: Collapsible sidebar, mini-sidebar rail     |
+| `--surface-card`        | `#ffffff -passed`            | `#18181b -passed`            |                  | Level 1: Stat metric cards, leaderboard rows panels |
+| `--surface-card-subtle` | `#ffffff -passed`            | `#1f1f23 -passed`            |                  | Level 1 Sub: Card header bars, secondary headers    |
+| `--surface-elevated`    | `#ffffff -passed`            | `#27272a -passed`            |                  | Level 2: Dropdown menus, modal dialogs, popovers    |
+| `--surface-header-nav`  | `#9b0000 -passed`            | `#161619 -passed`            |                  | Top navigation header across all evaluator portals  |
+| `--surface-footer`      | `#e5e6eb -passed`            | `#18181b -passed`            |                  | Fixed/Sticky full-width application footer          |
+| `--surface-input`       | `#ffffff -passed`            | `#18181b -passed`            |                  | Form text fields, textareas, search bars            |
+| `--surface-muted`       | `#525260 -passed`            | `#27272a -passed`            |                  | Inactive rating buttons, skeleton placeholders      |
+| `--surface-overlay`     | `rgba(0, 0, 0, 0.25) -passed`| `rgba(15, 15, 20, 0.70) -passed` |              | Modal backdrop, welcome hero overlay                |
 
 ---
 
-## 4. Semantic Typography & Text Tokens
+## 4. Semantic Typography & Text Tokens (Anti-Glare / Soft Off-White)
 
 | Semantic Token       | Light Mode (Hex / Class) | Dark Mode (Hex / Class) | Tailwind Utility | Visual Role                                           |
 | :------------------- | :----------------------- | :---------------------- | :--------------- | :---------------------------------------------------- |
-| `--text-primary`   | `#18181b-passed`       | `#ffffff-passed`      |                  | Main headings, table titles, primary values           |
-| `--text-secondary` | `#52525b-passed`       | `#E0E0E0-passed`      |                  | Subtitles, helper descriptions, table body text       |
-| `--text-tertiary`  | `#4C4C52-passed`       | `#EBEBEB-passed`      |                  | Timestamps, metadata labels, icon accents             |
-| `--text-muted`     | `#55555E-passed`       | `#B1B1B9-passed`      |                  | Form input placeholders, disabled text                |
-| `--text-brand`     | `#9b0000-passed`       | `#F89696-passed`      |                  | Stat counters, active tabs, highlighted faculty links |
-| `--text-inverse`   | `#ffffff-passed`       | `#ffffff-passed`      |                  | Text on navbar, footer, primary buttons, badges       |
+| `--text-primary`   | `#18181b -passed`       | `#f4f4f5 -passed`      |                  | Main headings, table titles, primary values           |
+| `--text-secondary` | `#52525b -passed`       | `#d4d4d8 -passed`      |                  | Subtitles, helper descriptions, table body text       |
+| `--text-tertiary`  | `#4C4C52 -passed`       | `#a1a1aa -passed`      |                  | Timestamps, metadata labels, icon accents             |
+| `--text-muted`     | `#55555E -passed`       | `#71717a -passed`      |                  | Form input placeholders, disabled text                |
+| `--text-brand`     | `#9b0000 -passed`       | `#e07a7a -passed`      |                  | Stat counters, active tabs, highlighted faculty links |
+| `--text-inverse`   | `#ffffff -passed`       | `#f4f4f5 -passed`      |                  | Text on navbar, primary buttons, badges               |
 
 ---
 
@@ -61,11 +61,11 @@ This document provides a comprehensive audit of all colors utilized across the *
 
 | Semantic Token               | Light Mode (Hex / Class)     | Dark Mode (Hex / Class)      | Tailwind Utility | Usage                                               |
 | :--------------------------- | :--------------------------- | :--------------------------- | :--------------- | :-------------------------------------------------- |
-| `--border-subtle`          | `#545463-passed`           | `#B2B2BD-passed`           |                  | Table cell dividers, sidebar right border           |
-| `--border-card`            | `#9b0000-passed`           | `#F89696-passed`           |                  | Stat cards, containers, wizard panels               |
-| `--border-accent-card`     | `5px solid #9b0000-passed` | `5px solid #F89696-passed` |                  | Left accent stripe on all admin & report stat cards |
-| `--border-focus`           | `#9b0000-passed`           | `#F89696-passed`           |                  | Active input outline border                         |
-| `--border-interactive-tab` | `#9b0000-passed`           | `#F89696-passed`           |                  | Active bottom underline tab indicator               |
+| `--border-subtle`          | `#545463 -passed`           | `#27272a -passed`           |                  | Table cell dividers, sidebar right border           |
+| `--border-card`            | `#9b0000 -passed`           | `#e07a7a -passed`           |                  | Stat cards, containers, wizard panels               |
+| `--border-accent-card`     | `5px solid #9b0000 -passed` | `5px solid #e07a7a -passed` |                  | Left accent stripe on all admin & report stat cards |
+| `--border-focus`           | `#9b0000 -passed`           | `#e07a7a -passed`           |                  | Active input outline border                         |
+| `--border-interactive-tab` | `#9b0000 -passed`           | `#e07a7a -passed`           |                  | Active bottom underline tab indicator               |
 
 ---
 

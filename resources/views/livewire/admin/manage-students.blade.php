@@ -892,39 +892,42 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="space-y-6"
-    x-data="{
-        storageKey: 'selected_students_admin_{{ auth()->id() ?? 'guest' }}',
-        init() {
-            const saved = sessionStorage.getItem(this.storageKey);
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        $wire.restoreSelectedIds(parsed);
-                    }
-                } catch (e) {
-                    sessionStorage.removeItem(this.storageKey);
-                }
-            }
-
-            if (typeof $wire !== 'undefined' && $wire.$watch) {
-                $wire.$watch('selectedIds', (ids) => {
-                    if (Array.isArray(ids) && ids.length > 0) {
-                        sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
-                    } else {
+<div class="space-y-6">
+    {{-- SessionStorage Persistence for Bulk Selection --}}
+    <div
+        x-data="{
+            storageKey: 'selected_students_admin_{{ auth()->id() ?? 'guest' }}',
+            init() {
+                const saved = sessionStorage.getItem(this.storageKey);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            $wire.restoreSelectedIds(parsed);
+                        }
+                    } catch (e) {
                         sessionStorage.removeItem(this.storageKey);
                     }
-                });
+                }
+
+                if (typeof $wire !== 'undefined' && $wire.$watch) {
+                    $wire.$watch('selectedIds', (ids) => {
+                        if (Array.isArray(ids) && ids.length > 0) {
+                            sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
+                        } else {
+                            sessionStorage.removeItem(this.storageKey);
+                        }
+                    });
+                }
             }
-        }
-    }"
-    @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
->
+        }"
+        @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
+    ></div>
+
     <!-- Header -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Manage Students</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Students</h1>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportStudents">
@@ -1077,10 +1080,10 @@ new #[Layout('components.layouts.app')] class extends Component
                             <td class="py-3.5 px-3 text-center">
                                 <input type="checkbox" wire:model.live="selectedIds" value="{{ $user->id }}" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select student {{ $user->student?->student_number ?? $user->name }}" />
                             </td>
-                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                                 {{ $user->student?->student_number ?? 'N/A' }}
                             </td>
-                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-white truncate">
+                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-zinc-100 truncate">
                                 <span class="truncate">{{ $user->student?->formatted_name ?? $user->name }}</span>
                             </td>
                             <td class="py-3.5 px-4 text-xs text-zinc-600 dark:text-zinc-400 truncate" title="{{ $user->email }}">
@@ -1176,7 +1179,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-lg !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     {{ $editingUser ? 'Edit Student Account' : 'Create New Student Account' }}
                 </h2>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">Fill in student details, enrollment status, and academic program assignment.</p>
@@ -1199,8 +1202,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Academic Program</label>
-                        <select wire:model="program_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Academic Program</label>
+                        <select wire:model="program_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" required>
                             <option value="">Select Program...</option>
                             @foreach($programs as $prog)
                                 <option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</option>
@@ -1210,8 +1213,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Year Level</label>
-                        <select wire:model="year_level" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Year Level</label>
+                        <select wire:model="year_level" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" required>
                             <option value="">Select Year...</option>
                             <option value="1">1st Year</option>
                             <option value="2">2nd Year</option>
@@ -1222,8 +1225,8 @@ new #[Layout('components.layouts.app')] class extends Component
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Enrollment Status</label>
-                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" required>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Enrollment Status</label>
+                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" required>
                             <option value="regular">Regular</option>
                             <option value="irregular">Irregular</option>
                             <option value="loa">Leave of Absence (LOA)</option>
@@ -1251,7 +1254,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showImportModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-xl !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Students</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Bulk Import Students</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing new student admissions and enrollment rosters.</p>
             </div>
 
@@ -1267,7 +1270,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <form wire:submit="importStudents" class="space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white">Select Spreadsheet (.CSV)</label>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Select Spreadsheet (.CSV)</label>
                         <flux:button size="xs" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
                             Download Template
                         </flux:button>
@@ -1347,7 +1350,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkStatusModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     Update Student Type for {{ count($selectedIds) }} Students
                 </h2>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -1385,7 +1388,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkYearModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     Update Year Level for {{ count($selectedIds) }} Students
                 </h2>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -1415,7 +1418,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkDeleteModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     Bulk Delete Students
                 </h2>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -1426,7 +1429,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <div class="space-y-3 text-sm">
                 @if($bulkDeleteEligibleCount > 0)
                     <p class="text-zinc-700 dark:text-zinc-300">
-                        You have selected <strong class="font-semibold text-zinc-900 dark:text-white">{{ $bulkDeleteEligibleCount }}</strong> account(s) that have zero evaluation history and can be safely deleted.
+                        You have selected <strong class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $bulkDeleteEligibleCount }}</strong> account(s) that have zero evaluation history and can be safely deleted.
                     </p>
                 @endif
 
@@ -1464,7 +1467,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showReviewSelectionModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-3xl !p-4 sm:!p-6">
         <div class="space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-10">
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <span>Selected Students</span>
                     <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums">
                         {{ count($selectedIds) }}
@@ -1497,7 +1500,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                                                 {{ $selUser->student?->formatted_name ?? $selUser->name }}
                                             </p>
                                             <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">

@@ -17,6 +17,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public ?int $selectedClassId = null;
     public ?User $selectedTeacherUser = null;
     public bool $showForm = false;
+    public string $statusFilter = 'all';
 
     public function getActiveSemesterProperty()
     {
@@ -43,6 +44,24 @@ new #[Layout('components.layouts.app')] class extends Component {
             })
             ->with(['subject', 'teacher.user'])
             ->get();
+    }
+
+    public function getFilteredClassesProperty()
+    {
+        $classes = $this->enrolledClasses;
+        if ($this->statusFilter === 'completed') {
+            return $classes->filter(function ($class) {
+                $teacherUserId = $class->teacher?->user?->id;
+                return $teacherUserId && in_array($this->getClassEvaluationStatus($class->id, $teacherUserId), ['completed', 'processing']);
+            });
+        }
+        if ($this->statusFilter === 'pending') {
+            return $classes->filter(function ($class) {
+                $teacherUserId = $class->teacher?->user?->id;
+                return $teacherUserId && !in_array($this->getClassEvaluationStatus($class->id, $teacherUserId), ['completed', 'processing']);
+            });
+        }
+        return $classes;
     }
 
     public function getEvaluatedCountProperty(): int
@@ -119,81 +138,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 }; ?>
 
-<div 
-    x-data="{
-        copied: false,
-        copyRef(val) {
-            navigator.clipboard.writeText(val).then(() => {
-                this.copied = true;
-                setTimeout(() => this.copied = false, 2500);
-            });
-        },
-        launchConfetti() {
-            // Lightweight multi-color canvas celebration burst
-            const colors = ['#9b0000', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
-            const canvas = document.createElement('canvas');
-            canvas.style.position = 'fixed';
-            canvas.style.inset = '0';
-            canvas.style.width = '100vw';
-            canvas.style.height = '100vh';
-            canvas.style.zIndex = '999999';
-            canvas.style.pointerEvents = 'none';
-            document.body.appendChild(canvas);
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-
-            const particles = [];
-            for (let i = 0; i < 90; i++) {
-                particles.push({
-                    x: canvas.width / 2,
-                    y: canvas.height * 0.45,
-                    vx: (Math.random() - 0.5) * 16,
-                    vy: (Math.random() - 0.75) * 16,
-                    size: Math.random() * 8 + 4,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    rot: Math.random() * 360,
-                    vRot: (Math.random() - 0.5) * 10,
-                    alpha: 1
-                });
-            }
-
-            let start = null;
-            function anim(ts) {
-                if (!start) start = ts;
-                const progress = (ts - start) / 2000;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                particles.forEach(p => {
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.vy += 0.35; // gravity
-                    p.rot += p.vRot;
-                    p.alpha = Math.max(0, 1 - progress);
-                    ctx.save();
-                    ctx.globalAlpha = p.alpha;
-                    ctx.translate(p.x, p.y);
-                    ctx.rotate((p.rot * Math.PI) / 180);
-                    ctx.fillStyle = p.color;
-                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-                    ctx.restore();
-                });
-
-                if (progress < 1) {
-                    requestAnimationFrame(anim);
-                } else {
-                    canvas.remove();
-                }
-            }
-            requestAnimationFrame(anim);
-        }
-    }"
-    @evaluation-submitted.window="if ({{ $this->isAllCompleted ? 'true' : 'false' }}) { launchConfetti(); }"
-    class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6"
->
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6">
     @if(!$showForm)
         <!-- Header -->
-        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <div>
+        <div class="flex flex-col md:flex-row md:justify-between items-center text-center md:text-left gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+            <div class="flex flex-col items-center md:items-start">
                 <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Student Evaluation Dashboard</h1>
                 <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
                     @if($this->activeSemester)
@@ -204,7 +153,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </p>
             </div>
 
-            <div>
+            <div class="flex justify-center md:justify-end">
                 @if($this->isEvaluationOpen)
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                         <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -254,7 +203,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </div>
 
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-lg sm:text-xl font-black text-[#9b0000] dark:text-[#f89696] tracking-wide select-all">
+                            <span class="font-mono text-lg sm:text-xl font-black text-[#9b0000] dark:text-[#e07a7a] tracking-wide select-all">
                                 {{ $this->formattedReferenceId }}
                             </span>
                         </div>
@@ -318,23 +267,138 @@ new #[Layout('components.layouts.app')] class extends Component {
         </div>
     @else
         <div class="grid grid-cols-1 gap-6">
-            <flux:card class="p-6">
-                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                    <flux:heading size="lg">My Enrolled Classes & Professors</flux:heading>
+            <flux:card class="p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+                    <div class="text-center sm:text-left">
+                        <flux:heading size="lg">My Enrolled Classes & Professors</flux:heading>
+                    </div>
                     @if($this->enrolledClasses->isNotEmpty())
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
-                            <span class="text-[#9b0000] dark:text-[#f89696] font-extrabold mr-1">{{ $this->evaluatedCount }}/{{ $this->enrolledClasses->count() }}</span> evaluated
-                        </span>
+                        <div class="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs shrink-0">
+                                <span class="text-[#9b0000] dark:text-[#e07a7a] font-extrabold mr-1">{{ $this->evaluatedCount }}/{{ $this->enrolledClasses->count() }}</span> evaluated
+                            </span>
+                            <div class="inline-flex items-center p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium shrink-0">
+                                <button 
+                                    type="button" 
+                                    wire:click="$set('statusFilter', 'all')"
+                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'all' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    All
+                                </button>
+                                <button 
+                                    type="button" 
+                                    wire:click="$set('statusFilter', 'pending')"
+                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'pending' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    Pending
+                                </button>
+                                <button 
+                                    type="button" 
+                                    wire:click="$set('statusFilter', 'completed')"
+                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'completed' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    Completed
+                                </button>
+                            </div>
+                        </div>
                     @endif
                 </div>
+
+                @if($this->enrolledClasses->isNotEmpty())
+                    @php
+                        $classTotal = $this->enrolledClasses->count();
+                        $classDone = $this->evaluatedCount;
+                        $classPercent = $classTotal > 0 ? round(($classDone / $classTotal) * 100) : 0;
+                    @endphp
+                    <div class="mb-5 bg-zinc-50 dark:bg-zinc-800/40 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <div class="flex justify-between items-center text-xs mb-1.5 font-medium">
+                            <span class="text-zinc-600 dark:text-zinc-400">Evaluation Progress</span>
+                            <span class="font-bold {{ $classPercent === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-200' }}">{{ $classPercent }}%</span>
+                        </div>
+                        <div class="w-full bg-zinc-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                            <div class="h-2 rounded-full transition-all duration-300 {{ $classPercent === 100 ? 'bg-emerald-500' : 'bg-[#9b0000]' }}" style="width: {{ $classPercent }}%"></div>
+                        </div>
+                    </div>
+                @endif
                 
                 @if($this->enrolledClasses->isEmpty())
-                    <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                    <div class="text-center py-10 text-zinc-500 dark:text-zinc-400">
                         <flux:icon icon="academic-cap" class="size-12 mx-auto text-zinc-300 mb-2" />
                         <p class="font-medium text-sm">No classes found for this semester.</p>
                     </div>
+                @elseif($this->filteredClasses->isEmpty())
+                    <div class="text-center py-10 text-zinc-500 dark:text-zinc-400">
+                        <flux:icon icon="funnel" class="size-10 mx-auto text-zinc-300 mb-2" />
+                        <p class="font-medium text-sm">
+                            {{ $statusFilter === 'pending' ? 'No pending evaluations remaining.' : 'No completed evaluations found.' }}
+                        </p>
+                    </div>
                 @else
-                    <div class="overflow-auto max-h-[500px] rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <!-- Mobile Responsive Cards (visible < 640px, scrollable max height) -->
+                    <div class="grid grid-cols-1 gap-3 sm:hidden max-h-[500px] overflow-y-auto pr-1">
+                        @foreach($this->filteredClasses as $class)
+                            @php
+                                $teacherUserId = $class->teacher?->user?->id;
+                                $status = $teacherUserId ? $this->getClassEvaluationStatus($class->id, $teacherUserId) : 'closed';
+                            @endphp
+                            <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col gap-3 shadow-2xs">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
+                                            {{ substr($class->teacher?->first_name ?? 'P', 0, 1) }}{{ substr($class->teacher?->last_name ?? '', 0, 1) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-sm text-zinc-800 dark:text-zinc-200 leading-tight">
+                                                {{ $class->teacher?->full_name ?: 'Professor N/A' }}
+                                            </div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
+                                                {{ $class->subject->code }} - {{ $class->subject->name }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        @if($status === 'completed')
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                                                <flux:icon icon="check-circle" class="size-3.5" />
+                                                Completed
+                                            </span>
+                                        @elseif($status === 'processing')
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 animate-pulse">
+                                                <flux:icon icon="arrow-path" class="size-3.5 animate-spin" />
+                                                Processing
+                                            </span>
+                                        @elseif(!$this->isEvaluationOpen)
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                                                Closed
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                                Pending
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+                                    @if($status === 'completed')
+                                        <span class="text-xs text-zinc-400 font-semibold py-1">Done</span>
+                                    @elseif($status === 'processing')
+                                        <span class="text-xs text-zinc-400 font-semibold py-1">Processing...</span>
+                                    @elseif(!$this->isEvaluationOpen)
+                                        <span class="text-xs text-zinc-400 py-1">Unavailable</span>
+                                    @else
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="primary" 
+                                            class="w-full sm:w-auto"
+                                            wire:click="selectClass({{ $class->id }}, {{ $class->teacher->user->id }})">
+                                            Evaluate Professor
+                                        </flux:button>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Desktop Table (visible >= 640px) -->
+                    <div class="hidden sm:block overflow-auto max-h-[500px] rounded-xl border border-zinc-200 dark:border-zinc-800">
                         <table class="w-full text-left text-sm min-w-[540px]">
                             <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10 shadow-2xs">
                                 <tr>
@@ -345,7 +409,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                                @foreach($this->enrolledClasses as $class)
+                                @foreach($this->filteredClasses as $class)
                                     @php
                                         $teacherUserId = $class->teacher?->user?->id;
                                         $status = $teacherUserId ? $this->getClassEvaluationStatus($class->id, $teacherUserId) : 'closed';
@@ -404,5 +468,71 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @endif
             </flux:card>
         </div>
+    @endif
+
+    @if($this->isAllCompleted)
+        <script>
+            (function() {
+                function launchConfetti() {
+                    const colors = ['#9b0000', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
+                    const canvas = document.createElement('canvas');
+                    canvas.style.position = 'fixed';
+                    canvas.style.inset = '0';
+                    canvas.style.width = '100vw';
+                    canvas.style.height = '100vh';
+                    canvas.style.zIndex = '999999';
+                    canvas.style.pointerEvents = 'none';
+                    document.body.appendChild(canvas);
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+
+                    const particles = [];
+                    for (let i = 0; i < 90; i++) {
+                        particles.push({
+                            x: canvas.width / 2,
+                            y: canvas.height * 0.45,
+                            vx: (Math.random() - 0.5) * 16,
+                            vy: (Math.random() - 0.75) * 16,
+                            size: Math.random() * 8 + 4,
+                            color: colors[Math.floor(Math.random() * colors.length)],
+                            rot: Math.random() * 360,
+                            vRot: (Math.random() - 0.5) * 10,
+                            alpha: 1
+                        });
+                    }
+
+                    let start = null;
+                    function anim(ts) {
+                        if (!start) start = ts;
+                        const progress = (ts - start) / 2000;
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        particles.forEach(p => {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            p.vy += 0.35;
+                            p.rot += p.vRot;
+                            p.alpha = Math.max(0, 1 - progress);
+                            ctx.save();
+                            ctx.globalAlpha = p.alpha;
+                            ctx.translate(p.x, p.y);
+                            ctx.rotate((p.rot * Math.PI) / 180);
+                            ctx.fillStyle = p.color;
+                            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                            ctx.restore();
+                        });
+
+                        if (progress < 1) {
+                            requestAnimationFrame(anim);
+                        } else {
+                            canvas.remove();
+                        }
+                    }
+                    requestAnimationFrame(anim);
+                }
+
+                window.addEventListener('evaluation-submitted', launchConfetti, { once: true });
+            })();
+        </script>
     @endif
 </div>

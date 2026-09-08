@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -391,7 +391,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     @if($showModal && $this->selectedUserDetails)
         @php $details = $this->selectedUserDetails; @endphp
         <div class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex justify-center items-center p-4">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696]">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
                 <!-- Modal Header -->
                 <div class="px-6 py-5 border-b border-zinc-150 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40">
                     <div>
@@ -406,8 +406,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <!-- KPI summaries -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div class="bg-[#9b0000]/10 dark:bg-[#9b0000]/20 border border-[#9b0000]/20 p-4 rounded-xl text-center">
-                            <div class="text-xs font-semibold text-[#9b0000] dark:text-[#f89696] uppercase tracking-wider">Overall Mean Score</div>
-                            <div class="text-2xl font-black text-[#9b0000] dark:text-[#f89696] mt-1">
+                            <div class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] uppercase tracking-wider">Overall Mean Score</div>
+                            <div class="text-2xl font-black text-[#9b0000] dark:text-[#e07a7a] mt-1">
                                 {{ $details->total_received > 0 ? number_format($details->overall_average, 2) : '—' }} 
                                 <span class="text-xs font-normal">/ 5.0</span>
                             </div>
@@ -440,7 +440,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             <span class="text-[11px] text-zinc-400">{{ $info->count }} review{{ $info->count == 1 ? '' : 's' }}</span>
                                         </div>
                                         <div class="text-right">
-                                            <span class="text-base font-black font-mono text-[#9b0000] dark:text-[#f89696]">
+                                            <span class="text-base font-black font-mono text-[#9b0000] dark:text-[#e07a7a]">
                                                 {{ number_format($info->average, 2) }}
                                             </span>
                                             <span class="text-[11px] text-zinc-400 block">/ 5.00</span>

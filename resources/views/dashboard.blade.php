@@ -1,7 +1,7 @@
-<x-layouts.app>
+﻿<x-layouts.app>
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
         <div class="mb-4">
-            <h1 class="text-2xl font-bold dark:text-white">{{ $role ?? 'Default' }} Dashboard</h1>
+            <h1 class="text-2xl font-bold dark:text-zinc-100">{{ $role ?? 'Default' }} Dashboard</h1>
             <p class="text-sm text-neutral-500 dark:text-neutral-400">Welcome back, {{ auth()->user()->name }}!</p>
         </div>
         <div class="grid auto-rows-min gap-4 md:grid-cols-3">

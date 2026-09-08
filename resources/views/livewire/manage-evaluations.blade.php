@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Models\Department;
 use App\Models\Employee;
@@ -931,10 +931,10 @@ new #[Layout('components.layouts.app')] class extends Component
     @endphp
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <!-- 1. Total Submissions Received -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
             <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider">Total Submissions</span>
-                <flux:icon icon="document-check" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon icon="document-check" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
@@ -945,10 +945,10 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- 2. Student Progress % -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
             <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider">Student Progress</span>
-                <flux:icon icon="academic-cap" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon icon="academic-cap" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
@@ -959,10 +959,10 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- 3. Faculty / Professor Progress % -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
             <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider">Professor Progress</span>
-                <flux:icon icon="user-group" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon icon="user-group" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
@@ -973,10 +973,10 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
 
         <!-- 4. Self Appraisals Done -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#f89696] flex flex-col justify-between">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
             <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider">Self Appraisals</span>
-                <flux:icon icon="user-circle" class="size-5 text-[#9b0000] dark:text-[#f89696]" />
+                <flux:icon icon="user-circle" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
             <div class="flex items-baseline justify-between">
                 <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
@@ -996,11 +996,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('student')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'student' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'student' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="academic-cap" class="size-4" />
             <span>Student</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'student' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'student' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['student'] }}
             </span>
         </button>
@@ -1009,11 +1009,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('dean')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'dean' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'dean' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="briefcase" class="size-4" />
             <span>Dean</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'dean' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'dean' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['dean'] }}
             </span>
         </button>
@@ -1022,11 +1022,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('program_head')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'program_head' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'program_head' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="building-office-2" class="size-4" />
             <span>Program Head</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'program_head' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'program_head' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['program_head'] }}
             </span>
         </button>
@@ -1035,11 +1035,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('department_head')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'department_head' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'department_head' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="building-office" class="size-4" />
             <span>Dept Head</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'department_head' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'department_head' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['department_head'] }}
             </span>
         </button>
@@ -1048,11 +1048,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('professor')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'professor' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'professor' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="user-group" class="size-4" />
             <span>Professor</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'professor' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'professor' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['professor'] }}
             </span>
         </button>
@@ -1061,11 +1061,11 @@ new #[Layout('components.layouts.app')] class extends Component
         <button 
             type="button"
             wire:click="selectTab('staff')" 
-            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'staff' ? 'bg-[#9b0000] text-white dark:bg-[#9b0000] dark:text-white shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
+            class="w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer text-center whitespace-nowrap {{ $activeTab === 'staff' ? 'bg-[#9b0000] text-white dark:bg-red-950/40 dark:text-[#e07a7a] dark:border dark:border-red-900/40 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60' }}"
         >
             <flux:icon icon="identification" class="size-4" />
             <span>Staff</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'staff' ? 'bg-white/20 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $activeTab === 'staff' ? 'bg-white/20 text-white dark:bg-red-900/50 dark:text-[#e07a7a]' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' }}">
                 {{ $tabCounts['staff'] }}
             </span>
         </button>

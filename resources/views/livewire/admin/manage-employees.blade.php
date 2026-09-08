@@ -166,6 +166,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $paginator = $query->paginate(10);
 
         return collect($paginator->items())
+            ->filter(fn ($u) => ! $u->hasRole('admin'))
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
             ->all();
@@ -356,7 +357,8 @@ new #[Layout('components.layouts.app')] class extends Component
             Employee::whereIn('id', $employeeIds)->update(['status' => $this->bulkStatus]);
 
             if (in_array($this->bulkStatus, ['resigned', 'retired', 'inactive'])) {
-                User::whereIn('id', $this->selectedIds)->update(['is_active' => false]);
+                $safeUserIds = $users->filter(fn ($u) => ! $u->hasRole('admin'))->pluck('id')->toArray();
+                User::whereIn('id', $safeUserIds)->update(['is_active' => false]);
             }
         });
 
@@ -456,7 +458,12 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $targetIds = $this->selectedIds;
         if (! $active) {
-            $targetIds = array_values(array_filter($targetIds, fn ($id) => (int) $id !== (int) auth()->id()));
+            $targetIds = User::whereIn('id', $targetIds)
+                ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'admin'))
+                ->where('id', '!=', auth()->id())
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->toArray();
         }
 
         $count = count($targetIds);
@@ -506,7 +513,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->bulkDeleteBlockedCount = 0;
 
         foreach ($users as $user) {
-            if ($user->id === auth()->id()) {
+            if ($user->id === auth()->id() || $user->hasRole('admin')) {
                 $this->bulkDeleteBlockedCount++;
                 continue;
             }
@@ -543,10 +550,14 @@ new #[Layout('components.layouts.app')] class extends Component
         $count = count($this->bulkDeleteEligibleIds);
 
         DB::transaction(function () {
-            $users = User::whereIn('id', $this->bulkDeleteEligibleIds)->with('employee')->get();
+            $users = User::whereIn('id', $this->bulkDeleteEligibleIds)
+                ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'admin'))
+                ->with('employee')
+                ->get();
+            $safeIds = $users->pluck('id')->toArray();
             $employeeIds = $users->pluck('employee_id')->filter()->toArray();
 
-            User::whereIn('id', $this->bulkDeleteEligibleIds)->delete();
+            User::whereIn('id', $safeIds)->delete();
             Employee::whereIn('id', $employeeIds)->delete();
         });
 
@@ -708,6 +719,48 @@ new #[Layout('components.layouts.app')] class extends Component
         ]);
 
         $oldRole = $this->editingUser->employee->role ?? null;
+
+        // Guard: Prevent disabling own account or last active administrator via status change
+        if (in_array($this->status, ['resigned', 'retired'])) {
+            if ($this->editingUser->id === auth()->id()) {
+                Flux::toast(
+                    heading: 'Action Restricted',
+                    text: 'You cannot mark your own currently logged-in account as resigned or retired.',
+                    variant: 'danger'
+                );
+
+                return;
+            }
+
+            if (strtolower($oldRole ?? '') === 'admin' || $this->editingUser->hasRole('admin')) {
+                $activeAdminCount = User::whereHas('employee', fn ($q) => $q->where('role', 'admin'))
+                    ->where('is_active', true)
+                    ->count();
+                if ($activeAdminCount <= 1) {
+                    Flux::toast(
+                        heading: 'Action Restricted',
+                        text: 'Cannot mark the last active administrator as resigned or retired.',
+                        variant: 'danger'
+                    );
+
+                    return;
+                }
+            }
+        }
+
+        // Guard: Prevent demoting the last administrator account
+        if ($oldRole === 'admin' && $this->role !== 'admin') {
+            $adminCount = User::whereHas('employee', fn ($q) => $q->where('role', 'admin'))->count();
+            if ($adminCount <= 1) {
+                Flux::toast(
+                    heading: 'Action Restricted',
+                    text: 'Cannot change the role of the last administrator account in the system.',
+                    variant: 'danger'
+                );
+
+                return;
+            }
+        }
 
         DB::transaction(function () use ($oldRole) {
             $this->editingUser->employee->update([
@@ -1160,39 +1213,42 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="space-y-6"
-    x-data="{
-        storageKey: 'selected_employees_admin_{{ auth()->id() ?? 'guest' }}',
-        init() {
-            const saved = sessionStorage.getItem(this.storageKey);
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        $wire.restoreSelectedIds(parsed);
-                    }
-                } catch (e) {
-                    sessionStorage.removeItem(this.storageKey);
-                }
-            }
-
-            if (typeof $wire !== 'undefined' && $wire.$watch) {
-                $wire.$watch('selectedIds', (ids) => {
-                    if (Array.isArray(ids) && ids.length > 0) {
-                        sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
-                    } else {
+<div class="space-y-6">
+    {{-- SessionStorage Persistence for Bulk Selection --}}
+    <div
+        x-data="{
+            storageKey: 'selected_employees_admin_{{ auth()->id() ?? 'guest' }}',
+            init() {
+                const saved = sessionStorage.getItem(this.storageKey);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            $wire.restoreSelectedIds(parsed);
+                        }
+                    } catch (e) {
                         sessionStorage.removeItem(this.storageKey);
                     }
-                });
+                }
+
+                if (typeof $wire !== 'undefined' && $wire.$watch) {
+                    $wire.$watch('selectedIds', (ids) => {
+                        if (Array.isArray(ids) && ids.length > 0) {
+                            sessionStorage.setItem(this.storageKey, JSON.stringify(ids));
+                        } else {
+                            sessionStorage.removeItem(this.storageKey);
+                        }
+                    });
+                }
             }
-        }
-    }"
-    @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
->
+        }"
+        @clear-selected-storage.window="sessionStorage.removeItem(storageKey)"
+    ></div>
+
     <!-- Header -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Manage Employees</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Employees</h1>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportEmployees">
@@ -1357,12 +1413,18 @@ new #[Layout('components.layouts.app')] class extends Component
                     @forelse($users as $user)
                         <tr wire:key="emp-user-{{ $user->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors {{ in_array((string)$user->id, $selectedIds) ? 'bg-zinc-50/80 dark:bg-zinc-800/40' : '' }}">
                             <td class="py-3.5 px-3 text-center">
-                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $user->id }}" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select employee {{ $user->employee?->employee_number ?? $user->name }}" />
+                                @if($user->hasRole('admin'))
+                                    <span class="inline-flex items-center justify-center text-zinc-400 dark:text-zinc-600" title="Administrator accounts are protected from bulk operations">
+                                        <flux:icon icon="lock-closed" class="size-4" />
+                                    </span>
+                                @else
+                                    <input type="checkbox" wire:model.live="selectedIds" value="{{ $user->id }}" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:checked:bg-zinc-200 cursor-pointer" aria-label="Select employee {{ $user->employee?->employee_number ?? $user->name }}" />
+                                @endif
                             </td>
-                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                            <td class="py-3.5 px-4 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                                 {{ $user->employee->employee_number ?? 'N/A' }}
                             </td>
-                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-white truncate">
+                            <td class="py-3.5 px-4 font-medium text-zinc-900 dark:text-zinc-100 truncate">
                                 <div class="flex items-center gap-2 truncate">
                                     <span class="truncate">{{ $user->employee->formatted_name ?? $user->name }}</span>
                                     @if($user->id === auth()->id())
@@ -1480,7 +1542,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-lg !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     {{ $editingUser ? 'Edit Employee Account' : 'Create New Employee Account' }}
                 </h2>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">Fill in employee details and assign institutional role below.</p>
@@ -1490,8 +1552,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Role Selection -->
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employee Role</label>
-                        <select wire:model="role" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Employee Role</label>
+                        <select wire:model="role" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
                             <option value="faculty">Faculty / Professor</option>
                             <option value="admin">Administrator (Admin)</option>
                             <option value="dean">Dean</option>
@@ -1504,8 +1566,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
                     <!-- Employment Type -->
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employment Type</label>
-                        <select wire:model="employment_type" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Employment Type</label>
+                        <select wire:model="employment_type" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
                             <option value="full_time">Full-Time</option>
                             <option value="part_time">Part-Time</option>
                         </select>
@@ -1516,8 +1578,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 @if($editingUser)
                     <!-- Employment Status (Edit Mode Only) -->
                     <div>
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Employment Status</label>
-                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Employment Status</label>
+                        <select wire:model="status" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
                             <option value="active">Active</option>
                             <option value="on_leave">On Leave</option>
                             <option value="resigned">Resigned</option>
@@ -1543,8 +1605,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 <flux:input wire:model="employee_number" label="Employee Number" type="text" placeholder="e.g. EMP-2026-001" required />
 
                 <div>
-                    <label class="block text-sm font-semibold text-zinc-900 dark:text-white mb-1">Department</label>
-                    <select wire:model="department_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                    <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Department</label>
+                    <select wire:model="department_id" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
                         <option value="">Unassigned (None)</option>
                         @foreach($departments as $dept)
                             <option value="{{ $dept->id }}">{{ $dept->name }} ({{ $dept->code }})</option>
@@ -1567,7 +1629,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showImportModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-xl !p-4 sm:!p-6">
         <div class="space-y-6">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Bulk Import Employees</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Bulk Import Employees</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Upload a CSV spreadsheet containing faculty, deans, heads, or staff rosters.</p>
             </div>
 
@@ -1584,7 +1646,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <form wire:submit="importEmployees" class="space-y-4">
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-semibold text-zinc-900 dark:text-white">Select Spreadsheet (.CSV)</label>
+                        <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">Select Spreadsheet (.CSV)</label>
                         <flux:button size="xs" variant="outline" icon="arrow-down-tray" wire:click="downloadTemplate">
                             Download Template
                         </flux:button>
@@ -1661,7 +1723,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkStatusModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-4">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Change Employee Status</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Change Employee Status</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                     Apply a new employment status to all <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
                 </p>
@@ -1696,7 +1758,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkDeptModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-4">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Assign Department</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Assign Department</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                     Assign a department to all <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
                 </p>
@@ -1726,7 +1788,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showBulkEmploymentModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-md !p-4 sm:!p-6">
         <div class="space-y-4">
             <div>
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Set Employment Type</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Set Employment Type</h2>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                     Update employment classification for <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ count($selectedIds) }}</span> selected employee(s).
                 </p>
@@ -1755,12 +1817,12 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="space-y-4">
             <div class="flex items-center gap-3 text-rose-600 dark:text-rose-400">
                 <flux:icon name="exclamation-triangle" class="size-6 shrink-0" />
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Delete Selected Employees</h2>
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Delete Selected Employees</h2>
             </div>
 
             <div class="text-sm text-zinc-600 dark:text-zinc-400 space-y-2">
                 <p>
-                    You have selected <span class="font-bold text-zinc-900 dark:text-white">{{ count($selectedIds) }}</span> employee account(s).
+                    You have selected <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ count($selectedIds) }}</span> employee account(s).
                 </p>
                 @if($bulkDeleteBlockedCount > 0)
                     <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-200">
@@ -1769,7 +1831,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 @endif
                 @if($bulkDeleteEligibleCount > 0)
                     <p>
-                        <span class="font-bold text-zinc-900 dark:text-white">{{ $bulkDeleteEligibleCount }}</span> account(s) have no linked historical records and will be permanently deleted.
+                        <span class="font-bold text-zinc-900 dark:text-zinc-100">{{ $bulkDeleteEligibleCount }}</span> account(s) have no linked historical records and will be permanently deleted.
                     </p>
                 @endif
                 @if($bulkDeleteEligibleCount === 0)
@@ -1799,7 +1861,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <flux:modal wire:model="showReviewSelectionModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-3xl !p-4 sm:!p-6">
         <div class="space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-10">
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <span>Selected Employees</span>
                     <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums">
                         {{ count($selectedIds) }}
@@ -1833,7 +1895,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                                                 {{ $selUser->employee?->formatted_name ?? $selUser->name }}
                                             </p>
                                             <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
