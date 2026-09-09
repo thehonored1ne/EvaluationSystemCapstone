@@ -6,9 +6,12 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public string $current_password = '';
+
     public string $password = '';
+
     public string $password_confirmation = '';
 
     /**
@@ -31,6 +34,8 @@ new class extends Component {
             'password' => Hash::make($validated['password']),
             'password_changed_at' => now(),
         ]);
+
+        Auth::logoutOtherDevices($validated['password']);
 
         $this->reset('current_password', 'password', 'password_confirmation');
 

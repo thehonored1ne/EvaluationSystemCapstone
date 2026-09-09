@@ -8,53 +8,89 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
-- [ ] In Manage Subjects Page
+- [ ] #1 In Manage Subjects Page
 
 - fix and redesign the 3 cards, it needs to tell useful information to admin.
 
-- [ ] in Manage Classes & Enrollment Page
+- [ ] #2 in Manage Classes & Enrollment Page
 
 - make the table default sort to alphabetical a-z of the assigned professor last name.
 - remove the all professors filter and replace it with a sort by subject name, a-z and z-a option
 - regarding the all subject filter. in the dropdown i noticed that you combine subject code and name, make it only name so it doesn't look crowded.
 - remove the schedule column because it don't see it useful in this system and to the admin. remove also the schedule picker when adding a new class.
 
-- [ ] in  Manage Departments Page
+- [ ] #3 in  Manage Departments Page
 
 - fix and redesign the 4 cards, it needs to tell useful information to admin.
 - in the table "head" column, the column name just said head but the rows in it shows the head name, the id, and the assigned dean. remove the last 2 and just show the head name for cleaner
 - in the members column, the row in it have pills right? add a function that when that pill click it will show a modal, the modal will show the list of that members.
 - fix the table column spacing
 
-- [ ] in  Manage Academic Programs Page
+- [ ] #4 in  Manage Academic Programs Page
 
 - fix and redesign the 4 cards, it needs to tell useful information to admin.
 - fix the all department filter. right now it shows even the administrative dept. since academic programs is only for academic, so the filter should only show the academic dept
 
-- [ ] in  Completion Tracking page
+- [ ] #5 in  Completion Tracking page/ manage-evaluations
 
-- fix and redesign the 4 cards, it needs to tell useful information to admin.
-- make the send reminders button have the same function that in the admin dashboard.
+- fix and redesign the 4 cards, it needs to tell useful information to admin. align it with our current design system
+- suggest changes for the kpi cards
+- remove the **Active Academic Period** banner
+- do we need to remove the send reminders button since we already have it in dashboard?
+- update the skeleton loader to match page layout 1:1
 - analyze if there's a bug in calculations.
 - there's a problem with the all departments filter. I'm now in student tab, and when i click other depts it shows nothing which is good but the filter needs some work.
+- if theres other need to fix that i forgot to mention, tell it right away.
 
-- [ ] in Results page
+- [ ] #6 in Results page
 
 - the table and the layout doesn't take space like other space that's why there's a large gap in left and right.
 - the total submissions column need some rework because its vague and doesn't show useful info.
 - in breakdown modal, the Overall Mean Score is ok, but the next 2 cards is not specific and the information its trying to tell is vague. in  Evaluation Breakdown by Source, the cards need some rework and redesign the information its trying to tell is unclear. instead of showing Feedback Comments & Notes which shows a lot of comments. we have pipeline right we can replace it with that and it will tell the admin about the analysis of ai about the comments he/she received. below it add a summary on what's the information trying to tell. include our new tfidf
 
-- [ ] in rankings page
+- [ ] #7 in rankings page
 
 - in all department filter. the option. instead of showing code and dept name, just the code is enough.
 - analyze the 4 cards, if it already telling useful information, or it need some redesign and rework. tell me first.
 - the evaluations column, first the column name and the row of it is vague. tell me what you think
 
-- [ ] my concern need to verify
+- [ ] #8 my concern need to verify
 
 - if the student or an evaluator already evaluated and somehow hes assigned to wrong person, when updating, will the system prevents me because he has evaluation record in current sem? or theyre are way to scrap his evaluation so he can assign to correct person and just redo the evaluation? confirm it for me.
 
-- [ ] align the skeleton loaders to the content of the page 1:1, the skeleton loaders should show the simplicity the shape of the component or the parent container for simplicity. the admin dashboard is done btw.
+- [X] **Authentication Security Hardening & Rate Limiting (2026-09-09)**:
+  - Mitigated password spraying with IP-level rate limiting in `login.blade.php` (max 20 attempts / 3 mins).
+  - Defended against side-channel user enumeration using constant-time dummy hashing when account is null.
+  - Added in-component rate limiting to `forgot-password.blade.php` (3 requests / 5 mins per IP).
+  - Enforced `Auth::logoutOtherDevices()` upon password updates in `settings/password.blade.php`.
+  - Passed Pint linting and verified authentication security controls.
+
+- [X] **Login Error Clarity & Deactivated Account Handling (2026-09-09)**:
+  - Replaced ambiguous default error message with: `"Invalid ID/Email or password. Please verify your credentials and try again."`
+  - Added inactive user detection with proper enumeration protection (`$user && ! $user->is_active && Hash::check(...)`) returning `"Your account has been deactivated. Please contact the administrator or ICT office."`
+  - Added inline styled callout banner with typo check and Caps Lock recovery hint.
+  - Linked visual error border states dynamically to both identifier and password input boxes when authentication fails.
+  - Formatted with Laravel Pint and verified with `AuthenticationTest` (4 passed, 9 assertions).
+
+- [X] **Login Submit Button Loading State & Persistent Navigation Lock (2026-09-09)**:
+
+  - Bound `:disabled="isSubmitting"` and `:class="isSubmitting ? 'pointer-events-none opacity-60 cursor-not-allowed' : 'cursor-pointer'"` in [`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php).
+  - Eliminated conflicting `wire:loading` attributes and hooks that stripped `disabled` during the transition window between authentication response and SPA navigation.
+  - Added event-driven unlock: PHP dispatches `login-failed` only on `ValidationException` (wrong credentials or rate limits), ensuring successful logins keep the button permanently locked until the dashboard loads.
+  - Integrated inline spinning indicator (`<flux:icon icon="arrow-path" class="animate-spin" />`) with `"Logging in…"` text.
+  - Passed `AuthenticationTest` suite and Pint linting.
+- [X] **Responsive Mobile Toast Positioning & Keyboard Safeguard (2026-09-09)**:
+
+  - Configured `<flux:toast position="top end" />` in [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php) for top-right desktop notification delivery.
+  - Implemented responsive CSS in [`app.css`](file:///c:/Users/USER/Herd/evaluationsystem/resources/css/app.css) targeting `< 768px` devices: relocates toast to `top: 1rem` to prevent virtual keyboard occlusion and centers toast card horizontally with equal gutters.
+  - Rebuilt production assets via Vite and cleared view cache.
+- [X] **Passive Offline Detection & Evaluation Submit Button Guard (2026-09-09)**:
+
+  - Implemented top-pinned system-wide passive offline detection banner in [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php) using Alpine.js (`navigator.onLine`), `wire:offline`, and Livewire SPA navigation hooks.
+  - Added in-wizard offline warning notice in [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php) assuring evaluators that their responses are preserved in local device storage (`localStorage`).
+  - Guarded evaluation form submission against offline request timeouts: bound `wire:offline.attr="disabled"` and extended `isReadyToSubmit` with `!isOffline`.
+  - Added reactive submit button state switching to display `Waiting for Connection…` with pulsing status icon while disconnected, auto-unlocking upon reconnection.
+  - Passed Pint linting and verified test suite execution.
 - [X] **Rankings Bug Fix, Evaluation Type Unification & Custom Error Pages (2026-08-30)**:
 
   - Removed demo fallback / synthetic score generator in `rankings.blade.php` that fabricated scores (3.50–5.00) and evaluation counts on terms with zero evaluations.

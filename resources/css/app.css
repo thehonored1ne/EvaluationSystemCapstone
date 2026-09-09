@@ -325,6 +325,35 @@ a[data-variant="primary"]:hover,
 }
 
 /* ==========================================================================
+   Responsive Toast Notification Placement & Mobile Keyboard Safeguard
+   Pins to top-center on mobile & tablet (< 768px) to prevent virtual keyboard occlusion;
+   maintains top-right placement on desktop (>= 768px).
+   ========================================================================== */
+@media (max-width: 767.98px) {
+    ui-toast,
+    ui-toast-group {
+        top: 1rem !important;
+        bottom: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: auto !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        width: calc(100% - 2rem) !important;
+        max-width: 24rem !important;
+        justify-content: center !important;
+        z-index: 105 !important;
+    }
+
+    ui-toast [data-flux-toast-dialog],
+    ui-toast-group [data-flux-toast-dialog] {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* ==========================================================================
    Print & PDF Export Media Rules
    Hides navigation, header, sidebar, footer, and resets layout for paper printing
    ========================================================================== */

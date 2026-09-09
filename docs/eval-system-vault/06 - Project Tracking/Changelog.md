@@ -15,6 +15,38 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-09]
+
+- **Authentication Security Hardening & Rate Limiting** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php), [`config/auth.php`](file:///c:/Users/USER/Herd/evaluationsystem/config/auth.php), [`forgot-password.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/forgot-password.blade.php), [`password.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/settings/password.blade.php)):
+  - **Password Leakage Prevention in Livewire State:** Added `$this->reset('password')` on all failed authentication attempts (`ValidationException`). This prevents entered passwords from being serialized in the Livewire response snapshot or retained in DOM/JavaScript memory.
+  - **Password Spraying Defense:** Implemented IP-level rate limiting in `ensureIsNotRateLimited()` (`RateLimiter::tooManyAttempts('login-ip|'.request()->ip(), 20)`) to mitigate distributed credential attempts across multiple student/employee IDs from a single origin.
+  - **Configurable Constant-Time Hash Defense:** Extracted the timing decoy hash into `config/auth.php` (`auth.dummy_hash`) with `env('AUTH_DUMMY_HASH')` support and safe Bcrypt fallback, fully supporting `config:cache` while preventing side-channel account enumeration.
+  - **Forgot-Password Throttling:** Added in-component rate limiting to `sendPasswordResetLink()` (`forgot-password|ip` capped at 3 requests per 5 minutes) to protect against reset email flood and outbound mail service exhaustion.
+  - **Multi-Device Session Invalidation:** Added `Auth::logoutOtherDevices($validated['password'])` upon updating passwords in user settings, terminating any lingering or compromised sessions across other browsers/devices.
+
+- **Login Error Clarity & Deactivated Account Handling** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php)):
+  - **User-Friendly Error Message:** Replaced the confusing generic `"These credentials do not match our records."` with a balanced, unambiguous error message: `"Invalid ID/Email or password. Please verify your credentials and try again."`
+  - **Deactivated Account Safeguard:** Added specific detection for deactivated accounts (`$user && ! $user->is_active && Hash::check(...)`) informing the user `"Your account has been deactivated. Please contact the administrator or ICT office."` without exposing account existence to unauthorized attackers (checks valid password before revealing status).
+  - **Contextual Typo & Caps Lock Recovery Hint:** Displayed an inline alert box with a friendly recovery hint: `"Hint: Check for typos in your Student ID or email, and ensure Caps Lock is off for your password."`
+  - **Repositioned Callout:** Positioned the error banner cleanly at the bottom of the form below the `"Back to Home Page"` action button to prevent pushing the form fields downward during failed attempts.
+  - **Visual Dual-Field Error Indication:** Synchronized red validation border styles across both identifier and password inputs simultaneously when authentication fails, highlighting the entire credential pair.
+
+- **Login Submit Button Loading State & Persistent Navigation Lock** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php)):
+  - **Immediate & Persistent Lockout Prevention:** Managed client-side `isSubmitting` via Alpine.js with instantaneous click-locking (`@submit="isSubmitting = true"` and `:class="isSubmitting ? 'pointer-events-none opacity-60' : ''"`).
+  - **Eliminated Sneak-Click Gap During SPA Navigation:** Attached listeners to `livewire:navigating` and Livewire hooks (`commit` & `request`). While the top progress bar navigates to `/dashboard`, the button stays strictly locked and disabled. If invalid credentials are provided, `commit` re-enables the button automatically upon rendering validation error messages.
+  - **Animated Loading State:** Displays an inline spinning indicator (`<flux:icon icon="arrow-path" class="animate-spin" />`) with `"Logging in…"` label.
+  - **Offline State Guard:** Added `wire:offline.attr="disabled"` preventing futile network requests if disconnected.
+
+- **Mobile & Tablet Toast Positioning & Keyboard Safeguard** ([`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), [`app.css`](file:///c:/Users/USER/Herd/evaluationsystem/resources/css/app.css)):
+  - **Desktop Top-Right Alignment:** Configured `<flux:toast position="top end" />` in the primary application layout so desktop screens retain clean, unoccluded top-right notification delivery.
+  - **Mobile & Tablet Keyboard Protection:** Added responsive CSS rules in `app.css` for screens `< 768px` anchoring `ui-toast` and `ui-toast-group` to `top: 1rem !important`, completely preventing notifications from being obscured by the device's virtual keyboard.
+  - **True Centering on Small Screens:** Enforced centered horizontal alignment (`left: 0; right: 0; margin-inline: auto; width: calc(100% - 2rem); max-width: 24rem;`) with symmetric gutters on mobile devices, eliminating right-hand edge bias.
+
+- **Level 1 Passive Offline Detection & Submit Button Guard** ([`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), [`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)):
+  - **Global Offline Notification Banner:** Integrated a top-pinned, accessible status banner (`role="status"`, `aria-live="polite"`) in the primary app layout. Powered by Alpine.js (`navigator.onLine`), `wire:offline`, and `livewire:navigated` listeners, it alerts users in real-time across all portals if their connection drops.
+  - **In-Form Offline Reminder:** Added an in-card notice banner directly under the progress indicator in the evaluation wizard informing the evaluator that their ratings and feedback are safely preserved locally on the device via `localStorage`.
+  - **Submit Button Guard & State Swapping:** Bound `wire:offline.attr="disabled"` and augmented Alpine's `isReadyToSubmit` with `!isOffline`. While disconnected, the submit button is locked with `Waiting for Connection…` and a pulsing icon to prevent failed HTTP timeout requests and user confusion, immediately restoring the button as soon as connectivity resumes.
+
 ## [2026-09-08]
 
 - **Security Advisory Modal Lifecycle & Dismissal Fix** ([`default-password-modal.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/default-password-modal.blade.php), [`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php)):

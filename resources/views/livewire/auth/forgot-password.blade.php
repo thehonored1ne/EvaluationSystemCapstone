@@ -1,10 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')] class extends Component {
+new #[Layout('components.layouts.auth')] class extends Component
+{
     public string $email = '';
 
     /**
@@ -15,6 +18,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
         $this->validate([
             'email' => ['required', 'string', 'email'],
         ]);
+
+        $ipThrottleKey = 'forgot-password|'.request()->ip();
+        if (RateLimiter::tooManyAttempts($ipThrottleKey, 3)) {
+            $seconds = RateLimiter::availableIn($ipThrottleKey);
+            throw ValidationException::withMessages([
+                'email' => __('Too many password reset requests. Please try again in :minutes minute(s).', [
+                    'minutes' => ceil($seconds / 60),
+                ]),
+            ]);
+        }
+
+        RateLimiter::hit($ipThrottleKey, 300); // 3 attempts per 5 minutes per IP
 
         Password::sendResetLink($this->only('email'));
 

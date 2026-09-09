@@ -153,10 +153,22 @@
                     document.documentElement.classList.remove('sidebar-is-collapsed');
                 }
             });
+
+            document.addEventListener('livewire:init', function () {
+                Livewire.hook('request', ({ fail }) => {
+                    fail(({ status, preventDefault }) => {
+                        // Suppress unhandled error popups and promise rejections when network drops
+                        if (!navigator.onLine || status === 0 || status === null) {
+                            preventDefault();
+                        }
+                    });
+                });
+            });
         </script>
     </head>
     <body 
         x-data="{ 
+            isOffline: !navigator.onLine,
             sidebarCollapsed: window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true',
             toggle() {
                 if (window.innerWidth >= 1024) {
@@ -174,10 +186,25 @@
                 }
             }
         }" 
+        x-on:online.window="isOffline = false"
+        x-on:offline.window="isOffline = true"
+        x-on:livewire:navigated.window="isOffline = !navigator.onLine"
         @toggle-sidebar.window="toggle()" 
         :class="sidebarCollapsed ? 'sidebar-is-collapsed' : ''"
         class="min-h-screen bg-[#fafafa] dark:bg-[#111113]"
     >
+        <!-- Global Passive Offline Detection Banner -->
+        <div 
+            x-show="isOffline"
+            x-cloak
+            role="status"
+            aria-live="polite"
+            class="fixed top-0 inset-x-0 z-[100] w-full bg-amber-500 text-amber-950 font-bold px-4 py-2.5 text-xs sm:text-sm text-center shadow-lg flex items-center justify-center gap-2 print:hidden"
+        >
+            <flux:icon icon="wifi" class="size-4 shrink-0 text-amber-950" />
+            <span>You are currently offline. Changes and submissions will not sync until your internet connection is restored.</span>
+        </div>
+
         <div class="flex min-h-screen w-full">
             <flux:sidebar 
                 sticky 
@@ -404,7 +431,7 @@
 
         <livewire:default-password-modal />
         <x-terms-modal />
-        <flux:toast />
+        <flux:toast position="top end" />
         @fluxScripts
     </body>
 </html>

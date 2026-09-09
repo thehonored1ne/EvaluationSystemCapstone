@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Constant-Time Authentication Dummy Hash
+    |--------------------------------------------------------------------------
+    |
+    | Used to equalize Hash::check calculation times during login attempts
+    | when an entered identifier does not exist, mitigating side-channel
+    | timing attacks / user account enumeration.
+    |
+    */
+
+    'dummy_hash' => env('AUTH_DUMMY_HASH', '$2y$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012'),
+
 ];

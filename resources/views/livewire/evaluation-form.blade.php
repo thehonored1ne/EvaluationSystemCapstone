@@ -177,8 +177,13 @@ new class extends Component {
         isReviewStep: false,
         autoAdvanceTimeout: null,
         storageKey: 'draft_eval_{{ auth()->id() }}_{{ $evaluationType }}_{{ $evaluatee->id }}_{{ $class?->id ?? 'noclass' }}',
+        isOffline: !navigator.onLine,
 
         init() {
+            window.addEventListener('online', () => this.isOffline = false);
+            window.addEventListener('offline', () => this.isOffline = true);
+            document.addEventListener('livewire:navigated', () => this.isOffline = !navigator.onLine);
+
             const saved = localStorage.getItem(this.storageKey);
             if (saved) {
                 try {
@@ -332,7 +337,7 @@ new class extends Component {
         },
 
         get isReadyToSubmit() {
-            return this.answeredCount === this.totalQuestions && this.hasValidComment && {{ $retryAfter }} === 0;
+            return this.answeredCount === this.totalQuestions && this.hasValidComment && {{ $retryAfter }} === 0 && !this.isOffline;
         },
 
         get progressPercent() {
@@ -374,6 +379,21 @@ new class extends Component {
             class="h-full bg-amber-400 dark:bg-amber-400 transition-all duration-300 ease-out shadow-sm" 
             :style="`width: ${progressPercent}%`"
         ></div>
+    </div>
+
+    <!-- In-Form Passive Offline Detection Notice -->
+    <div 
+        x-show="isOffline"
+        x-cloak
+        role="status"
+        aria-live="polite"
+        class="bg-amber-500 dark:bg-amber-600 text-amber-950 dark:text-amber-50 px-3.5 sm:px-6 py-2.5 text-xs font-semibold flex items-center justify-between gap-3 border-b border-amber-600/30 print:hidden"
+    >
+        <div class="flex items-center gap-2 min-w-0">
+            <flux:icon icon="wifi" class="size-4 shrink-0 text-amber-950 dark:text-amber-50 opacity-90" />
+            <span class="truncate sm:whitespace-normal">You are offline. Your ratings and feedback are saved locally on this device. Reconnect to submit.</span>
+        </div>
+        <span class="text-[11px] font-bold bg-amber-950/15 dark:bg-amber-950/30 px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0">Draft Saved Locally</span>
     </div>
 
     <!-- Alert Messages -->
@@ -718,19 +738,29 @@ new class extends Component {
                         <button 
                             type="submit" 
                             wire:loading.attr="disabled"
+                            wire:offline.attr="disabled"
                             wire:target="submit"
                             :disabled="!isReadyToSubmit"
                             @click="if (!isReadyToSubmit) { $event.preventDefault(); $event.stopPropagation(); return false; }"
                             class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold justify-center text-sm transition-all duration-150 inline-flex items-center gap-2 border shadow-md whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             :class="isReadyToSubmit ? 'bg-[#9b0000] hover:bg-[#7a0000] border-[#9b0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] dark:border-[#b93b3b] cursor-pointer' : 'bg-zinc-300 dark:bg-zinc-700 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed pointer-events-none'"
                         >
-                            <span wire:loading.remove wire:target="submit" class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                <flux:icon icon="paper-airplane" class="size-4 shrink-0" />
-                                <span>Submit Evaluation</span>
+                            <!-- Offline State Indicator -->
+                            <span x-show="isOffline" x-cloak class="inline-flex items-center gap-1.5 whitespace-nowrap text-zinc-500 dark:text-zinc-400">
+                                <flux:icon icon="wifi" class="size-4 shrink-0 animate-pulse" />
+                                <span>Waiting for Connection…</span>
                             </span>
-                            <span wire:loading.inline-flex wire:target="submit" class="items-center gap-1.5 whitespace-nowrap">
-                                <flux:icon icon="arrow-path" class="size-4 shrink-0 animate-spin" />
-                                <span>Submitting...</span>
+
+                            <!-- Online States -->
+                            <span x-show="!isOffline" class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span wire:loading.remove wire:target="submit" class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                    <flux:icon icon="paper-airplane" class="size-4 shrink-0" />
+                                    <span>Submit Evaluation</span>
+                                </span>
+                                <span wire:loading.inline-flex wire:target="submit" class="items-center gap-1.5 whitespace-nowrap">
+                                    <flux:icon icon="arrow-path" class="size-4 shrink-0 animate-spin" />
+                                    <span>Submitting...</span>
+                                </span>
                             </span>
                         </button>
                     </div>
