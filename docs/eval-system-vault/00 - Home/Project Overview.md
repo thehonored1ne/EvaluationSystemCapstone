@@ -41,6 +41,11 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### September 9, 2026
+- **Optimistic UI for Evaluation Status Controls**:
+  - Implemented client-side optimistic UI on the Admin Dashboard Open/Close Evaluation button and live countdown context pill, eliminating latency and providing instant visual feedback with automatic server reconciliation.
+  - Hardened authentication security with IP-level rate limiting, enumeration defense, and persistent button lock guards.
+
 ### September 7, 2026
 - **Admin Dashboard Header Toolbar & Schedule Modal Refinement**:
   - Moved the primary Open / Close Evaluation toggle button out of the schedule modal and placed it in the dashboard top-right header toolbar.

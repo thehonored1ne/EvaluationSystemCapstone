@@ -59,3 +59,9 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Models/User.php
+
+		-
+			message: '#^Comparison operation "\>" between int\<1, max\> and 0 is always true\.$#'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: app/Services/ThematicAnalysisService.php

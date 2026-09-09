@@ -5,6 +5,7 @@
     'suffix' => '',
     'decimals' => 0,
     'precision' => null,
+    'commas' => true,
 ])
 
 @php
@@ -15,9 +16,21 @@
     x-data="{
         value: {{ (float) ($value ?? 0) }},
         decimals: {{ $effectiveDecimals }},
+        commas: {{ $commas ? 'true' : 'false' }},
         digits: [],
+        formatVal(val) {
+            let num = Number(val);
+            if (isNaN(num)) return '0';
+            if (this.commas) {
+                return num.toLocaleString('en-US', {
+                    minimumFractionDigits: this.decimals,
+                    maximumFractionDigits: this.decimals,
+                });
+            }
+            return this.decimals > 0 ? num.toFixed(this.decimals) : Math.round(num).toString();
+        },
         init() {
-            let str = this.decimals > 0 ? Number(this.value).toFixed(this.decimals) : Math.round(Number(this.value)).toString();
+            let str = this.formatVal(this.value);
             this.digits = str.split('').map(c => (c >= '0' && c <= '9' ? '0' : c));
             
             this.$watch('value', (val) => {
@@ -29,7 +42,7 @@
             }, 50);
         },
         updateDigits(val) {
-            let str = this.decimals > 0 ? Number(val).toFixed(this.decimals) : Math.round(Number(val)).toString();
+            let str = this.formatVal(val);
             this.digits = str.split('');
         }
     }"

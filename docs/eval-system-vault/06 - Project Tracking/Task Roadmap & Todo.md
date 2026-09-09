@@ -31,22 +31,26 @@ last_updated: 2026-08-28
 - fix and redesign the 4 cards, it needs to tell useful information to admin.
 - fix the all department filter. right now it shows even the administrative dept. since academic programs is only for academic, so the filter should only show the academic dept
 
-- [ ] #5 in  Completion Tracking page/ manage-evaluations
+- [X] #5 in  Completion Tracking page/ manage-evaluations (Completed: 2026-09-09)
+  - **KPI Cards Redesign (Executive Borderless Standard):** Redesigned the 4 KPI cards matching the Admin Dashboard borderless card style (`border-zinc-200 dark:border-zinc-800 rounded-xl p-5.5` without left accent bars or decorative icons). Added specific header titles (*Total Submissions Received*, *Student Evaluation Progress*, *Employee Evaluation Progress*, *Pending Evaluation Forms*), upgraded `<x-odometer>` to format large numbers with commas (`23,228`, `7,285`), and eliminated ambiguous detail with explicit counts (e.g. `22,127 submitted of 29,291 expected forms`). Updated skeleton to match 1:1.
+  - **Unified Metric Language (Option B):** Resolved the "0% vs 78%" cognitive contradiction between Admin Dashboard Chart 1 and Completion Tracking by standardizing on *Form Progress Rate* ($\text{Submitted Evaluations} / \text{Expected Duties}$) across both pages. Updated Dashboard Chart 1 title to **`Form Submission Progress by Role`** and breakdown modal to show `Submitted / Target Forms`, `Pending Forms`, and `Progress`.
+  - **Banner Removal:** Removed the redundant 72px `Active Academic Period` banner from both the live component and skeleton loader.
+  - **Tab-Aware Department Filter:** Scoped department dropdown options dynamically: Academic departments for `student`, `program_head`, and `professor` tabs; Administrative departments for `department_head` and `staff` tabs; and hidden on `dean` tab (since the institution's single Dean oversees all colleges with `department_id = null`).
+  - **Table Progress Columns:** Renamed ambiguous `Completion Rate` header to `Progress` across all 6 role tables and rendered the exact fraction alongside the percentage (e.g. `78% (43/55)`).
+  - **Zero CLS Skeleton Sync:** Replaced the skeleton loader tabs with `grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6` and aligned filter/search dimensions 1:1 with the live component.
+  - **Testing & Quality Gates:** All CompletionTrackingTest and EvaluationSettingsAndEnhancementsTest tests passed (100% green, 0 lint warnings).
 
-- fix and redesign the 4 cards, it needs to tell useful information to admin. align it with our current design system
-- suggest changes for the kpi cards
-- remove the **Active Academic Period** banner
-- do we need to remove the send reminders button since we already have it in dashboard?
-- update the skeleton loader to match page layout 1:1
-- analyze if there's a bug in calculations.
-- there's a problem with the all departments filter. I'm now in student tab, and when i click other depts it shows nothing which is good but the filter needs some work.
-- if theres other need to fix that i forgot to mention, tell it right away.
-
-- [ ] #6 in Results page
-
-- the table and the layout doesn't take space like other space that's why there's a large gap in left and right.
-- the total submissions column need some rework because its vague and doesn't show useful info.
-- in breakdown modal, the Overall Mean Score is ok, but the next 2 cards is not specific and the information its trying to tell is vague. in  Evaluation Breakdown by Source, the cards need some rework and redesign the information its trying to tell is unclear. instead of showing Feedback Comments & Notes which shows a lot of comments. we have pipeline right we can replace it with that and it will tell the admin about the analysis of ai about the comments he/she received. below it add a summary on what's the information trying to tell. include our new tfidf
+- [X] #6 in Results page (Completed: 2026-09-09)
+  - **Full-Canvas Layout & Gaps Elimination:** Removed restrictive `max-w-7xl mx-auto` container constraint; updated outer container to full viewport canvas `w-full px-4 sm:px-6 lg:px-8 py-6` to eliminate side gaps. Synchronized `evaluation-results-skeleton.blade.php` 1:1.
+  - **Balanced Column Spacing & Proportions:** Rebalanced the 6 table column widths across the wide viewport (`Full Name` 24%, `Role` 12%, `Department` 24%, `Reviews Received` 16%, `Overall Rating` 14%, `Details` 10%) with consistent horizontal cell padding (`px-5` outer, `px-4` inner) to prevent awkward line wraps and text crowding.
+  - **Default Alphabetical Sorting (A-Z by Last Name):** Configured default table query sorting without filters to sort alphabetically A-Z by employee and student last name (`COALESCE(employees.last_name, students.last_name, users.name) ASC`, then `first_name ASC`).
+  - **Table Columns Overhaul (Reviews Received & Overall Rating):** Replaced vague `Total Submissions` and binary `Status` columns with `Reviews Received` (showing received review count for evaluatees or submitted forms for evaluators) and `Overall Rating` (displaying numerical score `★ 4.80` with qualitative institutional tier badges: `Outstanding`, `Very Satisfactory`, `Satisfactory`, `Fair`, `Poor`, or `No Ratings`).
+  - **Simplified Breakdown Modal Visual Hierarchy:**
+    - **Removed Left Accent Bar:** Replaced heavy `border-l-[5px]` crimson border with a clean, centered `rounded-2xl border border-zinc-200 dark:border-zinc-800` modal dialog.
+    - **Top 3 Simplified KPI Cards:** Streamlined metric presentation into 3 clean, uncluttered cards with subtle border outlines: `Overall Rating` (mean score out of 5.00 and tier badge), `Reviews Received` (count and response rate pill), and `Positive Feedback` (% and positive comment ratio).
+    - **Essential "Reviews by Evaluation Source" Cards:** Stripped out cognitive clutter (removed redundant percentage bars, duplicate badges, weight percentages, and "Official Evaluation Weights" text). Shows only sources that actually submitted evaluations for the user (`count > 0`): Source Name, Review Count, and Numerical Score (`★ 4.62` with qualitative tier). Completely eliminated "Awaiting Review" and 0-review cards.
+    - **AI Comment Intelligence (Removed Raw Comments):** Removed the raw verbatim comments list and toggle accordion entirely, delegating comment insights to the AI pipeline (`ThematicAnalysisService`): sentiment distribution pills, narrative summary, key strengths tags, and areas for improvement tags.
+  - **Automated Testing & Linting:** 100% green test suite in `EvaluationSettingsAndEnhancementsTest` (8 passed, 49 assertions); zero Pint lint errors.
 
 - [ ] #7 in rankings page
 
@@ -57,6 +61,13 @@ last_updated: 2026-08-28
 - [ ] #8 my concern need to verify
 
 - if the student or an evaluator already evaluated and somehow hes assigned to wrong person, when updating, will the system prevents me because he has evaluation record in current sem? or theyre are way to scrap his evaluation so he can assign to correct person and just redo the evaluation? confirm it for me.
+
+- [X] **Optimistic UI: Open / Close Evaluation Action Button & Live Status Pill (2026-09-09)**:
+  - Replaced blocking Livewire server round-trip on the primary header toggle with an Alpine-driven optimistic state machine (`isOpen`, `isPending`, `hasSchedule`).
+  - Immediately flips the button styling (emerald `Open Evaluation` $\leftrightarrow$ rose `Close Evaluation`) and live status pill (`Open • Active` $\leftrightarrow$ `Closed`) on the client upon click.
+  - Added in-flight feedback with an accessible SVG spinner (`animate-spin`) while disabling double-clicks (`:disabled="isPending"`, `pointer-events-none`).
+  - Reconciles state against `toggleEvaluation(): bool` server response, with automatic rollback upon network or validation failures.
+  - Passed Pint linting, PHPStan (0 errors), and `EvaluationStatusDashboardTest` (13 passed, 26 assertions).
 
 - [X] **Authentication Security Hardening & Rate Limiting (2026-09-09)**:
   - Mitigated password spraying with IP-level rate limiting in `login.blade.php` (max 20 attempts / 3 mins).

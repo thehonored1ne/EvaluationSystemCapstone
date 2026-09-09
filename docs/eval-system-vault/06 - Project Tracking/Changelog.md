@@ -17,6 +17,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2026-09-09]
 
+- **Evaluation Results Full-Canvas, Modal Simplification & Table Sorting (Task #6)** ([`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php), [`evaluation-results-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/evaluation-results-skeleton.blade.php), [`ThematicAnalysisService.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Services/ThematicAnalysisService.php)):
+  - **Full-Canvas Layout & Gaps Elimination:** Removed restrictive `max-w-7xl mx-auto` outer wrapper constraint. The results directory and table now stretch naturally across the full canvas (`w-full px-4 sm:px-6 lg:px-8 py-6`), matching modern dashboard table views.
+  - **Balanced Column Spacing:** Rebalanced column widths (`Full Name` 24%, `Role` 12%, `Department` 24%, `Reviews Received` 16%, `Overall Rating` 14%, `Details` 10%) with consistent horizontal cell padding (`px-5` outer, `px-4` inner) to prevent line crowding and clipping.
+  - **Default Alphabetical Sorting (A-Z by Last Name):** When no filter or sort is selected, defaults to sorting users alphabetically A-Z by last name for employees and students (`COALESCE(employees.last_name, students.last_name, users.name) ASC`, then `first_name ASC`).
+  - **Results Directory Table Columns Rework:**
+    - Replaced the vague `Total Submissions` and binary `Status` columns with two explicit, informative columns:
+      - **`Reviews Received`:** Displays exact received evaluation count for teachers/staff, or submitted forms count for students (`X forms submitted`).
+      - **`Overall Rating`:** Shows quantitative star rating (`★ 4.80`) paired with institutional qualitative tier badges (`Outstanding` $\ge 4.50$, `Very Satisfactory` $\ge 3.50$, `Satisfactory` $\ge 2.50$, `Fair` $\ge 1.50$, `Poor` $> 0.00$, or `No Ratings`).
+    - Standardized 6 clean table columns: `Full Name`, `Role`, `Department`, `Reviews Received`, `Overall Rating`, and `Details`.
+  - **Breakdown Modal Visual Simplification:**
+    - **Removed Left Accent Bar:** Removed the heavy `border-l-[5px]` crimson styling, adopting a clean `rounded-2xl border border-zinc-200 dark:border-zinc-800` modal structure.
+    - **Top 3 Simplified KPI Cards:** Minimalist card styling with clear metric hierarchy for `Overall Rating`, `Reviews Received`, and `Positive Feedback`.
+    - **Focused Evaluation Source Cards:** Eliminated visual clutter (removed redundant percentage bars, micro-bars, duplicate badges, weight percentages, and "Official Evaluation Weights" text). Only renders sources that actually evaluated the user (`count > 0`), displaying Source Name, Review Count, and Numerical Score (`★ 4.62` with qualitative tier). Completely removed "Awaiting Review" and unreviewed source cards.
+    - **AI Comment Intelligence (Raw Comments Removed):** Omitted raw verbatim comments and toggle accordion completely; administrators and deans view the synthesized AI thematic feedback (sentiment pills, executive narrative summary, key strengths tags, areas for improvement tags).
+  - **Zero CLS Skeleton Synchronization:** Updated `evaluation-results-skeleton.blade.php` to replicate the 6-column layout and padding 1:1.
+  - **Quality Gates:** All 8 tests in `EvaluationSettingsAndEnhancementsTest` passing 100% (49 assertions); zero Pint styling errors.
+
+- **Completion Tracking Overhaul & Unified Metric Alignment (Task #5)** ([`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php), [`manage-evaluations-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/manage-evaluations-skeleton.blade.php), [`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`app.js`](file:///c:/Users/USER/Herd/evaluationsystem/resources/js/app.js)):
+  - **Option B Metric Unification:** Resolved the cognitive contradiction between Admin Dashboard Chart 1 showing `0%` and Completion Tracking showing `78%` for Deans. Standardized on **Form Progress Rate** ($\text{Submitted Evaluations} / \text{Expected Target Duties}$) across both pages.
+  - **Admin Dashboard Alignment:** Updated Chart 1 title to **`Evaluation Progress by Role`** and refactored `roleTurnoutData` to compute actual evaluations submitted over required forms for every cohort (Deans now correctly display **`78.2% (43 / 55 submitted)`**). Updated the role breakdown modal table headers to `Submitted / Target Forms`, `Pending`, and `Progress`, and added an **`Evaluators`** (headcount) column to provide instant demographic scale per role (e.g. 3,200 Students, 50 Faculty, 11 Dept Heads, 4 Program Heads, 1 Dean, 57 Staff).
+  - **4 Redesigned KPI Cards in Completion Tracking (Executive Borderless Standard):**
+    1. **Total Submissions Received:** Cumulative count with thousands comma separator (`23,228`), `All Roles` status badge, and explicit breakdown (`22,127 student • 1,101 employee forms`).
+    2. **Student Evaluation Progress:** Completion percentage (`76%`) with `On Track` / `In Progress` status badge and fully disambiguated fraction (`22,127 submitted of 29,291 expected forms`).
+    3. **Employee Evaluation Progress:** Completion percentage (`90%`) with `On Track` / `In Progress` status badge and fully disambiguated fraction (`1,101 submitted of 1,222 expected forms`).
+    4. **Pending Evaluation Forms:** Backlog count (`7,285`) with `Awaiting Action` / `All Complete` status badge and explicit breakdown (`7,164 student • 121 employee forms remaining`).
+    - **Clutter-Free Visual Polish:** Removed redundant bottom summary footnotes across all 4 cards to eliminate visual clutter and ensure tight, focused vertical pacing; standardized container padding to `p-5` with clean `border-zinc-200 dark:border-zinc-800`.
+    - **Global `<x-odometer>` Comma Formatting:** Upgraded `components/odometer.blade.php` with built-in `commas: true` support via `toLocaleString('en-US')`, ensuring all big numbers render with clean comma formatting (e.g. `20,000`).
+    - **Skeleton Mirroring:** Updated `manage-evaluations-skeleton.blade.php` to replicate the borderless, iconless card structure 1:1, preventing layout shift during lazy load.
+  - **Table Progress Columns:** Standardized all 6 role tables (Student, Dean, Program Head, Dept Head, Professor, Staff) to use the header **`Progress`** and display both percentage and count fractions (e.g. `78% (43/55)`).
+  - **Tab-Aware Department Filtering:** Restructured `getDepartmentsProperty()`: Academic departments only for `student`, `program_head`, and `professor` tabs; Administrative departments only for `department_head` and `staff` tabs; and hidden on `dean` tab.
+  - **Dean Display Polish:** Displayed `"College Dean"` in the Dean row's department column.
+  - **Skeleton Layout-Shift Elimination (CLS = 0):** Removed the 72px Active Academic Period banner from both live and skeleton views, updated tab placeholders to `grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`, and synchronized filter dimensions.
+  - **Admin Dashboard KPI Card 3 & Chart 1 Full Connection:**
+    - Standardized Card 3 as **`Overall Evaluation Progress`** (`totalSubmittedForms / totalExpectedForms = 76.1%`, e.g. `23,228 / 30,513 forms submitted across all roles`).
+    - Chart 1 (**`Form Submission Progress by Role`**) directly below Card 3 now serves as its exact 1:1 mathematical breakdown across Students (75.5%), Faculty (89.1%), Program Heads (89.7%), Dept Heads (100%), Deans (78.2%), and Staff (91.8%).
+  - **Chart 1 Breakdown Modal Overhaul (`Form Submission Progress by Role`):**
+    - **Disambiguated Column Headers:** Renamed `EVALUATORS` $\rightarrow$ **`CLEARED / TOTAL EVALUATORS`** and `PENDING` $\rightarrow$ **`PENDING FORMS`** to eliminate cognitive ambiguity between evaluator headcounts and form submission counts.
+    - **True Cleared Headcount Tracking:** Replaced the misleading `participating` count ($\ge 1$ form submitted, which showed `50 / 50` faculty and `1 / 1` dean despite pending forms) with **`completed_headcount`** ($100\%$ required evaluations completed, displaying actual cleared evaluators like `44 / 50` faculty, `0 / 1` deans, and `2,416 / 3,200` students).
+    - **Institutional Total (Summary) Row:** Embedded an authoritative summary row (`<tfoot ...>`) at the bottom of the breakdown table:
+      - Evaluators: `completedEvaluatorsCount / totalEvaluatorsCount` (`2,512 / 3,323`).
+      - Forms: `totalSubmittedForms / totalExpectedForms` (`23,228 / 30,513`).
+      - Pending Forms: `totalPendingForms` (`7,285`).
+      - Progress: `progressPercent` (`76.1%`).
+      - Historical Comparison: `prevRate` and `completionDelta` (when available).
+      - Provides an exact 1:1 mathematical bridge linking Chart 1 back to Card 3 (`Overall Evaluation Progress: 76.1%`) and Card 4 (`Pending Evaluators: 811` with `7,285 pending forms`).
+    - **Modal Footer Polish:** Updated footer counter to `Showing 6 roles • Total Evaluators: 3,323`.
+  - **Quality Gates:** Pint style test passed with 0 errors; Pest test suites `EvaluationDeadlineRemindersTest` and `EvaluationSettingsAndEnhancementsTest` passed 100%.
+
+- **Optimistic UI: Open / Close Evaluation Action Button & Live Status Pill** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
+  - **Instant Client-Side Feedback:** Wrapped the Admin Dashboard header toolbar in an Alpine state machine (`isOpen`, `isPending`, `hasSchedule`) so clicking the primary evaluation toggle immediately switches the button appearance (emerald `Open Evaluation` with `lock-open` $\leftrightarrow$ rose `Close Evaluation` with `lock-closed`) and live countdown status pill (`Open • Active` $\leftrightarrow$ `Closed`) without waiting for heavy dashboard database metrics calculations.
+  - **Reconciliation & Error Rollback:** Updated `toggleEvaluation(): bool` to return the new authoritative boolean state from the server. Upon completion, the client reconciles with the server response; if validation fails (e.g. missing schedule window dates) or a network error occurs, state automatically rolls back to previous values.
+  - **Concurrency & Double-Click Guard:** Disabled interaction during in-flight network transit (`:disabled="isPending"`, `pointer-events-none`) with an inline SVG spinning indicator (`animate-spin`).
+  - **Quality Gates:** Verified 100% pass across Pint formatting, PHPStan level 5 analysis (0 errors), and all 13 feature tests in `EvaluationStatusDashboardTest`.
+
 - **Authentication Security Hardening & Rate Limiting** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php), [`config/auth.php`](file:///c:/Users/USER/Herd/evaluationsystem/config/auth.php), [`forgot-password.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/forgot-password.blade.php), [`password.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/settings/password.blade.php)):
   - **Password Leakage Prevention in Livewire State:** Added `$this->reset('password')` on all failed authentication attempts (`ValidationException`). This prevents entered passwords from being serialized in the Livewire response snapshot or retained in DOM/JavaScript memory.
   - **Password Spraying Defense:** Implemented IP-level rate limiting in `ensureIsNotRateLimited()` (`RateLimiter::tooManyAttempts('login-ip|'.request()->ip(), 20)`) to mitigate distributed credential attempts across multiple student/employee IDs from a single origin.

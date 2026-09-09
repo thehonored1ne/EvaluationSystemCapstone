@@ -254,9 +254,9 @@ window.dashboardAnalyticsCharts = function(config) {
                                         const sub = Number(detail.submitted).toLocaleString();
                                         const exp = Number(detail.expected).toLocaleString();
                                         const pend = Math.max(0, Number(detail.expected) - Number(detail.submitted)).toLocaleString();
-                                        return `${rate}% Finished (${sub}/${exp}) • ${pend} pending`;
+                                        return `${rate}% Progress (${sub}/${exp} forms) • ${pend} pending`;
                                     }
-                                    return `${rate}% Finished`;
+                                    return `${rate}% Progress`;
                                 }
                             }
                         }

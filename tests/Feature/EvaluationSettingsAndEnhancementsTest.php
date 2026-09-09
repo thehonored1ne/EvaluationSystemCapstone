@@ -3,6 +3,7 @@
 use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
 use App\Models\Semester;
 use App\Models\User;
@@ -55,7 +56,7 @@ test('training settings component renders and toggles show_ai_pipeline', functio
     expect($this->adminUser->fresh()->show_ai_pipeline)->toBeFalse();
 
     // Verify sidebar hides AI pipeline when show_ai_pipeline is false
-    $response = $this->get('/notifications');
+    $response = $this->actingAs($this->adminUser->fresh())->get('/notifications');
     $response->assertDontSee('AI Pipeline');
 
     // Toggle back to true
@@ -66,7 +67,7 @@ test('training settings component renders and toggles show_ai_pipeline', functio
     expect($this->adminUser->fresh()->show_ai_pipeline)->toBeTrue();
 
     // Verify sidebar displays AI pipeline
-    $response = $this->get('/notifications');
+    $response = $this->actingAs($this->adminUser->fresh())->get('/notifications');
     $response->assertSee('AI Pipeline');
 });
 
@@ -166,7 +167,7 @@ test('admin dashboard renders evaluation analytics visual charts', function () {
     Livewire::withoutLazyLoading()
         ->actingAs($this->adminUser)
         ->test('admin.dashboard')
-        ->assertSee('Completion Rate by Role')
+        ->assertSee('Form Submission Progress by Role')
         ->assertSee('Completion Rate by Department');
 });
 
@@ -194,4 +195,106 @@ test('admin can edit questionnaire part name and max points via modal', function
 
     expect($criterion->fresh()->name)->toBe('Updated Mastery Part');
     expect((float) $criterion->fresh()->max_points)->toBe(30.0);
+});
+
+test('evaluation results displays reviews received and overall rating and loads thematic modal', function () {
+    $this->actingAs($this->adminUser);
+
+    $teacherEmp = Employee::create([
+        'employee_number' => 'FAC-99',
+        'first_name' => 'Ada',
+        'last_name' => 'Lovelace',
+        'role' => 'faculty',
+        'department_id' => $this->dept->id,
+    ]);
+    $teacherUser = User::create([
+        'name' => 'Ada Lovelace',
+        'email' => 'ada@grc.edu.ph',
+        'employee_id' => $teacherEmp->id,
+        'password' => 'password',
+    ]);
+    $teacherUser->assignRole('faculty');
+
+    Evaluation::create([
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $teacherUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'peer',
+        'rating_average' => 4.80,
+        'comments' => 'Ada demonstrates exceptional clarity and rigorous analytical standards in all curriculum deliverables.',
+        'status' => 'completed',
+    ]);
+
+    Volt::test('evaluation-results')
+        ->assertSee('Reviews Received')
+        ->assertSee('Overall Rating')
+        ->assertSee('Lovelace, Ada')
+        ->assertSee('4.80')
+        ->assertSee('Outstanding')
+        ->call('viewDetails', $teacherUser->id)
+        ->assertSet('showModal', true)
+        ->assertSee('Overall Rating')
+        ->assertSee('Positive Feedback')
+        ->assertSee('Reviews by Evaluation Source')
+        ->assertSee('Peer Faculty Evaluations')
+        ->assertDontSee('Awaiting Review')
+        ->assertDontSee('Dean Evaluation')
+        ->assertDontSee('Self Evaluation')
+        ->assertSee('Feedback & Comment Analysis');
+});
+
+test('evaluation results table sorts alphabetically A-Z by last name by default', function () {
+    $this->actingAs($this->adminUser);
+
+    $empTuring = Employee::create([
+        'employee_number' => 'FAC-03',
+        'first_name' => 'Alan',
+        'last_name' => 'Turing',
+        'role' => 'faculty',
+        'department_id' => $this->dept->id,
+    ]);
+    $uTuring = User::create([
+        'name' => 'Alan Turing',
+        'email' => 'alan.sort@grc.edu.ph',
+        'employee_id' => $empTuring->id,
+        'password' => 'password',
+    ]);
+    $uTuring->assignRole('faculty');
+
+    $empBabbage = Employee::create([
+        'employee_number' => 'FAC-01',
+        'first_name' => 'Charles',
+        'last_name' => 'Babbage',
+        'role' => 'faculty',
+        'department_id' => $this->dept->id,
+    ]);
+    $uBabbage = User::create([
+        'name' => 'Charles Babbage',
+        'email' => 'charles.sort@grc.edu.ph',
+        'employee_id' => $empBabbage->id,
+        'password' => 'password',
+    ]);
+    $uBabbage->assignRole('faculty');
+
+    $empCurie = Employee::create([
+        'employee_number' => 'FAC-02',
+        'first_name' => 'Marie',
+        'last_name' => 'Curie',
+        'role' => 'faculty',
+        'department_id' => $this->dept->id,
+    ]);
+    $uCurie = User::create([
+        'name' => 'Marie Curie',
+        'email' => 'marie.sort@grc.edu.ph',
+        'employee_id' => $empCurie->id,
+        'password' => 'password',
+    ]);
+    $uCurie->assignRole('faculty');
+
+    Volt::test('evaluation-results')
+        ->assertSeeInOrder([
+            'Babbage, Charles',
+            'Curie, Marie',
+            'Turing, Alan',
+        ]);
 });

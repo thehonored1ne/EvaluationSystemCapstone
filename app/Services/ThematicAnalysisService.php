@@ -185,9 +185,153 @@ class ThematicAnalysisService
             ];
         }
 
+        // If curated patterns didn't fill the limit, supplement with top TF-IDF unigrams
+        if (count($results) < $limit && ! empty($tfidf)) {
+            $maxTfidf = max(1, max($tfidf));
+            foreach ($tfidf as $word => $score) {
+                if (count($results) >= $limit) {
+                    break;
+                }
+                $wordCap = ucfirst($word);
+                $exists = false;
+                foreach ($results as $res) {
+                    if (stripos($res['term'], $word) !== false) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (! $exists) {
+                    $results[] = [
+                        'term' => $wordCap,
+                        'count' => (int) ($docFreq[$word] ?? 1),
+                        'weight' => min(100, max(20, round(($score / $maxTfidf) * 100))),
+                    ];
+                }
+            }
+        }
+
         // Sort descending by count
         usort($results, fn ($a, $b) => $b['count'] <=> $a['count']);
 
         return array_slice($results, 0, $limit);
+    }
+
+    /**
+     * Compute individual evaluatee thematic sentiment, drivers, and executive synthesis.
+     */
+    public static function getEvaluateeThematicAnalysis(int $evaluateeId, ?int $semesterId, int $limit = 4): array
+    {
+        if (! $semesterId) {
+            return [
+                'has_data' => false,
+                'total_analyzed' => 0,
+                'positive_count' => 0,
+                'neutral_count' => 0,
+                'negative_count' => 0,
+                'positive_pct' => 0.0,
+                'positive_drivers' => [],
+                'constructive_drivers' => [],
+                'narrative_summary' => 'No evaluation comments recorded for this semester.',
+            ];
+        }
+
+        return Cache::remember("evaluatee_thematic_{$evaluateeId}_{$semesterId}_{$limit}", 900, function () use ($evaluateeId, $semesterId, $limit) {
+            $evaluations = DB::table('evaluations')
+                ->leftJoin('evaluation_sentiments', 'evaluations.id', '=', 'evaluation_sentiments.evaluation_id')
+                ->where('evaluations.evaluatee_id', $evaluateeId)
+                ->where('evaluations.semester_id', $semesterId)
+                ->whereNotNull('evaluations.comments')
+                ->where('evaluations.comments', '!=', '')
+                ->select('evaluations.comments', 'evaluation_sentiments.vader_label', 'evaluation_sentiments.vader_score')
+                ->get();
+
+            $totalAnalyzed = $evaluations->count();
+            if ($totalAnalyzed === 0) {
+                return [
+                    'has_data' => false,
+                    'total_analyzed' => 0,
+                    'positive_count' => 0,
+                    'neutral_count' => 0,
+                    'negative_count' => 0,
+                    'positive_pct' => 0.0,
+                    'positive_drivers' => [],
+                    'constructive_drivers' => [],
+                    'narrative_summary' => 'No qualitative comments were submitted for this evaluator period.',
+                ];
+            }
+
+            $posTexts = [];
+            $negTexts = [];
+            $neuCount = 0;
+
+            foreach ($evaluations as $e) {
+                $text = trim((string) $e->comments);
+                $label = $e->vader_label;
+                $score = $e->vader_score !== null ? (float) $e->vader_score : null;
+
+                if ($label === 'positive' || ($score !== null && $score >= 0.05)) {
+                    $posTexts[] = $text;
+                } elseif ($label === 'negative' || ($score !== null && $score <= -0.05)) {
+                    $negTexts[] = $text;
+                } else {
+                    $neuCount++;
+                }
+            }
+
+            $posCount = count($posTexts);
+            $negCount = count($negTexts);
+            $posPct = $totalAnalyzed > 0 ? round(($posCount / $totalAnalyzed) * 100, 1) : 0.0;
+
+            $positiveDrivers = self::analyzeCorpusThemes($posTexts, self::$positiveThematicPatterns, $limit);
+            $constructiveDrivers = self::analyzeCorpusThemes($negTexts, self::$constructiveThematicPatterns, $limit);
+
+            $narrative = self::buildNarrativeSummary($posPct, $positiveDrivers, $constructiveDrivers, $posCount, $negCount);
+
+            return [
+                'has_data' => true,
+                'total_analyzed' => $totalAnalyzed,
+                'positive_count' => $posCount,
+                'neutral_count' => $neuCount,
+                'negative_count' => $negCount,
+                'positive_pct' => $posPct,
+                'positive_drivers' => $positiveDrivers,
+                'constructive_drivers' => $constructiveDrivers,
+                'narrative_summary' => $narrative,
+            ];
+        });
+    }
+
+    /**
+     * Build an executive natural language synthesis from sentiment metrics and drivers.
+     */
+    protected static function buildNarrativeSummary(float $posPct, array $posDrivers, array $negDrivers, int $posCount, int $negCount): string
+    {
+        $parts = [];
+
+        if (! empty($posDrivers)) {
+            $topPos = array_slice($posDrivers, 0, 2);
+            $posNames = implode(' and ', array_column($topPos, 'term'));
+            if ($posPct >= 80) {
+                $parts[] = "Evaluators strongly commended this faculty member for {$posNames}.";
+            } else {
+                $parts[] = "Positive feedback highlighted {$posNames}.";
+            }
+        } elseif ($posCount > 0) {
+            $parts[] = 'Evaluators submitted encouraging remarks regarding general classroom conduct.';
+        }
+
+        if (! empty($negDrivers)) {
+            $topNeg = array_slice($negDrivers, 0, 2);
+            $negNames = implode(' and ', array_column($topNeg, 'term'));
+            $parts[] = "Opportunities for growth centered around {$negNames}.";
+        } elseif ($negCount > 0) {
+            $parts[] = 'A few constructive suggestions noted room for pacing or instructional alignment.';
+        }
+
+        if (empty($parts)) {
+            return 'Evaluator comments reflect steady and balanced performance across all core instructional standards.';
+        }
+
+        return implode(' ', $parts);
     }
 }

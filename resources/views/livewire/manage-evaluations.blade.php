@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Models\Department;
 use App\Models\Employee;
@@ -43,7 +43,17 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function getDepartmentsProperty()
     {
-        return Department::getCachedList();
+        $all = Department::getCachedList();
+
+        if (in_array($this->activeTab, ['student', 'program_head', 'professor'], true)) {
+            return $all->where('type', 'academic')->values();
+        }
+
+        if (in_array($this->activeTab, ['department_head', 'staff'], true)) {
+            return $all->where('type', 'administrative')->values();
+        }
+
+        return collect();
     }
 
     public function selectTab(string $tab): void
@@ -170,6 +180,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $submittedCountMap = DB::table('evaluations')
             ->where('semester_id', $semId)
             ->whereNotNull('class_id')
+            ->whereIn('evaluation_type', ['student', 'upward_student'])
             ->selectRaw('evaluator_id, count(distinct class_id) as submitted_count')
             ->groupBy('evaluator_id')
             ->pluck('submitted_count', 'evaluator_id');
@@ -344,8 +355,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 'name' => $fullName,
                 'employee_number' => $emp->employee_number,
                 'email' => $emp->email ?? '—',
-                'department' => $emp->department_name ?? '—',
-                'department_code' => $emp->department_code ?? '—',
+                'department' => $emp->department_name ?: 'College Dean',
+                'department_code' => $emp->department_code ?: 'DEAN',
                 'target_count' => $targetCount,
                 'completed_count' => $completed,
                 'percentage' => $percentage,
@@ -768,59 +779,92 @@ new #[Layout('components.layouts.app')] class extends Component
         if (! $semId) {
             return [
                 'totalSubmissions' => 0,
-                'avgStudentProgress' => 0,
-                'avgProfessorProgress' => 0,
-                'selfDone' => 0,
-                'selfTotal' => 0,
-                'selfPct' => 0,
+                'studentSubmissions' => 0,
+                'employeeSubmissions' => 0,
+                'studentDone' => 0,
+                'studentTotal' => 0,
+                'studentPct' => 0,
+                'employeeDone' => 0,
+                'employeeTotal' => 0,
+                'employeePct' => 0,
+                'pendingEvaluations' => 0,
             ];
         }
 
         return Cache::remember("manage_eval_summary_stats_{$semId}", 30, function () use ($semId) {
-            // 1. Single aggregate query on evaluations table
+            // 1. Evaluations aggregate query
             $evalAgg = DB::table('evaluations')
                 ->where('semester_id', $semId)
                 ->selectRaw("
                     count(*) as total_submissions,
-                    count(case when class_id is not null then 1 end) as student_evaluated_sum,
-                    count(case when evaluation_type = 'peer' then 1 end) as submitted_peer_count,
-                    count(case when evaluation_type = 'self' then 1 end) as submitted_self_count
+                    count(case when evaluation_type in ('student', 'upward_student') or class_id is not null then 1 end) as student_submissions,
+                    count(case when (evaluation_type not in ('student', 'upward_student') and class_id is null) then 1 end) as employee_submissions
                 ")
                 ->first();
 
-            $enrolledSum = (int) DB::table('class_student')
+            $totalSubmissions = (int) ($evalAgg->total_submissions ?? 0);
+            $studentSubmissions = (int) ($evalAgg->student_submissions ?? 0);
+            $employeeSubmissions = (int) ($evalAgg->employee_submissions ?? 0);
+
+            // 2. Student Target (Total enrolled subject slots)
+            $studentEnrolledTarget = (int) DB::table('class_student')
                 ->join('classes', 'classes.id', '=', 'class_student.class_id')
                 ->where('classes.semester_id', $semId)
                 ->count();
 
-            $studentEvaluatedSum = (int) ($evalAgg->student_evaluated_sum ?? 0);
-            $avgStudentProgress = $enrolledSum > 0 ? min(100, (int) round(($studentEvaluatedSum / $enrolledSum) * 100)) : 0;
+            $studentPct = $studentEnrolledTarget > 0 ? min(100, (int) round(($studentSubmissions / $studentEnrolledTarget) * 100)) : 0;
 
-            // 2. Single aggregate query on employees table
-            $empAgg = DB::table('employees')
+            // 3. Employee Target (Total expected evaluations across all active employees)
+            $deptFacultyCountMap = DB::table('employees')->where('role', 'faculty')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+            $deptPhCountMap = DB::table('employees')->where('role', 'program head')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+            $deptStaffCountMap = DB::table('employees')->where('role', 'staff')->where('status', 'active')->selectRaw('department_id, count(*) as count')->groupBy('department_id')->pluck('count', 'department_id');
+            $facultyTotalCount = DB::table('employees')->where('role', 'faculty')->where('status', 'active')->count();
+            $phTotalCount = DB::table('employees')->where('role', 'program head')->where('status', 'active')->count();
+
+            $activeEmployees = DB::table('employees')
                 ->where('status', 'active')
-                ->selectRaw("
-                    count(*) as total_employees,
-                    count(case when role = 'faculty' then 1 end) as total_faculty
-                ")
-                ->first();
+                ->where('role', '!=', 'admin')
+                ->select('id', 'role', 'department_id')
+                ->get();
 
-            $totalFaculty = (int) ($empAgg->total_faculty ?? 0);
-            $submittedPeerCount = (int) ($evalAgg->submitted_peer_count ?? 0);
-            $targetPeerCount = max(1, $totalFaculty * 2);
-            $avgProfessorProgress = $targetPeerCount > 0 ? min(100, (int) round(($submittedPeerCount / $targetPeerCount) * 100)) : 0;
+            $totalEmployeeTarget = 0;
+            foreach ($activeEmployees as $emp) {
+                if ($emp->role === 'faculty') {
+                    $facCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
+                    $phCount = (int) ($deptPhCountMap[$emp->department_id] ?? 0);
+                    $totalEmployeeTarget += (1 + max(0, $facCount - 1) + $phCount);
+                } elseif ($emp->role === 'program head') {
+                    $facCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
+                    $totalEmployeeTarget += (1 + $facCount + 1);
+                } elseif ($emp->role === 'department head') {
+                    $staffCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
+                    $totalEmployeeTarget += (1 + $staffCount + 1);
+                } elseif ($emp->role === 'dean') {
+                    $totalEmployeeTarget += (1 + $facultyTotalCount + $phTotalCount);
+                } elseif ($emp->role === 'staff') {
+                    $staffCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
+                    $totalEmployeeTarget += (1 + max(0, $staffCount - 1) + 1);
+                }
+            }
 
-            $totalEmployees = (int) ($empAgg->total_employees ?? 0);
-            $submittedSelfCount = (int) ($evalAgg->submitted_self_count ?? 0);
-            $selfPct = $totalEmployees > 0 ? min(100, (int) round(($submittedSelfCount / $totalEmployees) * 100)) : 0;
+            $employeePct = $totalEmployeeTarget > 0 ? min(100, (int) round(($employeeSubmissions / $totalEmployeeTarget) * 100)) : 0;
+
+            // 4. Pending evaluations count
+            $pendingStudent = max(0, $studentEnrolledTarget - $studentSubmissions);
+            $pendingEmployee = max(0, $totalEmployeeTarget - $employeeSubmissions);
+            $totalPending = $pendingStudent + $pendingEmployee;
 
             return [
-                'totalSubmissions' => (int) ($evalAgg->total_submissions ?? 0),
-                'avgStudentProgress' => $avgStudentProgress,
-                'avgProfessorProgress' => $avgProfessorProgress,
-                'selfDone' => $submittedSelfCount,
-                'selfTotal' => $totalEmployees,
-                'selfPct' => $selfPct,
+                'totalSubmissions' => $totalSubmissions,
+                'studentSubmissions' => $studentSubmissions,
+                'employeeSubmissions' => $employeeSubmissions,
+                'studentDone' => $studentSubmissions,
+                'studentTotal' => $studentEnrolledTarget,
+                'studentPct' => $studentPct,
+                'employeeDone' => $employeeSubmissions,
+                'employeeTotal' => $totalEmployeeTarget,
+                'employeePct' => $employeePct,
+                'pendingEvaluations' => $totalPending,
             ];
         });
     }
@@ -909,80 +953,118 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
     </div>
 
-    <!-- Active Semester Indicator -->
-    @if($this->activeSemester)
-        <div class="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-xs">
-            <div class="flex items-center gap-2.5">
-                <span class="size-2.5 rounded-full {{ $this->activeSemester->is_evaluation_open ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400' }}"></span>
-                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Active Academic Period</span>
-                <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    A.Y. {{ $this->activeSemester->academicYear?->name }} — {{ $this->activeSemester->name }}
-                </span>
-            </div>
-            <flux:badge variant="{{ $this->activeSemester->is_evaluation_open ? 'success' : 'danger' }}" size="sm" class="font-bold">
-                {{ $this->activeSemester->is_evaluation_open ? 'Evaluations Open' : 'Evaluations Closed' }}
-            </flux:badge>
-        </div>
-    @endif
-
-    <!-- Top 4 Summary Stat Cards (with 5px dark red #9b0000 left border & odometer) -->
+    <!-- Top 4 Summary Stat Cards (Consistent Hierarchy & Clean Borderless Style) -->
     @php
         $stats = $this->summaryStats;
     @endphp
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        <!-- 1. Total Submissions Received -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
-            <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider">Total Submissions</span>
-                <flux:icon icon="document-check" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
+        <!-- Card 1: Total Evaluation Submissions Received -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5 flex flex-col">
+            <div class="h-5 flex items-center justify-between">
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
+                    Total Submissions Received
+                </span>
             </div>
-            <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
+            <div class="flex items-baseline gap-2 mt-3 flex-wrap">
+                <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                     <x-odometer :value="$stats['totalSubmissions']" />
                 </span>
-                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">All Forms</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                    All Roles
+                </span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+                <span class="font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                    {{ number_format($stats['studentSubmissions']) }}
+                </span>
+                <span>student</span>
+                <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                <span class="font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                    {{ number_format($stats['employeeSubmissions']) }}
+                </span>
+                <span>employee forms</span>
             </div>
         </div>
 
-        <!-- 2. Student Progress % -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
-            <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider">Student Progress</span>
-                <flux:icon icon="academic-cap" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
-            </div>
-            <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$stats['avgStudentProgress']" suffix="%" />
+        <!-- Card 2: Student Evaluation Progress -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5 flex flex-col">
+            <div class="h-5 flex items-center justify-between">
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
+                    Student Evaluation Progress
                 </span>
-                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Overall Rate</span>
+            </div>
+            <div class="flex items-baseline gap-2 mt-3 flex-wrap">
+                <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
+                    <x-odometer :value="$stats['studentPct']" suffix="%" />
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $stats['studentPct'] >= 80 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : ($stats['studentPct'] >= 50 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800') }}">
+                    {{ $stats['studentPct'] >= 80 ? 'On Track' : 'In Progress' }}
+                </span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+                <span class="font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {{ number_format($stats['studentDone']) }}
+                </span>
+                <span>submitted of</span>
+                <span class="font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                    {{ number_format($stats['studentTotal']) }}
+                </span>
+                <span>expected forms</span>
             </div>
         </div>
 
-        <!-- 3. Faculty / Professor Progress % -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
-            <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider">Professor Progress</span>
-                <flux:icon icon="user-group" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
-            </div>
-            <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$stats['avgProfessorProgress']" suffix="%" />
+        <!-- Card 3: Employee Evaluation Progress -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5 flex flex-col">
+            <div class="h-5 flex items-center justify-between">
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
+                    Employee Evaluation Progress
                 </span>
-                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Peer Evaluations</span>
+            </div>
+            <div class="flex items-baseline gap-2 mt-3 flex-wrap">
+                <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
+                    <x-odometer :value="$stats['employeePct']" suffix="%" />
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $stats['employeePct'] >= 80 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : ($stats['employeePct'] >= 50 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800') }}">
+                    {{ $stats['employeePct'] >= 80 ? 'On Track' : 'In Progress' }}
+                </span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+                <span class="font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {{ number_format($stats['employeeDone']) }}
+                </span>
+                <span>submitted of</span>
+                <span class="font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                    {{ number_format($stats['employeeTotal']) }}
+                </span>
+                <span>expected forms</span>
             </div>
         </div>
 
-        <!-- 4. Self Appraisals Done -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] flex flex-col justify-between">
-            <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider">Self Appraisals</span>
-                <flux:icon icon="user-circle" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
-            </div>
-            <div class="flex items-baseline justify-between">
-                <span class="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                    <x-odometer :value="$stats['selfDone']" /> / <x-odometer :value="$stats['selfTotal']" />
+        <!-- Card 4: Pending Evaluation Forms -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs p-5 flex flex-col">
+            <div class="h-5 flex items-center justify-between">
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
+                    Pending Evaluation Forms
                 </span>
-                <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-bold">{{ $stats['selfPct'] }}%</span>
+            </div>
+            <div class="flex items-baseline gap-2 mt-3 flex-wrap">
+                <span class="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
+                    <x-odometer :value="$stats['pendingEvaluations']" />
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider {{ $stats['pendingEvaluations'] > 0 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' }}">
+                    {{ $stats['pendingEvaluations'] > 0 ? 'Awaiting Action' : 'All Complete' }}
+                </span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-2.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+                <span class="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+                    {{ number_format(max(0, $stats['studentTotal'] - $stats['studentDone'])) }}
+                </span>
+                <span>student</span>
+                <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                <span class="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+                    {{ number_format(max(0, $stats['employeeTotal'] - $stats['employeeDone'])) }}
+                </span>
+                <span>employee forms remaining</span>
             </div>
         </div>
     </div>
@@ -1084,14 +1166,14 @@ new #[Layout('components.layouts.app')] class extends Component
                 />
             </div>
 
-            <!-- Department Filter -->
-            @if(auth()->user()?->hasRole('admin') || auth()->user()?->hasRole('dean'))
+            <!-- Department Filter (Hidden for Dean tab) -->
+            @if($activeTab !== 'dean' && (auth()->user()?->hasRole('admin') || auth()->user()?->hasRole('dean')))
                 <div class="w-full sm:w-56">
                     <flux:select wire:model.live="selectedDepartmentId">
                         <flux:select.option value="">All Departments</flux:select.option>
                         @foreach($this->departments as $dept)
                             <flux:select.option value="{{ $dept->id }}">
-                                {{ $dept->name }} ({{ $dept->code }})
+                                {{ $dept->code }} — {{ $dept->name }}
                             </flux:select.option>
                         @endforeach
                     </flux:select>
@@ -1139,7 +1221,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Section</th>
                                 <th class="px-6 py-3.5">Subjects</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                                 <th class="px-6 py-3.5 text-right">Reference ID</th>
                             </tr>
@@ -1164,11 +1246,16 @@ new #[Layout('components.layouts.app')] class extends Component
                                         </span>
                                     </td>
 
-                                    <!-- Completion Rate -->
+                                    <!-- Progress -->
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $stu->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($stu->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $stu->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $stu->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($stu->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $stu->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $stu->completed_evaluations }}/{{ $stu->enrolled_subjects }})
+                                            </span>
+                                        </div>
                                     </td>
 
                                     <!-- Status -->
@@ -1231,7 +1318,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <tr>
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Department</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                             </tr>
                         </thead>
@@ -1245,9 +1332,14 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $dean->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $dean->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($dean->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $dean->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $dean->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($dean->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $dean->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $dean->completed_count }}/{{ $dean->target_count }})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         @if($dean->status === 'completed')
@@ -1296,7 +1388,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <tr>
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Department</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                             </tr>
                         </thead>
@@ -1310,9 +1402,14 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $ph->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $ph->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($ph->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $ph->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $ph->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($ph->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $ph->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $ph->completed_count }}/{{ $ph->target_count }})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         @if($ph->status === 'completed')
@@ -1361,7 +1458,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <tr>
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Department</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                             </tr>
                         </thead>
@@ -1375,9 +1472,14 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $dh->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $dh->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($dh->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $dh->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $dh->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($dh->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $dh->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $dh->completed_count }}/{{ $dh->target_count }})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         @if($dh->status === 'completed')
@@ -1426,7 +1528,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <tr>
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Department</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                             </tr>
                         </thead>
@@ -1440,9 +1542,14 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $prof->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $prof->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($prof->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $prof->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $prof->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($prof->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $prof->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $prof->completed_count }}/{{ $prof->target_count }})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         @if($prof->status === 'completed')
@@ -1491,7 +1598,7 @@ new #[Layout('components.layouts.app')] class extends Component
                             <tr>
                                 <th class="px-6 py-3.5">Full Name</th>
                                 <th class="px-6 py-3.5">Department</th>
-                                <th class="px-6 py-3.5">Completion Rate</th>
+                                <th class="px-6 py-3.5">Progress</th>
                                 <th class="px-6 py-3.5 text-center">Status</th>
                             </tr>
                         </thead>
@@ -1505,9 +1612,14 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $staff->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-bold font-mono text-sm {{ $staff->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($staff->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
-                                            {{ $staff->percentage }}%
-                                        </span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="font-bold font-mono text-sm {{ $staff->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($staff->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
+                                                {{ $staff->percentage }}%
+                                            </span>
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                                                ({{ $staff->completed_count }}/{{ $staff->target_count }})
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         @if($staff->status === 'completed')

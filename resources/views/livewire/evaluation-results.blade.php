@@ -1,19 +1,17 @@
-﻿<?php
+<?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use App\Models\Semester;
-use App\Models\User;
-use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Evaluation;
-use App\Models\EvaluationCriterion;
-use App\Models\EvaluationAnswer;
-use App\Models\AcademicClass;
+use App\Models\Semester;
+use App\Models\User;
+use App\Services\ThematicAnalysisService;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     use WithPagination;
 
     public function placeholder()
@@ -22,12 +20,16 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 
     public ?int $selectedDepartmentId = null;
+
     public ?int $selectedSemesterId = null;
+
     public string $selectedRole = '';
+
     public string $search = '';
 
     // Modal state
     public ?int $viewingUserId = null;
+
     public bool $showModal = false;
 
     public function mount()
@@ -38,10 +40,25 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
     }
 
-    public function updatedSearch() { $this->resetPage(); }
-    public function updatedSelectedDepartmentId() { $this->resetPage(); }
-    public function updatedSelectedSemesterId() { $this->resetPage(); }
-    public function updatedSelectedRole() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedDepartmentId()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedSemesterId()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedRole()
+    {
+        $this->resetPage();
+    }
 
     public function clearFilters()
     {
@@ -65,63 +82,164 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->showModal = true;
     }
 
+    public function getRatingTier(float $rating): array
+    {
+        $label = match (true) {
+            $rating >= 4.50 => 'Outstanding',
+            $rating >= 3.50 => 'Very Satisfactory',
+            $rating >= 2.50 => 'Satisfactory',
+            $rating >= 1.50 => 'Fair',
+            $rating > 0.00 => 'Poor',
+            default => 'No Ratings'
+        };
+
+        $classes = match (true) {
+            $rating >= 3.50 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+            $rating >= 2.50 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
+            $rating > 0.00 => 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800',
+            default => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+        };
+
+        return ['label' => $label, 'classes' => $classes];
+    }
+
     public function getSelectedUserDetailsProperty()
     {
-        if (!$this->viewingUserId || !$this->selectedSemesterId) return null;
-        
-        $user = User::with(['employee.department', 'student.program.department'])->find($this->viewingUserId);
-        if (!$user) return null;
+        if (! $this->viewingUserId || ! $this->selectedSemesterId) {
+            return null;
+        }
 
+        $user = User::with(['employee.department', 'student.program.department'])->find($this->viewingUserId);
+        if (! $user) {
+            return null;
+        }
+
+        $rawRole = $user->employee?->role ?? ($user->student ? 'student' : 'user');
         $semId = $this->selectedSemesterId;
+        $semester = Semester::with('academicYear')->find($semId);
 
         // Received evaluations
         $evalsQuery = Evaluation::where('evaluatee_id', $user->id)->where('semester_id', $semId);
         $totalReceived = $evalsQuery->count();
-        $overallAvg = $totalReceived > 0 ? round($evalsQuery->avg('rating_average'), 2) : 0.00;
+        $overallAvg = $totalReceived > 0 ? round((float) $evalsQuery->avg('rating_average'), 2) : 0.00;
+        $overallTier = $this->getRatingTier($overallAvg);
 
         // Submitted evaluations
         $submittedCount = Evaluation::where('evaluator_id', $user->id)->where('semester_id', $semId)->count();
 
-        // Categorical breakdown in a single grouped query
-        $evalTypeLabels = [
-            'upward_student' => 'Student Evaluation',
-            'peer' => 'Peer Evaluation',
-            'downward' => 'Superior / Head Evaluation',
-            'self' => 'Self Evaluation',
-            'upward_employee' => 'Subordinate Evaluation',
-        ];
+        // Calculate expected reviews and response coverage
+        $expectedReviews = 0;
+        if ($user->employee) {
+            $enrolledStudents = (int) DB::table('class_student')
+                ->join('classes', 'classes.id', '=', 'class_student.class_id')
+                ->where('classes.teacher_id', $user->employee_id)
+                ->where('classes.semester_id', $semId)
+                ->count();
+
+            $deptId = $user->employee->department_id;
+            $deptFac = $deptId ? max(0, DB::table('employees')->where('department_id', $deptId)->where('role', 'faculty')->where('status', 'active')->count() - 1) : 0;
+
+            if ($enrolledStudents > 0 || $user->employee->role === 'faculty') {
+                $expectedReviews = $enrolledStudents + $deptFac + 2; // Students + Peers + 1 Self + 1 Program Head
+            } else {
+                $expectedReviews = max($totalReceived, 1);
+            }
+        } else {
+            $expectedReviews = max($totalReceived, 1);
+        }
+
+        $responseRate = $expectedReviews > 0 ? min(100.0, round(($totalReceived / $expectedReviews) * 100, 1)) : 100.0;
+
+        // Build role-specific evaluation sources
+        $expectedSourceConfig = match ($rawRole) {
+            'faculty' => [
+                'upward_student' => ['label' => 'Student Evaluations', 'weight_key' => 'student', 'aliases' => ['student', 'upward_student']],
+                'program_head' => ['label' => 'Program Head Evaluation', 'weight_key' => 'program_head', 'aliases' => ['program_head', 'ph_dh', 'downward']],
+                'dean' => ['label' => 'Dean Evaluation', 'weight_key' => 'dean', 'aliases' => ['dean']],
+                'peer' => ['label' => 'Peer Faculty Evaluations', 'weight_key' => 'peer', 'aliases' => ['peer']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+            'program head' => [
+                'dean' => ['label' => 'Dean Evaluation', 'weight_key' => 'dean', 'aliases' => ['dean']],
+                'upward_employee' => ['label' => 'Faculty Feedback (Subordinates)', 'weight_key' => 'superior', 'aliases' => ['upward_employee', 'superior']],
+                'peer' => ['label' => 'Peer Program Head Evaluations', 'weight_key' => 'peer', 'aliases' => ['peer']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+            'department head' => [
+                'upward_employee' => ['label' => 'Staff Feedback (Subordinates)', 'weight_key' => 'superior', 'aliases' => ['upward_employee', 'superior']],
+                'peer' => ['label' => 'Peer Dept Head Evaluations', 'weight_key' => 'peer', 'aliases' => ['peer']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+            'dean' => [
+                'upward_employee' => ['label' => 'Program Head Feedback', 'weight_key' => 'superior', 'aliases' => ['upward_employee', 'superior']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+            'staff' => [
+                'department_head' => ['label' => 'Department Head Evaluation', 'weight_key' => 'department_head', 'aliases' => ['department_head', 'ph_dh', 'downward']],
+                'peer' => ['label' => 'Peer Staff Evaluations', 'weight_key' => 'peer', 'aliases' => ['peer']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+            default => [
+                'upward_student' => ['label' => 'Student Evaluations', 'weight_key' => 'student', 'aliases' => ['student', 'upward_student']],
+                'peer' => ['label' => 'Peer Evaluations', 'weight_key' => 'peer', 'aliases' => ['peer']],
+                'self' => ['label' => 'Self Evaluation', 'weight_key' => 'self', 'aliases' => ['self']],
+            ],
+        };
 
         $typeStats = DB::table('evaluations')
             ->where('evaluatee_id', $user->id)
             ->where('semester_id', $semId)
-            ->selectRaw('evaluation_type, count(*) as total_count, avg(rating_average) as avg_rating')
+            ->selectRaw('evaluation_type, count(*) as total_count, sum(rating_average) as sum_rating')
             ->groupBy('evaluation_type')
             ->get()
             ->keyBy('evaluation_type');
 
         $typeAverages = [];
-        foreach ($evalTypeLabels as $type => $label) {
-            if (isset($typeStats[$type])) {
-                $stat = $typeStats[$type];
-                $typeAverages[$type] = (object)[
-                    'label' => $label,
-                    'count' => (int)$stat->total_count,
-                    'average' => round((float)$stat->avg_rating, 2),
+        $handledTypes = [];
+
+        foreach ($expectedSourceConfig as $key => $cfg) {
+            $totalCount = 0;
+            $sumRating = 0.0;
+            foreach ($cfg['aliases'] as $alias) {
+                if (isset($typeStats[$alias])) {
+                    $totalCount += (int) $typeStats[$alias]->total_count;
+                    $sumRating += (float) $typeStats[$alias]->sum_rating;
+                    $handledTypes[] = $alias;
+                }
+            }
+
+            if ($totalCount > 0) {
+                $avg = round($sumRating / $totalCount, 2);
+                $typeAverages[$key] = (object) [
+                    'label' => $cfg['label'],
+                    'count' => $totalCount,
+                    'average' => $avg,
                 ];
             }
         }
 
-        $comments = Evaluation::where('evaluatee_id', $user->id)
-            ->where('semester_id', $semId)
-            ->whereNotNull('comments')
-            ->where('comments', '!=', '')
-            ->pluck('comments')
-            ->toArray();
+        // Include any unexpected evaluation types that exist in the DB for this user
+        foreach ($typeStats as $type => $stat) {
+            if (! in_array($type, $handledTypes)) {
+                $tCount = (int) $stat->total_count;
+                if ($tCount > 0) {
+                    $avg = round((float) ($stat->sum_rating / $tCount), 2);
+                    $typeAverages[$type] = (object) [
+                        'label' => ucwords(str_replace('_', ' ', $type)).' Evaluation',
+                        'count' => $tCount,
+                        'average' => $avg,
+                    ];
+                }
+            }
+        }
+
+        // AI Pipeline: Sentiment & Thematic Drivers
+        $thematic = ThematicAnalysisService::getEvaluateeThematicAnalysis($user->id, $semId, 4);
 
         $deptName = $user->employee?->department?->name ?? $user->student?->program?->department?->name ?? 'Unassigned';
         $identifier = $user->employee?->employee_number ?? $user->student?->student_number ?? $user->email;
         $rawRole = $user->employee?->role ?? ($user->student ? 'student' : 'user');
-        $roleLabel = match($rawRole) {
+        $roleLabel = match ($rawRole) {
             'faculty' => 'Professor',
             'program head' => 'Program Head',
             'department head' => 'Department Head',
@@ -131,93 +249,107 @@ new #[Layout('components.layouts.app')] class extends Component {
             default => ucfirst($rawRole)
         };
 
-        return (object)[
+        return (object) [
             'user' => $user,
             'full_name' => $user->employee?->formatted_name ?? $user->student?->formatted_name ?? $user->name,
             'role' => $roleLabel,
             'identifier' => $identifier,
             'department' => $deptName,
+            'semester_name' => $semester ? ('A.Y. '.($semester->academicYear?->name ?? '').' • '.$semester->name) : 'Current Semester',
             'total_received' => $totalReceived,
+            'expected_reviews' => $expectedReviews,
+            'response_rate' => $responseRate,
             'submitted_count' => $submittedCount,
             'overall_average' => $overallAvg,
+            'overall_tier' => $overallTier,
             'type_averages' => $typeAverages,
-            'comments' => $comments,
+            'thematic' => $thematic,
         ];
     }
 
     public function with(): array
     {
         $semId = $this->selectedSemesterId;
-        
+
         $query = User::query()
+            ->leftJoin('employees', 'users.employee_id', '=', 'employees.id')
+            ->leftJoin('students', 'users.student_id', '=', 'students.id')
+            ->select('users.*')
             ->where(function ($q) {
-                $q->whereHas('employee')
-                  ->orWhereHas('student');
+                $q->whereNotNull('users.employee_id')
+                    ->orWhereNotNull('users.student_id');
             })
             ->with(['employee.department', 'student.program.department']);
 
         if ($this->selectedRole) {
             if ($this->selectedRole === 'student') {
-                $query->whereHas('student');
+                $query->whereNotNull('users.student_id');
             } elseif ($this->selectedRole === 'professor' || $this->selectedRole === 'faculty') {
-                $query->whereHas('employee', fn($eq) => $eq->where('role', 'faculty'));
+                $query->where('employees.role', 'faculty');
             } else {
                 $role = $this->selectedRole;
-                $query->whereHas('employee', fn($eq) => $eq->where('role', $role));
+                $query->where('employees.role', $role);
             }
         }
 
         if ($this->selectedDepartmentId) {
             $deptId = $this->selectedDepartmentId;
             $query->where(function ($q) use ($deptId) {
-                $q->whereHas('employee', fn($eq) => $eq->where('department_id', $deptId))
-                  ->orWhereHas('student.program', fn($pq) => $pq->where('department_id', $deptId));
+                $q->where('employees.department_id', $deptId)
+                    ->orWhereHas('student.program', fn ($pq) => $pq->where('department_id', $deptId));
             });
         }
 
         if ($this->search) {
             $s = trim($this->search);
             $query->where(function ($q) use ($s) {
-                $q->where('name', 'like', "%{$s}%")
-                  ->orWhere('email', 'like', "%{$s}%")
-                  ->orWhereHas('employee', fn($eq) => $eq->where('employee_number', 'like', "%{$s}%")->orWhere('first_name', 'like', "%{$s}%")->orWhere('last_name', 'like', "%{$s}%"))
-                  ->orWhereHas('student', fn($sq) => $sq->where('student_number', 'like', "%{$s}%")->orWhere('first_name', 'like', "%{$s}%")->orWhere('last_name', 'like', "%{$s}%"));
+                $q->where('users.name', 'like', "%{$s}%")
+                    ->orWhere('users.email', 'like', "%{$s}%")
+                    ->orWhere('employees.employee_number', 'like', "%{$s}%")
+                    ->orWhere('employees.first_name', 'like', "%{$s}%")
+                    ->orWhere('employees.last_name', 'like', "%{$s}%")
+                    ->orWhere('students.student_number', 'like', "%{$s}%")
+                    ->orWhere('students.first_name', 'like', "%{$s}%")
+                    ->orWhere('students.last_name', 'like', "%{$s}%");
             });
         }
 
-        $users = $query->orderBy('name')->paginate(10);
+        $users = $query
+            ->orderByRaw('COALESCE(employees.last_name, students.last_name, users.name) ASC')
+            ->orderByRaw('COALESCE(employees.first_name, students.first_name) ASC')
+            ->paginate(10);
         $userIds = $users->pluck('id')->toArray();
 
-        $evaluatorCounts = [];
-        $evaluateeCounts = [];
+        $evaluateeStats = [];
+        $studentSubmittedCounts = [];
 
-        if ($semId && !empty($userIds)) {
-            $evaluatorCounts = DB::table('evaluations')
-                ->where('semester_id', $semId)
-                ->whereIn('evaluator_id', $userIds)
-                ->selectRaw('evaluator_id, count(*) as total')
-                ->groupBy('evaluator_id')
-                ->pluck('total', 'evaluator_id')
-                ->toArray();
-
-            $evaluateeCounts = DB::table('evaluations')
+        if ($semId && ! empty($userIds)) {
+            $evaluateeStats = DB::table('evaluations')
                 ->where('semester_id', $semId)
                 ->whereIn('evaluatee_id', $userIds)
-                ->selectRaw('evaluatee_id, count(*) as total')
+                ->selectRaw('evaluatee_id, count(*) as total_reviews, round(avg(rating_average), 2) as avg_rating')
                 ->groupBy('evaluatee_id')
-                ->pluck('total', 'evaluatee_id')
+                ->get()
+                ->keyBy('evaluatee_id');
+
+            $studentSubmittedCounts = DB::table('evaluations')
+                ->where('semester_id', $semId)
+                ->whereIn('evaluator_id', $userIds)
+                ->selectRaw('evaluator_id, count(*) as total_submitted')
+                ->groupBy('evaluator_id')
+                ->pluck('total_submitted', 'evaluator_id')
                 ->toArray();
         }
 
         return [
             'users' => $users,
-            'evaluatorCounts' => $evaluatorCounts,
-            'evaluateeCounts' => $evaluateeCounts,
+            'evaluateeStats' => $evaluateeStats,
+            'studentSubmittedCounts' => $studentSubmittedCounts,
         ];
     }
 }; ?>
 
-<div class="flex flex-col gap-8 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-left">
+<div class="flex flex-col gap-6 sm:gap-8 w-full px-4 sm:px-6 lg:px-8 py-6 text-left">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
         <div>
@@ -280,21 +412,20 @@ new #[Layout('components.layouts.app')] class extends Component {
     <!-- Results Table -->
     <div wire:loading.remove wire:target="search, selectedRole, selectedDepartmentId, selectedSemesterId, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-            <table class="w-full min-w-[800px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
+            <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[28%] min-w-[180px] px-4 py-3.5 whitespace-nowrap">Full Name</th>
-                        <th class="w-[14%] min-w-[110px] px-4 py-3.5 whitespace-nowrap">Role</th>
-                        <th class="w-[24%] min-w-[160px] px-4 py-3.5 whitespace-nowrap">Department</th>
-                        <th class="w-[14%] min-w-[110px] px-4 py-3.5 text-center whitespace-nowrap">Total Submissions</th>
-                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 text-center whitespace-nowrap">Status</th>
-                        <th class="w-[10%] min-w-[80px] px-4 py-3.5 text-right whitespace-nowrap">Details</th>
+                        <th class="w-[24%] min-w-[180px] px-5 py-3.5 whitespace-nowrap">Full Name</th>
+                        <th class="w-[12%] min-w-[100px] px-4 py-3.5 whitespace-nowrap">Role</th>
+                        <th class="w-[24%] min-w-[170px] px-4 py-3.5 whitespace-nowrap">Department</th>
+                        <th class="w-[16%] min-w-[130px] px-4 py-3.5 text-center whitespace-nowrap">Reviews Received</th>
+                        <th class="w-[14%] min-w-[130px] px-4 py-3.5 text-center whitespace-nowrap">Overall Rating</th>
+                        <th class="w-[10%] min-w-[90px] px-5 py-3.5 text-right whitespace-nowrap">Details</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
                     @forelse($users as $user)
                         @php
-                            $semId = $selectedSemesterId;
                             $fullName = $user->employee?->formatted_name ?? $user->student?->formatted_name ?? $user->name;
                             $identifier = $user->employee?->employee_number ?? $user->student?->student_number ?? $user->email;
                             $dept = $user->employee?->department ?? $user->student?->program?->department;
@@ -311,14 +442,15 @@ new #[Layout('components.layouts.app')] class extends Component {
                             };
 
                             $isStudent = (bool)$user->student;
-                            $submissionsCount = $isStudent 
-                                ? ($evaluatorCounts[$user->id] ?? 0) 
-                                : ($evaluateeCounts[$user->id] ?? 0);
-                            $isComplete = $submissionsCount > 0;
+                            $stat = $evaluateeStats[$user->id] ?? null;
+                            $reviewCount = $stat ? (int) $stat->total_reviews : 0;
+                            $avgRating = $stat && $reviewCount > 0 ? (float) $stat->avg_rating : null;
+                            $tier = $avgRating !== null ? $this->getRatingTier($avgRating) : null;
+                            $studentSubmitted = $studentSubmittedCounts[$user->id] ?? 0;
                         @endphp
                         <tr wire:key="usr-{{ $user->id }}" class="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                             <!-- Full Name -->
-                            <td class="px-4 py-3.5 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 <div class="font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[220px]" title="{{ $fullName }}">
                                     {{ $fullName }}
                                 </div>
@@ -344,28 +476,49 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 @endif
                             </td>
 
-                            <!-- Total Submissions -->
+                            <!-- Reviews Received -->
                             <td class="px-4 py-3.5 text-center whitespace-nowrap">
-                                <span class="font-black font-mono text-zinc-800 dark:text-zinc-200">
-                                    {{ $submissionsCount }}
-                                </span>
-                                <span class="text-[11px] text-zinc-400 block font-medium">
-                                    {{ $isStudent ? 'completed' : 'evaluations' }}
-                                </span>
+                                @if($isStudent)
+                                    <span class="font-black font-mono text-zinc-800 dark:text-zinc-200">
+                                        {{ $studentSubmitted }}
+                                    </span>
+                                    <span class="text-[11px] text-zinc-400 block font-medium">
+                                        forms submitted
+                                    </span>
+                                @else
+                                    <span class="font-black font-mono text-zinc-800 dark:text-zinc-200">
+                                        {{ $reviewCount }}
+                                    </span>
+                                    <span class="text-[11px] text-zinc-400 block font-medium">
+                                        {{ $reviewCount === 1 ? 'review received' : 'reviews received' }}
+                                    </span>
+                                @endif
                             </td>
 
-                            <!-- Status -->
+                            <!-- Overall Rating -->
                             <td class="px-4 py-3.5 text-center whitespace-nowrap">
-                                @if($isComplete)
-                                    <flux:badge size="sm" variant="success" class="font-bold">Complete</flux:badge>
+                                @if($isStudent)
+                                    <span class="text-xs text-zinc-400 italic">Evaluator</span>
+                                @elseif($avgRating !== null && $reviewCount > 0)
+                                    <div class="inline-flex items-center gap-1.5 font-extrabold text-sm tabular-nums text-zinc-900 dark:text-zinc-100">
+                                        <flux:icon name="star" variant="solid" class="size-3.5 text-amber-500 fill-amber-500" />
+                                        <span>{{ number_format($avgRating, 2) }}</span>
+                                    </div>
+                                    <div class="mt-0.5">
+                                        <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider {{ $tier['classes'] }}">
+                                            {{ $tier['label'] }}
+                                        </span>
+                                    </div>
                                 @else
-                                    <flux:badge size="sm" variant="warning" class="font-bold">Incomplete</flux:badge>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                                        No Ratings
+                                    </span>
                                 @endif
                             </td>
 
                             <!-- Details Action -->
-                            <td class="px-4 py-3.5 text-right whitespace-nowrap">
-                                <flux:button size="sm" variant="ghost" icon="eye" wire:click="viewDetails({{ $user->id }})">
+                            <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                                <flux:button size="sm" variant="subtle" icon="chart-bar" wire:click="viewDetails({{ $user->id }})">
                                     Breakdown
                                 </flux:button>
                             </td>
@@ -389,61 +542,106 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     <!-- Detailed Breakdown Modal -->
     @if($showModal && $this->selectedUserDetails)
-        @php $details = $this->selectedUserDetails; @endphp
+        @php 
+            $details = $this->selectedUserDetails; 
+            $thematic = $details->thematic;
+            $hasThematicData = $thematic['has_data'] ?? false;
+        @endphp
         <div class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex justify-center items-center p-4">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
                 <!-- Modal Header -->
                 <div class="px-6 py-5 border-b border-zinc-150 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/40">
                     <div>
-                        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50">{{ $details->full_name }}</h2>
-                        <p class="text-xs text-zinc-500 mt-0.5">ID: {{ $details->identifier }} | Role: {{ $details->role }} | Dept: {{ $details->department }}</p>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-50">{{ $details->full_name }}</h2>
+                            <flux:badge size="sm" variant="neutral">{{ $details->role }}</flux:badge>
+                        </div>
+                        <p class="text-xs text-zinc-500 mt-1">
+                            ID: <span class="font-mono text-zinc-700 dark:text-zinc-300 font-semibold">{{ $details->identifier }}</span> &bull; 
+                            Dept: <span class="text-zinc-700 dark:text-zinc-300 font-semibold">{{ $details->department }}</span> &bull; 
+                            <span class="text-zinc-500">{{ $details->semester_name }}</span>
+                        </p>
                     </div>
                     <flux:button variant="ghost" icon="x-mark" wire:click="$set('showModal', false)" />
                 </div>
 
                 <!-- Modal Body -->
                 <div class="p-6 flex flex-col gap-6">
-                    <!-- KPI summaries -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div class="bg-[#9b0000]/10 dark:bg-[#9b0000]/20 border border-[#9b0000]/20 p-4 rounded-xl text-center">
-                            <div class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] uppercase tracking-wider">Overall Mean Score</div>
-                            <div class="text-2xl font-black text-[#9b0000] dark:text-[#e07a7a] mt-1">
-                                {{ $details->total_received > 0 ? number_format($details->overall_average, 2) : '—' }} 
-                                <span class="text-xs font-normal">/ 5.0</span>
+                    <!-- Top 3 Simplified KPI Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <!-- Card 1: Overall Rating -->
+                        <div class="bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/80 p-4 rounded-xl text-center flex flex-col justify-between">
+                            <div>
+                                <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Overall Rating</span>
+                                <div class="text-3xl font-black text-zinc-900 dark:text-zinc-100 mt-2 tabular-nums">
+                                    {{ $details->total_received > 0 ? number_format($details->overall_average, 2) : '—' }} 
+                                    <span class="text-xs font-normal text-zinc-400">/ 5.00</span>
+                                </div>
+                            </div>
+                            <div class="mt-2.5">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $details->overall_tier['classes'] }}">
+                                    {{ $details->overall_tier['label'] }}
+                                </span>
                             </div>
                         </div>
 
-                        <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 p-4 rounded-xl text-center">
-                            <div class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Evaluations Received</div>
-                            <div class="text-2xl font-bold text-zinc-800 dark:text-zinc-200 mt-1">
-                                {{ $details->total_received }}
+                        <!-- Card 2: Reviews Received -->
+                        <div class="bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/80 p-4 rounded-xl text-center flex flex-col justify-between">
+                            <div>
+                                <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Reviews Received</span>
+                                <div class="text-3xl font-black text-zinc-900 dark:text-zinc-100 mt-2 tabular-nums">
+                                    {{ number_format($details->total_received) }}
+                                    @if($details->expected_reviews > 0)
+                                        <span class="text-xs font-normal text-zinc-400">/ {{ number_format($details->expected_reviews) }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="mt-2.5">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $details->response_rate >= 80 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' }}">
+                                    {{ $details->response_rate }}% Response Rate
+                                </span>
                             </div>
                         </div>
 
-                        <div class="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 p-4 rounded-xl text-center">
-                            <div class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Evaluations Submitted</div>
-                            <div class="text-2xl font-bold text-zinc-800 dark:text-zinc-200 mt-1">
-                                {{ $details->submitted_count }}
+                        <!-- Card 3: Positive Feedback -->
+                        <div class="bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/80 p-4 rounded-xl text-center flex flex-col justify-between">
+                            <div>
+                                <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">Positive Feedback</span>
+                                <div class="text-3xl font-black text-zinc-900 dark:text-zinc-100 mt-2 tabular-nums">
+                                    {{ $hasThematicData ? $thematic['positive_pct'] . '%' : '—' }}
+                                </div>
+                            </div>
+                            <div class="mt-2.5">
+                                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block truncate">
+                                    {{ $hasThematicData ? ($thematic['positive_count'] . ' of ' . $thematic['total_analyzed'] . ' positive') : 'No comments submitted' }}
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Category Breakdown -->
+                    <!-- Reviews by Evaluation Source -->
                     @if(!empty($details->type_averages))
-                        <div>
-                            <h3 class="font-bold text-zinc-800 dark:text-zinc-200 mb-3 text-base">Evaluation Breakdown by Source</h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-3">
+                            <h3 class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">Reviews by Evaluation Source</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 @foreach($details->type_averages as $type => $info)
-                                    <div class="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/20 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                                        <div>
-                                            <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">{{ $info->label }}</span>
-                                            <span class="text-[11px] text-zinc-400">{{ $info->count }} review{{ $info->count == 1 ? '' : 's' }}</span>
-                                        </div>
-                                        <div class="text-right">
-                                            <span class="text-base font-black font-mono text-[#9b0000] dark:text-[#e07a7a]">
-                                                {{ number_format($info->average, 2) }}
+                                    @php
+                                        $sourceTier = $this->getRatingTier($info->average);
+                                    @endphp
+                                    <div class="p-3.5 bg-zinc-50/70 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate block">{{ $info->label }}</span>
+                                            <span class="text-[11px] text-zinc-400 block mt-0.5">
+                                                {{ $info->count }} {{ $info->count === 1 ? 'review' : 'reviews' }}
                                             </span>
-                                            <span class="text-[11px] text-zinc-400 block">/ 5.00</span>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <span class="text-sm font-black font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                                ★ {{ number_format($info->average, 2) }}
+                                            </span>
+                                            <span class="text-[10px] text-zinc-400 block font-medium">
+                                                {{ $sourceTier['label'] }}
+                                            </span>
                                         </div>
                                     </div>
                                 @endforeach
@@ -451,19 +649,94 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </div>
                     @endif
 
-                    <!-- Qualitative Comments -->
-                    <div>
-                        <h3 class="font-bold text-zinc-800 dark:text-zinc-200 mb-3 text-base">Feedback Comments & Notes</h3>
-                        @if(empty($details->comments))
-                            <p class="text-sm text-zinc-400 italic">No text comments submitted for this user.</p>
-                        @else
-                            <div class="flex flex-col gap-2 max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
-                                @foreach($details->comments as $comment)
-                                    <div class="text-sm text-zinc-700 dark:text-zinc-300 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
-                                        "{{ $comment }}"
-                                    </div>
-                                @endforeach
+                    <!-- Feedback Analysis Section -->
+                    <div class="border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4.5 bg-zinc-50/40 dark:bg-zinc-800/20 space-y-4">
+                        <div class="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-700/60 pb-3">
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="sparkles" class="size-4 text-[#9b0000] dark:text-[#e07a7a]" />
+                                <h3 class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                                    Feedback &amp; Comment Analysis
+                                </h3>
                             </div>
+                            <span class="text-[11px] text-zinc-400 font-medium">AI Sentiment &amp; Topic Analysis</span>
+                        </div>
+
+                        @if($hasThematicData)
+                            <!-- Sentiment Distribution Pills -->
+                            <div class="flex items-center gap-2 text-xs flex-wrap">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold tabular-nums text-[11px]">
+                                    <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                                    {{ $thematic['positive_count'] }} Positive ({{ $thematic['positive_pct'] }}%)
+                                </span>
+                                @if($thematic['neutral_count'] > 0)
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 font-semibold tabular-nums text-[11px]">
+                                        <span class="size-1.5 rounded-full bg-zinc-400"></span>
+                                        {{ $thematic['neutral_count'] }} Neutral
+                                    </span>
+                                @endif
+                                @if($thematic['negative_count'] > 0)
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800 font-bold tabular-nums text-[11px]">
+                                        <span class="size-1.5 rounded-full bg-rose-500"></span>
+                                        {{ $thematic['negative_count'] }} Constructive
+                                    </span>
+                                @endif
+                            </div>
+
+                            <!-- Overall Feedback Summary -->
+                            <div class="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80 flex items-start gap-3">
+                                <flux:icon name="document-text" class="size-4 text-[#9b0000] dark:text-[#e07a7a] shrink-0 mt-0.5" />
+                                <div class="space-y-0.5">
+                                    <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">Overall Feedback Summary</span>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-normal">
+                                        {{ $thematic['narrative_summary'] }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Key Strengths & Areas for Improvement -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <!-- Strengths -->
+                                <div class="bg-white dark:bg-zinc-900 border border-emerald-200/80 dark:border-emerald-800/40 rounded-xl p-3.5 space-y-2">
+                                    <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                        <flux:icon name="hand-thumb-up" class="size-3.5" />
+                                        Key Strengths Mentioned
+                                    </span>
+                                    @if(!empty($thematic['positive_drivers']))
+                                        <div class="flex flex-wrap gap-1.5 pt-1">
+                                            @foreach($thematic['positive_drivers'] as $pos)
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50/80 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                                    <span>{{ $pos['term'] }}</span>
+                                                    <span class="text-[10px] opacity-70">({{ $pos['count'] }})</span>
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <p class="text-xs text-zinc-400 italic">No recurring positive topics extracted.</p>
+                                    @endif
+                                </div>
+
+                                <!-- Areas for Improvement -->
+                                <div class="bg-white dark:bg-zinc-900 border border-amber-200/80 dark:border-amber-800/40 rounded-xl p-3.5 space-y-2">
+                                    <span class="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                        <flux:icon name="light-bulb" class="size-3.5" />
+                                        Areas for Improvement
+                                    </span>
+                                    @if(!empty($thematic['constructive_drivers']))
+                                        <div class="flex flex-wrap gap-1.5 pt-1">
+                                            @foreach($thematic['constructive_drivers'] as $neg)
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50/80 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                                    <span>{{ $neg['term'] }}</span>
+                                                    <span class="text-[10px] opacity-70">({{ $neg['count'] }})</span>
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <p class="text-xs text-zinc-400 italic">No recurring areas for improvement detected.</p>
+                                    @endif
+                                </div>
+                            </div>
+                        @else
+                            <p class="text-xs text-zinc-400 italic">No written feedback has been submitted for this person in the selected semester.</p>
                         @endif
                     </div>
                 </div>

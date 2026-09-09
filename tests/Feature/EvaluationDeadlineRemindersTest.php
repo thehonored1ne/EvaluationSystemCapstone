@@ -158,12 +158,11 @@ test('admin dashboard reminder opens confirmation modal and broadcasts when conf
     ]);
 });
 
-test('admin dashboard completion rate percentage is aligned with evaluator counts', function () {
+test('admin dashboard progress percentage is aligned with form progress across roles', function () {
     $this->actingAs($this->adminUser);
 
-    // Initial state: 0 completed out of 2 evaluators (student + faculty)
     Livewire::withoutLazyLoading()
         ->test('admin.dashboard')
-        ->assertSee('Overall Completion Rate')
-        ->assertSee('evaluators completed all evaluations');
+        ->assertSee('Overall Evaluation Progress')
+        ->assertSee('forms submitted across all roles');
 });
