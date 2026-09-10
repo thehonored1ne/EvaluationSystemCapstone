@@ -125,6 +125,25 @@ test('manage evaluations lists completion rates correctly', function () {
     $response->assertSee('100%'); // Completion Rate
 });
 
+test('manage evaluations switches across all six evaluator tabs without errors', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('manage-evaluations')
+        ->call('selectTab', 'student')
+        ->assertSet('activeTab', 'student')
+        ->call('selectTab', 'dean')
+        ->assertSet('activeTab', 'dean')
+        ->call('selectTab', 'program_head')
+        ->assertSet('activeTab', 'program_head')
+        ->call('selectTab', 'department_head')
+        ->assertSet('activeTab', 'department_head')
+        ->call('selectTab', 'professor')
+        ->assertSet('activeTab', 'professor')
+        ->call('selectTab', 'staff')
+        ->assertSet('activeTab', 'staff')
+        ->assertHasNoErrors();
+});
+
 test('sidebar renders correct evaluator submenus depending on user role', function () {
     // 1. Student
     $this->actingAs($this->studUser);

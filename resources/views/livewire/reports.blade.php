@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
@@ -10,6 +10,8 @@ use App\Models\EvaluationCriterion;
 use App\Models\EvaluationAnswer;
 use App\Models\EvaluationSummary;
 use App\Models\User;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 new #[Layout('components.layouts.app')] class extends Component {
     public function placeholder()
@@ -21,6 +23,85 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $searchTeacher = '';
     public string $selectedDepartment = '';
     public string $activeTab = 'individual';
+    public bool $isPrintingAll = false;
+    public int $batchPreviewIndex = 0;
+    public bool $batchShowAllOnScreen = false;
+
+    public function startPrintAll()
+    {
+        ini_set('memory_limit', '512M');
+        $this->isPrintingAll = true;
+        $this->batchPreviewIndex = 0;
+        $this->batchShowAllOnScreen = false;
+    }
+
+    public function exitPrintAll()
+    {
+        $this->isPrintingAll = false;
+        $this->batchPreviewIndex = 0;
+        $this->batchShowAllOnScreen = false;
+    }
+
+    public function nextBatchPreview()
+    {
+        $count = $this->allReportsData->count();
+        if ($this->batchPreviewIndex < $count - 1) {
+            $this->batchPreviewIndex++;
+        }
+    }
+
+    public function previousBatchPreview()
+    {
+        if ($this->batchPreviewIndex > 0) {
+            $this->batchPreviewIndex--;
+        }
+    }
+
+    public function setBatchPreviewIndex($index)
+    {
+        $idx = (int)$index;
+        $count = $this->allReportsData->count();
+        if ($idx >= 0 && $idx < $count) {
+            $this->batchPreviewIndex = $idx;
+        }
+    }
+
+    public function toggleBatchShowAll()
+    {
+        $this->batchShowAllOnScreen = !$this->batchShowAllOnScreen;
+    }
+
+    public function updatedSelectedTeacherId()
+    {
+        $this->isPrintingAll = false;
+        $this->batchPreviewIndex = 0;
+    }
+
+    public function updatedSearchTeacher()
+    {
+        $this->cachedTeachers = null;
+        $this->cachedAllReports = null;
+        $this->batchPreviewIndex = 0;
+    }
+
+    public function updatedSelectedDepartment()
+    {
+        $this->cachedTeachers = null;
+        $this->cachedAllReports = null;
+        $this->batchPreviewIndex = 0;
+    }
+
+    public function updatedSelectedSemesterId()
+    {
+        $this->cachedAllReports = null;
+        $this->batchPreviewIndex = 0;
+    }
+
+    public function updatedActiveTab()
+    {
+        $this->isPrintingAll = false;
+        $this->batchPreviewIndex = 0;
+    }
 
     public function mount()
     {
@@ -30,20 +111,38 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
     }
 
+    private ?Collection $cachedSemesters = null;
+
     public function getSemestersProperty()
     {
-        return Semester::with('academicYear')->orderBy('id', 'desc')->get();
+        if ($this->cachedSemesters !== null) {
+            return $this->cachedSemesters;
+        }
+
+        return $this->cachedSemesters = Semester::with('academicYear')->orderBy('id', 'desc')->get();
     }
+
+    private ?Collection $cachedDepartments = null;
 
     public function getDepartmentsProperty()
     {
-        return Department::getCachedList()
+        if ($this->cachedDepartments !== null) {
+            return $this->cachedDepartments;
+        }
+
+        return $this->cachedDepartments = Department::getCachedList()
             ->filter(fn ($d) => is_null($d->type) || $d->type === 'academic')
             ->values();
     }
 
+    private ?Collection $cachedTeachers = null;
+
     public function getTeachersProperty()
     {
+        if ($this->cachedTeachers !== null) {
+            return $this->cachedTeachers;
+        }
+
         $user = auth()->user();
         $query = Employee::whereIn('role', ['faculty', 'program head', 'dean'])
             ->whereHas('department', fn($dq) => $dq->whereNull('type')->orWhere('type', 'academic'))
@@ -73,32 +172,220 @@ new #[Layout('components.layouts.app')] class extends Component {
             });
         }
 
-        return $query->get();
+        return $this->cachedTeachers = $query->get();
+    }
+
+    private ?Collection $cachedCriteria = null;
+
+    public function getAllCriteria(): Collection
+    {
+        if ($this->cachedCriteria !== null) {
+            return $this->cachedCriteria;
+        }
+
+        return $this->cachedCriteria = EvaluationCriterion::orderBy('order')->get();
+    }
+
+    private bool $deanLoaded = false;
+    private ?Employee $cachedDean = null;
+
+    public function getDean(): ?Employee
+    {
+        if (!$this->deanLoaded) {
+            $this->cachedDean = Employee::where('role', 'dean')->where('status', 'active')->first();
+            $this->deanLoaded = true;
+        }
+
+        return $this->cachedDean;
+    }
+
+    private ?Collection $cachedProgramHeads = null;
+
+    public function getProgramHeadsByDept(): Collection
+    {
+        if ($this->cachedProgramHeads !== null) {
+            return $this->cachedProgramHeads;
+        }
+
+        return $this->cachedProgramHeads = Employee::where('role', 'program head')
+            ->where('status', 'active')
+            ->whereNotNull('department_id')
+            ->get()
+            ->keyBy('department_id');
+    }
+
+    private array $prevSemesterMap = [];
+
+    public function getPreviousSemester(int $semesterId): ?Semester
+    {
+        if (!array_key_exists($semesterId, $this->prevSemesterMap)) {
+            $this->prevSemesterMap[$semesterId] = Semester::with('academicYear')
+                ->where('id', '<', $semesterId)
+                ->orderBy('id', 'desc')
+                ->first();
+        }
+
+        return $this->prevSemesterMap[$semesterId];
     }
 
     public function getIndividualReportDataProperty()
     {
         if (!$this->selectedTeacherId || !$this->selectedSemesterId) return null;
 
-        $teacher = Employee::with(['user', 'department'])->findOrFail($this->selectedTeacherId);
+        $teacher = $this->teachers->firstWhere('id', $this->selectedTeacherId)
+            ?? Employee::with(['user', 'department'])->find($this->selectedTeacherId);
+        if (!$teacher) return null;
+
+        $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
+            ?? Semester::with('academicYear')->find($this->selectedSemesterId);
+        if (!$semester) return null;
+
+        return $this->getReportDataForTeacher($teacher, $semester);
+    }
+
+    private ?Collection $cachedAllReports = null;
+
+    public function getAllReportsDataProperty()
+    {
+        if (!$this->isPrintingAll || !$this->selectedSemesterId) return collect();
+        if ($this->cachedAllReports !== null) return $this->cachedAllReports;
+
+        ini_set('memory_limit', '512M');
+
+        $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
+            ?? Semester::with('academicYear')->find($this->selectedSemesterId);
+        if (!$semester) return collect();
+
+        $teachers = $this->teachers;
+        if ($teachers->isEmpty()) return collect();
+
+        $allCriteria = $this->getAllCriteria();
+        $deanEmp = $this->getDean();
+        $programHeadsByDept = $this->getProgramHeadsByDept();
+
+        $teacherUserIds = $teachers->pluck('user.id')->filter()->all();
+
+        // 1. Criteria averages across all teachers in 1 lightweight SQL aggregation
+        $critAverages = DB::table('evaluation_answers')
+            ->join('evaluation_questions', 'evaluation_questions.id', '=', 'evaluation_answers.question_id')
+            ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->whereIn('evaluations.evaluatee_id', $teacherUserIds)
+            ->selectRaw('evaluations.evaluatee_id, evaluation_questions.criterion_id, avg(evaluation_answers.rating) as avg_rating')
+            ->groupBy('evaluations.evaluatee_id', 'evaluation_questions.criterion_id')
+            ->get();
+
+        $critAveragesMap = [];
+        foreach ($critAverages as $row) {
+            $critAveragesMap[$row->evaluatee_id][$row->criterion_id] = (float) $row->avg_rating;
+        }
+
+        // 2. Section stats & counts across all teachers in 1 lightweight SQL aggregation
+        $sectionStats = DB::table('evaluations')
+            ->leftJoin('users', 'users.id', '=', 'evaluations.evaluator_id')
+            ->leftJoin('employees', 'employees.id', '=', 'users.employee_id')
+            ->leftJoin('model_has_roles', function ($join) {
+                $join->on('model_has_roles.model_id', '=', 'users.id')
+                    ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
+            })
+            ->leftJoin('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->whereIn('evaluations.evaluatee_id', $teacherUserIds)
+            ->selectRaw("
+                evaluations.evaluatee_id,
+                evaluations.evaluation_type,
+                coalesce(employees.role, roles.name, '') as evaluator_role,
+                count(*) as eval_count,
+                avg(evaluations.rating_average) as avg_rating
+            ")
+            ->groupBy('evaluations.evaluatee_id', 'evaluations.evaluation_type', 'evaluator_role')
+            ->get();
+
+        $sectionStatsMap = [];
+        $totalSubmissionsMap = [];
+        foreach ($sectionStats as $row) {
+            $sectionStatsMap[$row->evaluatee_id][] = $row;
+            $totalSubmissionsMap[$row->evaluatee_id] = ($totalSubmissionsMap[$row->evaluatee_id] ?? 0) + (int) $row->eval_count;
+        }
+
+        // 3. Sentiment & Comments aggregated per teacher in 1 SQL aggregation
+        $sentimentAgg = DB::table('evaluations')
+            ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+            ->where('evaluations.semester_id', $semester->id)
+            ->whereIn('evaluations.evaluatee_id', $teacherUserIds)
+            ->whereIn('evaluations.evaluation_type', ['student', 'upward_student'])
+            ->whereNotNull('evaluations.comments')
+            ->where('evaluations.comments', '!=', '')
+            ->selectRaw("
+                evaluations.evaluatee_id,
+                count(*) as total_comments,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'positive' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score > 0.05) then 1 else 0 end) as pos_count,
+                sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score < -0.05) then 1 else 0 end) as neg_count,
+                group_concat(evaluations.comments, ' ') as all_comments
+            ")
+            ->groupBy('evaluations.evaluatee_id')
+            ->get()
+            ->keyBy('evaluatee_id');
+
+        // 4. Previous semester stats across all teachers in 1 SQL aggregation
+        $prevSemester = $this->getPreviousSemester($semester->id);
+
+        $prevStatsMap = collect();
+        if ($prevSemester) {
+            $prevStatsMap = DB::table('evaluations')
+                ->where('semester_id', $prevSemester->id)
+                ->whereIn('evaluatee_id', $teacherUserIds)
+                ->selectRaw('evaluatee_id, avg(rating_average) as prev_avg, count(*) as prev_count')
+                ->groupBy('evaluatee_id')
+                ->get()
+                ->keyBy('evaluatee_id');
+        }
+
+        $reports = [];
+        foreach ($teachers as $teacher) {
+            $data = $this->getReportDataForTeacher(
+                $teacher,
+                $semester,
+                $allCriteria,
+                $deanEmp,
+                $programHeadsByDept,
+                $critAveragesMap,
+                $sectionStatsMap,
+                $totalSubmissionsMap,
+                $prevSemester,
+                $prevStatsMap,
+                $sentimentAgg
+            );
+            if ($data) {
+                $reports[] = $data;
+            }
+        }
+
+        return $this->cachedAllReports = collect($reports);
+    }
+
+    public function getReportDataForTeacher(
+        Employee $teacher,
+        Semester $semester,
+        ?Collection $allCriteria = null,
+        ?Employee $deanEmp = null,
+        ?Collection $programHeadsByDept = null,
+        ?array $preloadedCritAveragesMap = null,
+        ?array $preloadedSectionStatsMap = null,
+        ?array $preloadedTotalSubmissionsMap = null,
+        ?Semester $preloadedPrevSemester = null,
+        ?Collection $preloadedPrevStatsMap = null,
+        ?Collection $preloadedSentimentAggMap = null
+    ) {
         $userId = $teacher->user?->id;
         if (!$userId) return null;
 
-        $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
-
-        $evalsQuery = Evaluation::with(['sentiment', 'evaluator.employee'])
-            ->where('evaluatee_id', $userId)
-            ->where('semester_id', $this->selectedSemesterId);
-
-        $evaluations = $evalsQuery->get();
-        $totalSubmissions = $evaluations->count();
-
         // 360 Degree Weights Allocation (Default out of 200 Max Points: Student 80/40%, Dean 40/20%, PH 40/20%, Peer 30/15%, Self 10/5%)
-        $studentMax = (float)($semester->upward_student_max_points ?? 80.0);
-        $deanMax = (float)($semester->dean_max_points ?? 40.0);
-        $phMax = (float)($semester->program_head_max_points ?? $semester->downward_max_points ?? 40.0);
-        $peerMax = (float)($semester->peer_max_points ?? 30.0);
-        $selfMax = (float)($semester->self_max_points ?? 10.0);
+        $studentMax = (float) ($semester->upward_student_max_points ?? 80.0);
+        $deanMax = (float) ($semester->dean_max_points ?? 40.0);
+        $phMax = (float) ($semester->program_head_max_points ?? $semester->downward_max_points ?? 40.0);
+        $peerMax = (float) ($semester->peer_max_points ?? 30.0);
+        $selfMax = (float) ($semester->self_max_points ?? 10.0);
         $totalScale = $studentMax + $deanMax + $phMax + $peerMax + $selfMax;
         if ($totalScale <= 0) $totalScale = 200.0;
 
@@ -108,65 +395,105 @@ new #[Layout('components.layouts.app')] class extends Component {
         $peerPct = round(($peerMax / $totalScale) * 100);
         $selfPct = round(($selfMax / $totalScale) * 100);
 
-        // Eager-load all criteria in a single query to prevent repeated N+1 queries
-        $allCriteria = EvaluationCriterion::orderBy('order')->get();
+        $allCriteria = $allCriteria ?? $this->getAllCriteria();
+
+        // Fetch criteria averages for this teacher
+        if ($preloadedCritAveragesMap !== null) {
+            $userCritMap = $preloadedCritAveragesMap[$userId] ?? [];
+        } else {
+            $userCritMap = DB::table('evaluation_answers')
+                ->join('evaluation_questions', 'evaluation_questions.id', '=', 'evaluation_answers.question_id')
+                ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->selectRaw('evaluation_questions.criterion_id, avg(evaluation_answers.rating) as avg_rating')
+                ->groupBy('evaluation_questions.criterion_id')
+                ->pluck('avg_rating', 'criterion_id')
+                ->map(fn ($v) => (float) $v)
+                ->all();
+        }
+
+        // Fetch section evaluation statistics for this teacher
+        if ($preloadedSectionStatsMap !== null) {
+            $userSectionRows = $preloadedSectionStatsMap[$userId] ?? [];
+        } else {
+            $userSectionRows = DB::table('evaluations')
+                ->leftJoin('users', 'users.id', '=', 'evaluations.evaluator_id')
+                ->leftJoin('employees', 'employees.id', '=', 'users.employee_id')
+                ->leftJoin('model_has_roles', function ($join) {
+                    $join->on('model_has_roles.model_id', '=', 'users.id')
+                        ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
+                })
+                ->leftJoin('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->selectRaw("
+                    evaluations.evaluation_type,
+                    coalesce(employees.role, roles.name, '') as evaluator_role,
+                    count(*) as eval_count,
+                    avg(evaluations.rating_average) as avg_rating
+                ")
+                ->groupBy('evaluations.evaluation_type', 'evaluator_role')
+                ->get()
+                ->all();
+        }
+
+        // Total Submissions count
+        if ($preloadedTotalSubmissionsMap !== null) {
+            $totalSubmissions = $preloadedTotalSubmissionsMap[$userId] ?? 0;
+        } else {
+            $totalSubmissions = array_sum(array_map(fn ($r) => (int) $r->eval_count, $userSectionRows));
+        }
 
         // Helper to calculate criteria breakdown & subtotal for a specific evaluation type
-        $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($evaluations, $allCriteria) {
-            $matchedEvals = $evaluations->filter(function ($e) use ($evalTypes, $evaluatorRoles) {
-                $typeMatch = in_array($e->evaluation_type, $evalTypes);
-                if (!$typeMatch) return false;
-                if (!empty($evaluatorRoles)) {
-                    $evaluatorRole = $e->evaluator?->employee?->role ?? ($e->evaluator?->hasRole('dean') ? 'dean' : ($e->evaluator?->hasRole('program head') ? 'program head' : null));
-                    return in_array($evaluatorRole, $evaluatorRoles);
-                }
+        $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($userSectionRows, $userCritMap, $allCriteria) {
+            $matchedRows = array_filter($userSectionRows, function ($r) use ($evalTypes, $evaluatorRoles) {
+                if (!in_array($r->evaluation_type, $evalTypes)) return false;
+                if (!empty($evaluatorRoles) && !in_array($r->evaluator_role, $evaluatorRoles)) return false;
                 return true;
             });
 
-            $evalCount = $matchedEvals->count();
-            $evalIds = $matchedEvals->pluck('id')->toArray();
+            $evalCount = 0;
+            $totalRatingSum = 0.0;
+            foreach ($matchedRows as $mr) {
+                $evalCount += (int) $mr->eval_count;
+                $totalRatingSum += ((float) $mr->avg_rating * (int) $mr->eval_count);
+            }
+            $avg5Scale = $evalCount > 0 ? round($totalRatingSum / $evalCount, 2) : 0.00;
 
-            // Fetch criteria associated with these types from preloaded collection
-            $criteria = $allCriteria->filter(fn($c) => in_array($c->evaluation_type, $evalTypes))->values();
+            // Fetch criteria associated with these types
+            $criteria = $allCriteria->filter(fn ($c) => in_array($c->evaluation_type, $evalTypes))->values();
 
             $parts = [];
             $sectionEarnedPoints = 0.0;
 
             if ($criteria->isNotEmpty()) {
-                $criteriaSumMax = (float)$criteria->sum('max_points');
-                if ($criteriaSumMax <= 0) $criteriaSumMax = 50.0;
-
-                $critAvgs = !empty($evalIds) ? DB::table('evaluation_answers')
-                    ->join('evaluation_questions', 'evaluation_questions.id', '=', 'evaluation_answers.question_id')
-                    ->whereIn('evaluation_answers.evaluation_id', $evalIds)
-                    ->selectRaw('evaluation_questions.criterion_id, avg(evaluation_answers.rating) as avg_rating')
-                    ->groupBy('evaluation_questions.criterion_id')
-                    ->pluck('avg_rating', 'criterion_id') : collect();
-
                 foreach ($criteria as $idx => $crit) {
-                    $rawAvg = isset($critAvgs[$crit->id]) ? (float)$critAvgs[$crit->id] : null;
+                    $rawAvg = isset($userCritMap[$crit->id]) ? (float) $userCritMap[$crit->id] : null;
+                    if ($rawAvg === null && $evalCount > 0 && $avg5Scale > 0) {
+                        $rawAvg = $avg5Scale;
+                    }
 
                     // If evaluated, scale rating (1-5) to criterion max_points
-                    $score = $rawAvg ? round(((float)$rawAvg / 5.0) * (float)$crit->max_points, 2) : 0.00;
+                    $score = $rawAvg ? round(((float) $rawAvg / 5.0) * (float) $crit->max_points, 2) : 0.00;
                     $parts[] = (object) [
                         'roman' => $this->toRoman($idx + 1),
-                        'name' => preg_replace('/^Part\s*\d+\s*:\s*/i', '', $crit->name),
+                        'name' => preg_replace('/^Part\\s*\\d+\\s*:\\s*/i', '', $crit->name),
                         'score' => $score,
-                        'max_points' => (float)$crit->max_points,
+                        'max_points' => (float) $crit->max_points,
                         'raw_avg' => $rawAvg ? round($rawAvg, 2) : null,
                     ];
                     $sectionEarnedPoints += $score;
                 }
             } else {
                 // Default fallback parts if no specific criteria in db
-                $avgRating = $evalCount > 0 ? (float)$matchedEvals->avg('rating_average') : 0.0;
-                $sectionEarnedPoints = $avgRating > 0 ? round(($avgRating / 5.0) * $sectionMaxPoints, 2) : 0.0;
+                $sectionEarnedPoints = $avg5Scale > 0 ? round(($avg5Scale / 5.0) * $sectionMaxPoints, 2) : 0.0;
                 $parts[] = (object) [
                     'roman' => 'I',
                     'name' => 'General Competence & Effectiveness',
                     'score' => $sectionEarnedPoints,
                     'max_points' => $sectionMaxPoints,
-                    'raw_avg' => $avgRating > 0 ? $avgRating : null,
+                    'raw_avg' => $avg5Scale > 0 ? $avg5Scale : null,
                 ];
             }
 
@@ -175,7 +502,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'max_points' => $sectionMaxPoints,
                 'subtotal' => round($sectionEarnedPoints, 2),
                 'parts' => $parts,
-                'average_5_scale' => $evalCount > 0 ? round($matchedEvals->avg('rating_average'), 2) : 0.00,
+                'average_5_scale' => $avg5Scale,
             ];
         };
 
@@ -223,22 +550,25 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         // Calculate Semester-over-Semester Growth
-        $prevSemester = Semester::with('academicYear')
-            ->where('id', '<', $semester->id)
-            ->orderBy('id', 'desc')
-            ->first();
+        $prevSemester = $preloadedPrevSemester ?? $this->getPreviousSemester($semester->id);
 
         $prevOverallAvg = null;
         $scoreGrowth = null;
         $scoreGrowthPercent = null;
 
         if ($prevSemester) {
-            $prevEvals = Evaluation::where('evaluatee_id', $userId)
-                ->where('semester_id', $prevSemester->id)
-                ->get();
+            if ($preloadedPrevStatsMap !== null) {
+                $prevStat = $preloadedPrevStatsMap->get($userId);
+            } else {
+                $prevStat = DB::table('evaluations')
+                    ->where('semester_id', $prevSemester->id)
+                    ->where('evaluatee_id', $userId)
+                    ->selectRaw('avg(rating_average) as prev_avg, count(*) as prev_count')
+                    ->first();
+            }
 
-            if ($prevEvals->count() > 0) {
-                $prevRawAvg = (float)$prevEvals->avg('rating_average');
+            if ($prevStat && (int) $prevStat->prev_count > 0) {
+                $prevRawAvg = (float) $prevStat->prev_avg;
                 $prevOverallAvg = round(($prevRawAvg / 5.0) * $totalScale, 2);
                 if ($prevOverallAvg > 0) {
                     $scoreGrowth = round($totalAchievedPoints - $prevOverallAvg, 2);
@@ -248,32 +578,30 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         // AI Sentiment Analysis & Bilingual Theme Extraction for Page 2
-        $studentEvals = $evaluations->whereIn('evaluation_type', ['student', 'upward_student']);
-        $studentComments = [];
-        $posCount = 0;
-        $neuCount = 0;
-        $negCount = 0;
-
-        foreach ($studentEvals as $eval) {
-            if ($eval->comments && trim($eval->comments) !== '') {
-                $label = $eval->sentiment?->active_label;
-                if (!$label) {
-                    $score = $eval->sentiment?->vader_score ?? 0;
-                    $label = $score > 0.05 ? 'positive' : ($score < -0.05 ? 'negative' : 'neutral');
-                }
-                $label = strtolower($label);
-                if ($label === 'positive') $posCount++;
-                elseif ($label === 'negative') $negCount++;
-                else $neuCount++;
-
-                $studentComments[] = (object) [
-                    'text' => trim($eval->comments),
-                    'sentiment' => $label,
-                ];
-            }
+        if ($preloadedSentimentAggMap !== null) {
+            $sentimentRow = $preloadedSentimentAggMap->get($userId);
+        } else {
+            $sentimentRow = DB::table('evaluations')
+                ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->whereIn('evaluations.evaluation_type', ['student', 'upward_student'])
+                ->whereNotNull('evaluations.comments')
+                ->where('evaluations.comments', '!=', '')
+                ->selectRaw("
+                    count(*) as total_comments,
+                    sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'positive' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score > 0.05) then 1 else 0 end) as pos_count,
+                    sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score < -0.05) then 1 else 0 end) as neg_count,
+                    group_concat(evaluations.comments, ' ') as all_comments
+                ")
+                ->first();
         }
 
-        $totalComments = count($studentComments);
+        $totalComments = (int) ($sentimentRow?->total_comments ?? 0);
+        $posCount = (int) ($sentimentRow?->pos_count ?? 0);
+        $negCount = (int) ($sentimentRow?->neg_count ?? 0);
+        $neuCount = max(0, $totalComments - $posCount - $negCount);
+
         $posPercent = $totalComments > 0 ? round(($posCount / $totalComments) * 100) : 0;
         $neuPercent = $totalComments > 0 ? round(($neuCount / $totalComments) * 100) : 0;
         $negPercent = $totalComments > 0 ? round(($negCount / $totalComments) * 100) : 0;
@@ -291,7 +619,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         // Extract Top Positive & Constructive Themes from Comments
-        $joinedComments = strtolower(implode(' ', array_map(fn($c) => $c->text, $studentComments)));
+        $joinedComments = strtolower($sentimentRow?->all_comments ?? '');
 
         $positiveDrivers = [];
         if (str_contains($joinedComments, 'clear') || str_contains($joinedComments, 'linaw') || str_contains($joinedComments, 'explain')) $positiveDrivers[] = 'Clear & Thorough Subject Explanations';
@@ -309,13 +637,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         if (str_contains($joinedComments, 'absent') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'pasok')) $constructiveThemes[] = 'Attendance & Punctuality: maintain consistent physical/virtual class attendance';
         if (empty($constructiveThemes)) $constructiveThemes = ['Maintain continuous pedagogical refinement and student consultation channels.'];
 
-        // Curated comments sample
-        $curatedComments = array_slice($studentComments, 0, 8);
-
         // Retrieve Dean & Program Head names for signatories
         $deptId = $teacher->department_id;
-        $phEmp = Employee::where('department_id', $deptId)->where('role', 'program head')->where('status', 'active')->first();
-        $deanEmp = Employee::where('role', 'dean')->where('status', 'active')->first();
+        $phMap = $programHeadsByDept ?? $this->getProgramHeadsByDept();
+        $phEmp = $deptId ? $phMap->get($deptId) : null;
+        $deanEmp = $deanEmp ?? $this->getDean();
 
         return (object) [
             'teacher' => $teacher,
@@ -353,7 +679,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'dominant_label' => $dominantSentiment,
                 'positive_drivers' => $positiveDrivers,
                 'constructive_themes' => $constructiveThemes,
-                'curated_comments' => $curatedComments,
             ],
             'program_head_name' => $phEmp ? $phEmp->full_name : 'Program Head',
             'dean_name' => $deanEmp ? $deanEmp->full_name : 'College Dean',
@@ -378,7 +703,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         if ($this->activeTab !== 'summary' || !$this->selectedSemesterId) return null;
 
-        $semester = Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
+        $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
+            ?? Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
         $user = auth()->user();
 
         // 1. Pre-aggregate Department Evaluation Stats via direct SQL
@@ -423,7 +749,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->pluck('count', 'department_id');
 
         // Period-over-period delta vs previous semester
-        $prevSemester = Semester::where('id', '<', $semester->id)->orderBy('id', 'desc')->first();
+        $prevSemester = $this->getPreviousSemester($semester->id);
         $prevDeptAvgMap = collect();
         if ($prevSemester) {
             $prevDeptAvgMap = DB::table('evaluations')
@@ -707,7 +1033,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
 
                 <!-- 3. Faculty Member Select & Print Button -->
-                <div class="lg:col-span-2 flex items-center gap-3">
+                <div class="lg:col-span-2 flex items-center gap-2">
                     <div class="flex-1 min-w-0">
                         <flux:select wire:model.live="selectedTeacherId" placeholder="Select Faculty Member / Professor" clearable>
                             <flux:select.option value="">Choose a Faculty Member ({{ $this->teachers->count() }} found)</flux:select.option>
@@ -718,360 +1044,184 @@ new #[Layout('components.layouts.app')] class extends Component {
                             @endforeach
                         </flux:select>
                     </div>
-                    @if($selectedTeacherId && $selectedSemesterId)
+                    @if($selectedTeacherId && $selectedSemesterId && !$isPrintingAll)
                         <flux:button variant="primary" icon="arrow-down-tray" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white shrink-0 font-bold">
                             Save as PDF
                         </flux:button>
+                    @endif
+                    @if($selectedSemesterId && $this->teachers->isNotEmpty())
+                        @if(!$isPrintingAll)
+                            <flux:button variant="filled" icon="printer" wire:click="startPrintAll" class="shrink-0 font-bold text-xs" title="Generate batch print view for all {{ $this->teachers->count() }} faculty members">
+                                Print All ({{ $this->teachers->count() }})
+                            </flux:button>
+                        @else
+                            <flux:button variant="subtle" icon="x-mark" wire:click="exitPrintAll" class="shrink-0 font-bold text-xs">
+                                Exit Batch View
+                            </flux:button>
+                        @endif
                     @endif
                 </div>
             </div>
         </div>
     @endif
 
-    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab">
+    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab, startPrintAll, exitPrintAll, nextBatchPreview, previousBatchPreview, toggleBatchShowAll, setBatchPreviewIndex">
         @if($activeTab === 'individual')
-            @if($selectedTeacherId && $selectedSemesterId && $this->individualReportData)
-                @php $report = $this->individualReportData; @endphp
-                
-                <!-- Print Document Container -->
-                <div class="flex flex-col gap-10 w-full max-w-5xl mx-auto">
-                    
-                    <!-- ================= PAGE 1: SUMMARY SCORECARD (GRC EXACT REPLICA) ================= -->
-                    <div class="bg-white text-black border border-zinc-400 p-6 sm:p-8 md:p-10 rounded-2xl shadow-xl flex flex-col gap-3.5 print:border-none print:shadow-none print:p-0 print:m-0 print:gap-2.5 print:rounded-none" style="page-break-after: always; break-after: page;">
-                        
-                        <!-- Top Header: Logo + Institutional Header + Boxed Title -->
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-black pb-2 print:pb-1.5">
+            @if($isPrintingAll)
+                @php
+                    $allReports = $this->allReportsData;
+                    $totalReports = $allReports->count();
+                    $currentReport = $allReports->get($batchPreviewIndex) ?? $allReports->first();
+                @endphp
+
+                <div 
+                    x-data="{ 
+                        currentIndex: {{ $batchPreviewIndex }}, 
+                        showAll: {{ $batchShowAllOnScreen ? 'true' : 'false' }}, 
+                        total: {{ $totalReports }},
+                        prev() {
+                            if (this.currentIndex > 0) {
+                                this.currentIndex--;
+                                window.scrollTo({ top: 180, behavior: 'smooth' });
+                            }
+                        },
+                        next() {
+                            if (this.currentIndex < this.total - 1) {
+                                this.currentIndex++;
+                                window.scrollTo({ top: 180, behavior: 'smooth' });
+                            }
+                        }
+                    }"
+                    class="w-full"
+                >
+                    <!-- Batch Print Hub & Stepper Navigator (Screen Only) -->
+                    <div class="bg-amber-50 dark:bg-zinc-900 border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 md:p-5 flex flex-col gap-3.5 shadow-xs print:hidden mb-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-3">
-                                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Logo" class="h-12 sm:h-14 md:h-16 w-auto object-contain" />
-                                <div class="flex flex-col">
-                                    <p class="text-[10.5px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue</p>
-                                    <p class="text-[10.5px] text-zinc-700 leading-tight">Grace Park, Caloocan City</p>
+                                <div class="p-2.5 rounded-xl bg-[#9b0000]/10 text-[#9b0000] dark:bg-[#9b0000]/25 dark:text-red-400 shrink-0">
+                                    <flux:icon icon="printer" class="size-6" />
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="font-bold text-sm md:text-base text-zinc-900 dark:text-zinc-100">
+                                            Batch Print Hub: {{ $totalReports }} Faculty Member{{ $totalReports === 1 ? '' : 's' }}
+                                        </h3>
+                                        <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700/50">
+                                            {{ $totalReports * 2 }} Pages Total
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                        Click "Print / Save All as PDF" to spool all {{ $totalReports }} reports into a single unified PDF file.
+                                    </p>
                                 </div>
                             </div>
 
-                            <div class="border-2 border-black px-3 py-1 text-center max-w-md">
-                                <h2 class="text-xs md:text-[13px] font-black uppercase tracking-wider leading-snug">
-                                    Summary of Faculty Performance Evaluation on Teaching Effectiveness
-                                </h2>
+                            <!-- Main Print Actions -->
+                            <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                                <flux:button variant="primary" icon="arrow-down-tray" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold shrink-0">
+                                    Print / Save All as PDF
+                                </flux:button>
+                                <flux:button variant="subtle" wire:click="exitPrintAll" class="font-bold shrink-0">
+                                    Exit
+                                </flux:button>
                             </div>
                         </div>
 
-                        <!-- Meta Info Grid (School Year, Semester, Faculty Name, Department) -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 text-[11px] font-semibold border-b border-black pb-1.5 print:pb-1">
-                            <div class="flex items-baseline gap-2">
-                                <span class="uppercase tracking-wider">School Year:</span>
-                                <span class="font-bold underline uppercase">{{ $report->semester->academicYear->name }}</span>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <span class="uppercase tracking-wider">Semester:</span>
-                                <span class="font-bold underline uppercase">{{ $report->semester->name }}</span>
-                            </div>
-                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2 mt-0.5">
-                                <span class="uppercase tracking-wider">Name of Faculty Member:</span>
-                                <span class="font-black text-xs md:text-[13px] uppercase underline">{{ $report->teacher->full_name }}</span>
-                            </div>
-                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2">
-                                <span class="uppercase tracking-wider">College / Department:</span>
-                                <span class="font-bold uppercase underline">{{ $report->teacher->department->name ?? 'Academic Faculty' }} ({{ $report->teacher->department->code ?? 'N/A' }})</span>
-                            </div>
-                        </div>
+                        @if($totalReports > 0)
+                            <!-- Stepper / Jump Dropdown & View Mode Switcher -->
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-amber-200/80 dark:border-zinc-800">
+                                <div x-show="!showAll" class="flex items-center gap-2 flex-1 min-w-0">
+                                    <button 
+                                        type="button" 
+                                        @click="prev()" 
+                                        :disabled="currentIndex <= 0" 
+                                        class="shrink-0 size-8 inline-flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all" 
+                                        title="Previous Faculty Report"
+                                    >
+                                        <flux:icon icon="chevron-left" class="size-4" />
+                                    </button>
+                                    
+                                    <div class="flex items-center gap-2 min-w-0 flex-1 sm:max-w-md">
+                                        <select 
+                                            x-model.number="currentIndex" 
+                                            @change="window.scrollTo({ top: 180, behavior: 'smooth' })"
+                                            class="w-full text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 py-1.5 px-2.5 focus:ring-1 focus:ring-[#9b0000] focus:border-[#9b0000]"
+                                        >
+                                            @foreach($allReports as $idx => $r)
+                                                <option value="{{ $idx }}">
+                                                    [{{ $idx + 1 }}/{{ $totalReports }}] {{ $r->teacher->full_name }} ({{ $r->teacher->department?->code ?? 'N/A' }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
 
-                        <!-- Intro Notice -->
-                        <div class="text-[11px] italic font-bold text-zinc-800 -my-0.5">
-                            The following are the summary of your ratings:
-                        </div>
+                                    <button 
+                                        type="button" 
+                                        @click="next()" 
+                                        :disabled="currentIndex >= total - 1" 
+                                        class="shrink-0 size-8 inline-flex items-center justify-center rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all" 
+                                        title="Next Faculty Report" 
+                                    >
+                                        <flux:icon icon="chevron-right" class="size-4" />
+                                    </button>
 
-                        <!-- Evaluation Ratings Section -->
-                        <div class="flex flex-col gap-2 print:gap-1 text-[11px]">
-                            
-                            <!-- 1. STUDENTS EVALUATION -->
-                            <div class="flex flex-col gap-0.5">
-                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide text-[11px]">
-                                    <span>Students Evaluation ({{ $report->student_pct }}%):</span>
-                                    <span class="font-mono text-xs underline">{{ number_format($report->student_section->subtotal, 2) }}</span>
+                                    <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0 hidden md:inline ml-1 font-mono" x-text="'Faculty ' + (currentIndex + 1) + ' of ' + total + ' (Pages ' + ((currentIndex * 2) + 1) + '–' + ((currentIndex * 2) + 2) + ')'">
+                                        Faculty {{ $batchPreviewIndex + 1 }} of {{ $totalReports }} (Pages {{ ($batchPreviewIndex * 2) + 1 }}–{{ ($batchPreviewIndex * 2) + 2 }})
+                                    </span>
                                 </div>
-                                <div class="pl-3 flex flex-col gap-0.5 text-[10.5px]">
-                                    @foreach($report->student_section->parts as $part)
-                                        <div class="flex justify-between items-center py-0 border-b border-dotted border-zinc-300">
-                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
-                                            <span class="font-mono font-bold px-1.5 py-0 border border-black min-w-[50px] text-right text-[10px]">{{ number_format($part->score, 2) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
 
-                            <!-- 2. DEAN'S EVALUATION -->
-                            <div class="flex flex-col gap-0.5">
-                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide text-[11px]">
-                                    <span>Dean's Evaluation ({{ $report->dean_pct }}%):</span>
-                                    <span class="font-mono text-xs underline">{{ number_format($report->dean_section->subtotal, 2) }}</span>
+                                <div x-show="showAll" class="flex items-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400" style="display: none;">
+                                    <flux:icon icon="bars-3-bottom-left" class="size-4 text-zinc-500" />
+                                    <span>Continuous Scroll Mode: Showing all {{ $totalReports }} faculty reports on screen</span>
                                 </div>
-                                <div class="pl-3 flex flex-col gap-0.5 text-[10.5px]">
-                                    @foreach($report->dean_section->parts as $part)
-                                        <div class="flex justify-between items-center py-0 border-b border-dotted border-zinc-300">
-                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
-                                            <span class="font-mono font-bold px-1.5 py-0 border border-black min-w-[50px] text-right text-[10px]">{{ number_format($part->score, 2) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
 
-                            <!-- 3. PROGRAM HEAD'S EVALUATION -->
-                            <div class="flex flex-col gap-0.5">
-                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide text-[11px]">
-                                    <span>Program Head's Evaluation ({{ $report->ph_pct }}%):</span>
-                                    <span class="font-mono text-xs underline">{{ number_format($report->ph_section->subtotal, 2) }}</span>
-                                </div>
-                                <div class="pl-3 flex flex-col gap-0.5 text-[10.5px]">
-                                    @foreach($report->ph_section->parts as $part)
-                                        <div class="flex justify-between items-center py-0 border-b border-dotted border-zinc-300">
-                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
-                                            <span class="font-mono font-bold px-1.5 py-0 border border-black min-w-[50px] text-right text-[10px]">{{ number_format($part->score, 2) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-
-                            <!-- 4. PEER EVALUATION (360° Inclusion) -->
-                            <div class="flex flex-col gap-0.5">
-                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide text-[11px]">
-                                    <span>Peer Evaluation ({{ $report->peer_pct }}%):</span>
-                                    <span class="font-mono text-xs underline">{{ number_format($report->peer_section->subtotal, 2) }}</span>
-                                </div>
-                                <div class="pl-3 flex flex-col gap-0.5 text-[10.5px]">
-                                    @foreach($report->peer_section->parts as $part)
-                                        <div class="flex justify-between items-center py-0 border-b border-dotted border-zinc-300">
-                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
-                                            <span class="font-mono font-bold px-1.5 py-0 border border-black min-w-[50px] text-right text-[10px]">{{ number_format($part->score, 2) }}</span>
-                                        </div>
-                                    @endforeach
+                                <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                    <button 
+                                        type="button" 
+                                        @click="showAll = !showAll" 
+                                        class="text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors flex items-center gap-1.5"
+                                        title="Toggle between single card stepping and scrolling through all reports at once"
+                                    >
+                                        <span x-show="!showAll" class="inline-flex items-center gap-1.5">
+                                            <flux:icon icon="arrows-pointing-out" class="size-3.5 text-zinc-500" />
+                                            <span>Show All on Screen</span>
+                                        </span>
+                                        <span x-show="showAll" class="inline-flex items-center gap-1.5" style="display: none;">
+                                            <flux:icon icon="document" class="size-3.5 text-zinc-500" />
+                                            <span>Single-Card Preview</span>
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
-
-                            <!-- 5. SELF EVALUATION -->
-                            <div class="flex flex-col gap-0.5">
-                                <div class="flex justify-between items-baseline font-black uppercase tracking-wide text-[11px]">
-                                    <span>Self Evaluation ({{ $report->self_pct }}%):</span>
-                                    <span class="font-mono text-xs underline">{{ number_format($report->self_section->subtotal, 2) }}</span>
-                                </div>
-                                <div class="pl-3 flex flex-col gap-0.5 text-[10.5px]">
-                                    @foreach($report->self_section->parts as $part)
-                                        <div class="flex justify-between items-center py-0 border-b border-dotted border-zinc-300">
-                                            <span>{{ $part->roman }}. {{ $part->name }}</span>
-                                            <span class="font-mono font-bold px-1.5 py-0 border border-black min-w-[50px] text-right text-[10px]">{{ number_format($part->score, 2) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bottom Section: Legend Table & Overall Rating Box -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 print:pt-1">
-                            <!-- Legend Table -->
-                            <div class="col-span-2 border-2 border-black text-[10px]">
-                                <table class="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr class="border-b-2 border-black bg-zinc-100 font-bold uppercase">
-                                            <th class="p-0.5 border-r border-black w-6 text-center"></th>
-                                            <th class="p-0.5 border-r border-black px-1.5">Descriptive Rating</th>
-                                            <th class="p-0.5 text-center" colspan="2">Weight Equivalent</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-black font-medium">
-                                        <tr class="{{ $report->rating_code === 'E' ? 'bg-zinc-200 font-bold' : '' }}">
-                                            <td class="p-0.5 text-center border-r border-black font-bold">L</td>
-                                            <td class="p-0.5 border-r border-black px-1.5">Excellent</td>
-                                            <td class="p-0.5 text-center border-r border-black w-16">194.95</td>
-                                            <td class="p-0.5 text-center w-16">200.00</td>
-                                        </tr>
-                                        <tr class="{{ $report->rating_code === 'VS' ? 'bg-zinc-200 font-bold' : '' }}">
-                                            <td class="p-0.5 text-center border-r border-black font-bold">E</td>
-                                            <td class="p-0.5 border-r border-black px-1.5">Very Satisfactory</td>
-                                            <td class="p-0.5 text-center border-r border-black">181.05</td>
-                                            <td class="p-0.5 text-center">194.94</td>
-                                        </tr>
-                                        <tr class="{{ $report->rating_code === 'S' ? 'bg-zinc-200 font-bold' : '' }}">
-                                            <td class="p-0.5 text-center border-r border-black font-bold">G</td>
-                                            <td class="p-0.5 border-r border-black px-1.5">Satisfactory</td>
-                                            <td class="p-0.5 text-center border-r border-black">153.26</td>
-                                            <td class="p-0.5 text-center">181.04</td>
-                                        </tr>
-                                        <tr class="{{ $report->rating_code === 'NI' ? 'bg-zinc-200 font-bold' : '' }}">
-                                            <td class="p-0.5 text-center border-r border-black font-bold">E</td>
-                                            <td class="p-0.5 border-r border-black px-1.5">Need Improvement</td>
-                                            <td class="p-0.5 text-center border-r border-black">139.35</td>
-                                            <td class="p-0.5 text-center">153.25</td>
-                                        </tr>
-                                        <tr class="{{ $report->rating_code === 'P' ? 'bg-zinc-200 font-bold' : '' }}">
-                                            <td class="p-0.5 text-center border-r border-black font-bold">N/D</td>
-                                            <td class="p-0.5 border-r border-black px-1.5">Poor</td>
-                                            <td class="p-0.5 text-center border-r border-black">1.00</td>
-                                            <td class="p-0.5 text-center">139.34</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Overall Rating Box -->
-                            <div class="col-span-1 border-2 border-black p-2 flex flex-col justify-center items-center text-center bg-zinc-50">
-                                <span class="text-[10px] font-black uppercase tracking-wider mb-0.5">Overall Rating</span>
-                                <div class="text-2xl font-black font-mono tracking-tight underline">{{ number_format($report->total_achieved_points, 2) }}</div>
-                                <div class="text-[10px] font-black uppercase mt-1 px-1.5 py-0 border border-black bg-white">
-                                    {{ $report->descriptive_rating }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Signatories Section -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3 print:grid-cols-3 print:pt-3 text-[11px]">
-                            <div class="flex flex-col items-center text-center">
-                                <span class="text-[9.5px] text-zinc-500 uppercase tracking-wider mb-5">Prepared by:</span>
-                                <div class="w-full border-b border-black"></div>
-                                <span class="font-black uppercase mt-0.5 text-[10.5px]">Evaluation Coordinator</span>
-                                <span class="text-[9px] text-zinc-600">HR / Academic Affairs</span>
-                            </div>
-                            <div class="flex flex-col items-center text-center">
-                                <span class="text-[9.5px] text-zinc-500 uppercase tracking-wider mb-5">Noted by:</span>
-                                <div class="w-full border-b border-black"></div>
-                                <span class="font-black uppercase mt-0.5 text-[10.5px]">{{ $report->program_head_name }}</span>
-                                <span class="text-[9px] text-zinc-600">Program Head</span>
-                            </div>
-                            <div class="flex flex-col items-center text-center">
-                                <span class="text-[9.5px] text-zinc-500 uppercase tracking-wider mb-5">Approved by:</span>
-                                <div class="w-full border-b border-black"></div>
-                                <span class="font-black uppercase mt-0.5 text-[10.5px]">{{ $report->dean_name }}</span>
-                                <span class="text-[9px] text-zinc-600">College Dean</span>
-                            </div>
-                        </div>
+                        @endif
                     </div>
 
-
-                    <!-- ================= PAGE 2: AI STUDENT COMMENTS ANALYSIS ================= -->
-                    <div class="bg-white text-black border border-zinc-400 p-8 md:p-12 rounded-2xl shadow-xl flex flex-col gap-6 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none">
-                        
-                        <!-- Top Header: Signatories banner + Logo + Boxed Title -->
-                        <div class="flex justify-between text-[11px] font-bold uppercase border-b border-zinc-300 pb-2">
-                            <span>Human Resource Manager</span>
-                            <span>College Dean</span>
-                            <span>Executive Director</span>
-                        </div>
-
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-black pb-4">
-                            <div class="flex items-center gap-3.5">
-                                <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Global Reciprocal Colleges Logo" class="h-14 md:h-18 w-auto object-contain" />
-                                <div class="flex flex-col">
-                                    <h1 class="text-sm font-black tracking-tight uppercase leading-tight">Global Reciprocal Colleges</h1>
-                                    <p class="text-[10px] text-zinc-700 leading-tight">454 GRC Bldg. Rizal Ave. Ext. 9th Avenue, Grace Park, Caloocan City</p>
+                    <!-- Batch Reports List -->
+                    @if($totalReports > 0)
+                        <div class="flex flex-col gap-12 print:gap-0 w-full max-w-5xl mx-auto print:max-w-none print:w-full">
+                            @foreach($allReports as $index => $report)
+                                <div 
+                                    x-show="showAll || currentIndex == {{ $index }}"
+                                    class="batch-report-item print:!block"
+                                    @if(!$batchShowAllOnScreen && $index !== $batchPreviewIndex) style="display: none;" @endif
+                                >
+                                    @include('livewire.reports.faculty-report-card', ['report' => $report])
                                 </div>
-                            </div>
-
-                            <div class="border-2 border-black px-4 py-2 text-center max-w-md">
-                                <h2 class="text-xs md:text-sm font-black uppercase tracking-wider leading-snug">
-                                    Student's Comments & AI Qualitative Analysis
-                                </h2>
-                            </div>
+                            @endforeach
                         </div>
-
-                        <!-- Meta Info Line -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs font-semibold border-b border-black pb-4">
-                            <div class="flex items-baseline gap-2">
-                                <span class="uppercase tracking-wider">School Year:</span>
-                                <span class="font-bold underline uppercase">{{ $report->semester->academicYear->name }}</span>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <span class="uppercase tracking-wider">Semester:</span>
-                                <span class="font-bold underline uppercase">{{ $report->semester->name }}</span>
-                            </div>
-                            <div class="flex items-baseline gap-2 col-span-1 md:col-span-2 mt-1">
-                                <span class="uppercase tracking-wider">Name of Faculty Member:</span>
-                                <span class="font-black text-sm uppercase underline">{{ $report->teacher->full_name }}</span>
-                            </div>
+                    @else
+                        <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                            <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
+                            <p class="font-medium text-zinc-500">No faculty members found for the current department or search filters.</p>
                         </div>
-
-                        <!-- 1. AI Sentiment Gauge & Distribution Card -->
-                        <div class="border-2 border-black p-5 rounded-xl bg-zinc-50 flex flex-col gap-3">
-                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                <span class="text-xs font-black uppercase tracking-wider">AI Evaluator Sentiment Distribution</span>
-                                <span class="px-2.5 py-0.5 text-xs font-bold border border-black bg-white">
-                                    {{ $report->ai_sentiment->dominant_label }} ({{ $report->ai_sentiment->total_comments }} Total Comments)
-                                </span>
-                            </div>
-                            
-                            <div class="flex items-center gap-4 text-xs font-bold font-mono">
-                                <span>Positive: {{ $report->ai_sentiment->pos_percent }}%</span>
-                                <span>Neutral: {{ $report->ai_sentiment->neu_percent }}%</span>
-                                <span>Constructive: {{ $report->ai_sentiment->neg_percent }}%</span>
-                            </div>
-
-                            <div class="w-full h-3 bg-zinc-200 border border-black rounded-full overflow-hidden flex">
-                                <div class="bg-black h-full" style="width: {{ $report->ai_sentiment->pos_percent }}%" title="Positive: {{ $report->ai_sentiment->pos_percent }}%"></div>
-                                <div class="bg-zinc-500 h-full" style="width: {{ $report->ai_sentiment->neu_percent }}%" title="Neutral: {{ $report->ai_sentiment->neu_percent }}%"></div>
-                                <div class="bg-zinc-300 h-full" style="width: {{ $report->ai_sentiment->neg_percent }}%" title="Constructive: {{ $report->ai_sentiment->neg_percent }}%"></div>
-                            </div>
-                        </div>
-
-                        <!-- 2. Top Commendations & Opportunities (Two-Column Thematic Breakdown) -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Positive Themes -->
-                            <div class="border border-black p-4 rounded-xl flex flex-col gap-2 bg-white">
-                                <div class="flex items-center gap-1.5 text-xs font-black uppercase text-black border-b border-zinc-200 pb-1.5">
-                                    <flux:icon icon="hand-thumb-up" class="size-4" />
-                                    <span>Top Student Commendations</span>
-                                </div>
-                                <ul class="text-xs flex flex-col gap-1.5 mt-1 list-disc pl-4">
-                                    @foreach($report->ai_sentiment->positive_drivers as $theme)
-                                        <li class="font-medium text-zinc-800">{{ $theme }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
-
-                            <!-- Constructive Themes -->
-                            <div class="border border-black p-4 rounded-xl flex flex-col gap-2 bg-white">
-                                <div class="flex items-center gap-1.5 text-xs font-black uppercase text-black border-b border-zinc-200 pb-1.5">
-                                    <flux:icon icon="light-bulb" class="size-4" />
-                                    <span>Key Opportunities for Growth</span>
-                                </div>
-                                <ul class="text-xs flex flex-col gap-1.5 mt-1 list-disc pl-4">
-                                    @foreach($report->ai_sentiment->constructive_themes as $theme)
-                                        <li class="font-medium text-zinc-800">{{ $theme }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        </div>
-
-                        <!-- 3. Curated Representative Student Feedback Highlights -->
-                        <div class="border-2 border-black p-5 rounded-xl flex flex-col gap-3">
-                            <span class="text-xs font-black uppercase tracking-wider border-b border-black pb-1.5">
-                                Representative Student Feedback Extracts (Bilingual NLP Processed)
-                            </span>
-
-                            @if(empty($report->ai_sentiment->curated_comments))
-                                <div class="text-center py-6 text-xs text-zinc-500 font-medium italic">
-                                    No written student comments were recorded for this academic evaluation period.
-                                </div>
-                            @else
-                                <div class="grid grid-cols-1 gap-2.5 max-h-80 overflow-y-auto pr-1">
-                                    @foreach($report->ai_sentiment->curated_comments as $c)
-                                        <div class="p-3 border border-zinc-300 rounded-lg text-xs flex flex-col gap-1 bg-zinc-50/70">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Student Response</span>
-                                                <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 border border-black {{ $c->sentiment === 'positive' ? 'bg-zinc-200 text-black' : ($c->sentiment === 'negative' ? 'bg-black text-white' : 'bg-white text-zinc-700') }}">
-                                                    {{ ucfirst($c->sentiment) }}
-                                                </span>
-                                            </div>
-                                            <p class="italic text-zinc-800 font-medium">"{{ $c->text }}"</p>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
+                    @endif
                 </div>
+            @elseif($selectedTeacherId && $selectedSemesterId && $this->individualReportData)
+                @include('livewire.reports.faculty-report-card', ['report' => $this->individualReportData])
             @else
                 <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                     <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-                    <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the official GRC Summary Performance Report.</p>
+                    <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the official GRC Summary Performance Report, or click "Print All" to view all faculty reports.</p>
                 </div>
             @endif
         @endif
@@ -1275,6 +1425,24 @@ new #[Layout('components.layouts.app')] class extends Component {
             body {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                background-color: white !important;
+                color: black !important;
+            }
+            [data-flux-sidebar],
+            [data-flux-header],
+            header,
+            nav,
+            .print\:hidden {
+                display: none !important;
+            }
+            main, [data-flux-main] {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .batch-report-item {
+                display: block !important;
             }
         }
     </style>

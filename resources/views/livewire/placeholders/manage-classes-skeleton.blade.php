@@ -25,5 +25,5 @@
     </div>
 
     <!-- Classes Table -->
-    <x-skeleton type="table" :rows="8" :cols="7" :colWidths="['w-28', 'w-48', 'w-40', 'w-36', 'w-24', 'w-20', 'w-20']" />
+    <x-skeleton type="table" :rows="8" :cols="6" :colWidths="['w-28', 'w-56', 'w-48', 'w-32', 'w-20', 'w-20']" />
 </div>

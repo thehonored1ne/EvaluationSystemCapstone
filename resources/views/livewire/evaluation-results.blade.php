@@ -66,14 +66,20 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    private ?\Illuminate\Support\Collection $cachedSemesters = null;
+
     public function getSemestersProperty()
     {
-        return Semester::with('academicYear')->orderBy('id', 'desc')->get();
+        if ($this->cachedSemesters !== null) {
+            return $this->cachedSemesters;
+        }
+
+        return $this->cachedSemesters = Semester::with('academicYear')->orderBy('id', 'desc')->get();
     }
 
     public function getDepartmentsProperty()
     {
-        return Department::orderBy('name')->get();
+        return Department::getCachedList();
     }
 
     public function viewDetails($userId)

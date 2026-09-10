@@ -180,5 +180,31 @@ test('individual report renders without errors when selecting a professor', func
         ->assertSee('Faculty1 CCS')
         ->assertSee('Global Reciprocal Colleges')
         ->assertSee('AI Qualitative Analysis')
-        ->assertSee('Students Evaluation');
+        ->assertSee('Students Evaluation')
+        // Assert Page 2 header signatories banner and extracts section were removed
+        ->assertDontSee('Human Resource Manager')
+        ->assertDontSee('Executive Director')
+        ->assertDontSee('Representative Student Feedback Extracts');
+});
+
+test('individual tab supports batch print all for faculty members', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $this->semester->id)
+        ->assertSee('Print All')
+        ->call('startPrintAll')
+        ->assertSet('isPrintingAll', true)
+        ->assertSet('batchPreviewIndex', 0)
+        ->assertSee('Batch Print Hub')
+        ->assertSee('Faculty1 CCS')
+        ->call('nextBatchPreview')
+        ->assertSet('batchPreviewIndex', 1)
+        ->call('toggleBatchShowAll')
+        ->assertSet('batchShowAllOnScreen', true)
+        ->assertSee('Continuous Scroll Mode')
+        ->call('exitPrintAll')
+        ->assertSet('isPrintingAll', false)
+        ->assertDontSee('Batch Print Hub');
 });

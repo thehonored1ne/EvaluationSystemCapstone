@@ -144,134 +144,159 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage('subPage');
     }
 
+    public function rendering(): void
+    {
+        $this->viewData = null;
+    }
+
     public function placeholder()
     {
         return view('livewire.placeholders.manage-activity-skeleton');
     }
 
+    private ?array $viewData = null;
+
     public function with(): array
     {
-        $semesters = Semester::with('academicYear')->orderByDesc('id')->get();
-        $departments = Department::orderBy('name')->get();
-
-        // 1. Audit Logs Query with Eager Loading
-        $auditQuery = Activity::query()
-            ->with(['causer.roles', 'causer.employee'])
-            ->latest('id');
-
-        if (trim($this->searchAudit) !== '') {
-            $term = '%'.trim($this->searchAudit).'%';
-            $auditQuery->where(function ($q) use ($term) {
-                $q->where('description', 'like', $term)
-                    ->orWhere('event', 'like', $term)
-                    ->orWhere('properties', 'like', $term)
-                    ->orWhereHasMorph('causer', [User::class], function ($sub) use ($term) {
-                        $sub->where('name', 'like', $term)
-                            ->orWhere('email', 'like', $term);
-                    });
-            });
+        if ($this->viewData !== null) {
+            return $this->viewData;
         }
 
-        if ($this->eventFilter !== '') {
-            if ($this->eventFilter === 'bulk') {
-                $auditQuery->where(function ($q) {
-                    $q->where('event', 'bulk_updated')
-                        ->orWhere('description', 'like', 'Bulk %');
+        $semesters = Cache::remember('semesters_all_with_ay', 300, function () {
+            return Semester::with('academicYear')->orderByDesc('id')->get();
+        });
+        $departments = Department::getCachedList();
+
+        $totalAuditCount = Cache::remember('activity_log_total_count', 60, fn () => Activity::count());
+        $totalSubmissionsCount = Cache::remember('submissions_total_count', 60, fn () => Evaluation::count());
+
+        if ($this->activeTab === 'audit') {
+            // 1. Audit Logs Query with Eager Loading
+            $auditQuery = Activity::query()
+                ->with(['causer.employee'])
+                ->latest('id');
+
+            if (trim($this->searchAudit) !== '') {
+                $term = '%'.trim($this->searchAudit).'%';
+                $auditQuery->where(function ($q) use ($term) {
+                    $q->where('description', 'like', $term)
+                        ->orWhere('event', 'like', $term)
+                        ->orWhere('properties', 'like', $term)
+                        ->orWhereHasMorph('causer', [User::class], function ($sub) use ($term) {
+                            $sub->where('name', 'like', $term)
+                                ->orWhere('email', 'like', $term);
+                        });
                 });
-            } else {
-                $auditQuery->where('event', $this->eventFilter);
             }
-        }
 
-        if ($this->moduleFilter !== '') {
-            $auditQuery->where('subject_type', 'like', '%'.$this->moduleFilter);
-        }
-
-        if ($this->auditDateFrom !== '') {
-            try {
-                $auditQuery->where('created_at', '>=', Carbon::parse($this->auditDateFrom, 'Asia/Manila'));
-            } catch (\Throwable $e) {}
-        }
-
-        if ($this->auditDateTo !== '') {
-            try {
-                $auditQuery->where('created_at', '<=', Carbon::parse($this->auditDateTo, 'Asia/Manila'));
-            } catch (\Throwable $e) {}
-        }
-
-        $auditLogs = $auditQuery->paginate($this->perPageAudit, ['*'], 'auditPage');
-
-        // 2. Submissions Ledger Query with Eager Loading
-        $submissionsQuery = Evaluation::query()
-            ->with([
-                'evaluator.employee.department',
-                'evaluator.student.program.department',
-                'evaluatee.employee.department',
-                'evaluatee.student.program.department',
-                'class.subject',
-                'semester.academicYear',
-            ])
-            ->latest('id');
-
-        if ($this->semesterFilter !== '') {
-            $submissionsQuery->where('semester_id', (int) $this->semesterFilter);
-        }
-
-        if (trim($this->searchSubmissions) !== '') {
-            $term = '%'.trim($this->searchSubmissions).'%';
-            $submissionsQuery->where(function ($q) use ($term) {
-                $q->whereHas('evaluatee', fn ($sub) => $sub->where('name', 'like', $term))
-                    ->orWhereHas('evaluator', fn ($sub) => $sub->where('name', 'like', $term))
-                    ->orWhereHas('class.subject', fn ($sub) => $sub->where('name', 'like', $term)->orWhere('code', 'like', $term));
-            });
-        }
-
-        if ($this->deptFilter !== '') {
-            $deptId = (int) $this->deptFilter;
-            $submissionsQuery->where(function ($q) use ($deptId) {
-                $q->whereHas('evaluatee.employee', fn ($e) => $e->where('department_id', $deptId))
-                    ->orWhereHas('evaluatee.student.program', fn ($p) => $p->where('department_id', $deptId));
-            });
-        }
-
-        if ($this->evaluatorRoleFilter !== '') {
-            $role = $this->evaluatorRoleFilter;
-            if ($role === 'student') {
-                $submissionsQuery->whereHas('evaluator.student');
-            } elseif ($role === 'faculty') {
-                $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'faculty'));
-            } elseif ($role === 'dean') {
-                $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'dean'));
-            } elseif ($role === 'program head') {
-                $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'program head'));
-            } elseif ($role === 'department head') {
-                $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'department head'));
-            } elseif ($role === 'staff') {
-                $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'staff'));
+            if ($this->eventFilter !== '') {
+                if ($this->eventFilter === 'bulk') {
+                    $auditQuery->where(function ($q) {
+                        $q->where('event', 'bulk_updated')
+                            ->orWhere('description', 'like', 'Bulk %');
+                    });
+                } else {
+                    $auditQuery->where('event', $this->eventFilter);
+                }
             }
+
+            if ($this->moduleFilter !== '') {
+                $auditQuery->where('subject_type', 'like', '%'.$this->moduleFilter);
+            }
+
+            if ($this->auditDateFrom !== '') {
+                try {
+                    $auditQuery->where('created_at', '>=', Carbon::parse($this->auditDateFrom, 'Asia/Manila'));
+                } catch (\Throwable $e) {}
+            }
+
+            if ($this->auditDateTo !== '') {
+                try {
+                    $auditQuery->where('created_at', '<=', Carbon::parse($this->auditDateTo, 'Asia/Manila'));
+                } catch (\Throwable $e) {}
+            }
+
+            $auditLogs = $auditQuery->paginate($this->perPageAudit, ['*'], 'auditPage');
+            $submissions = new LengthAwarePaginator([], 0, $this->perPageSubmissions, 1, [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'pageName' => 'subPage',
+            ]);
+        } else {
+            // 2. Submissions Ledger Query with Eager Loading
+            $submissionsQuery = Evaluation::query()
+                ->with([
+                    'evaluator.employee.department',
+                    'evaluator.student.program.department',
+                    'evaluatee.employee.department',
+                    'evaluatee.student.program.department',
+                    'class.subject',
+                ])
+                ->latest('id');
+
+            if ($this->semesterFilter !== '') {
+                $submissionsQuery->where('semester_id', (int) $this->semesterFilter);
+            }
+
+            if (trim($this->searchSubmissions) !== '') {
+                $term = '%'.trim($this->searchSubmissions).'%';
+                $submissionsQuery->where(function ($q) use ($term) {
+                    $q->whereHas('evaluatee', fn ($sub) => $sub->where('name', 'like', $term))
+                        ->orWhereHas('evaluator', fn ($sub) => $sub->where('name', 'like', $term))
+                        ->orWhereHas('class.subject', fn ($sub) => $sub->where('name', 'like', $term)->orWhere('code', 'like', $term));
+                });
+            }
+
+            if ($this->deptFilter !== '') {
+                $deptId = (int) $this->deptFilter;
+                $submissionsQuery->where(function ($q) use ($deptId) {
+                    $q->whereHas('evaluatee.employee', fn ($e) => $e->where('department_id', $deptId))
+                        ->orWhereHas('evaluatee.student.program', fn ($p) => $p->where('department_id', $deptId));
+                });
+            }
+
+            if ($this->evaluatorRoleFilter !== '') {
+                $role = $this->evaluatorRoleFilter;
+                if ($role === 'student') {
+                    $submissionsQuery->whereHas('evaluator.student');
+                } elseif ($role === 'faculty') {
+                    $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'faculty'));
+                } elseif ($role === 'dean') {
+                    $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'dean'));
+                } elseif ($role === 'program head') {
+                    $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'program head'));
+                } elseif ($role === 'department head') {
+                    $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'department head'));
+                } elseif ($role === 'staff') {
+                    $submissionsQuery->whereHas('evaluator.employee', fn ($e) => $e->where('role', 'staff'));
+                }
+            }
+
+            if ($this->submissionDateFrom !== '') {
+                try {
+                    $submissionsQuery->where('created_at', '>=', Carbon::parse($this->submissionDateFrom, 'Asia/Manila'));
+                } catch (\Throwable $e) {}
+            }
+
+            if ($this->submissionDateTo !== '') {
+                try {
+                    $submissionsQuery->where('created_at', '<=', Carbon::parse($this->submissionDateTo, 'Asia/Manila'));
+                } catch (\Throwable $e) {}
+            }
+
+            $submissions = $submissionsQuery->paginate($this->perPageSubmissions, ['*'], 'subPage');
+            $auditLogs = new LengthAwarePaginator([], 0, $this->perPageAudit, 1, [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'pageName' => 'auditPage',
+            ]);
         }
 
-        if ($this->submissionDateFrom !== '') {
-            try {
-                $submissionsQuery->where('created_at', '>=', Carbon::parse($this->submissionDateFrom, 'Asia/Manila'));
-            } catch (\Throwable $e) {}
-        }
-
-        if ($this->submissionDateTo !== '') {
-            try {
-                $submissionsQuery->where('created_at', '<=', Carbon::parse($this->submissionDateTo, 'Asia/Manila'));
-            } catch (\Throwable $e) {}
-        }
-
-        $submissions = $submissionsQuery->paginate($this->perPageSubmissions, ['*'], 'subPage');
-
-        return [
+        return $this->viewData = [
             'auditLogs' => $auditLogs,
             'submissions' => $submissions,
             'semesters' => $semesters,
             'departments' => $departments,
-            'totalAuditCount' => Activity::count(),
-            'totalSubmissionsCount' => Evaluation::count(),
+            'totalAuditCount' => $totalAuditCount,
+            'totalSubmissionsCount' => $totalSubmissionsCount,
         ];
     }
 }; ?>

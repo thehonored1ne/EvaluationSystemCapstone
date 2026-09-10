@@ -739,7 +739,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     @endphp
 
     <!-- SECTION 3: UNIFIED Evaluation Weights & Questionnaire Parts Setup -->
-    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
+    <div id="weights-section" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xs flex flex-col gap-6 w-full ">
         
         <!-- Section Header -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
@@ -748,9 +748,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     
                     Evaluation Weights & Questionnaire Parts Allocation
                 </h2>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    Configure overall scale, target percentage weights, and specific questionnaire criteria parts directly for each category.
-                </p>
+
             </div>
 
             <div class="flex flex-wrap items-center gap-2 sm:gap-3 self-start sm:self-auto">

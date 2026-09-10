@@ -36,24 +36,56 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public int $perPage = 10;
 
+    private ?Semester $cachedActiveSemester = null;
+    private bool $activeSemesterLoaded = false;
+
     public function getActiveSemesterProperty()
     {
-        return Semester::getActive();
+        if (! $this->activeSemesterLoaded) {
+            $this->cachedActiveSemester = Semester::getActive();
+            $this->activeSemesterLoaded = true;
+        }
+
+        return $this->cachedActiveSemester;
     }
+
+    private ?Collection $cachedDepartments = null;
 
     public function getDepartmentsProperty()
     {
+        if ($this->cachedDepartments !== null) {
+            return $this->cachedDepartments;
+        }
+
         $all = Department::getCachedList();
 
         if (in_array($this->activeTab, ['student', 'program_head', 'professor'], true)) {
-            return $all->where('type', 'academic')->values();
+            return $this->cachedDepartments = $all->where('type', 'academic')->values();
         }
 
         if (in_array($this->activeTab, ['department_head', 'staff'], true)) {
-            return $all->where('type', 'administrative')->values();
+            return $this->cachedDepartments = $all->where('type', 'administrative')->values();
         }
 
-        return collect();
+        return $this->cachedDepartments = collect();
+    }
+
+    private ?Collection $cachedStudentTracking = null;
+    private ?Collection $cachedDeanTracking = null;
+    private ?Collection $cachedProgramHeadTracking = null;
+    private ?Collection $cachedDepartmentHeadTracking = null;
+    private ?Collection $cachedProfessorTracking = null;
+    private ?Collection $cachedStaffTracking = null;
+
+    protected function clearTrackingCaches(): void
+    {
+        $this->cachedDepartments = null;
+        $this->cachedStudentTracking = null;
+        $this->cachedDeanTracking = null;
+        $this->cachedProgramHeadTracking = null;
+        $this->cachedDepartmentHeadTracking = null;
+        $this->cachedProfessorTracking = null;
+        $this->cachedStaffTracking = null;
     }
 
     public function selectTab(string $tab): void
@@ -62,6 +94,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->search = '';
         $this->selectedStatus = 'all';
         $this->selectedDepartmentId = '';
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
@@ -70,26 +103,31 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->search = '';
         $this->selectedStatus = 'all';
         $this->selectedDepartmentId = '';
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
     public function updatedSearch(): void
     {
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
     public function updatedSelectedDepartmentId(): void
     {
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
     public function updatedSelectedStatus(): void
     {
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
     public function updatedPerPage(): void
     {
+        $this->clearTrackingCaches();
         $this->resetPage();
     }
 
@@ -168,9 +206,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedStudentTracking !== null) {
+            return $this->cachedStudentTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedStudentTracking = collect();
         }
 
         $semId = $sem->id;
@@ -240,8 +282,19 @@ new #[Layout('components.layouts.app')] class extends Component
         }
 
         $search = trim($this->search);
+        if ($search !== '') {
+            $term = '%' . $search . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('students.first_name', 'like', $term)
+                    ->orWhere('students.last_name', 'like', $term)
+                    ->orWhere('students.student_number', 'like', $term)
+                    ->orWhere('students.section', 'like', $term)
+                    ->orWhere('programs.code', 'like', $term)
+                    ->orWhere('users.email', 'like', $term);
+            });
+        }
 
-        return $query->get()->map(function ($stu) use ($sem, $semId, $submittedCountMap) {
+        return $this->cachedStudentTracking = $query->get()->map(function ($stu) use ($sem, $semId, $submittedCountMap) {
             $userId = $stu->user_id;
             $enrolled = (int) $stu->enrolled_subjects;
             $completed = $userId ? (int) ($submittedCountMap[$userId] ?? 0) : 0;
@@ -299,9 +352,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedDeanTracking !== null) {
+            return $this->cachedDeanTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedDeanTracking = collect();
         }
 
         $semId = $sem->id;
@@ -341,7 +398,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($targetCount, $evalCountMap) {
+        return $this->cachedDeanTracking = $query->get()->map(function ($emp) use ($targetCount, $evalCountMap) {
             $userId = $emp->user_id;
             $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;
@@ -388,9 +445,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedProgramHeadTracking !== null) {
+            return $this->cachedProgramHeadTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedProgramHeadTracking = collect();
         }
 
         $semId = $sem->id;
@@ -433,7 +494,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $evalCountMap) {
+        return $this->cachedProgramHeadTracking = $query->get()->map(function ($emp) use ($deptFacultyCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptFacCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
             $targetCount = 1 + $deptFacCount + 1; // 1 (Self) + Dept Faculty + 1 (Dean)
@@ -483,9 +544,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedDepartmentHeadTracking !== null) {
+            return $this->cachedDepartmentHeadTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedDepartmentHeadTracking = collect();
         }
 
         $semId = $sem->id;
@@ -528,7 +593,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($deptStaffCountMap, $evalCountMap) {
+        return $this->cachedDepartmentHeadTracking = $query->get()->map(function ($emp) use ($deptStaffCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptStaffCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
             $targetCount = 1 + $deptStaffCount + 1; // 1 (Self) + Dept Staff + 1 (Dean)
@@ -578,9 +643,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedProfessorTracking !== null) {
+            return $this->cachedProfessorTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedProfessorTracking = collect();
         }
 
         $semId = $sem->id;
@@ -631,7 +700,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($deptFacultyCountMap, $deptPhCountMap, $evalCountMap) {
+        return $this->cachedProfessorTracking = $query->get()->map(function ($emp) use ($deptFacultyCountMap, $deptPhCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptFacCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
             $deptPhCount = (int) ($deptPhCountMap[$emp->department_id] ?? 0);
@@ -683,9 +752,13 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        if ($this->cachedStaffTracking !== null) {
+            return $this->cachedStaffTracking;
+        }
+
         $sem = $this->activeSemester;
         if (! $sem) {
-            return collect();
+            return $this->cachedStaffTracking = collect();
         }
 
         $semId = $sem->id;
@@ -728,11 +801,11 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $query->get()->map(function ($emp) use ($deptStaffCountMap, $evalCountMap) {
+        return $this->cachedStaffTracking = $query->get()->map(function ($emp) use ($deptStaffCountMap, $evalCountMap) {
             $userId = $emp->user_id;
             $deptStaffCount = (int) ($deptStaffCountMap[$emp->department_id] ?? 0);
             $peerTarget = max(0, $deptStaffCount - 1);
-            $targetCount = 1 + $peerTarget + 1; // 1 (Self) + Staff Peers + 1 (Department Head)
+            $targetCount = 1 + $peerTarget + 1; // 1 (Self) + Staff Peers + 1 (Dept Head)
 
             $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;

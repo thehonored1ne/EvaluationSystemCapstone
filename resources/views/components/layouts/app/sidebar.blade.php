@@ -372,8 +372,8 @@
                         @endif
 
                         @if($user->hasRole('admin'))
-                            <flux:tooltip content="Evaluation Questions" position="right">
-                                <flux:navlist.item icon="clipboard-document-list" :href="route('admin.questions')" :current="request()->routeIs('admin.questions')" aria-label="Evaluation Questions" wire:navigate>Evaluation Questions</flux:navlist.item>
+                            <flux:tooltip content="Question Builder" position="right">
+                                <flux:navlist.item icon="clipboard-document-list" :href="route('admin.questions')" :current="request()->routeIs('admin.questions')" aria-label="Question Builder" wire:navigate>Question Builder</flux:navlist.item>
                             </flux:tooltip>
                         @endif
 

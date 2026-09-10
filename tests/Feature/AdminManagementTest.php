@@ -207,6 +207,10 @@ test('class crud and student enrollment functions work', function () {
     $component->assertHasNoErrors();
     expect($class->students()->where('student_id', $this->student->id)->exists())->toBeTrue();
 
+    // Table reflects correct enrolled student count
+    Volt::test('admin.manage-classes')
+        ->assertSee('1 student');
+
     // Search excludes already enrolled
     $component->set('studentSearch', 'Jane')
         ->assertViewHas('studentSearchResults', function ($results) {
@@ -388,7 +392,6 @@ test('department automatically detects program head assigned via employee depart
 
     Volt::test('admin.manage-departments')
         ->assertSee('Turing, Alan')
-        ->assertSee('PH-AUTO-01')
         ->assertViewHas('assignedHeadsCount', 1);
 });
 test('filtering user management lists by department works correctly', function () {
@@ -979,9 +982,10 @@ test('admin can assign the same supervising dean to multiple academic and admini
     expect($academicDept->refresh()->dean_id)->toBe($deanEmp->id);
     expect($adminDept->refresh()->dean_id)->toBe($deanEmp->id);
 
-    // Verify Dean is displayed on the Manage Departments list
+    // Verify Dean is retained on department and departments are listed
     Volt::test('admin.manage-departments')
-        ->assertSee('Dean: Vance, Eleanor')
+        ->call('editDepartment', $academicDept->id)
+        ->assertSet('dean_id', (string) $deanEmp->id)
         ->assertSee('College of Accountancy')
         ->assertSee('Registrar Office');
 
@@ -1050,4 +1054,78 @@ test('admin can manage employee employment type and handle resigned status deact
         ->assertSee('Resigned')
         ->set('selectedStatus', 'active')
         ->assertDontSee('PT-101');
+});
+
+test('classes default sort by professor last name and support sorting by subject name', function () {
+    $this->actingAs($this->adminUser);
+
+    $subjA = Subject::create(['code' => 'AAA101', 'name' => 'Algorithms', 'units' => 3]);
+    $subjZ = Subject::create(['code' => 'ZZZ101', 'name' => 'Zoology', 'units' => 3]);
+
+    $profB = Employee::create([
+        'employee_number' => 'PROF-B',
+        'first_name' => 'Albert',
+        'last_name' => 'Brown',
+        'role' => 'faculty',
+        'status' => 'active',
+    ]);
+    $profW = Employee::create([
+        'employee_number' => 'PROF-W',
+        'first_name' => 'Charles',
+        'last_name' => 'Williams',
+        'role' => 'faculty',
+        'status' => 'active',
+    ]);
+
+    $class1 = AcademicClass::create([
+        'subject_id' => $subjZ->id,
+        'teacher_id' => $profB->id,
+        'semester_id' => $this->semester->id,
+        'section' => 'SEC-BROWN',
+    ]);
+
+    $class2 = AcademicClass::create([
+        'subject_id' => $subjA->id,
+        'teacher_id' => $profW->id,
+        'semester_id' => $this->semester->id,
+        'section' => 'SEC-WILLIAMS',
+    ]);
+
+    // 1. Default sort: professor last name A-Z (Brown before Williams)
+    Volt::test('admin.manage-classes')
+        ->assertViewHas('classes', function ($paginator) {
+            $items = $paginator->items();
+
+            return $items[0]->section === 'SEC-BROWN';
+        });
+
+    // 2. Sort by subject name A-Z (Algorithms before Zoology)
+    Volt::test('admin.manage-classes')
+        ->set('sortBy', 'subject_asc')
+        ->assertViewHas('classes', function ($paginator) {
+            $items = $paginator->items();
+
+            return $items[0]->section === 'SEC-WILLIAMS';
+        });
+});
+
+test('admin can open department member roster modal and view employees', function () {
+    $this->actingAs($this->adminUser);
+
+    $dept = Department::create(['code' => 'DMR', 'name' => 'Department of Modern Robotics']);
+    $member = Employee::create([
+        'employee_number' => 'ROBO-007',
+        'first_name' => 'Isaac',
+        'last_name' => 'Asimov',
+        'role' => 'faculty',
+        'status' => 'active',
+        'department_id' => $dept->id,
+    ]);
+
+    Volt::test('admin.manage-departments')
+        ->call('viewMembers', $dept->id)
+        ->assertSet('showMembersModal', true)
+        ->assertSet('viewingDepartmentId', $dept->id)
+        ->assertSee('Asimov, Isaac')
+        ->assertSee('ROBO-007');
 });

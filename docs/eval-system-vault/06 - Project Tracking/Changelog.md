@@ -15,6 +15,133 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-11]
+
+- **Test Suite Isolation & Development Database Safeguard** ([`TestCase.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/TestCase.php), [`database.sqlite`](file:///c:/Users/USER/Herd/evaluationsystem/database/database.sqlite)):
+  - **Root Cause Analysis:** Running `php artisan optimize` or `php artisan config:cache` in local development generated `bootstrap/cache/config.php` mapped to the local `.env` database (`database.sqlite`). Running `./vendor/bin/pest` subsequently loaded the cached configuration—bypassing PHPUnit's `<env name="DB_DATABASE" value="database/testing.sqlite"/>`—and caused Pest's `RefreshDatabase` trait to run `migrate:fresh` against the development database, repeatedly wiping out all seeded records.
+  - **Automated Cache Cleanup in `createApplication()`:** Overrode `TestCase::createApplication()` to automatically remove `bootstrap/cache/config.php` if present whenever a test runner initializes.
+  - **Strict In-Memory Configuration Enforcement:** Enforced `'database.default' => 'sqlite'` and `'database.connections.sqlite.database' => database_path('testing.sqlite')` directly in-memory before every test application boot, followed by `DB::purge()`.
+  - **Physical Safety Guard Hook (`beforeRefreshingDatabase()`):** Implemented the `beforeRefreshingDatabase()` hook in `TestCase`. If the active SQLite connection resolves to `database/database.sqlite`, it immediately throws a `RuntimeException` to abort execution before any destructive `migrate:fresh` command can execute.
+  - **Environment Restoration:** Reseeded local development database (`database/database.sqlite`) via `php artisan migrate:fresh --seed` (3,324 users, 3,200 students, 40,087 evaluations restored).
+  - **Verification:** 100% of the test suite (189 tests, 884 assertions) passing green without mutating or resetting `database.sqlite`; Pint formatting clean.
+
+## [2026-09-10]
+
+- **Manage Classes & Enrollment: 91.3% View Count Reduction, 95.6% Model Hydration Reduction & Enrolled Count Fix** ([`manage-classes.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php), [`Subject.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Subject.php), [`Program.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Program.php), [`AdminManagementTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminManagementTest.php)):
+  - **Enrolled Student Count Display Fix:** Resolved issue where the "Enrolled" column rendered "0 students" on all classes even when students were enrolled. Cause: `withCount('students')` was added before sorting logic which executed `->select('classes.*')`, completely wiping out the `(SELECT COUNT(*) ...) AS students_count` subquery. Fixed by assigning `->select('classes.*')` upfront and applying `->withCount('students')` after joins/sorts. Verified in automated test suite.
+  - **881 Views Optimization (91.3% Reduction down to 77 views):**
+    - Identified that Flux's `<flux:select.option>` rendered nested `select.option.index` and `select.option.variants.default` view files for every dropdown item (over 400 view instances across 150 subjects, semesters, departments, and programs). Replaced with native HTML `<option>` elements inside `<flux:select>`.
+    - Identified that `<flux:dropdown>` in table rows instantiated 180+ component view files (menus, separators, icons, buttons) across 10 table rows. Replaced with lightweight, accessible Alpine.js action dropdowns.
+    - Replaced `<flux:badge>` in table cells with lightweight inline Tailwind badges.
+    - Result: Total Blade component views rendered plummeted from **881 views down to 77 views**.
+  - **Query & Model Hydration Optimization:**
+    - Livewire 3 + Volt dual-execution eliminated via `$this->viewData` memoization in `with()` and `rendering()` reset hook.
+    - Deferred `$teachersList` and `$programsList` to only load when their respective modals are active.
+    - Cached subject list (`subjects_dropdown_list`) for 300 seconds with cache-busting in `Subject.php`.
+    - Result: Dropped database queries from **42 to 11 (0 duplicates)**, and models hydrated from **578 to 25**.
+  - **Automated Verification:** All feature tests passing; Pint clean.
+
+- **Activity Log & Submissions Ledger: Elimination of 40 Duplicate Queries & Tab Query Segregation** ([`manage-activity.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-activity.blade.php), [`Semester.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Semester.php)):
+  - **Livewire 3 Dual-Execution Root Cause:** Debugbar reported 44 queries (40 duplicates, 4 unique) on every interaction on `/admin/activity`. Identified that Livewire 3's `SupportWithMethod` component hook and Volt's `Component::render()` both invoke `with()`, executing every database query on the page twice per HTTP request.
+  - **Render Lifecycle Memoization:** Memoized `$this->viewData` in `with()` and reset it in `rendering()`, ensuring `with()` executes exactly once per render cycle and instantly cutting all queries on the page in half.
+  - **Segregated Tab Data Loading:** Refactored `with()` to load data conditionally based on `$this->activeTab`:
+    - When on `audit` tab, returns an empty `LengthAwarePaginator` for submissions, completely eliminating 6 levels of nested eager loads (`evaluator.employee.department`, `evaluator.student.program.department`, `evaluatee.employee.department`, `evaluatee.student.program.department`, `class.subject`, `semester.academicYear`) and evaluation pagination queries.
+    - When on `submissions` tab, returns an empty `LengthAwarePaginator` for audit logs, completely bypassing `activity_log` queries.
+  - **Query & Relation Trimming:** Removed unreferenced `causer.roles` pivot eager loading from the audit query (retaining only `causer.employee`) and unreferenced `semester.academicYear` from the submissions query.
+  - **Dropdown & Aggregate Caching:** Replaced direct query for departments with `Department::getCachedList()`, cached `semesters_all_with_ay` for 300 seconds (with cache-busting on `Semester::saved/deleted`), and cached `totalAuditCount` and `totalSubmissionsCount` for 60 seconds.
+  - **Benchmark Result:** Reduced queries from **44 statements (40 duplicates) down to 4 queries on initial audit load and 8 queries on submissions load (0 duplicates)**.
+  - **Full Automated Testing:** 189 Pest feature tests passing (100% green, 883 assertions); Pint clean.
+
+- **System-Wide Performance, Database Indexing & Memory Optimization** ([`2026_09_10_220000_add_evaluatee_index_to_evaluations_table.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/migrations/2026_09_10_220000_add_evaluatee_index_to_evaluations_table.php), [`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php), [`manage-evaluations.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/manage-evaluations.blade.php), [`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php)):
+  - **Database Index Optimization:** Added composite B-Tree index `evaluations_sem_evaluatee_idx` on `evaluations(['semester_id', 'evaluatee_id'])`. Previously, only `['semester_id', 'evaluator_id']` was indexed, forcing table scans for all evaluatee/faculty-grouped queries across Reports, Rankings, Results, and Admin Dashboards.
+  - **Rankings Memoization:** Memoized `$cachedBaseFacultyRankings` and `$cachedActiveSemester` in `rankings.blade.php`, preventing full faculty leaderboard recalculation 2-3 times per render and making department/search filtering instantaneous in-memory.
+  - **Completion Tracking Optimizations & Tab Switching Fix:** Memoized tracking collections and pushed text search (`students.first_name`, `last_name`, `student_number`, `section`, `users.email`, `programs.code`) directly into SQL in `manage-evaluations.blade.php`, reducing rows loaded during student searches and eliminating redundant tracking re-queries across tab clicks. Resolved undefined `$deptStaffCount` variable in staff tab mapping and added automated test covering switching across all 6 evaluator tabs.
+  - **Evaluation Results Caching:** Updated `evaluation-results.blade.php` to leverage `Department::getCachedList()` and memoized `getSemestersProperty()`.
+  - **Full Automated Testing:** 189 Pest feature tests passing (100% green, 883 assertions); Pint clean.
+
+- **Official Faculty Performance Reports: Elimination of N+1 Queries & Comprehensive Query Optimization** ([`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)):
+  - **Identified Debugbar Root Cause:** In batch printing mode with 54 faculty members, Debugbar reported 74 total queries with 55 duplicates of `select * from "semesters" where "id" < 1 order by "id" desc limit 1`. For the active semester (Semester 1), `$prevSemester` resolved to `null`. Inside `getReportDataForTeacher()`, the check `$preloadedPrevSemester !== null` evaluated to `false`, repeatedly triggering the fallback database query on every teacher iteration.
+  - **In-Memory Previous Semester Memoization:** Introduced `getPreviousSemester(int $semesterId): ?Semester` backed by `$prevSemesterMap = []`. Using `array_key_exists()` allows caching `null` results when no prior term exists, dropping previous semester queries from **55 queries down to 1** across the entire request.
+  - **Component Property Memoization:** Memoized `$cachedSemesters`, `$cachedTeachers`, `$cachedDepartments`, `$cachedCriteria`, `$cachedDean`, and `$cachedProgramHeads` to prevent Livewire Volt re-evaluating computed properties multiple times per render (e.g., `$this->teachers` called across count tags, option loops, and permission checks).
+  - **Lifecycle Cache Busting:** Added automatic cache invalidation in `updatedSearchTeacher()`, `updatedSelectedDepartment()`, and `updatedSelectedSemesterId()`.
+  - **Benchmark Result:** Reduced total queries in a batch printing request from **74 statements (55 duplicate queries) down to 14 total queries (0 duplicate semester queries)**, a **~81% query reduction**.
+  - **Full Suite Verification:** Executed 188 automated tests (100% passed, 0 failures, 876 assertions); Pint clean.
+
+- **Official Faculty Performance Reports: Error 500 Resolution & High-Scale Memory Optimization** ([`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php), [`manage-departments.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-departments.blade.php), [`ReportsSummaryTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/ReportsSummaryTest.php), [`DepartmentHeadTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/DepartmentHeadTest.php)):
+  - **Error 500 / Memory Exhaustion Root Cause:** On production/development scale databases (~40,000 evaluations across 54 faculty members), `getAllReportsDataProperty` attempted to hydrate over 92,000 Eloquent model instances simultaneously via `Evaluation::with(['sentiment', 'evaluator.employee'])` and nested `whereIn` queries on `evaluation_answers`. This exceeded the 128MB PHP memory limit (`Allowed memory size of 134217728 bytes exhausted`).
+  - **Lightweight SQL Pre-Aggregation Architecture:** Refactored batch data loading to pre-calculate all teacher metrics using 4 targeted SQL aggregations:
+    1. Criteria rating averages grouped by `evaluatee_id` and `criterion_id` (~400ms, <1MB memory).
+    2. Section statistics (counts and averages) grouped by `evaluatee_id`, `evaluation_type`, and `evaluator_role` with Spatie role fallback (~40ms, <1MB memory).
+    3. AI evaluator sentiment distributions and concatenated comments per faculty member (~50ms, 2MB memory).
+    4. Semester-over-semester growth averages in 1 query (~20ms).
+  - **Result:** Batch report generation for all 54 teachers now executes in **0.509s** using only **6MB of memory** (down from >134MB crash), achieving 100% data fidelity with zero HTTP 500 errors.
+  - **Defensive Safeguards:** Added `ini_set('memory_limit', '512M')` in `startPrintAll()` and `getAllReportsDataProperty()`.
+  - **Single Teacher Report Optimization:** Upgraded `getReportDataForTeacher()` to leverage targeted direct SQL queries when called standalone, completing individual reports in <15ms without hydrating hundreds of models.
+  - **Batch Stepper Navigation Fix:** Replaced conflicting static `hidden` CSS classes with Alpine's native `x-show="showAll || currentIndex == $index"` and `@media print` `.batch-report-item { display: block !important; }`. Fixed the issue where clicking "Next" failed to render subsequent faculty members on screen due to class specificity collisions. Added smooth scroll to top when stepping through faculty cards.
+
+- **Official Faculty Performance Reports: Batch Print All & Page 2 Streamlining** ([`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php), [`faculty-report-card.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports/faculty-report-card.blade.php), [`ReportsSummaryTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/ReportsSummaryTest.php)):
+  - **Page 2 Signatories Banner Removal:** Removed the redundant header signatories banner (`HUMAN RESOURCE MANAGER | COLLEGE DEAN | EXECUTIVE DIRECTOR`) across the top of Page 2, keeping the formal GRC institutional letterhead, address, and boxed title intact.
+  - **Representative Student Feedback Extracts Removal:** Removed Section 3 ("Representative Student Feedback Extracts (Bilingual NLP Processed)") and individual comment quote cards from Page 2 to maintain concise executive focus on the AI Evaluator Sentiment Distribution and Top Commendations / Opportunities for Growth thematic breakdowns.
+  - **Batch "Print All" Capability & 0ms Instant Client Stepper:**
+    - Refactored single-report generation into a reusable, N+1 optimized method (`getReportDataForTeacher(...)`) and added `getAllReportsDataProperty`.
+    - Added an interactive **"Print All (X)"** button in the faculty selection bar when an academic semester is selected.
+    - **Zero-Latency (0ms) Alpine.js Stepper:** Shifted on-screen stepper navigation (`[◀ Previous]`, `[Next ▶]`, and dropdown faculty selector) to a pure client-side Alpine.js state controller (`currentIndex`, `showAll`, `next()`, `prev()`). This eliminates server roundtrips on button clicks, enabling instantaneous (0ms) switching between faculty report cards.
+    - **Bulk SQL Query Batching:** Replaced the sequential per-faculty query loop with 3 consolidated bulk queries (`whereIn('evaluatee_id', ...)` for active and previous terms, and bulk criteria answer aggregation). Reduces database roundtrips from 100+ down to 3, drastically speeding up initial batch load.
+    - **Background Print Spooling:** When "Print / Save All as PDF" is clicked, CSS `@media print` automatically unhides and spools all faculty cards simultaneously into a unified multi-page PDF with exact 2-page boundaries (`page-break-after: always; break-after: page;`).
+    - Enhanced `@media print` rules to strip application sidebars, navigation bars, and container padding for 100% fidelity browser prints.
+  - **Modular Architecture:** Extracted Page 1 and Page 2 markup into a reusable Blade partial (`livewire.reports.faculty-report-card`), eliminating ~350 lines of duplicate markup between single and batch views.
+  - **Automated Verification:** Added dedicated Pest tests in `ReportsSummaryTest.php` asserting removal of Page 2 header signatories and extracts section, as well as full batch print stepper and spooling coverage (8 passed, 40 assertions, 100% green); 0 Pint lint warnings.
+
+
+- **Admin Management Modernization: Subjects, Classes, Departments & Programs (Tasks #1, #2, #3, #4)** ([`manage-subjects.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-subjects.blade.php), [`manage-classes.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php), [`manage-departments.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-departments.blade.php), [`manage-programs.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-programs.blade.php)):
+  - **Task #1 (Manage Subjects):**
+    - Overhauled the 3 KPI cards into the executive borderless standard without decorative icons (`Curricular Catalog`, `Active This Term`, `Unscheduled Catalog`).
+    - Replaced static database counts with active term catalog metrics showing utilization rate (`X% scheduled in active term`).
+    - Removed legacy schedule picker from quick class modal and Schedule column from subject classes modal.
+    - Synchronized `manage-subjects-skeleton.blade.php` 1:1.
+  - **Task #2 (Manage Classes & Enrollment):**
+    - Set default table ordering to alphabetical A-Z by professor last name (`classes.teacher_id` joined to `employees`).
+    - Replaced the "All Professors" filter dropdown with a Sort By dropdown (`Professor (A-Z)`, `Professor (Z-A)`, `Subject Name (A-Z)`, `Subject Name (Z-A)`).
+    - Streamlined the subject filter dropdown to show only subject titles (`{{ $subj->name }}`), removing redundant code prefixes.
+    - Removed the Schedule column from the main classes table and removed schedule pickers from class creation/edit forms.
+    - Synchronized `manage-classes-skeleton.blade.php` to 6 table columns.
+  - **Task #3 (Manage Departments):**
+    - Redesigned 4 KPI cards to executive borderless standard (`Academic Colleges`, `Administrative Units`, `Leadership Coverage`, `Total Departments`).
+    - Simplified the "Head" table column to show solely the assigned head's name (`{{ $assignedLeader->formatted_name }}`) or `Unassigned`, removing employee number and supervising Dean sub-lines.
+    - Made the "Members" count pill interactive (`wire:click="viewMembers({{ $dept->id }})"`), opening a dedicated member roster modal with member names, employee IDs, and role pills.
+    - Re-balanced table column widths (`Department Name` 35%, `Type` 18%, `Head` 27%, `Members` 10%, `Actions` 10%).
+    - Synchronized `manage-departments-skeleton.blade.php` 1:1.
+  - **Task #4 (Manage Academic Programs):**
+    - Redesigned 4 KPI cards with borderless executive styling (`Total Degree Programs`, `Program Leadership`, `Enrolled Majors`, `Participating Colleges`).
+    - Filtered the department select dropdown to display strictly academic departments (`type = 'academic'` or null), removing administrative units from degree program assignments.
+    - Synchronized `manage-programs-skeleton.blade.php` 1:1.
+  - **Automated Verification:** All 19 tests in `AdminManagementTest.php` passing (142 assertions, 100% green); zero Laravel Pint code-style warnings.
+
+- **Rankings Dashboard Modernization & Semantic Polish (Task #7)** ([`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php), [`skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/skeleton.blade.php), [`RankingsEmptyAndActiveSemesterTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/RankingsEmptyAndActiveSemesterTest.php)):
+  - **Department Filter Streamlining:** Cleaned up the department filter select dropdown options to display only the department code (e.g. `CCS`, `COA`), eliminating visual crowding and mobile overflows while preserving `All Departments` as default.
+  - **Executive Card Standard Redesign:** Replaced legacy `border-l-[5px]` red accent lines with clean perimeter-bordered cards (`border border-zinc-200 dark:border-zinc-800 rounded-xl`) across all 4 top KPI cards without distracting icons. Refined Card 3 to **Evaluation Coverage** displaying evaluated count over total faculty (`X / Y faculty`) with active participation percentage and pending count.
+  - **Table Columns & Semantic Clarity:** Renamed ambiguous `Evaluations` column to **`Reviews Received`** matching the Results page. Updated count display to explicit review wording (`X reviews`, or italic muted `0 reviews`). Streamlined department leaderboard member count to `X members`.
+  - **Faculty Leaderboard Pagination with Global Rank Preservation:** Paginated the faculty leaderboard (10 per page) using `LengthAwarePaginator` and `WithPagination`, retaining true institutional ranks (`#1..#10` on Page 1, `#11..#20` on Page 2) and resetting page index on search or filter changes.
+  - **Certificate of Teaching Excellence Generator:** Added a formal printable certificate generator modal for top performing faculty (Top 3 or Outstanding $\ge 4.50$), styled with GRC institutional branding, recipient citation, dean and VPAA signature lines, and one-click print/save as PDF.
+  - **Zero CLS & Skeleton Synchronization:** Updated the `stat-card` skeleton variant in `components/skeleton.blade.php` to match borderless styling 1:1.
+  - **Test Suite & Quality:** Updated `RankingsEmptyAndActiveSemesterTest.php` with 5 tests passing (35 assertions, 100% green); 0 Pint lint warnings.
+
+- **Question Builder 3-Dot Action Popover & Sidebar Rebranding** ([`manage-questions.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-questions.blade.php), [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), [`manage-questions-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/manage-questions-skeleton.blade.php)):
+  - **3-Dot Dropdown Popover:** Replaced the cluttered row button cluster with a modern 3-dot popover menu (`<flux:dropdown align="end">`), keeping a neat status pill on the row and organizing `Edit Question`, `Move Up`, `Move Down`, `Activate / Deactivate`, and `Delete Question` cleanly inside the menu.
+  - **Sidebar Menu Rebrand:** Renamed the navigation item and tooltip from **Evaluation Questions** to **Question Builder**.
+  - **Test Suite Resolution:** Isolated PHPUnit and Pest runtime via `.env.testing` and resolved cached configuration conflicts, achieving 100% green test suite (183 passed, 843 assertions across the entire application).
+
+- **Manage Questions Modernization, Data Integrity Hardening & Accessible Modals** ([`manage-questions.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-questions.blade.php), [`manage-questions-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/manage-questions-skeleton.blade.php), [`AdminManageQuestionsTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminManageQuestionsTest.php)):
+  - **Cascade Deletion Guard (Data Loss Prevention):** Prevented destructive foreign-key cascade deletions on `evaluation_answers`. When an admin attempts to delete a question with existing submitted evaluation responses, the system blocks deletion, displays an alert in the confirmation modal, and provides a safe "Deactivate Question" alternative.
+  - **Inline Reordering (Move Up / Move Down):** Added instant single-click up and down order swapping (`moveUp()` / `moveDown()`) on question rows with automatic adjacent order normalization.
+  - **Live Question Counts & Category Badges:** Implemented computed `categoryCounts` providing live total question pills across all 7 category tabs (`Student (18)`, etc.) and part headers (`X Questions • Max: Y pts`).
+  - **Accessible Native `<flux:modal>`:** Replaced custom fixed `<div>` backdrop overlays with standard `<flux:modal wire:model="showFormModal">` and `<flux:textarea>`, ensuring APG keyboard accessibility, focus trapping, Esc key dismiss, and submit button loading state.
+  - **Executive Card Styling Standard:** Removed legacy `border-l-[5px]` accent bars across criteria part cards, adopting the project standard borderless card layout (`border border-zinc-200 dark:border-zinc-800 rounded-xl`).
+  - **Global Empty Search State:** Replaced multi-box empty messages during question searches with a single centered empty state featuring a quick "Clear Search" button.
+  - **Dead Code Cleanup:** Removed unused semester max points calculations and properties executing on every render.
+  - **Zero CLS Skeleton Synchronization:** Updated `manage-questions-skeleton.blade.php` to mirror the new card styling and tab badges 1:1.
+  - **Automated Testing:** 100% pass across all 11 tests in `AdminManageQuestionsTest` and `AdminLayoutTest` (54 assertions); 0 Pint lint errors.
+
 ## [2026-09-09]
 
 - **Evaluation Results Full-Canvas, Modal Simplification & Table Sorting (Task #6)** ([`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php), [`evaluation-results-skeleton.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/placeholders/evaluation-results-skeleton.blade.php), [`ThematicAnalysisService.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Services/ThematicAnalysisService.php)):

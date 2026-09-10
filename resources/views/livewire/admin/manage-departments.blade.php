@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Models\Department;
 use App\Models\Employee;
@@ -42,9 +42,26 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public bool $showDeleteModal = false;
 
+    public bool $showMembersModal = false;
+
+    public ?int $viewingDepartmentId = null;
+
     public ?Department $editingDepartment = null;
 
     public ?Department $deletingDepartment = null;
+
+    public function viewMembers(int $departmentId): void
+    {
+        $this->viewingDepartmentId = $departmentId;
+        $this->showMembersModal = true;
+    }
+
+    public function getViewingDepartmentProperty(): ?Department
+    {
+        return $this->viewingDepartmentId
+            ? Department::with(['employees' => fn ($q) => $q->orderBy('last_name')->orderBy('first_name')])->find($this->viewingDepartmentId)
+            : null;
+    }
 
     public function updatedSearch()
     {
@@ -332,48 +349,63 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Top Row Essential Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Card 1: Total Departments -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Departments</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalDepartments" /></span>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        <!-- Card 1: Academic Departments -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Academic Units</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$academicDeptsCount" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Colleges offering degree programs
                 </div>
-                <flux:icon name="building-office-2" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
 
-        <!-- Card 2: Academic Departments -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #0284c7 !important;">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Academic Depts</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$academicDeptsCount" /></span>
+        <!-- Card 2: Administrative Units -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Administrative Units</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$administrativeDeptsCount" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Institutional support offices
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-sky-600 dark:text-sky-400" />
             </div>
         </div>
 
-        <!-- Card 3: Administrative Departments -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #d97706 !important;">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Administrative Depts</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$administrativeDeptsCount" /></span>
+        <!-- Card 3: Leadership Coverage -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Leadership Coverage</span>
+            <div class="space-y-1.5">
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                        <x-odometer :value="$assignedLeadersCount" />
+                    </span>
+                    <span class="text-xs text-zinc-400 font-medium">/ {{ $totalDepartments }} depts</span>
                 </div>
-                <flux:icon name="briefcase" class="size-6 text-amber-600 dark:text-amber-400" />
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    @if($totalDepartments > 0)
+                        {{ round(($assignedLeadersCount / $totalDepartments) * 100, 1) }}% assigned designated heads
+                    @else
+                        No departments created
+                    @endif
+                </div>
             </div>
         </div>
 
-        <!-- Card 4: Assigned Department Leaders -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200" style="border-left: 5px solid #16a34a !important;">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Leaders</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$assignedLeadersCount" /></span>
+        <!-- Card 4: Total Department Units -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Departments</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$totalDepartments" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Total recognized institutional divisions
                 </div>
-                <flux:icon name="user-group" class="size-6 text-emerald-600 dark:text-emerald-400" />
             </div>
         </div>
     </div>
@@ -454,7 +486,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 @endif
                             </td>
 
-                            <!-- Head & Dean -->
+                            <!-- Head -->
                             <td class="px-4 py-3.5 dark:text-zinc-300 text-xs whitespace-nowrap">
                                 @php
                                     $isAdminType = ($dept->type ?? 'academic') === 'administrative';
@@ -462,29 +494,29 @@ new #[Layout('components.layouts.app')] class extends Component
                                         ? ($dept->departmentHead ?: $dept->departmentHeads->first()) 
                                         : ($dept->programHead ?: $dept->programHeads->first());
                                 @endphp
-                                <div class="space-y-1">
-                                    @if($assignedLeader)
-                                        <div>
-                                            <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $assignedLeader->formatted_name }}</span>
-                                            <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">{{ $assignedLeader->employee_number }} ({{ $isAdminType ? 'Dept Head' : 'Prog Head' }})</span>
-                                        </div>
-                                    @else
-                                        <span class="text-zinc-400 italic text-[11px] block">No Head Assigned</span>
-                                    @endif
-
-                                    @if($dept->dean)
-                                        <div class="pt-0.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1">
-                                            <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">Dean: {{ $dept->dean->formatted_name }}</span>
-                                        </div>
-                                    @endif
-                                </div>
+                                @if($assignedLeader)
+                                    <span class="font-semibold text-zinc-900 dark:text-zinc-100 block">{{ $assignedLeader->formatted_name }}</span>
+                                @else
+                                    <span class="text-zinc-400 italic text-[11px] block">Unassigned</span>
+                                @endif
                             </td>
 
-                            <!-- Members Count -->
+                            <!-- Members Count (Clickable interactive badge) -->
                             <td class="px-4 py-3.5 text-center whitespace-nowrap">
-                                <flux:badge size="sm" color="indigo" class="font-bold">
-                                    {{ $dept->employees_count }} {{ Str::plural('Member', $dept->employees_count) }}
-                                </flux:badge>
+                                @if($dept->employees_count > 0)
+                                    <button 
+                                        type="button" 
+                                        wire:click="viewMembers({{ $dept->id }})" 
+                                        class="inline-flex items-center gap-1 cursor-pointer transition-transform active:scale-95"
+                                        title="View department member roster"
+                                    >
+                                        <flux:badge size="sm" color="indigo" class="font-bold hover:ring-2 hover:ring-indigo-400 cursor-pointer">
+                                            {{ $dept->employees_count }} {{ Str::plural('Member', $dept->employees_count) }}
+                                        </flux:badge>
+                                    </button>
+                                @else
+                                    <span class="text-xs text-zinc-400 font-normal">0 Members</span>
+                                @endif
                             </td>
 
                             <!-- Actions -->
@@ -622,5 +654,64 @@ new #[Layout('components.layouts.app')] class extends Component
         @endif
     </x-confirmation-modal>
     @endif
+
+    <!-- View Department Members Modal -->
+    <flux:modal wire:model="showMembersModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-2xl !p-4 sm:!p-6">
+        @if($this->viewingDepartment)
+            <div class="space-y-4">
+                <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                    <div>
+                        <flux:heading size="lg">{{ $this->viewingDepartment->name }}</flux:heading>
+                        <flux:subheading class="text-xs text-zinc-500">
+                            {{ $this->viewingDepartment->code }} &bull; Department Roster ({{ $this->viewingDepartment->employees->count() }} {{ Str::plural('member', $this->viewingDepartment->employees->count()) }})
+                        </flux:subheading>
+                    </div>
+                    <flux:modal.close>
+                        <flux:button size="sm" variant="ghost" icon="x-mark" />
+                    </flux:modal.close>
+                </div>
+
+                <div class="max-h-96 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
+                    @forelse($this->viewingDepartment->employees as $member)
+                        <div class="py-2.5 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="size-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                    {{ substr($member->first_name, 0, 1) }}{{ substr($member->last_name, 0, 1) }}
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                        {{ $member->formatted_name }}
+                                    </div>
+                                    <div class="text-xs text-zinc-500 font-mono">
+                                        {{ $member->employee_number }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <flux:badge size="sm" :color="match(strtolower($member->role ?? '')) {
+                                    'dean' => 'purple',
+                                    'program head', 'department head' => 'blue',
+                                    'faculty', 'instructor', 'professor' => 'emerald',
+                                    default => 'zinc'
+                                }">
+                                    {{ ucwords($member->role ?? 'Member') }}
+                                </flux:badge>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="py-8 text-center text-zinc-500 dark:text-zinc-400 text-sm">
+                            No faculty or staff currently assigned to this department.
+                        </div>
+                    @endforelse
+                </div>
+
+                <div class="flex justify-end pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                    <flux:modal.close>
+                        <flux:button variant="filled">Close</flux:button>
+                    </flux:modal.close>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
 </div>
 

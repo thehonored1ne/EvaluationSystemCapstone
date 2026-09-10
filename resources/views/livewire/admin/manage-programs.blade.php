@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -274,8 +274,10 @@ new #[Layout('components.layouts.app')] class extends Component {
             default => $query->orderBy('name', 'asc'),
         };
 
-        // Available dropdown lists
-        $departmentsList = Department::orderBy('name')->get();
+        // Available dropdown lists (strictly academic departments for programs)
+        $departmentsList = Department::where(fn ($q) => $q->whereNull('type')->orWhere('type', 'academic'))
+            ->orderBy('name')
+            ->get();
         $programHeadsList = Employee::where('role', 'program head')->where('status', 'active')->orderBy('last_name')->get();
 
         // Enrolled and Searchable Students data for modal
@@ -328,48 +330,66 @@ new #[Layout('components.layouts.app')] class extends Component {
     </div>
 
     <!-- Top Row Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <!-- Card 1: Total Programs -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Academic Programs</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalPrograms" /></span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Degree Programs</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$totalPrograms" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Active academic degree curricula
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
 
         <!-- Card 2: Assigned Program Heads -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Assigned Program Heads</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$assignedHeadsCount" /></span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Program Leadership</span>
+            <div class="space-y-1.5">
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                        <x-odometer :value="$assignedHeadsCount" />
+                    </span>
+                    <span class="text-xs text-zinc-400 font-medium">/ {{ $totalPrograms }} programs</span>
                 </div>
-                <flux:icon name="user-group" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    @if($totalPrograms > 0)
+                        {{ round(($assignedHeadsCount / $totalPrograms) * 100, 1) }}% designated program heads
+                    @else
+                        No programs created
+                    @endif
+                </div>
             </div>
         </div>
 
         <!-- Card 3: Total Enrolled Students -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Program Students</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalStudentsEnrolled" /></span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Enrolled Majors</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$totalStudentsEnrolled" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Students mapped to programs
                 </div>
-                <flux:icon name="users" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
 
         <!-- Card 4: Departments Covered -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Active Departments</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$departmentsCovered" /></span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Participating Colleges</span>
+            <div class="space-y-1.5">
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                        <x-odometer :value="$departmentsCovered" />
+                    </span>
+                    <span class="text-xs text-zinc-400 font-medium">colleges</span>
                 </div>
-                <flux:icon name="building-office-2" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Academic units hosting programs
+                </div>
             </div>
         </div>
     </div>

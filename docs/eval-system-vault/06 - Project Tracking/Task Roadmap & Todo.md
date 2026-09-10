@@ -8,28 +8,44 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
-- [ ] #1 In Manage Subjects Page
+- [X] #1 In Manage Subjects Page (Completed: 2026-09-10)
+  - **Executive KPI Cards Redesign:** Overhauled 3 KPI cards into the executive borderless standard (`border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs`) without colored accent bars or decorative icons.
+  - **Actionable Term Utilization Metrics:** Replaced raw database counts with live semester catalog metrics:
+    - *Curricular Catalog:* Total catalog subjects with active degree program count and unit density (`X.X Avg Units / Subject`).
+    - *Active This Term:* Unique subjects with scheduled classes in the current semester, including scheduling percentage (`X% scheduled in current term`).
+    - *Unscheduled Catalog:* Dormant catalog subjects not scheduled for the current academic period.
+  - **Schedule Form Cleanup:** Removed legacy schedule picker from the quick-class creation modal and removed the Schedule column from the subject's classes modal table for clean UI alignment.
+  - **Zero CLS Skeleton Loader:** Synchronized `manage-subjects-skeleton.blade.php` 1:1 with 3 stat cards and 5 table columns.
 
-- fix and redesign the 3 cards, it needs to tell useful information to admin.
+- [X] #2 in Manage Classes & Enrollment Page (Completed: 2026-09-10)
+  - **Default Table Sorting (Professor Last Name A-Z):** Set default query ordering to alphabetical A-Z by professor last name (`classes.teacher_id` joined to `employees`, ordered by `employees.last_name ASC, employees.first_name ASC`).
+  - **Professor Filter Replacement with Sort Dropdown:** Replaced the "All Professors" dropdown filter with a flexible Sort By dropdown offering:
+    - `Professor (A-Z)` [Default]
+    - `Professor (Z-A)`
+    - `Subject Name (A-Z)`
+    - `Subject Name (Z-A)`
+  - **Streamlined Subject Dropdown:** Filter dropdown now displays only the subject title (`{{ $subj->name }}`), removing the verbose subject code prefix to eliminate cognitive crowding.
+  - **Schedule Column & Picker Removal:** Completely removed the Schedule column from the classes table and removed schedule date/time pickers from class creation and edit modals. Added an optional room input field.
+  - **Zero CLS Skeleton Loader:** Synchronized `manage-classes-skeleton.blade.php` to 6 table columns.
 
-- [ ] #2 in Manage Classes & Enrollment Page
+- [X] #3 in Manage Departments Page (Completed: 2026-09-10)
+  - **Executive KPI Cards Redesign:** Redesigned 4 KPI cards with borderless executive styling:
+    - *Academic Colleges:* Colleges offering degree programs.
+    - *Administrative Units:* Non-academic institutional departments.
+    - *Leadership Coverage:* Departments with assigned Program Head, Department Head, or supervising Dean.
+    - *Total Departments:* Complete count of recognized divisions.
+  - **Simplified Head Column:** Streamlined display to show exclusively the head's formatted name (`{{ $assignedLeader->formatted_name }}`) or an `Unassigned` indicator, removing the employee ID and Dean sub-lines for minimal typography.
+  - **Interactive Members Roster Modal:** Made the "Members" count pill interactive (`wire:click="viewMembers({{ $dept->id }})"`). Clicking opens a dedicated modal displaying the full department roster with member names, employee IDs, and role-colored badges.
+  - **Table Column Spacing & Balance:** Re-proportioned table column widths (`Department Name` 35%, `Type` 18%, `Head` 27%, `Members` 10%, `Actions` 10%) with consistent horizontal cell padding.
 
-- make the table default sort to alphabetical a-z of the assigned professor last name.
-- remove the all professors filter and replace it with a sort by subject name, a-z and z-a option
-- regarding the all subject filter. in the dropdown i noticed that you combine subject code and name, make it only name so it doesn't look crowded.
-- remove the schedule column because it don't see it useful in this system and to the admin. remove also the schedule picker when adding a new class.
-
-- [ ] #3 in  Manage Departments Page
-
-- fix and redesign the 4 cards, it needs to tell useful information to admin.
-- in the table "head" column, the column name just said head but the rows in it shows the head name, the id, and the assigned dean. remove the last 2 and just show the head name for cleaner
-- in the members column, the row in it have pills right? add a function that when that pill click it will show a modal, the modal will show the list of that members.
-- fix the table column spacing
-
-- [ ] #4 in  Manage Academic Programs Page
-
-- fix and redesign the 4 cards, it needs to tell useful information to admin.
-- fix the all department filter. right now it shows even the administrative dept. since academic programs is only for academic, so the filter should only show the academic dept
+- [X] #4 in Manage Academic Programs Page (Completed: 2026-09-10)
+  - **Executive KPI Cards Redesign:** Overhauled all 4 KPI cards into borderless executive standard:
+    - *Total Degree Programs:* Active programs count.
+    - *Program Leadership:* Programs with assigned Program Heads.
+    - *Enrolled Majors:* Real-time matriculated student count across programs.
+    - *Participating Colleges:* Academic colleges hosting active degree programs.
+  - **Academic Departments Filter:** Filtered the department dropdown options strictly to academic departments (`type = 'academic'` or null), removing administrative units (Registrar, HR, Finance) from program association.
+  - **Zero CLS Skeleton Loader:** Synchronized `manage-programs-skeleton.blade.php` 1:1.
 
 - [X] #5 in  Completion Tracking page/ manage-evaluations (Completed: 2026-09-09)
   - **KPI Cards Redesign (Executive Borderless Standard):** Redesigned the 4 KPI cards matching the Admin Dashboard borderless card style (`border-zinc-200 dark:border-zinc-800 rounded-xl p-5.5` without left accent bars or decorative icons). Added specific header titles (*Total Submissions Received*, *Student Evaluation Progress*, *Employee Evaluation Progress*, *Pending Evaluation Forms*), upgraded `<x-odometer>` to format large numbers with commas (`23,228`, `7,285`), and eliminated ambiguous detail with explicit counts (e.g. `22,127 submitted of 29,291 expected forms`). Updated skeleton to match 1:1.
@@ -52,15 +68,34 @@ last_updated: 2026-08-28
     - **AI Comment Intelligence (Removed Raw Comments):** Removed the raw verbatim comments list and toggle accordion entirely, delegating comment insights to the AI pipeline (`ThematicAnalysisService`): sentiment distribution pills, narrative summary, key strengths tags, and areas for improvement tags.
   - **Automated Testing & Linting:** 100% green test suite in `EvaluationSettingsAndEnhancementsTest` (8 passed, 49 assertions); zero Pint lint errors.
 
-- [ ] #7 in rankings page
-
-- in all department filter. the option. instead of showing code and dept name, just the code is enough.
-- analyze the 4 cards, if it already telling useful information, or it need some redesign and rework. tell me first.
-- the evaluations column, first the column name and the row of it is vague. tell me what you think
+- [X] #7 in rankings page (Completed: 2026-09-10)
+  - **Department Filter Streamlining:** Updated department filter option labels from verbose `code - dept name` to compact `code` (e.g., `CCS`, `COA`), preventing overflow and visual crowding on smaller displays while maintaining `All Departments` default.
+  - **Refined KPI Cards Redesign (Minimal Executive Standard):** Overhauled all 4 KPI cards to remove decorative icon pills and distracting colors, standardizing on subtle text hierarchy:
+    - Primary metrics prominently sized (`text-3xl font-bold font-mono tracking-tight text-zinc-900 dark:text-zinc-100`).
+    - Subordinate labels in clean neutral tones (`text-zinc-800 dark:text-zinc-200 text-sm font-semibold` and `text-zinc-500 text-xs`).
+    - Card 1 (Top Performing Faculty) shows faculty name, department code badge (`CCS`), and reviews count (`42 reviews`).
+    - Card 2 (Highest Rated Dept) shows prominent department code (`CBAE`), evaluated ratio (`X of Y evaluated`), removing long department text truncation.
+    - Card 3 (Evaluation Coverage) displays evaluated over total faculty with active participation percentage and pending count.
+    - Card 4 (Institutional Mean) displays qualitative tier descriptor and sample size denominator (`Across X evaluated faculty`).
+  - **Table Columns & Semantic Clarity:** Renamed ambiguous `Evaluations` column header to **`Reviews Received`** and updated rows to show explicit review count (`X reviews` / `0 reviews` italic muted state). Refined Tab 2 department leaderboard member count to clean tabular wording (`X members`).
+  - **Faculty Leaderboard Pagination with Global Rank Preservation:** Implemented `WithPagination` (10 items per page) with reactive `updatedSearch`, `updatedSelectedDepartmentId`, and `updatedSortBy` page resets. Ranks are pre-calculated globally before slicing into pages so Page 2 onwards correctly displays ranks `#11` through `#20` without resetting to `#1`.
+  - **Certificate of Teaching Excellence (Printable PDF / Commendation):** Added a downloadable/printable Certificate of Teaching Excellence generator for Top 3 faculty and faculty scoring $\ge 4.50$. Features GRC institutional crest, academic year & term citation, verified average rating, global institutional rank, dean/VPAA signature lines, and official verification code. Accessible via Card 1 quick-link and the Faculty Leaderboard table row.
+  - **Testing & Quality Gates:** All `RankingsEmptyAndActiveSemesterTest` tests passing (5 passed, 35 assertions, 100% green); 0 Pint lint warnings.
 
 - [ ] #8 my concern need to verify
 
 - if the student or an evaluator already evaluated and somehow hes assigned to wrong person, when updating, will the system prevents me because he has evaluation record in current sem? or theyre are way to scrap his evaluation so he can assign to correct person and just redo the evaluation? confirm it for me.
+
+- [X] **Manage Questions Modernization, Data Integrity Hardening & Accessible Modals (Completed: 2026-09-10)**:
+  - **Cascade Deletion Guard:** Enforced check on `$question->answers()->exists()` in `confirmDelete()` and `deleteQuestion()`. If answers exist, deletion is completely blocked, preventing foreign key cascades that would corrupt evaluation records. Added warning banner in confirmation modal with a safe "Deactivate Question" alternative.
+  - **Inline Reordering (Move Up / Move Down):** Added instant single-click up and down order swapping (`moveUp()` / `moveDown()`) on question rows with automatic adjacent order normalization.
+  - **Live Question Counts & Category Badges:** Implemented computed `categoryCounts` providing live total question pills across all 7 category tabs (`Student (18)`, etc.) and part headers (`X Questions • Max: Y pts`).
+  - **Accessible Native `<flux:modal>`:** Replaced custom fixed `<div>` backdrop overlays with standard `<flux:modal wire:model="showFormModal">` and `<flux:textarea>`, ensuring APG keyboard accessibility, focus trapping, Esc key dismiss, and submit button loading state with spinner.
+  - **Executive Card Styling Standard:** Removed legacy `border-l-[5px]` accent bars across criteria part cards, adopting the project standard borderless card layout (`border border-zinc-200 dark:border-zinc-800 rounded-xl`).
+  - **Global Empty Search State:** Replaced multi-box empty messages during question searches with a single centered empty state featuring a quick "Clear Search" button.
+  - **Dead Code Cleanup:** Removed unused semester max points calculations and properties executing on every render.
+  - **Zero CLS Skeleton Synchronization:** Updated `manage-questions-skeleton.blade.php` to mirror the new card styling and tab badges 1:1.
+  - **Automated Testing:** 100% pass across all 11 tests in `AdminManageQuestionsTest` and `AdminLayoutTest` (54 assertions); 0 Pint lint errors.
 
 - [X] **Optimistic UI: Open / Close Evaluation Action Button & Live Status Pill (2026-09-09)**:
   - Replaced blocking Livewire server round-trip on the primary header toggle with an Alpine-driven optimistic state machine (`isOpen`, `isPending`, `hasSchedule`).

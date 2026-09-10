@@ -167,6 +167,7 @@ class Semester extends Model
     public static function clearActiveCache(): void
     {
         Cache::forget('active_semester');
+        Cache::forget('semesters_all_with_ay');
     }
 
     protected static function booted(): void

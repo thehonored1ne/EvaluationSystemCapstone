@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -36,5 +37,16 @@ class Subject extends Model
     public function classes()
     {
         return $this->hasMany(AcademicClass::class, 'subject_id');
+    }
+
+    public static function clearDropdownCache(): void
+    {
+        Cache::forget('subjects_dropdown_list');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::clearDropdownCache());
+        static::deleted(fn () => self::clearDropdownCache());
     }
 }

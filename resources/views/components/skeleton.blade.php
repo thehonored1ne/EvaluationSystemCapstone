@@ -1,4 +1,4 @@
-﻿@props([
+@props([
     'type' => 'text', // 'text', 'card', 'stat-card', 'table', 'circle', 'badge', 'button', 'chart', 'wizard'
     'lines' => 3,
     'rows' => 5,
@@ -26,7 +26,7 @@
     <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-xl shrink-0 shimmer {{ $class ?: 'w-32' }}"></div>
 
 @elseif ($type === 'stat-card')
-    <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a] {{ $class }}">
+    <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs {{ $class }}">
         <div class="flex justify-between items-start">
             <div class="space-y-2 w-2/3">
                 <div class="h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded-md w-28 shimmer"></div>

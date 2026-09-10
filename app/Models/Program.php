@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -48,5 +49,16 @@ class Program extends Model
     public function students()
     {
         return $this->hasMany(Student::class);
+    }
+
+    public static function clearCache(): void
+    {
+        Cache::forget('programs_all_code');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::clearCache());
+        static::deleted(fn () => self::clearCache());
     }
 }

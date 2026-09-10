@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Models\AcademicClass;
 use App\Models\Employee;
@@ -434,12 +434,16 @@ new #[Layout('components.layouts.app')] class extends Component
     {
         // 1. Calculate Summary Statistics
         $totalSubjects = Subject::count();
-        $unassignedSubjectsCount = Subject::doesntHave('classes')->count();
 
         $activeSem = Semester::where('is_active', true)->first();
-        $activeClassesCount = $activeSem
-            ? AcademicClass::where('semester_id', $activeSem->id)->count()
-            : AcademicClass::count();
+
+        // Unique subjects with active classes in current semester
+        $activeSubjectsCount = $activeSem
+            ? Subject::whereHas('classes', fn ($q) => $q->where('semester_id', $activeSem->id))->count()
+            : Subject::has('classes')->count();
+
+        // Subjects dormant / unscheduled in current semester
+        $unscheduledSubjectsCount = max(0, $totalSubjects - $activeSubjectsCount);
 
         // 2. Query Subjects with filters and sorting
         $query = Subject::query()->withCount('classes');
@@ -481,8 +485,8 @@ new #[Layout('components.layouts.app')] class extends Component
         return [
             'subjects' => $query->paginate(10),
             'totalSubjects' => $totalSubjects,
-            'unassignedSubjectsCount' => $unassignedSubjectsCount,
-            'activeClassesCount' => $activeClassesCount,
+            'activeSubjectsCount' => $activeSubjectsCount,
+            'unscheduledSubjectsCount' => $unscheduledSubjectsCount,
             'activeSemester' => $activeSem,
             'teachersList' => $teachersList,
             'semestersList' => $semestersList,
@@ -513,40 +517,53 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Top Row Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
         <!-- Card 1: Total Subjects -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Total Subjects</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$totalSubjects" /></span>
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curricular Catalog</span>
+            <div class="space-y-1.5">
+                <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                    <x-odometer :value="$totalSubjects" />
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Accredited subjects across all year levels
                 </div>
-                <flux:icon name="book-open" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
             </div>
         </div>
 
-        <!-- Card 2: Active Classes Assigned -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Active Classes Assigned</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$activeClassesCount" /></span>
+        <!-- Card 2: Active Subjects Taught -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Active This Term</span>
+            <div class="space-y-1.5">
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                        <x-odometer :value="$activeSubjectsCount" />
+                    </span>
+                    <span class="text-xs text-zinc-400 font-medium">/ {{ $totalSubjects }} subjects</span>
                 </div>
-                <flux:icon name="academic-cap" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    @if($totalSubjects > 0)
+                        {{ round(($activeSubjectsCount / $totalSubjects) * 100, 1) }}% scheduled in {{ $activeSemester ? $activeSemester->name : 'active term' }}
+                    @else
+                        No subjects cataloged
+                    @endif
+                </div>
             </div>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-2">
-                {{ $activeSemester ? 'Classes in ' . $activeSemester->name : 'Total class assignments' }}
-            </span>
         </div>
 
-        <!-- Card 3: Unassigned Subjects -->
-        <div class="flex flex-col justify-between p-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs hover:shadow-md transition-all duration-200 border-l-[5px] border-l-[#9b0000] dark:border-l-[#e07a7a]">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase block tracking-wider">Unassigned Subjects</span>
-                    <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 block mt-1"><x-odometer :value="$unassignedSubjectsCount" /></span>
+        <!-- Card 3: Unscheduled Subjects -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-4">
+            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Unscheduled Catalog</span>
+            <div class="space-y-1.5">
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 font-mono">
+                        <x-odometer :value="$unscheduledSubjectsCount" />
+                    </span>
+                    <span class="text-xs text-zinc-400 font-medium">dormant</span>
                 </div>
-                <flux:icon name="exclamation-triangle" class="size-6 text-[#9b0000] dark:text-[#e07a7a]" />
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Subjects without classes this semester
+                </div>
             </div>
         </div>
     </div>
@@ -808,31 +825,6 @@ new #[Layout('components.layouts.app')] class extends Component
 
                 <flux:input wire:model="quick_section" label="Section Code" type="text" placeholder="e.g. BSCS-3A" required />
 
-                <!-- Schedule Date & Time Picker Section -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex flex-col gap-3">
-                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Class Schedule Picker</span>
-                    
-                    <flux:select wire:model="quick_schedule_days" label="Schedule Days">
-                        <flux:select.option value="">Select Days</flux:select.option>
-                        <flux:select.option value="MW">Monday & Wednesday (MW)</flux:select.option>
-                        <flux:select.option value="TTH">Tuesday & Thursday (TTH)</flux:select.option>
-                        <flux:select.option value="FS">Friday & Saturday (FS)</flux:select.option>
-                        <flux:select.option value="MWF">Mon / Wed / Fri (MWF)</flux:select.option>
-                        <flux:select.option value="MON">Monday Only</flux:select.option>
-                        <flux:select.option value="TUE">Tuesday Only</flux:select.option>
-                        <flux:select.option value="WED">Wednesday Only</flux:select.option>
-                        <flux:select.option value="THU">Thursday Only</flux:select.option>
-                        <flux:select.option value="FRI">Friday Only</flux:select.option>
-                        <flux:select.option value="SAT">Saturday Only</flux:select.option>
-                        <flux:select.option value="SUN">Sunday Only</flux:select.option>
-                    </flux:select>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <flux:input wire:model="quick_schedule_start_time" label="Start Time" type="time" />
-                        <flux:input wire:model="quick_schedule_end_time" label="End Time" type="time" />
-                    </div>
-                </div>
-
                 <div class="flex justify-end gap-2 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3">
                     <flux:button wire:click="$set('showQuickClassModal', false)">Cancel</flux:button>
                     <flux:button variant="primary" type="submit">
@@ -868,7 +860,6 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <th class="px-4 py-3">Section</th>
                                 <th class="px-4 py-3">Academic Period</th>
                                 <th class="px-4 py-3">Assigned Faculty</th>
-                                <th class="px-4 py-3">Schedule</th>
                                 <th class="px-4 py-3 text-center">Enrolled Students</th>
                             </tr>
                         </thead>
@@ -887,9 +878,6 @@ new #[Layout('components.layouts.app')] class extends Component
                                         @else
                                             <span class="text-zinc-400 italic">Unassigned</span>
                                         @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                                        {{ $cls->schedule ?: 'No Schedule' }}
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <flux:badge size="sm" color="zinc" class="font-bold">

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Models\AcademicClass;
 use App\Models\Department;
@@ -8,6 +8,7 @@ use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Subject;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Layout;
@@ -38,7 +39,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public string $filterSubject = '';
 
-    public string $filterTeacher = '';
+    public string $sortBy = 'professor_asc';
 
     // Class CRUD properties
     public string $subject_id = '';
@@ -113,7 +114,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage();
     }
 
-    public function updatedFilterTeacher()
+    public function updatedSortBy()
     {
         $this->resetPage();
     }
@@ -148,7 +149,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function clearFilters()
     {
-        $this->reset(['search', 'filterDepartment', 'filterSubject', 'filterTeacher']);
+        $this->reset(['search', 'filterDepartment', 'filterSubject']);
+        $this->sortBy = 'professor_asc';
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
             $this->filterSemester = (string) $activeSemester->id;
@@ -160,7 +162,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function prepareCreate()
     {
-        $this->reset(['subject_id', 'teacher_id', 'semester_id', 'section', 'schedule', 'schedule_days', 'schedule_start_time', 'schedule_end_time', 'room', 'editingClass']);
+        $this->reset(['subject_id', 'teacher_id', 'semester_id', 'section', 'schedule', 'room', 'editingClass']);
         $activeSemester = Semester::where('is_active', true)->first();
         if ($activeSemester) {
             $this->semester_id = (string) $activeSemester->id;
@@ -175,25 +177,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'teacher_id' => 'required|exists:employees,id',
             'semester_id' => 'required|exists:semesters,id',
             'section' => 'required|string|max:255',
-            'schedule' => 'nullable|string|max:255',
-            'schedule_days' => 'nullable|string',
-            'schedule_start_time' => 'nullable|string',
-            'schedule_end_time' => 'nullable|string',
+            'room' => 'nullable|string|max:255',
         ]);
-
-        if ($this->schedule_days && $this->schedule_start_time && $this->schedule_end_time) {
-            try {
-                $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
-                $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
-                $this->schedule = $this->schedule_days.' '.$startStr.' - '.$endStr;
-            } catch (Throwable $e) {
-                Log::debug('Failed to format class schedule on creation', [
-                    'error' => $e->getMessage(),
-                    'start_time' => $this->schedule_start_time,
-                    'end_time' => $this->schedule_end_time,
-                ]);
-            }
-        }
 
         AcademicClass::create([
             'subject_id' => $this->subject_id,
@@ -222,23 +207,6 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->schedule = $class->schedule ?? '';
         $this->room = $class->room ?? '';
 
-        $this->schedule_days = '';
-        $this->schedule_start_time = '';
-        $this->schedule_end_time = '';
-
-        if ($this->schedule && preg_match('/^([A-Z]+)\s+([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM))\s*-\s*([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM))/i', $this->schedule, $matches)) {
-            $this->schedule_days = strtoupper($matches[1]);
-            try {
-                $this->schedule_start_time = Carbon::parse($matches[2])->format('H:i');
-                $this->schedule_end_time = Carbon::parse($matches[3])->format('H:i');
-            } catch (Throwable $e) {
-                Log::debug('Failed to parse class schedule on edit', [
-                    'error' => $e->getMessage(),
-                    'raw_schedule' => $this->schedule,
-                ]);
-            }
-        }
-
         $this->showModal = true;
     }
 
@@ -249,25 +217,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'teacher_id' => 'required|exists:employees,id',
             'semester_id' => 'required|exists:semesters,id',
             'section' => 'required|string|max:255',
-            'schedule' => 'nullable|string|max:255',
-            'schedule_days' => 'nullable|string',
-            'schedule_start_time' => 'nullable|string',
-            'schedule_end_time' => 'nullable|string',
+            'room' => 'nullable|string|max:255',
         ]);
-
-        if ($this->schedule_days && $this->schedule_start_time && $this->schedule_end_time) {
-            try {
-                $startStr = Carbon::parse($this->schedule_start_time)->format('h:i A');
-                $endStr = Carbon::parse($this->schedule_end_time)->format('h:i A');
-                $this->schedule = $this->schedule_days.' '.$startStr.' - '.$endStr;
-            } catch (Throwable $e) {
-                Log::debug('Failed to format class schedule on update', [
-                    'error' => $e->getMessage(),
-                    'start_time' => $this->schedule_start_time,
-                    'end_time' => $this->schedule_end_time,
-                ]);
-            }
-        }
 
         $this->editingClass->update([
             'subject_id' => $this->subject_id,
@@ -528,9 +479,7 @@ new #[Layout('components.layouts.app')] class extends Component
         if ($this->filterSubject) {
             $query->where('subject_id', $this->filterSubject);
         }
-        if ($this->filterTeacher) {
-            $query->where('teacher_id', $this->filterTeacher);
-        }
+
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('section', 'like', '%'.$this->search.'%')
@@ -539,7 +488,27 @@ new #[Layout('components.layouts.app')] class extends Component
             });
         }
 
-        $classes = $query->orderBy('id', 'desc')->get();
+        if ($this->sortBy === 'subject_asc') {
+            $query->join('subjects', 'classes.subject_id', '=', 'subjects.id')
+                ->select('classes.*')
+                ->orderBy('subjects.name', 'asc');
+        } elseif ($this->sortBy === 'subject_desc') {
+            $query->join('subjects', 'classes.subject_id', '=', 'subjects.id')
+                ->select('classes.*')
+                ->orderBy('subjects.name', 'desc');
+        } elseif ($this->sortBy === 'professor_desc') {
+            $query->leftJoin('employees', 'classes.teacher_id', '=', 'employees.id')
+                ->select('classes.*')
+                ->orderBy('employees.last_name', 'desc')
+                ->orderBy('employees.first_name', 'desc');
+        } else {
+            $query->leftJoin('employees', 'classes.teacher_id', '=', 'employees.id')
+                ->select('classes.*')
+                ->orderBy('employees.last_name', 'asc')
+                ->orderBy('employees.first_name', 'asc');
+        }
+
+        $classes = $query->get();
 
         $headers = [
             'Content-Type' => 'text/csv',
@@ -701,11 +670,22 @@ new #[Layout('components.layouts.app')] class extends Component
         );
     }
 
+    private ?array $viewData = null;
+
+    public function rendering(): void
+    {
+        $this->viewData = null;
+    }
+
     public function with(): array
     {
+        if ($this->viewData !== null) {
+            return $this->viewData;
+        }
+
         $query = AcademicClass::query()
-            ->with(['subject', 'teacher.department', 'semester.academicYear'])
-            ->withCount('students');
+            ->select('classes.*')
+            ->with(['subject', 'teacher.department', 'semester.academicYear']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -736,15 +716,43 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('subject_id', $this->filterSubject);
         }
 
-        if ($this->filterTeacher) {
-            $query->where('teacher_id', $this->filterTeacher);
+        // Apply Sorting
+        // Default sort: alphabetical A-Z by professor last name
+        if ($this->sortBy === 'subject_asc') {
+            $query->join('subjects', 'classes.subject_id', '=', 'subjects.id')
+                ->orderBy('subjects.name', 'asc');
+        } elseif ($this->sortBy === 'subject_desc') {
+            $query->join('subjects', 'classes.subject_id', '=', 'subjects.id')
+                ->orderBy('subjects.name', 'desc');
+        } elseif ($this->sortBy === 'professor_desc') {
+            $query->leftJoin('employees', 'classes.teacher_id', '=', 'employees.id')
+                ->orderBy('employees.last_name', 'desc')
+                ->orderBy('employees.first_name', 'desc');
+        } else {
+            // Default: professor_asc
+            $query->leftJoin('employees', 'classes.teacher_id', '=', 'employees.id')
+                ->orderBy('employees.last_name', 'asc')
+                ->orderBy('employees.first_name', 'asc');
         }
 
-        $subjectsList = Subject::orderBy('name')->get();
-        $teachersList = Employee::whereIn('role', ['faculty', 'program head'])->orderBy('last_name')->get();
-        $semestersList = Semester::with('academicYear')->orderBy('id', 'desc')->get();
-        $departmentsList = Department::orderBy('name')->get();
-        $programsList = Program::orderBy('code')->get();
+        $query->withCount('students');
+
+        $subjectsList = Cache::remember('subjects_dropdown_list', 300, function () {
+            return Subject::orderBy('name')->select('id', 'name', 'code')->get();
+        });
+        $semestersList = Cache::remember('semesters_all_with_ay', 300, function () {
+            return Semester::with('academicYear')->orderBy('id', 'desc')->get();
+        });
+        $departmentsList = Department::getCachedList();
+
+        // Lazy-loaded modal lists (only loaded when respective modal is open)
+        $teachersList = $this->showModal
+            ? Employee::whereIn('role', ['faculty', 'program head'])->orderBy('last_name')->select('id', 'first_name', 'last_name', 'role')->get()
+            : collect();
+
+        $programsList = $this->showEnrollmentModal
+            ? Cache::remember('programs_all_code', 300, fn () => Program::orderBy('code')->select('id', 'code', 'name')->get())
+            : collect();
 
         // Candidates for student enrollment modal
         $unenrolledCandidates = collect();
@@ -758,8 +766,8 @@ new #[Layout('components.layouts.app')] class extends Component
                 ->count();
         }
 
-        return [
-            'classes' => $query->orderBy('id', 'desc')->paginate(10),
+        return $this->viewData = [
+            'classes' => $query->paginate(10),
             'subjectsList' => $subjectsList,
             'teachersList' => $teachersList,
             'semestersList' => $semestersList,
@@ -803,9 +811,9 @@ new #[Layout('components.layouts.app')] class extends Component
                 <!-- Semester Filter -->
                 <div>
                     <flux:select wire:model.live="filterSemester" class="w-full" placeholder="All Semesters">
-                        <flux:select.option value="">All Semesters</flux:select.option>
+                        <option value="">All Semesters</option>
                         @foreach($semestersList as $sem)
-                            <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
+                            <option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</option>
                         @endforeach
                     </flux:select>
                 </div>
@@ -813,9 +821,9 @@ new #[Layout('components.layouts.app')] class extends Component
                 <!-- Department Filter -->
                 <div>
                     <flux:select wire:model.live="filterDepartment" class="w-full" placeholder="All Departments">
-                        <flux:select.option value="">All Departments</flux:select.option>
+                        <option value="">All Departments</option>
                         @foreach($departmentsList as $dept)
-                            <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                            <option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</option>
                         @endforeach
                     </flux:select>
                 </div>
@@ -823,20 +831,20 @@ new #[Layout('components.layouts.app')] class extends Component
                 <!-- Subject Filter -->
                 <div>
                     <flux:select wire:model.live="filterSubject" class="w-full" placeholder="All Subjects">
-                        <flux:select.option value="">All Subjects</flux:select.option>
+                        <option value="">All Subjects</option>
                         @foreach($subjectsList as $subj)
-                            <flux:select.option value="{{ $subj->id }}">{{ $subj->code }} - {{ $subj->name }}</flux:select.option>
+                            <option value="{{ $subj->id }}">{{ $subj->name }}</option>
                         @endforeach
                     </flux:select>
                 </div>
 
-                <!-- Professor Filter -->
+                <!-- Sort By Dropdown -->
                 <div>
-                    <flux:select wire:model.live="filterTeacher" class="w-full" placeholder="All Professors">
-                        <flux:select.option value="">All Professors</flux:select.option>
-                        @foreach($teachersList as $t)
-                            <flux:select.option value="{{ $t->id }}">{{ $t->formatted_name ?? $t->full_name }}</flux:select.option>
-                        @endforeach
+                    <flux:select wire:model.live="sortBy" class="w-full" placeholder="Sort By">
+                        <option value="professor_asc">Sort: Professor (A-Z)</option>
+                        <option value="professor_desc">Sort: Professor (Z-A)</option>
+                        <option value="subject_asc">Sort: Subject Name (A-Z)</option>
+                        <option value="subject_desc">Sort: Subject Name (Z-A)</option>
                     </flux:select>
                 </div>
             </div>
@@ -847,21 +855,20 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     
     <!-- Skeleton Loading State -->
-    <div wire:loading wire:target="search, filterSemester, filterDepartment, filterSubject, filterTeacher, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
-        <x-skeleton type="table" :rows="5" :cols="7" />
+    <div wire:loading wire:target="search, filterSemester, filterDepartment, filterSubject, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full">
+        <x-skeleton type="table" :rows="5" :cols="6" />
     </div>
 
     <!-- Main Classes Table -->
-    <div wire:loading.remove wire:target="search, filterSemester, filterDepartment, filterSubject, filterTeacher, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
+    <div wire:loading.remove wire:target="search, filterSemester, filterDepartment, filterSubject, sortBy, clearFilters, gotoPage, nextPage, previousPage" class="w-full flex flex-col gap-4">
         <div class="w-full overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
             <table class="w-full min-w-[850px] divide-y divide-gray-200 dark:divide-zinc-700 text-sm text-left">
                 <thead class="bg-gray-50 dark:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wider">
                     <tr>
-                        <th class="w-[10%] min-w-[90px] px-4 py-3.5 whitespace-nowrap">Section</th>
-                        <th class="w-[24%] min-w-[170px] px-4 py-3.5 whitespace-nowrap">Subject</th>
-                        <th class="w-[20%] min-w-[160px] px-4 py-3.5 whitespace-nowrap">Assigned Professor</th>
-                        <th class="w-[18%] min-w-[140px] px-4 py-3.5 whitespace-nowrap">Schedule</th>
-                        <th class="w-[14%] min-w-[120px] px-4 py-3.5 whitespace-nowrap">Academic Period</th>
+                        <th class="w-[12%] min-w-[90px] px-4 py-3.5 whitespace-nowrap">Section</th>
+                        <th class="w-[30%] min-w-[180px] px-4 py-3.5 whitespace-nowrap">Subject</th>
+                        <th class="w-[26%] min-w-[160px] px-4 py-3.5 whitespace-nowrap">Assigned Professor</th>
+                        <th class="w-[18%] min-w-[130px] px-4 py-3.5 whitespace-nowrap">Academic Period</th>
                         <th class="w-[8%] min-w-[90px] px-4 py-3.5 text-center whitespace-nowrap">Enrolled</th>
                         <th class="w-[6%] min-w-[80px] px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
                     </tr>
@@ -894,18 +901,6 @@ new #[Layout('components.layouts.app')] class extends Component
                                 </span>
                             </td>
 
-                            <!-- Schedule -->
-                            <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
-                                @if($classItem->schedule)
-                                    <span class="font-semibold block">{{ $classItem->schedule }}</span>
-                                    @if($classItem->room)
-                                        <span class="text-zinc-500 block">Room: {{ $classItem->room }}</span>
-                                    @endif
-                                @else
-                                    <span class="text-zinc-400 italic">No schedule set</span>
-                                @endif
-                            </td>
-
                             <!-- Semester -->
                             <td class="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                                 <span class="font-semibold block text-zinc-800 dark:text-zinc-200">
@@ -918,45 +913,45 @@ new #[Layout('components.layouts.app')] class extends Component
                             <td class="px-4 py-3.5 text-center whitespace-nowrap">
                                 <button type="button" wire:click="manageStudents({{ $classItem->id }})" class="hover:opacity-80 transition-opacity">
                                     @if($classItem->students_count > 0)
-                                        <flux:badge size="sm" color="indigo" class="cursor-pointer font-bold">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 cursor-pointer">
                                             {{ $classItem->students_count }} {{ Str::plural('student', $classItem->students_count) }}
-                                        </flux:badge>
+                                        </span>
                                     @else
-                                        <flux:badge size="sm" color="zinc" class="cursor-pointer">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 cursor-pointer">
                                             0 students
-                                        </flux:badge>
+                                        </span>
                                     @endif
                                 </button>
                             </td>
 
                             <!-- Actions -->
                             <td class="px-4 py-3.5 text-right whitespace-nowrap">
-                                <flux:dropdown align="end">
-                                    <flux:button size="sm" variant="ghost" icon-trailing="chevron-down">
+                                <div x-data="{ open: false }" class="relative inline-block text-left">
+                                    <button @click="open = !open" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700/80">
                                         Action
-                                    </flux:button>
-
-                                    <flux:menu>
-                                        <flux:menu.item icon="user-plus" wire:click="manageStudents({{ $classItem->id }})">
-                                            Manage Enrollment
-                                        </flux:menu.item>
-
-                                        <flux:menu.item icon="pencil-square" wire:click="editClass({{ $classItem->id }})">
-                                            Edit Class Details
-                                        </flux:menu.item>
-
-                                        <flux:menu.separator />
-
-                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmDelete({{ $classItem->id }})">
+                                        <svg class="size-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="open" @click.outside="open = false" x-transition.opacity.duration.100ms class="absolute right-0 z-20 mt-1 w-44 rounded-lg bg-white dark:bg-zinc-900 shadow-lg border border-zinc-200 dark:border-zinc-800 py-1 text-xs text-zinc-700 dark:text-zinc-300" style="display: none;">
+                                        <button type="button" wire:click="manageStudents({{ $classItem->id }})" @click="open = false" class="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                                            <svg class="size-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                            Manage Students
+                                        </button>
+                                        <button type="button" wire:click="editClass({{ $classItem->id }})" @click="open = false" class="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                                            <svg class="size-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            Edit Class
+                                        </button>
+                                        <div class="my-1 border-t border-zinc-100 dark:border-zinc-800"></div>
+                                        <button type="button" wire:click="confirmDelete({{ $classItem->id }})" @click="open = false" class="w-full flex items-center gap-2 px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer">
+                                            <svg class="size-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             Delete Class
-                                        </flux:menu.item>
-                                    </flux:menu>
-                                </flux:dropdown>
+                                        </button>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-12 text-center text-gray-500 dark:text-zinc-400">
+                            <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-zinc-400">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <flux:icon name="academic-cap" class="size-10 text-zinc-300 dark:text-zinc-600" />
                                     <p class="text-base font-semibold text-zinc-700 dark:text-zinc-300">No academic classes found</p>
@@ -1004,40 +999,15 @@ new #[Layout('components.layouts.app')] class extends Component
                 />
 
                 <flux:select wire:model="semester_id" label="Semester" required>
-                    <flux:select.option value="">Select Semester</flux:select.option>
+                    <option value="">Select Semester</option>
                     @foreach($semestersList as $sem)
-                        <flux:select.option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</flux:select.option>
+                        <option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</option>
                     @endforeach
                 </flux:select>
 
                 <flux:input wire:model="section" label="Section" type="text" placeholder="e.g. BSCS-3A" required />
 
-                <!-- Schedule Date & Time Picker Section -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 flex flex-col gap-3">
-                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Class Schedule Picker</span>
-                    
-                    <flux:select wire:model="schedule_days" label="Schedule Days">
-                        <flux:select.option value="">Select Days</flux:select.option>
-                        <flux:select.option value="MW">Monday & Wednesday (MW)</flux:select.option>
-                        <flux:select.option value="TTH">Tuesday & Thursday (TTH)</flux:select.option>
-                        <flux:select.option value="FS">Friday & Saturday (FS)</flux:select.option>
-                        <flux:select.option value="MWF">Mon / Wed / Fri (MWF)</flux:select.option>
-                        <flux:select.option value="MON">Monday Only</flux:select.option>
-                        <flux:select.option value="TUE">Tuesday Only</flux:select.option>
-                        <flux:select.option value="WED">Wednesday Only</flux:select.option>
-                        <flux:select.option value="THU">Thursday Only</flux:select.option>
-                        <flux:select.option value="FRI">Friday Only</flux:select.option>
-                        <flux:select.option value="SAT">Saturday Only</flux:select.option>
-                        <flux:select.option value="SUN">Sunday Only</flux:select.option>
-                    </flux:select>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <flux:input wire:model="schedule_start_time" label="Start Time" type="time" />
-                        <flux:input wire:model="schedule_end_time" label="End Time" type="time" />
-                    </div>
-
-                    <flux:input wire:model="schedule" label="Schedule Summary Preview" type="text" placeholder="e.g. MW 09:00 AM - 10:30 AM" />
-                </div>
+                <flux:input wire:model="room" label="Room (Optional)" type="text" placeholder="e.g. Room 301, Lab 2" />
 
                 <div class="flex justify-end gap-2 mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3">
                     <flux:button wire:click="$set('showModal', false)">Cancel</flux:button>
@@ -1176,18 +1146,18 @@ new #[Layout('components.layouts.app')] class extends Component
                         <flux:input wire:model.live.debounce.300ms="studentSearch" placeholder="Search name or section..." icon="magnifying-glass" class="w-full" />
 
                         <flux:select wire:model.live="enrollProgramFilter" class="w-full" placeholder="All Programs">
-                            <flux:select.option value="">All Programs</flux:select.option>
+                            <option value="">All Programs</option>
                             @foreach($programsList as $prog)
-                                <flux:select.option value="{{ $prog->id }}">{{ $prog->code }}</flux:select.option>
+                                <option value="{{ $prog->id }}">{{ $prog->code }}</option>
                             @endforeach
                         </flux:select>
 
                         <flux:select wire:model.live="enrollYearFilter" class="w-full" placeholder="All Year Levels">
-                            <flux:select.option value="">All Years</flux:select.option>
-                            <flux:select.option value="1">1st Year</flux:select.option>
-                            <flux:select.option value="2">2nd Year</flux:select.option>
-                            <flux:select.option value="3">3rd Year</flux:select.option>
-                            <flux:select.option value="4">4th Year</flux:select.option>
+                            <option value="">All Years</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
                         </flux:select>
                     </div>
 
