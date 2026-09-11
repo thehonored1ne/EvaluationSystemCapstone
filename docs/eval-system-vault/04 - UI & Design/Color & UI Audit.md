@@ -168,8 +168,12 @@ This document provides a comprehensive audit of all colors utilized across the *
 - **Manual Toggle Button 0ms Override (`body.sidebar-animating`):**
   - High-specificity rules on `body.sidebar-animating` override the 250ms hover-intent delay to `0ms` across sidebar width, logo cross-fade, headings, and nav items.
   - On toggle button click, the sidebar animates immediately (200ms duration) and the big/small logos cross-fade with 0ms delay, preventing the small logo and big logo from displaying simultaneously.
+- **Group Heading Single-Line Non-Wrapping Invariance:**
+  - Applied `white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;` to `[data-flux-sidebar] [data-flux-navlist-group-heading]` and all direct children (`> *`, `> div`, `> span`).
+  - In the 68px collapsed mini-rail (inner width ~43px), multi-word section headers like "Reports & Tools" (97px wide) are strictly constrained to a single 12px line without wrapping to multiple lines or vertically overflowing the 1.75rem spacer height.
 - **Standalone Centered Active Box:** Nav items in mini-rail rendered as `2.5rem × 2.5rem` (`40px × 40px`) box with `border-radius: 0.625rem` (`rounded-lg`) without right-border clipping.
 - **Flyout Expanded Width:** `16rem` (`width: 16rem !important`), `z-index: 45`, floating overlay elevation with dual ambient shadow (`rgba(0,0,0,0.15)` light / `rgba(0,0,0,0.65)` dark).
 - **Active Navigation Indicator:** Synchronized via client-side `livewire:navigated` listener applying `[data-current]` token styles (`#9b0000` light / `rgba(224, 122, 122, 0.12)` dark).
 
 ---
+

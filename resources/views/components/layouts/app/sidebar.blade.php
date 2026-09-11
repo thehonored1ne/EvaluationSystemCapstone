@@ -319,9 +319,18 @@
                     padding-right: 0.625rem !important;
                     margin-top: 0.5rem !important;
                     box-sizing: border-box !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
                 }
 
-                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > div {
+                [data-flux-sidebar] [data-flux-navlist-group-heading] > * {
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > div,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > span {
                     opacity: 0 !important;
                     visibility: hidden !important;
                     pointer-events: none !important;
@@ -329,13 +338,16 @@
                 }
 
                 :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar]:hover [data-flux-navlist-group-heading] > div,
-                :not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div {
+                :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar]:hover [data-flux-navlist-group-heading] > span,
+                :not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div,
+                :not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > span {
                     opacity: 1 !important;
                     visibility: visible !important;
                     transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
                 }
 
-                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div {
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div,
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > span {
                     opacity: 1 !important;
                     visibility: visible !important;
                     transition: none !important;
@@ -445,6 +457,7 @@
                 }
 
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > div,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > span,
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item],
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > [data-content],
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > div:not(.relative),
@@ -452,6 +465,7 @@
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) svg.transition-transform,
                 html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) .sidebar-sublist,
                 body.sidebar-animating [data-flux-navlist-group-heading] > div,
+                body.sidebar-animating [data-flux-navlist-group-heading] > span,
                 body.sidebar-animating [data-flux-navlist-item],
                 body.sidebar-animating [data-flux-navlist-item] > [data-content],
                 body.sidebar-animating [data-flux-navlist-item] > div:not(.relative),
