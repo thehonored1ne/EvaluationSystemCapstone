@@ -8,6 +8,13 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] #0 Google-Style Hover-to-Expand Floating Rail Sidebar (Completed: 2026-09-11)
+  - **Zero-CLS Hover Flyout Overlay:** When collapsed in mini-rail mode (`4.25rem` / 68px), hovering over the rail triggers an intentional debounced slide-out (140ms enter / 120ms leave grace period) expanding the sidebar to full width (`16rem` / 256px) with an ambient shadow (`box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15)` / dark `rgba(0,0,0,0.65)`).
+  - **Persistent Layout Container Stability:** Introduced `#sidebar-rail-wrapper` as the layout spacer in normal document flow. The main page container remains completely still with zero layout push or reflow on hover.
+  - **Group Headings Synchronization:** Fixed nav group headings visibility by binding `x-show="!sidebarCollapsed || sidebarHovered"` in `resources/views/flux/navlist/group.blade.php`, ensuring headings appear both when permanently expanded and during hover flyout.
+  - **De-cluttered Header Branding:** Removed the redundant pin button in the flyout header, keeping primary pinning centralized to the navbar toggle button.
+  - **Quality Gates:** 100% green tests in `AdminLayoutTest`, 0 Pint lint warnings.
+
 - [X] #1 In Manage Subjects Page (Completed: 2026-09-10)
   - **Executive KPI Cards Redesign:** Overhauled 3 KPI cards into the executive borderless standard (`border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs`) without colored accent bars or decorative icons.
   - **Actionable Term Utilization Metrics:** Replaced raw database counts with live semester catalog metrics:

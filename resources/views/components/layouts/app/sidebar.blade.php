@@ -1,8 +1,13 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark {{ request()->cookie('admin_sidebar_collapsed') === 'true' ? 'sidebar-is-collapsed' : '' }}">
     <head>
         @include('partials.head')
         <style>
+            /* Lock viewport scrollbar gutter to prevent layout twitch / horizontal shift */
+            html {
+                scrollbar-gutter: stable;
+            }
+
             /* Active Sidebar Item Dark Red (#9b0000) Styling */
             [data-flux-sidebar] [data-flux-navlist-item][data-current] {
                 background-color: #9b0000 !important;
@@ -60,104 +65,569 @@
                 box-sizing: border-box !important;
             }
 
-            /* Mini Icon-Only Collapsed Sidebar Styles (Desktop Only) */
+            /* Livewire navigation progress bar */
+            .livewire-progress-bar {
+                background-color: #9b0000 !important;
+                height: 2.5px !important;
+            }
+
+            /* Mini Icon-Only Collapsed Sidebar & Pure CSS Hover Flyout Styles (Desktop Only) */
             @media (min-width: 1024px) {
                 [data-flux-sidebar] {
+                    position: fixed !important;
+                    top: 0 !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    height: 100vh !important;
+                    height: 100dvh !important;
+                    z-index: 35 !important;
                     overflow-x: hidden !important;
+                    width: 16rem !important;
+                    min-width: 16rem !important;
+                    box-sizing: border-box !important;
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+                                padding 200ms ease,
+                                box-shadow 200ms ease !important;
                 }
+
+                #sidebar-rail-wrapper {
+                    width: 16rem;
+                    flex-shrink: 0;
+                }
+
+
 
                 [data-flux-sidebar] [data-flux-navlist-item] {
                     white-space: nowrap !important;
                 }
 
-                /* Smooth transitions only when actively clicking toggle */
-                body.sidebar-animating [data-flux-sidebar],
-                body.sidebar-animating [data-flux-sidebar] [data-flux-navlist-item],
-                body.sidebar-animating [data-flux-sidebar] [data-flux-navlist-group-heading],
-                body.sidebar-animating [data-flux-sidebar] [data-content],
-                body.sidebar-animating [data-flux-sidebar] .sidebar-text,
-                body.sidebar-animating [data-flux-sidebar] [data-flux-badge] {
-                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1),
-                                min-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
-                                padding 200ms ease,
-                                margin 200ms ease,
-                                opacity 150ms ease !important;
-                }
-
-                html.sidebar-is-collapsed [data-flux-sidebar],
-                body.sidebar-is-collapsed [data-flux-sidebar] {
+                /* When pinned-collapsed: the flex rail spacer shrinks to 4.25rem */
+                :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) #sidebar-rail-wrapper {
                     width: 4.25rem !important;
                     min-width: 4.25rem !important;
-                    padding-left: 0.375rem !important;
-                    padding-right: 0.375rem !important;
-                    align-items: center !important;
+                    max-width: 4.25rem !important;
                 }
 
-                html.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
-                html.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
-                html.sidebar-is-collapsed [data-flux-sidebar] [data-content],
-                html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-text,
-                html.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
-                html.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
-                html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-sublist,
-                html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-big-logo,
-                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-group-heading],
-                body.sidebar-is-collapsed [data-flux-sidebar] .text-zinc-400,
-                body.sidebar-is-collapsed [data-flux-sidebar] [data-content],
-                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-text,
-                body.sidebar-is-collapsed [data-flux-sidebar] svg.transition-transform,
-                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-badge],
-                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-sublist,
-                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-big-logo {
-                    opacity: 0 !important;
-                    display: none !important;
-                    pointer-events: none !important;
+                /* When pinned-collapsed: default mini rail state */
+                :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar] {
+                    width: 4.25rem !important;
+                    min-width: 4.25rem !important;
+                    padding-left: 0.75rem !important;
+                    padding-right: 0.75rem !important;
+                    align-items: stretch !important;
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 250ms,
+                                box-shadow 200ms ease 250ms !important;
                 }
 
-                html.sidebar-is-collapsed [data-flux-sidebar] .sidebar-small-logo,
-                body.sidebar-is-collapsed [data-flux-sidebar] .sidebar-small-logo {
+                /* Invariant Logo Section: Equal height and vertical positioning across both states */
+                [data-flux-sidebar] .sidebar-logo-link {
+                    position: relative !important;
+                    height: 5.25rem !important;
+                    min-height: 5.25rem !important;
+                    max-height: 5.25rem !important;
+                    padding: 0 !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 0.5rem !important;
                     display: flex !important;
-                }
-
-                html.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-item],
-                body.sidebar-is-collapsed [data-flux-sidebar] [data-flux-navlist-item] {
+                    align-items: center !important;
                     justify-content: center !important;
-                    padding-left: 0 !important;
-                    padding-right: 0 !important;
-                    width: 2.75rem !important;
-                    height: 2.5rem !important;
-                    margin-left: auto !important;
-                    margin-right: auto !important;
+                    box-sizing: border-box !important;
+                    flex-shrink: 0 !important;
                 }
 
-                /* Suppress floating tooltip popups ONLY (without disabling pointer-events on the buttons/links) */
-                body:not(.sidebar-is-collapsed) ui-tooltip > [popover],
-                html:not(.sidebar-is-collapsed) body:not(.sidebar-is-collapsed) [data-flux-tooltip-popup],
-                html:not(.sidebar-is-collapsed) body:not(.sidebar-is-collapsed) ui-tooltip-popup {
+                [data-flux-sidebar] .sidebar-logo-link .sidebar-big-logo {
+                    height: 100% !important;
+                    width: 100% !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) .sidebar-logo-link .sidebar-big-logo {
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                html.sidebar-is-collapsed [data-flux-sidebar]:hover .sidebar-logo-link .sidebar-big-logo,
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] .sidebar-logo-link .sidebar-big-logo {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    pointer-events: auto !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] .sidebar-logo-link .sidebar-big-logo {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    pointer-events: auto !important;
+                    transition: none !important;
+                }
+
+                [data-flux-sidebar] .sidebar-logo-link .sidebar-small-logo {
+                    display: flex !important;
+                    position: absolute !important;
+                    left: 22px !important;
+                    top: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    margin: 0 auto !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) .sidebar-logo-link .sidebar-small-logo {
+                    display: flex !important;
+                    position: absolute !important;
+                    left: 22px !important;
+                    top: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transition: opacity 120ms ease 250ms, visibility 120ms ease 250ms !important;
+                }
+
+                html.sidebar-is-collapsed [data-flux-sidebar]:hover .sidebar-logo-link .sidebar-small-logo {
+                    display: flex !important;
+                    position: absolute !important;
+                    left: 22px !important;
+                    top: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: opacity 120ms ease 250ms, visibility 120ms ease 250ms !important;
+                }
+
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] .sidebar-logo-link .sidebar-small-logo {
+                    display: flex !important;
+                    position: absolute !important;
+                    left: 22px !important;
+                    top: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: none !important;
+                }
+
+                /* Shift-Free Navigation Item Geometry (Gmail Model):
+                   1. flex-start alignment across both collapsed and expanded states (never toggles justify-content).
+                   2. Invariant 2.5rem (40px) leading icon slot centered around X=34px.
+                   3. Item expands smoothly to the right with 0px horizontal icon shift. */
+                [data-flux-sidebar] [data-flux-navlist-item] {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: flex-start !important;
+                    box-sizing: border-box !important;
+                    height: 2.5rem !important;
+                    margin-left: 2px !important;
+                    margin-right: 2px !important;
+                    padding: 0 !important;
+                    border: none !important;
+                    white-space: nowrap !important;
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 250ms,
+                                border-radius 200ms ease 250ms,
+                                background-color 150ms ease !important;
+                }
+
+                /* Invariant 2.5rem (40px) Centered Leading Icon Slot */
+                [data-flux-sidebar] [data-flux-navlist-item] > .relative {
+                    width: 2.5rem !important;
+                    min-width: 2.5rem !important;
+                    max-width: 2.5rem !important;
+                    height: 2.5rem !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    flex-shrink: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+
+                /* Universal ui-tooltip normalization: Prevents inline collapse or sibling line-wrap shifts */
+                [data-flux-sidebar] ui-tooltip {
+                    display: block !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    min-width: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    box-sizing: border-box !important;
+                }
+
+                /* Container Constraints: Prevent any ancestor or custom wrapper from expanding wider than the 4.25rem rail */
+                [data-flux-sidebar] [data-flux-navlist],
+                [data-flux-sidebar] [data-flux-navlist-group],
+                [data-flux-sidebar] .grid,
+                [data-flux-sidebar] .grid > div,
+                [data-flux-sidebar] .w-full {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    min-width: 0 !important;
+                    box-sizing: border-box !important;
+                }
+
+
+                /* Collapsed Mini Rail: Item width locks to 2.5rem (40px) rounded-lg box */
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] {
+                    width: 2.5rem !important;
+                    min-width: 2.5rem !important;
+                    border-radius: 0.625rem !important;
+                    overflow: hidden !important;
+                }
+
+                /* Expanded / Hover Mode: Item expands to fill sidebar width toward the right */
+                [data-flux-sidebar]:hover [data-flux-navlist-item],
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item],
+                html.sidebar-hover-active [data-flux-sidebar] [data-flux-navlist-item] {
+                    width: calc(100% - 4px) !important;
+                    padding-right: 0.75rem !important;
+                    border-radius: 0.5rem !important;
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 250ms,
+                                border-radius 200ms ease 250ms,
+                                background-color 150ms ease !important;
+                }
+
+                [data-flux-sidebar]:hover [data-flux-navlist-item] > [data-content],
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item] > [data-content],
+                html.sidebar-hover-active [data-flux-sidebar] [data-flux-navlist-item] > [data-content],
+                [data-flux-sidebar]:hover [data-flux-navlist-item] > div:not(.relative),
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item] > div:not(.relative),
+                html.sidebar-hover-active [data-flux-sidebar] [data-flux-navlist-item] > div:not(.relative),
+                [data-flux-sidebar]:hover [data-flux-badge],
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-badge],
+                html.sidebar-hover-active [data-flux-sidebar] [data-flux-badge],
+                [data-flux-sidebar]:hover svg.transition-transform,
+                html:not(.sidebar-is-collapsed) [data-flux-sidebar] svg.transition-transform,
+                html.sidebar-hover-active [data-flux-sidebar] svg.transition-transform {
+                    display: flex !important;
+                    align-items: center !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                /* Persistent Group Heading Geometry: Preserves vertical spacing in collapsed state */
+                [data-flux-sidebar] [data-flux-navlist-group-heading] {
+                    height: 1.75rem !important;
+                    min-height: 1.75rem !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    padding-left: 0.625rem !important;
+                    padding-right: 0.625rem !important;
+                    margin-top: 0.5rem !important;
+                    box-sizing: border-box !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > div {
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar]:hover [data-flux-navlist-group-heading] > div,
+                :not(.sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-group-heading] > div {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transition: none !important;
+                }
+
+                /* When pinned-collapsed AND NOT HOVERED AND NOT HOVER-ACTIVE: hide text labels, badges, and sublists with delayed fade */
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > [data-content],
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > div:not(.relative),
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) .text-zinc-400:not([data-flux-navlist-group-heading] *),
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) .sidebar-text,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) svg.transition-transform,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) [data-flux-badge] {
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover) .sidebar-sublist {
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    max-height: 0 !important;
+                    overflow: hidden !important;
+                    transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms, max-height 200ms ease 250ms !important;
+                }
+
+                /* WHEN PINNED-COLLAPSED AND HOVERED: PURE CSS FLOATING FLYOUT OVERLAY! */
+                :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar]:hover {
+                    width: 16rem !important;
+                    min-width: 4.25rem !important;
+                    max-width: 16rem !important;
+                    padding-left: 0.75rem !important;
+                    padding-right: 0.75rem !important;
+                    align-items: stretch !important;
+                    z-index: 45 !important;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 250ms,
+                                box-shadow 200ms ease 250ms !important;
+                }
+
+                /* BRIDGE STATE: User was hovering when navigating across pages */
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] {
+                    width: 16rem !important;
+                    min-width: 16rem !important;
+                    padding-left: 0.75rem !important;
+                    padding-right: 0.75rem !important;
+                    align-items: stretch !important;
+                    z-index: 45 !important;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+                    transition: none !important;
+                }
+
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item] {
+                    width: calc(100% - 4px) !important;
+                    padding-right: 0.75rem !important;
+                    border-radius: 0.5rem !important;
+                    transition: none !important;
+                }
+
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item] > [data-content],
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] [data-flux-navlist-item] > div:not(.relative) {
+                    display: flex !important;
+                    align-items: center !important;
+                    opacity: 1 !important;
+                    transition: none !important;
+                }
+
+                .dark :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar]:hover,
+                :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed).dark [data-flux-sidebar],
+                .dark :is(html.sidebar-hover-active.sidebar-is-collapsed, html.sidebar-hover-active .sidebar-is-collapsed) [data-flux-sidebar] {
+                    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+                }
+
+                /* Suppress floating tooltip popups in normal expanded OR hovered mode */
+                html:not(.sidebar-is-collapsed) ui-tooltip > [popover],
+                [data-flux-sidebar]:hover ui-tooltip > [popover],
+                html.sidebar-hover-active ui-tooltip > [popover],
+                html:not(.sidebar-is-collapsed) [data-flux-tooltip-popup],
+                [data-flux-sidebar]:hover [data-flux-tooltip-popup],
+                html.sidebar-hover-active [data-flux-tooltip-popup] {
                     display: none !important;
                     visibility: hidden !important;
                     opacity: 0 !important;
                 }
+
+                /* MANUAL TOGGLE BUTTON CLICK ANIMATION (0ms Delay Override) */
+                body.sidebar-animating #sidebar-rail-wrapper {
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover),
+                body.sidebar-animating :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) [data-flux-sidebar],
+                body.sidebar-animating [data-flux-sidebar] {
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+                                box-shadow 200ms ease 0ms,
+                                padding 200ms ease 0ms !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) .sidebar-logo-link .sidebar-big-logo,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) .sidebar-logo-link .sidebar-small-logo,
+                body.sidebar-animating [data-flux-sidebar] .sidebar-logo-link .sidebar-big-logo,
+                body.sidebar-animating [data-flux-sidebar] .sidebar-logo-link .sidebar-small-logo,
+                body.sidebar-animating :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) .sidebar-logo-link .sidebar-big-logo,
+                body.sidebar-animating :is(html.sidebar-is-collapsed, .sidebar-is-collapsed) .sidebar-logo-link .sidebar-small-logo {
+                    transition: opacity 150ms ease 0ms, visibility 150ms ease 0ms !important;
+                }
+
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-group-heading] > div,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item],
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > [data-content],
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-navlist-item] > div:not(.relative),
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) [data-flux-badge],
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) svg.transition-transform,
+                html.sidebar-is-collapsed:not(.sidebar-hover-active) body.sidebar-animating [data-flux-sidebar]:not(:hover) .sidebar-sublist,
+                body.sidebar-animating [data-flux-navlist-group-heading] > div,
+                body.sidebar-animating [data-flux-navlist-item],
+                body.sidebar-animating [data-flux-navlist-item] > [data-content],
+                body.sidebar-animating [data-flux-navlist-item] > div:not(.relative),
+                body.sidebar-animating [data-flux-badge],
+                body.sidebar-animating svg.transition-transform,
+                body.sidebar-animating .sidebar-sublist {
+                    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+                                border-radius 200ms ease 0ms,
+                                opacity 150ms ease 0ms,
+                                visibility 150ms ease 0ms,
+                                max-height 200ms ease 0ms !important;
+                }
             }
         </style>
         <script>
-            (function() {
+            let lastMouseX = -1;
+            let lastMouseY = -1;
+            window.addEventListener('mousemove', function(e) {
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+
+                if (document.documentElement.classList.contains('sidebar-hover-active')) {
+                    const sidebar = document.querySelector('[data-flux-sidebar]');
+                    if (sidebar) {
+                        const rect = sidebar.getBoundingClientRect();
+                        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                            document.documentElement.classList.remove('sidebar-hover-active');
+                        }
+                    } else {
+                        document.documentElement.classList.remove('sidebar-hover-active');
+                    }
+                }
+            }, { passive: true });
+
+            // Lock the bridge state on click/navigation inside the sidebar to prevent flicker
+            document.addEventListener('pointerdown', function(e) {
                 if (window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                    const sidebar = document.querySelector('[data-flux-sidebar]');
+                    if (sidebar && sidebar.contains(e.target)) {
+                        document.documentElement.classList.add('sidebar-hover-active');
+                    }
+                }
+            }, { passive: true });
+
+            document.addEventListener('mouseout', function(e) {
+                if (document.documentElement.classList.contains('sidebar-hover-active')) {
+                    const sidebar = document.querySelector('[data-flux-sidebar]');
+                    if (sidebar && (!e.relatedTarget || !sidebar.contains(e.relatedTarget))) {
+                        document.documentElement.classList.remove('sidebar-hover-active');
+                    }
+                }
+            }, { passive: true });
+
+            (function() {
+                const isCollapsed = localStorage.getItem('admin_sidebar_collapsed') === 'true';
+                if (window.innerWidth >= 1024 && isCollapsed) {
                     document.documentElement.classList.add('sidebar-is-collapsed');
                 }
+                if (isCollapsed && !document.cookie.includes('admin_sidebar_collapsed=')) {
+                    document.cookie = 'admin_sidebar_collapsed=true; path=/; max-age=31536000; SameSite=Lax';
+                }
+
+                if (window.MutationObserver) {
+                    new MutationObserver(() => {
+                        if (window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                            if (!document.documentElement.classList.contains('sidebar-is-collapsed')) {
+                                document.documentElement.classList.add('sidebar-is-collapsed');
+                            }
+                        }
+                    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+                }
             })();
+
+            function updateActiveSidebarItem() {
+                const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+                const currentUrl = window.location.href;
+                const currentSearch = window.location.search;
+
+                document.querySelectorAll('[data-flux-sidebar] [data-flux-navlist-item]').forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (!href) return;
+
+                    try {
+                        const targetUrl = new URL(href, window.location.origin);
+                        const targetPath = targetUrl.pathname.replace(/\/$/, '') || '/';
+                        
+                        let isMatch = false;
+                        if (targetUrl.search) {
+                            isMatch = (targetPath === currentPath) && (targetUrl.search === currentSearch);
+                        } else {
+                            isMatch = (targetPath === currentPath) && (!currentSearch || currentPath === targetPath);
+                        }
+
+                        if (isMatch) {
+                            item.setAttribute('data-current', '');
+                        } else {
+                            item.removeAttribute('data-current');
+                        }
+                    } catch (e) {}
+                });
+
+                const manageUsersItem = document.querySelector('[data-flux-sidebar] [aria-label="Manage Users"]');
+                if (manageUsersItem) {
+                    if (currentPath === '/admin/employees' || currentPath === '/admin/students') {
+                        manageUsersItem.setAttribute('data-current', '');
+                    } else {
+                        manageUsersItem.removeAttribute('data-current');
+                    }
+                }
+            }
+
             document.addEventListener('livewire:navigated', function () {
-                if (window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true') {
-                    document.documentElement.classList.add('sidebar-is-collapsed');
+                if (window.innerWidth >= 1024) {
+                    if (localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                        document.documentElement.classList.add('sidebar-is-collapsed');
+                        if (document.body) {
+                            document.body.classList.add('sidebar-is-collapsed');
+                        }
+
+                        // Check if cursor is still resting inside the sidebar bounds after navigation
+                        const sidebar = document.querySelector('[data-flux-sidebar]');
+                        if (sidebar && lastMouseX >= 0 && lastMouseY >= 0) {
+                            const rect = sidebar.getBoundingClientRect();
+                            const isInside = (lastMouseX >= rect.left && lastMouseX <= (rect.left + 256) &&
+                                              lastMouseY >= rect.top && lastMouseY <= rect.bottom);
+                            if (isInside) {
+                                document.documentElement.classList.add('sidebar-hover-active');
+                            } else {
+                                document.documentElement.classList.remove('sidebar-hover-active');
+                            }
+                        }
+                    } else {
+                        document.documentElement.classList.remove('sidebar-is-collapsed');
+                        document.documentElement.classList.remove('sidebar-hover-active');
+                        if (document.body) {
+                            document.body.classList.remove('sidebar-is-collapsed');
+                        }
+                    }
                 } else {
-                    document.documentElement.classList.remove('sidebar-is-collapsed');
+                    const sidebar = document.querySelector('[data-flux-sidebar]');
+                    if (sidebar && sidebar.hasAttribute('data-open')) {
+                        sidebar.removeAttribute('data-open');
+                    }
+                }
+
+                updateActiveSidebarItem();
+            });
+
+            document.addEventListener('livewire:navigating', function () {
+                if (window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                    const sidebar = document.querySelector('[data-flux-sidebar]');
+                    if (sidebar && lastMouseX >= 0 && lastMouseY >= 0) {
+                        const rect = sidebar.getBoundingClientRect();
+                        const isInside = (lastMouseX >= rect.left && lastMouseX <= (rect.left + 256) &&
+                                          lastMouseY >= rect.top && lastMouseY <= rect.bottom);
+                        if (isInside) {
+                            document.documentElement.classList.add('sidebar-hover-active');
+                        }
+                    }
                 }
             });
 
             document.addEventListener('livewire:init', function () {
+                Livewire.hook('morph.updating', ({ el, toEl }) => {
+                    if (el === document.body || el === document.documentElement) {
+                        if (localStorage.getItem('admin_sidebar_collapsed') === 'true') {
+                            toEl.classList.add('sidebar-is-collapsed');
+                        }
+                        if (document.documentElement.classList.contains('sidebar-hover-active')) {
+                            toEl.classList.add('sidebar-hover-active');
+                        }
+                    }
+                });
+
                 Livewire.hook('request', ({ fail }) => {
                     fail(({ status, preventDefault }) => {
-                        // Suppress unhandled error popups and promise rejections when network drops
                         if (!navigator.onLine || status === 0 || status === null) {
                             preventDefault();
                         }
@@ -175,10 +645,13 @@
                     document.body.classList.add('sidebar-animating');
                     this.sidebarCollapsed = !this.sidebarCollapsed;
                     localStorage.setItem('admin_sidebar_collapsed', this.sidebarCollapsed);
+                    document.cookie = 'admin_sidebar_collapsed=' + this.sidebarCollapsed + '; path=/; max-age=31536000; SameSite=Lax';
                     if (this.sidebarCollapsed) {
                         document.documentElement.classList.add('sidebar-is-collapsed');
+                        document.body.classList.add('sidebar-is-collapsed');
                     } else {
                         document.documentElement.classList.remove('sidebar-is-collapsed');
+                        document.body.classList.remove('sidebar-is-collapsed');
                     }
                     setTimeout(() => {
                         document.body.classList.remove('sidebar-animating');
@@ -188,10 +661,12 @@
         }" 
         x-on:online.window="isOffline = false"
         x-on:offline.window="isOffline = true"
-        x-on:livewire:navigated.window="isOffline = !navigator.onLine"
+        x-on:livewire:navigated.window="isOffline = !navigator.onLine; sidebarCollapsed = (window.innerWidth >= 1024 && localStorage.getItem('admin_sidebar_collapsed') === 'true');"
         @toggle-sidebar.window="toggle()" 
-        :class="sidebarCollapsed ? 'sidebar-is-collapsed' : ''"
-        class="min-h-screen bg-[#fafafa] dark:bg-[#111113]"
+        :class="{
+            'sidebar-is-collapsed': sidebarCollapsed
+        }"
+        class="min-h-screen bg-[#fafafa] dark:bg-[#111113] {{ request()->cookie('admin_sidebar_collapsed') === 'true' ? 'sidebar-is-collapsed' : '' }}"
     >
         <!-- Global Passive Offline Detection Banner -->
         <div 
@@ -206,24 +681,30 @@
         </div>
 
         <div class="flex min-h-screen w-full">
-            <flux:sidebar 
-                sticky 
-                stashable 
-                class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shrink-0 print:hidden max-lg:!z-50"
+            <!-- Desktop Layout Spacer: Holds the flex space without moving on hover -->
+            <div 
+                id="sidebar-rail-wrapper"
+                wire:ignore
+                class="max-lg:contents lg:shrink-0 lg:relative print:hidden"
             >
-                <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
+                <flux:sidebar 
+                    sticky 
+                    stashable 
+                    class="border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shrink-0 print:hidden max-lg:!z-50"
+                >
+                    <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-                <!-- Logo Section: Full logo on mobile and desktop-expanded; Small Icon ONLY when collapsed on desktop (lg:) -->
-                <a href="{{ route('dashboard') }}" class="flex items-center justify-center w-full px-1 py-2 mb-2 shrink-0" aria-label="Dashboard Home" wire:navigate>
-                    <!-- Big Logo: Shown by default, hidden when html.sidebar-is-collapsed -->
-                    <div class="sidebar-big-logo w-full flex items-center justify-center">
-                        <x-app-logo class="w-full"></x-app-logo>
-                    </div>
-                    <!-- Small Logo Icon: Desktop only, shown when html.sidebar-is-collapsed -->
-                    <div class="sidebar-small-logo hidden items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#e07a7a]">
-                        <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#e07a7a] fill-current"></x-app-logo-icon>
-                    </div>
-                </a>
+                    <!-- Logo Section: Full logo on mobile and desktop-expanded; Small Icon ONLY when collapsed on desktop (lg:) -->
+                    <a href="{{ route('dashboard') }}" class="sidebar-logo-link flex items-center justify-center w-full px-1 py-2 mb-2 shrink-0" aria-label="Dashboard Home" wire:navigate>
+                        <!-- Big Logo: Shown by default, hidden when html.sidebar-is-collapsed:not(.sidebar-hover-expanded) -->
+                        <div class="sidebar-big-logo w-full flex items-center justify-center">
+                            <x-app-logo class="w-full"></x-app-logo>
+                        </div>
+                        <!-- Small Logo Icon: Desktop only, shown when html.sidebar-is-collapsed:not(.sidebar-hover-expanded) -->
+                        <div class="sidebar-small-logo hidden items-center justify-center p-1.5 rounded-xl bg-red-950/10 dark:bg-red-950/30 border border-red-900/20 text-[#9b0000] dark:text-[#e07a7a]">
+                            <x-app-logo-icon class="size-7 text-[#9b0000] dark:text-[#e07a7a] fill-current"></x-app-logo-icon>
+                        </div>
+                    </a>
 
                 <flux:navlist variant="outline">
                     @php
@@ -257,7 +738,7 @@
                                     <flux:navlist.item 
                                         icon="users" 
                                         as="button"
-                                        @click.prevent="if (sidebarCollapsed) { toggle(); open = true; } else { open = !open; }" 
+                                        @click.prevent="open = !open" 
                                         :current="request()->routeIs('admin.employees', 'admin.students')"
                                         aria-label="Manage Users"
                                         class="cursor-pointer w-full text-left"
@@ -412,6 +893,7 @@
                     @endif
                 </flux:navlist>
             </flux:sidebar>
+        </div>
 
             <!-- Main Content Container with Navbar, Page Slot, and Full-Width Footer -->
             <div class="flex-1 flex flex-col min-h-screen min-w-0">

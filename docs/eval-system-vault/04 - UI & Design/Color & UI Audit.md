@@ -143,4 +143,33 @@ This document provides a comprehensive audit of all colors utilized across the *
 - **Light Thumb**: `rgba(161, 161, 170, 0.35)` (`zinc-400` at 35% opacity), Hover: `rgba(161, 161, 170, 0.60)`
 - **Dark Thumb**: `rgba(113, 113, 122, 0.35)` (`zinc-500` at 35% opacity), Hover: `rgba(113, 113, 122, 0.60)`
 
+### 8.3 Persistent Rail & Flyout Hover Interaction (Gmail Model)
+
+- **Pinned Rail Width:** `4.25rem` (`68px`), padding `0.75rem` (`12px` left & right), content column `2.75rem` (`44px`).
+- **Shift-Free Invariant Leading Icon Anchor (0px Horizontal & Vertical Delta):**
+  - **Horizontal Invariance:** Both collapsed and expanded states maintain `justify-content: flex-start !important;` and identical margins (`margin-left: 2px !important; margin-right: 2px !important;`). Leading icon slot is an invariant `2.5rem × 2.5rem` (`40px × 40px`) flex box (`item.x = 14px`, `icon.x = 26px`, center `X = 34px`). Expanding to hover flyout grows the item width purely rightward (`calc(100% - 4px)`), yielding a **0.00px horizontal shift delta**.
+  - **Vertical Invariance:** Maintained consistent `display: block` formatting context on `<ui-tooltip>` across both collapsed and hovered states to prevent flexbox margin collapsing discrepancy (which previously produced a 1px compound shift per item up to 10px). All items now maintain an invariant `Delta Top: 0.00px` in automated Playwright verification.
+- **Synchronized Expansion Timing (Zero Active Lag):**
+  - Removed artificial delays on child navigation items and sidebar container: both container and active indicator pill transition at `200ms cubic-bezier(0.4, 0, 0.2, 1)`, moving in exact lockstep without the active tab lagging behind.
+  - Replaced snapping `min-width: 16rem` with `min-width: 4.25rem; max-width: 16rem; width: 16rem;` on `:hover`, enabling smooth interpolation instead of instantaneous jump.
+- **Page Transition Bridge Stability (Zero Heading Flicker):**
+  - Scoped collapsed hide rules to `html.sidebar-is-collapsed:not(.sidebar-hover-active)` to prevent `<body>` lacking the hover class from triggering visibility drops during DOM morphing.
+  - Added `mouseover`/`mouseout` tracking and `morph.updating` class persistence in Livewire to guarantee `sidebar-hover-active` remains unbroken while navigating across pages. Group headings maintain `opacity: 1; visibility: visible; transition: none !important;` during hover transitions (0 dropped frames verified in Playwright).
+- **Intentional 250ms Hover Intent Delay:**
+  - Sidebar width and box-shadow expansion trigger after an intentional `250ms` delay (`transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1) 250ms, box-shadow 200ms ease 250ms !important;`) on hover and close, preventing accidental trigger sweeps while moving across the screen.
+- **Synchronized Logo Cross-Fade & Bridge Stabilization:**
+  - Small icon logo (`.sidebar-small-logo`) is absolutely centered at `left: 22px; top: 50%; transform: translate(-50%, -50%)` (center X = 34.00px, exactly equidistant with 13px left/right margins and matching the navigation icon track).
+  - During the 250ms hover-open delay, small logo stays 100% visible (`opacity: 1; visibility: visible;`) and big logo stays 100% hidden (`opacity: 0; visibility: hidden; pointer-events: none;`).
+  - Both logos transition via `opacity` and `visibility` with an identical `250ms` transition delay (`transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;`), seamlessly cross-fading only while the sidebar width physically expands from 68px to 256px.
+  - Collapsed hide rules are strictly scoped to `html.sidebar-is-collapsed:not(.sidebar-hover-active) [data-flux-sidebar]:not(:hover)` and bridge rules enforce `transition: none !important;` under `sidebar-hover-active`. When navigating between pages while hovering, the big logo remains permanently visible with 0 dropped frames and zero swap back to the small logo.
+- **Synchronized Text & Heading Hover Exit Hold (Zero Premature Disappearance):**
+  - Text labels (`[data-content]`), group headings (`[data-flux-navlist-group-heading] > div`), badges, and chevrons apply `transition: opacity 150ms ease 250ms, visibility 150ms ease 250ms !important;` on `:not(:hover)`.
+  - During the 250ms mouse exit hold, headings and text remain 100% visible, smoothly fading out and clipping within `overflow: hidden` strictly while the sidebar contracts from 256px to 68px.
+- **Manual Toggle Button 0ms Override (`body.sidebar-animating`):**
+  - High-specificity rules on `body.sidebar-animating` override the 250ms hover-intent delay to `0ms` across sidebar width, logo cross-fade, headings, and nav items.
+  - On toggle button click, the sidebar animates immediately (200ms duration) and the big/small logos cross-fade with 0ms delay, preventing the small logo and big logo from displaying simultaneously.
+- **Standalone Centered Active Box:** Nav items in mini-rail rendered as `2.5rem × 2.5rem` (`40px × 40px`) box with `border-radius: 0.625rem` (`rounded-lg`) without right-border clipping.
+- **Flyout Expanded Width:** `16rem` (`width: 16rem !important`), `z-index: 45`, floating overlay elevation with dual ambient shadow (`rgba(0,0,0,0.15)` light / `rgba(0,0,0,0.65)` dark).
+- **Active Navigation Indicator:** Synchronized via client-side `livewire:navigated` listener applying `[data-current]` token styles (`#9b0000` light / `rgba(224, 122, 122, 0.12)` dark).
+
 ---

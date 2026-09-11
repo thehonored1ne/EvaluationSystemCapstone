@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
 
+        $middleware->encryptCookies(except: [
+            'admin_sidebar_collapsed',
+        ]);
+
         $middleware->web(append: [
             SecurityHeadersMiddleware::class,
         ]);

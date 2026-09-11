@@ -41,6 +41,12 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### September 11, 2026
+- **Google-Style Hover-to-Expand Floating Rail Sidebar**:
+  - Implemented an overlay-based hover expansion on the mini-rail sidebar with 140ms enter and 120ms leave intent debounce.
+  - Decoupled visual overlay width from page document flow via `#sidebar-rail-wrapper`, ensuring zero layout shift (CLS) for the main content container when hovering.
+  - Added a header Pin / Collapse button for direct pinning from the flyout in addition to the navbar toggle button.
+
 ### September 9, 2026
 - **Optimistic UI for Evaluation Status Controls**:
   - Implemented client-side optimistic UI on the Admin Dashboard Open/Close Evaluation button and live countdown context pill, eliminating latency and providing instant visual feedback with automatic server reconciliation.
