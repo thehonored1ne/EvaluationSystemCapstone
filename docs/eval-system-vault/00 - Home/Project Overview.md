@@ -41,6 +41,16 @@ A role-based evaluation system with the following active portals:
 
 ## Milestones & Summary of Work Done
 
+### September 13–14, 2026
+- **AI Sentiment Pipeline Hardening & Manage AI Dashboard Modernization**:
+  - Regularized the Decision Tree classifier (`max_depth=8`, `min_samples_leaf=3`) and added polar text protection in `python/app.py`, preventing 5.0★ numerical ratings from overriding sarcastic/negative comments.
+  - Implemented non-substantive comment filtering (*"none"*, *"n/a"*, *"wala"*, *"ok"*) to default to neutral sentiment and zero polarity score.
+  - Added live confidence scoring (`High`, `Moderate`, `Low (Conflict ⚠️)`, `Human Verified`) and discrepancy detection.
+  - Overhauled [`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php) with top 4 borderless executive KPI cards, an actionable `Needs Review (Conflicted)` and `Overridden` status filter, and a 5-column diagnostic review table.
+  - Synchronized skeleton placeholder `manage-ai-skeleton.blade.php` 1:1 with zero layout shift.
+  - Built an interactive **AI Benchmark & Testing Laboratory** inside `/admin/manage-ai`: allows uploading test datasets (`.csv`, `.xlsx`), evaluates unseen model accuracy, Macro F1, class metrics, and confusion matrix in real-time with zero database persistence, and includes CSV template download, filtering, and export tools.
+  - Added automated Gold-Standard test suite and Artisan command `php artisan ai:benchmark` to evaluate pipeline Precision, Recall, Macro F1, and Confusion Matrices on unseen evaluation datasets for capstone thesis defense.
+
 ### September 11, 2026
 - **Google-Style Hover-to-Expand Floating Rail Sidebar**:
   - Implemented an overlay-based hover expansion on the mini-rail sidebar with 140ms enter and 120ms leave intent debounce.

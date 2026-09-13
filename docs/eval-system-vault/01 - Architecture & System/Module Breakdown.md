@@ -66,8 +66,9 @@ Integrates a Python Flask microservice pipeline to analyze textual feedback comm
 * **Key Features**:
   * **VADER Lexicon Engine**: Enhanced with Tagalog/Taglish negations and custom evaluation lexicons
   * **Decision Tree ML Classifier**: Combines TF-IDF text features with numerical ratings to predict sentiment (`Positive`, `Neutral`, `Negative`)
-  * **Data Quality & Agreement Gate**: Automatically filters conflicting feedback samples
-  * **AI Admin Operations**: Real-time training triggers, confusion matrix metrics, and manual label verification
+  * **Data Quality & Agreement Gate**: Automatically filters conflicting feedback samples and scores confidence (`High`, `Moderate`, `Low (Conflict ⚠️)`, `Human Verified`)
+  * **AI Admin Operations & Active Learning**: Real-time training triggers, confusion matrix metrics, and human-in-the-loop manual label overrides that feed back into model retraining
+  * **Interactive AI Benchmark & Testing Laboratory (`/admin/ai`)**: In-browser testing workbench allowing evaluators to upload unseen test files (`.csv`, `.xlsx`), evaluating Accuracy, Macro F1, Per-Class Precision/Recall/F1, and Confusion Matrix in real-time with zero database persistence, paired with a companion `php artisan ai:benchmark` CLI tool
 
 ---
 

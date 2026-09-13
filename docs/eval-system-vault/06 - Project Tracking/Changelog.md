@@ -15,6 +15,17 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-14]
+
+- **AI Pipeline Hardening, Human-in-the-Loop Sentiment Management & Benchmark Laboratory** ([`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php), [`app.py`](file:///c:/Users/USER/Herd/evaluationsystem/python/app.py), [`BenchmarkAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/BenchmarkAI.php), [`TrainAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php)):
+  - **Decision Tree Regularization & Rating Dominance Guard:** Regularized `DecisionTreeClassifier(max_depth=8, min_samples_leaf=3)` in `python/app.py` to prevent numerical rating dominance over TF-IDF text features. Added polar text protection preventing 5.0★ ratings from overriding sarcastic or negative commentary.
+  - **Non-Substantive Comment Filtering:** Added pre-check in Python for non-substantive filler comments (*"none"*, *"n/a"*, *"wala"*, *"ok"*), defaulting to neutral sentiment and 0.0 polarity score.
+  - **Agreement Gate & Confidence Scoring:** Added real-time confidence scoring (`High`, `Moderate`, `Low (Conflict ⚠️)`, `Human Verified`) and conflict detection (`vader_label != dt_label` or rating/sentiment discrepancy).
+  - **Executive KPI Cards & Diagnostic Filters:** Overhauled `/admin/ai` with the top 4 executive borderless KPI cards, an actionable status filter (`Misclassified in Test`, `Needs Review (Conflicted)`, `Manually Overridden`, sentiment classes), and an updated 5-column diagnostic review table (`Review & Comment`, `Text Polarity`, `AI Prediction`, `Confidence Level`, `Manual Override`).
+  - **Interactive AI Benchmark & Testing Laboratory (Zero Database Persistence):** Built an in-browser workbench allowing evaluators to upload unseen test files (`.csv`, `.xlsx`) with thick dashed border dropzone styling. Calculates Accuracy, Macro F1, Per-Class Precision/Recall/F1, and Confusion Matrix in real-time with zero database record modification. Includes sample template download, CSV result export, and scrollable sample breakdown (`max-h-72` with sticky headers).
+  - **Console Benchmark Tool:** Created `php artisan ai:benchmark [file] [--json]` Artisan command for thesis defense evaluation against Gold-Standard datasets.
+  - **Verification:** 100% of test suite passing (192 passed, 906 assertions); Pint formatting clean.
+
 ## [2026-09-11]
 
 - **Gmail-Style Persistent App Shell & Zero-Twitch Navigation Architecture** ([`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php), [`group.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/flux/navlist/group.blade.php)):

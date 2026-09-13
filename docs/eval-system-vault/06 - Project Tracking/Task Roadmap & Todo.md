@@ -8,6 +8,16 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] #00 AI Pipeline Robustness, Benchmark Laboratory & Manage AI Dashboard Modernization (Completed: 2026-09-14)
+  - **Decision Tree Regularization & Rating Dominance Guard:** Configured `DecisionTreeClassifier(max_depth=8, min_samples_leaf=3)` in `python/app.py` to prevent the numerical rating feature from dominating textual TF-IDF, and added polar text protection preventing 5.0★ ratings from forcing sarcastic/negative comments positive.
+  - **Non-Substantive Comment Pre-Check:** Added stopword filtering in Python for filler phrases (*"n/a"*, *"none"*, *"wala"*, *"ok"*) to automatically assign neutral sentiment and 0.0 polarity score regardless of rating.
+  - **Agreement Gate & Confidence Scoring:** Added live confidence scoring (`High`, `Moderate`, `Low (Conflict ⚠️)`, `Human Verified`) and conflict detection (`vader_label != dt_label` or rating/sentiment contradiction).
+  - **Executive KPI Cards, Misclassified Filter & "Needs Review":** Modernized `manage-ai.blade.php` with the top 4 executive borderless KPI cards (Analyzed Reviews, Human Overrides, Validation Accuracy, Needs Review), an actionable dropdown filter (`🎯 Misclassified in Test (X)`, `Needs Review (Conflicted)`, `Manually Overridden`, sentiment classes), an expandable misclassified comments audit card under the Confusion Matrix, and an updated 5-column table (`Review & Comment`, `Text Polarity`, `AI Prediction`, `Confidence Level`, `Manual Override`).
+  - **Interactive AI Benchmark & Testing Laboratory:** Integrated an in-browser testing workbench allowing evaluators to upload unseen test datasets (`.csv`, `.xlsx`) with thick dashed border dropzone styling. Evaluates Accuracy, Macro F1, Per-Class Precision/Recall/F1, and Confusion Matrix in real-time with zero database persistence. Features sample template download, CSV result export, and scrollable sample breakdown (`max-h-72` with sticky headers).
+  - **Artisan Benchmark Tool:** Created `php artisan ai:benchmark [file] [--json]` command for thesis defense evaluation against Gold-Standard datasets.
+  - **Zero-CLS Skeleton Loader:** Synchronized `manage-ai-skeleton.blade.php` 1:1 with 4 stat cards, filter controls, and 5 table columns.
+  - **Quality Gates:** 100% green tests in `AISentimentCorrectionTest` and full test suite (192 passed, 906 assertions); 0 Pint lint warnings.
+
 - [X] #0 Google-Style Hover-to-Expand Floating Rail Sidebar (Completed: 2026-09-11)
   - **Zero-CLS Hover Flyout Overlay:** When collapsed in mini-rail mode (`4.25rem` / 68px), hovering over the rail triggers an intentional debounced slide-out (140ms enter / 120ms leave grace period) expanding the sidebar to full width (`16rem` / 256px) with an ambient shadow (`box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15)` / dark `rgba(0,0,0,0.65)`).
   - **Persistent Layout Container Stability:** Introduced `#sidebar-rail-wrapper` as the layout spacer in normal document flow. The main page container remains completely still with zero layout push or reflow on hover.

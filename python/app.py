@@ -145,6 +145,19 @@ def get_vader_sentiment(text):
         label = "neutral"
     return compound, label, lang_mode
 
+# Non-substantive filler phrases that should always be neutral
+NON_COMMENT_WORDS = {
+    "none", "n/a", "na", "wala", "wla", "no", "ok", "okay", "nothing", 
+    "no comment", "no comments", "none so far", "wala naman", "wla naman",
+    "k", "all good", "good", "sana all"
+}
+
+def is_non_substantive_comment(text):
+    if not text:
+        return True
+    cleaned = text.strip().lower().strip(".,!?;:()[]\"'-")
+    return cleaned in NON_COMMENT_WORDS
+
 # Helper: Load Decision Tree and TF-IDF models
 def load_models():
     if os.path.exists(VECTORIZER_PATH) and os.path.exists(CLASSIFIER_PATH):
@@ -182,6 +195,19 @@ def analyze():
     results = []
 
     for text, rating in zip(comments, ratings):
+        # Edge Case: Non-substantive filler comments (e.g. "none", "n/a", "ok")
+        if is_non_substantive_comment(text):
+            results.append({
+                "comment": text,
+                "vader_score": 0.0,
+                "vader_label": "neutral",
+                "dt_label": "neutral",
+                "confidence": "high",
+                "is_conflicted": False,
+                "language_mode": "english"
+            })
+            continue
+
         vader_score, vader_label, lang_mode = get_vader_sentiment(text)
         
         # Predict using Decision Tree if available (features: TF-IDF of text + Rating value)
@@ -197,11 +223,34 @@ def analyze():
         else:
             dt_label = vader_label
 
+        # Guard: Rating Dominance & Extreme Polarity Protection
+        # If text is objectively negative (vader_score <= -0.20), rating >= 4.0 must NOT force it positive
+        if vader_score <= -0.20 and dt_label == "positive":
+            dt_label = "negative"
+        # If text is objectively positive (vader_score >= 0.35), rating <= 2.0 must NOT force it negative
+        elif vader_score >= 0.35 and dt_label == "negative":
+            dt_label = "positive"
+
+        # Determine confidence and agreement conflict
+        is_conflicted = False
+        if vader_label != dt_label:
+            is_conflicted = True
+            confidence = "low"
+        elif (rating >= 4.2 and dt_label == "negative") or (rating <= 2.2 and dt_label == "positive"):
+            is_conflicted = True
+            confidence = "low"
+        elif vader_label == "neutral" or dt_label == "neutral":
+            confidence = "moderate"
+        else:
+            confidence = "high"
+
         results.append({
             "comment": text,
             "vader_score": vader_score,
             "vader_label": vader_label,
             "dt_label": dt_label,
+            "confidence": confidence,
+            "is_conflicted": is_conflicted,
             "language_mode": lang_mode
         })
 
@@ -271,12 +320,14 @@ def train():
         X_combined = hstack([X_text, X_ratings])
 
         # Train-Test Split (80% train, 20% test) to compute Confusion Matrix and Accuracy
+        misclassified_samples = []
         if len(all_samples) >= 5:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_combined, labels, test_size=0.2, random_state=42, stratify=labels if len(set(labels)) > 1 else None
+            indices = np.arange(len(all_samples))
+            X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
+                X_combined, labels, indices, test_size=0.2, random_state=42, stratify=labels if len(set(labels)) > 1 else None
             )
-            # Train model on training split
-            classifier_eval = DecisionTreeClassifier(random_state=42)
+            # Train model on training split with regularization to prevent rating dominance
+            classifier_eval = DecisionTreeClassifier(max_depth=8, min_samples_leaf=3, random_state=42)
             classifier_eval.fit(X_train, y_train)
             
             # Predict on test split
@@ -285,12 +336,19 @@ def train():
             # Calculate accuracy
             accuracy = float(np.mean(predictions == y_test))
             
-            # Build Confusion Matrix
+            # Build Confusion Matrix & collect misclassified samples
             classes = ["positive", "neutral", "negative"]
             confusion = {c_actual: {c_pred: 0 for c_pred in classes} for c_actual in classes}
-            for act, pred in zip(y_test, predictions):
+            for act, pred, orig_idx in zip(y_test, predictions, idx_test):
                 if act in classes and pred in classes:
                     confusion[act][pred] += 1
+                if act != pred:
+                    misclassified_samples.append({
+                        "comment": texts[orig_idx],
+                        "rating": float(ratings[orig_idx]),
+                        "actual": act,
+                        "predicted": pred
+                    })
         else:
             accuracy = 1.0
             confusion = {
@@ -299,8 +357,8 @@ def train():
                 "negative": {"positive": 0, "neutral": 0, "negative": 0}
             }
 
-        # Fit final model on all data
-        classifier_final = DecisionTreeClassifier(random_state=42)
+        # Fit final model on all data with regularization
+        classifier_final = DecisionTreeClassifier(max_depth=8, min_samples_leaf=3, random_state=42)
         classifier_final.fit(X_combined, labels)
 
         # Save models
@@ -314,7 +372,8 @@ def train():
             "seed_samples": len(seed_samples),
             "metrics": {
                 "accuracy": accuracy,
-                "confusion_matrix": confusion
+                "confusion_matrix": confusion,
+                "misclassified_samples": misclassified_samples
             }
         })
     except Exception as e:

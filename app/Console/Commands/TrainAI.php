@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Evaluation;
 use App\Models\EvaluationSentiment;
+use App\Models\Semester;
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -95,16 +97,60 @@ class TrainAI extends Command
                 $this->line('Database samples used: '.($result['db_samples'] ?? 0));
                 $this->line('Seed samples used: '.($result['seed_samples'] ?? 0));
 
-                // Save metrics
+                // Save metrics with metadata
                 if (isset($result['metrics'])) {
                     $metricsDir = storage_path('app');
                     if (! is_dir($metricsDir)) {
                         @mkdir($metricsDir, 0755, true);
                     }
+                    $metricsPayload = array_merge($result['metrics'], [
+                        'samples_trained' => $result['samples_trained'] ?? 0,
+                        'db_samples' => $result['db_samples'] ?? 0,
+                        'seed_samples' => $result['seed_samples'] ?? 0,
+                        'last_trained_at' => now()->toIso8601String(),
+                    ]);
                     @file_put_contents(
                         $metricsDir.'/ai_metrics.json',
-                        json_encode($result['metrics'], JSON_PRETTY_PRINT)
+                        json_encode($metricsPayload, JSON_PRETTY_PRINT)
                     );
+
+                    // Ensure any misclassified samples from seed data exist in evaluations table
+                    // so administrators can inspect, filter, and manually override them in UI.
+                    if (! empty($result['metrics']['misclassified_samples'])) {
+                        $fallbackUser = User::first();
+                        $fallbackSem = Semester::first();
+
+                        foreach ($result['metrics']['misclassified_samples'] as $sample) {
+                            $sampleComment = trim($sample['comment'] ?? '');
+                            if (empty($sampleComment)) {
+                                continue;
+                            }
+
+                            $eval = Evaluation::firstOrCreate(
+                                ['comments' => $sampleComment],
+                                [
+                                    'evaluator_id' => $fallbackUser?->id ?? 1,
+                                    'evaluatee_id' => $fallbackUser?->id ?? 1,
+                                    'semester_id' => $fallbackSem?->id ?? 1,
+                                    'evaluation_type' => 'peer',
+                                    'rating_average' => (float) ($sample['rating'] ?? 3.0),
+                                    'raw_score' => (float) ($sample['rating'] ?? 3.0) * 20,
+                                    'max_score' => 100,
+                                    'weighted_score' => (float) ($sample['rating'] ?? 3.0) * 20,
+                                ]
+                            );
+
+                            EvaluationSentiment::firstOrCreate(
+                                ['evaluation_id' => $eval->id],
+                                [
+                                    'vader_score' => 0.0,
+                                    'vader_label' => $sample['actual'] ?? 'neutral',
+                                    'dt_label' => $sample['predicted'] ?? 'neutral',
+                                    'manual_label' => null,
+                                ]
+                            );
+                        }
+                    }
                 }
             } else {
                 $this->error('AI training failed: HTTP status '.$response->status());

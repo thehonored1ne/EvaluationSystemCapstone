@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Comparison operation "\>" between int\<1, max\> and 0 is always true\.$#'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: app/Console/Commands/BenchmarkAI.php
+
+		-
 			message: '#^Access to an undefined property App\\Models\\User\:\:\$employee\.$#'
 			identifier: property.notFound
 			count: 5
@@ -13,10 +19,22 @@ parameters:
 			path: app/Console/Commands/SendEvaluationDeadlineReminders.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Console/Commands/TrainAI.php
+
+		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.expr
 			count: 1
 			path: app/Jobs/ProcessEvaluationSubmission.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rating_average" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/EvaluationSentiment.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\AcademicClass\:\:\$teacher\.$#'

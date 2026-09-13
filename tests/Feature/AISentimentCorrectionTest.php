@@ -8,6 +8,7 @@ use App\Models\EvaluationSentiment;
 use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Livewire\Volt\Volt;
@@ -127,4 +128,167 @@ test('ai:train command submits manual labels and rating averages to Flask and ca
                $data['samples'][0]['rating'] === 4.80 &&
                $data['samples'][0]['manual_label'] === 'positive';
     });
+});
+
+test('evaluation sentiment calculates confidence level and detects conflicts accurately', function () {
+    $evalNormal = Evaluation::create([
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 4.50,
+        'comments' => 'Outstanding instruction and clarity.',
+    ]);
+
+    $sentimentNormal = EvaluationSentiment::create([
+        'evaluation_id' => $evalNormal->id,
+        'vader_score' => 0.85,
+        'vader_label' => 'positive',
+        'dt_label' => 'positive',
+    ]);
+
+    expect($sentimentNormal->confidence_level)->toBe('High');
+    expect($sentimentNormal->is_conflicted)->toBeFalse();
+
+    // Conflicted evaluation: VADER says negative, but DT says positive
+    $evalConflicted = Evaluation::create([
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 4.80,
+        'comments' => 'Worst professor, completely unapproachable.',
+    ]);
+
+    $sentimentConflicted = EvaluationSentiment::create([
+        'evaluation_id' => $evalConflicted->id,
+        'vader_score' => -0.75,
+        'vader_label' => 'negative',
+        'dt_label' => 'positive',
+    ]);
+
+    expect($sentimentConflicted->is_conflicted)->toBeTrue();
+    expect($sentimentConflicted->confidence_level)->toBe('Low (Conflict)');
+
+    // Once manually overridden, confidence is Human Verified
+    $sentimentConflicted->update(['manual_label' => 'negative']);
+    expect($sentimentConflicted->confidence_level)->toBe('Human Verified');
+    expect($sentimentConflicted->is_conflicted)->toBeFalse();
+});
+
+test('manage-ai component filters by needs_review and overridden correctly', function () {
+    $this->actingAs($this->adminUser);
+
+    // Normal review
+    $evalNormal = Evaluation::create([
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 5.0,
+        'comments' => 'Very clear and inspiring.',
+    ]);
+    EvaluationSentiment::create([
+        'evaluation_id' => $evalNormal->id,
+        'vader_score' => 0.8,
+        'vader_label' => 'positive',
+        'dt_label' => 'positive',
+    ]);
+
+    // Conflicted review (VADER negative, DT positive)
+    $evalConflicted = Evaluation::create([
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 4.9,
+        'comments' => 'Unacceptable behavior in class.',
+    ]);
+    EvaluationSentiment::create([
+        'evaluation_id' => $evalConflicted->id,
+        'vader_score' => -0.8,
+        'vader_label' => 'negative',
+        'dt_label' => 'positive',
+    ]);
+
+    // Overridden review
+    $evalOverridden = Evaluation::create([
+        'evaluator_id' => $this->facUser->id,
+        'evaluatee_id' => $this->facUser->id,
+        'semester_id' => $this->semester->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 3.0,
+        'comments' => 'Just standard lectures.',
+    ]);
+    EvaluationSentiment::create([
+        'evaluation_id' => $evalOverridden->id,
+        'vader_score' => 0.0,
+        'vader_label' => 'neutral',
+        'dt_label' => 'positive',
+        'manual_label' => 'neutral',
+    ]);
+
+    // Filter by needs_review
+    Volt::test('admin.manage-ai')
+        ->set('selectedFilter', 'needs_review')
+        ->assertSee('Unacceptable behavior in class.')
+        ->assertDontSee('Very clear and inspiring.')
+        ->assertDontSee('Just standard lectures.');
+
+    // Filter by overridden
+    Volt::test('admin.manage-ai')
+        ->set('selectedFilter', 'overridden')
+        ->assertSee('Just standard lectures.')
+        ->assertDontSee('Very clear and inspiring.')
+        ->assertDontSee('Unacceptable behavior in class.');
+
+    // Filter by misclassified
+    Volt::test('admin.manage-ai')
+        ->set('selectedFilter', 'misclassified');
+});
+
+test('admin can upload benchmark dataset and evaluate model in real-time with zero database persistence', function () {
+    $this->actingAs($this->adminUser);
+
+    Http::fake([
+        config('services.ai.url').'/analyze' => Http::response([
+            'results' => [
+                [
+                    'comment' => 'Great teaching style.',
+                    'dt_label' => 'positive',
+                    'vader_label' => 'positive',
+                    'confidence' => 'High',
+                ],
+                [
+                    'comment' => 'Always late to class.',
+                    'dt_label' => 'negative',
+                    'vader_label' => 'negative',
+                    'confidence' => 'High',
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $csvContent = "comment,rating,ground_truth\n\"Great teaching style.\",4.8,positive\n\"Always late to class.\",1.5,negative\n";
+    $file = UploadedFile::fake()->createWithContent('benchmark_test.csv', $csvContent);
+
+    $initialEvaluationCount = Evaluation::count();
+    $initialSentimentCount = EvaluationSentiment::count();
+
+    Volt::test('admin.manage-ai')
+        ->set('benchmarkFile', $file)
+        ->call('runBenchmark')
+        ->assertHasNoErrors()
+        ->assertSee('Benchmark Accuracy')
+        ->assertSee('100.0%') // 2/2 correct
+        ->assertSee('MATCH')
+        ->assertSee('Great teaching style.')
+        ->assertSee('Always late to class.')
+        ->call('resetBenchmark')
+        ->assertSet('benchmarkFile', null)
+        ->assertSet('benchmarkResults', null);
+
+    // Verify zero database pollution (100% ephemeral)
+    expect(Evaluation::count())->toBe($initialEvaluationCount);
+    expect(EvaluationSentiment::count())->toBe($initialSentimentCount);
 });
