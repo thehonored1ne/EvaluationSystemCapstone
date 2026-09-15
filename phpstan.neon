@@ -7,5 +7,8 @@ parameters:
     paths:
         - app/
 
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+
     # Level 5 is a good starting point for static analysis on Laravel
     level: 5

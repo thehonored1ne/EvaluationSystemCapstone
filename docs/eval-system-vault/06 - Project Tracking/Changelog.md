@@ -15,6 +15,30 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-09-15]
+
+- **Expanded Multi-Evaluator Qualitative Comment Banks & Contradiction Support** ([`Semester20272028Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/Semester20272028Seeder.php), [`EvaluationPhase2Seeder.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/seeders/EvaluationPhase2Seeder.php)):
+  - Expanded comment pools across all evaluator relationships (Student $\rightarrow$ Faculty, Faculty Peer, Program Head / Dean Supervisor, Self-Evaluation, and Upward Evaluation) using authentic Tagalog, Taglish, and Filipino phrasing.
+  - Replaced repetitive 10-comment arrays with varied multi-aspect pools covering lecture pacing, slide clarity, exam difficulty, grading turnaround, committee cooperation, syllabus deadlines, and customer service.
+  - Implemented built-in contradiction & sarcasm generators (e.g. 5.0★ rating with negative text, and 1.5★ rating with positive feedback) to reliably populate the AI agreement conflict pipeline (`is_conflicted = true`) and eliminate synthetic dataset leakage.
+- **Resilient Mobile/Cross-Platform AI Benchmark Template Stream** ([`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php), [`AISentimentCorrectionTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AISentimentCorrectionTest.php)):
+  - Replaced disk-dependent `response()->download()` with dynamic, self-contained `response()->streamDownload()` including RFC-compliant download headers (`Content-Disposition: attachment; filename="benchmark_template.csv"`, `Cache-Control: no-cache`, UTF-8 charset).
+  - Added automatic disk self-healing to recreate `storage/app/benchmark_template.csv` if missing in ephemeral or fresh production environments.
+  - Added unit/feature test verifying 200 stream download response and self-healing behavior when disk file is deleted.
+- **100-Row Gold-Standard Benchmark Dataset & Laboratory Test Harness** ([`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php), [`benchmark_template.csv`](file:///c:/Users/USER/Herd/evaluationsystem/storage/app/benchmark_template.csv), [`AISentimentCorrectionTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AISentimentCorrectionTest.php)):
+  - Expanded the benchmark sample template download from 10 to **exactly 100 diverse, realistic rows** (45 positive, 30 neutral, 25 negative).
+  - Included authentic bilingual Tagalog, Taglish, and English qualitative feedback across lecture delivery, slide clarity, exam fairness, tardiness, contradictory evaluations, and non-substantive filler comments (`ok lang`, `none`, `n/a`).
+  - Implemented dynamic streaming (`response()->streamDownload()`) with mobile RFC headers and disk self-healing to `storage/app/benchmark_template.csv`.
+  - Enables zero-persistence, in-browser evaluation of Accuracy, Macro F1, Per-Class Precision/Recall, and Confusion Matrix in the `/admin/ai` testing laboratory.
+- **Developer Tooling: Installed `laravel/pao` (PHP Agent-Optimized Output)** ([`composer.json`](file:///c:/Users/USER/Herd/evaluationsystem/composer.json)):
+  - Installed `laravel/pao` (`v1.1.5`) as dev dependency to compact test & lint tool terminal output into machine-readable JSON for AI agent environments (reducing token consumption by up to 90%+).
+  - Upgraded `pestphp/pest` (`v3.8.6` → `v4.7.8`) and `pestphp/pest-plugin-laravel` (`v3.2.0` → `v4.1.0`) to satisfy compatibility constraints with PAO.
+  - Verified test suite passes: 192 tests, 906 assertions passed cleanly in compact PAO JSON format.
+- **PHPStan Static Analysis Memory Bootstrap & Composer Aliases** ([`phpstan.neon`](file:///c:/Users/USER/Herd/evaluationsystem/phpstan.neon), [`phpstan-bootstrap.php`](file:///c:/Users/USER/Herd/evaluationsystem/phpstan-bootstrap.php), [`composer.json`](file:///c:/Users/USER/Herd/evaluationsystem/composer.json)):
+  - Created dedicated [`phpstan-bootstrap.php`](file:///c:/Users/USER/Herd/evaluationsystem/phpstan-bootstrap.php) declaring `ini_set('memory_limit', '1G')` loaded via `parameters.bootstrapFiles` in [`phpstan.neon`](file:///c:/Users/USER/Herd/evaluationsystem/phpstan.neon).
+  - Automatically raises CLI memory ceiling across all parallel worker reflection processes, preventing exit code 255 fatal errors on systems where `php.ini` CLI defaults to 128MB.
+  - Added `"analyse": "phpstan analyse"` and `"pint": "pint"` shortcuts to `composer.json`. Both `./vendor/bin/phpstan analyse` and `composer run analyse` now pass with 0 errors.
+
 ## [2026-09-14]
 
 - **AI Pipeline Hardening, Human-in-the-Loop Sentiment Management & Benchmark Laboratory** ([`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php), [`app.py`](file:///c:/Users/USER/Herd/evaluationsystem/python/app.py), [`BenchmarkAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/BenchmarkAI.php), [`TrainAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/TrainAI.php)):

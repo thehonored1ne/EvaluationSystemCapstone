@@ -47,7 +47,7 @@ class EvaluationPhase2Seeder extends Seeder
             }
         }
 
-        // Multilingual Comments Bank
+        // Comprehensive Qualitative Comments Bank (Tagalog, Taglish, Filipino, and Contradicting cases)
         $studentComments = [
             'positive' => [
                 'en' => [
@@ -59,12 +59,16 @@ class EvaluationPhase2Seeder extends Seeder
                     'Always on time, patient with questions, and makes complex topics enjoyable and easy to grasp.',
                 ],
                 'taglish' => [
-                    'Sobrang galing magturo ni Sir/Ma\'am! Malinaw mag-explain lalo na kapag mahirap yung topic.',
+                    'Sobrang galing magturo ni Sir/Ma\'am! Malinaw mag-explain lalo na kapag mahirap yung theoretical topics.',
                     'Super hands-on at approachable sa students. Hindi nakakatakot magtanong kapag may hindi naintindihan.',
-                    'Organized ang mga lecture slides and nagbibigay ng extra review materials bago mag-exam.',
+                    'Organized ang mga lecture slides and nagbibigay ng extra review materials bago mag-prelims at finals.',
                     'Ganda ng teaching method, madaling masundan at engaging lagi ang class discussions.',
                     'Very considerate sa students pero marami talaga kaming natututunan sa bawat lesson.',
                     'Laging prepared pumasok sa klase at mabilis magbalik ng graded seatworks with helpful comments.',
+                    'Hands-on magturo at laging may live code demonstrations kaya madaling sundan ang technical steps.',
+                    'Matiyagang sumasagot sa mga katanungan kahit paulit-ulit na itanong ng mga kaklase ko.',
+                    'Very fair mag-compute ng grades at transparent sa scoring rubrics ng final term project.',
+                    'Malinaw ang syllabus pacing at hindi nagmamadali mag-discuss kapag nahihirapan ang klase.',
                 ],
                 'fil' => [
                     'Napakahusay magpaliwanag ng bawat aralin at laging maayos at handa sa klase.',
@@ -72,6 +76,7 @@ class EvaluationPhase2Seeder extends Seeder
                     'Makatwiran magbigay ng marka at maayos ang pamamalakad sa loob ng silid-aralan.',
                     'Nagbibigay ng mga totoong halimbawa na madaling maiugnay sa aming pang-araw-araw na karanasan.',
                     'Laging maagap sa pagpasok at nagpapakita ng mataas na dedikasyon sa pagtuturo.',
+                    'Huwaran sa pagiging matapat at patas sa pagbibigay ng ebalwasyon sa bawat mag-aaral.',
                 ],
             ],
             'neutral' => [
@@ -86,11 +91,15 @@ class EvaluationPhase2Seeder extends Seeder
                     'Magaling si Sir/Ma\'am sa subject, sana lang po maibalik agad yung mga previous seatworks bago mag-midterm.',
                     'Maayos ang class management, pero sana mas madaming practical exercises bago magbigay ng complex activity.',
                     'Clear naman ang expectations, though minsan medyo sabay-sabay ang deadline ng requirements.',
+                    'Hindi naman masama magturo si sir, medyo strict lang talaga sa deadlines at attendance policies.',
+                    'Standard teaching delivery. Sumusunod sa curriculum modules nang walang labis at walang kulang.',
+                    'Medyo textbook-based ang approach pero transparent at maayos naman magbigay ng exam.',
                 ],
                 'fil' => [
                     'Mabuti ang pagtuturo subalit sana ay medyo dahan-dahan sa mga mahihirap na paksa.',
                     'Maliwanag ang mga patakaran, ngunit makabubuti kung mas maagang maipapamahagi ang mga marka sa pagsusulit.',
                     'Maayos ang talakayan, nawa ay mabigyan pa ng mas maraming panahon ang paggawa ng mga pagsasanay.',
+                    'Sapat ang pagtupad sa mga aralin sa silid-aralan ayon sa itinakdang balangkas ng kurso.',
                 ],
             ],
             'negative' => [
@@ -104,10 +113,28 @@ class EvaluationPhase2Seeder extends Seeder
                     'Medyo binabasa lang po minsan ang PPT slides, sana po mas ipaliwanag gamit ang actual practical examples.',
                     'Madalas po matagal bago maibalik ang quizzes kaya hindi namin alam kung saan kami nagkamali.',
                     'Minsan po medyo mabilis mag-discuss at hindi masyadong na-e-entertain ang clarifications ng klase.',
+                    'Madalas late pumasok sa klase tapos mamadaliin ang discussion para lang maabutan ang coverage.',
+                    'Medyo nakakatakot magtanong sa klase dahil minsan ay napapagalitan pa kapag hindi agad naintindihan.',
+                    'Medyo magulo mag-announce ng schedule ng quizzes at biglaan kung minsan magbigay ng seatwork.',
                 ],
                 'fil' => [
                     'Kailangan ng mas malinaw na paliwanag sa mga kumplikadong paksa sa halip na pagbasa lamang ng mga tala.',
                     'Nawa ay mas mapabilis ang pagbabalik ng mga naiwastong pagsusulit upang malaman ang mga dapat iwasto.',
+                    'Madalas maantala ang pagpasok at nagmamadali sa pagtalakay ng mga huling aralin.',
+                ],
+            ],
+            'contradicting' => [
+                'high_rating_negative_text' => [
+                    'Magaling naman sana magturo si sir pero never pumasok sa tamang oras at laging nanghuhula ng quizzes.',
+                    'Okay sana yung subject matter pero sobrang sungit at nakakatakot lapitan kapag may clarifications.',
+                    'Maraming alam sa topic pero puro kwento lang sa buhay ang lecture at walang natutunan ang klase.',
+                    'Mataas magbigay ng grade sa card pero wala kaming natutunang practical skills buong semestre.',
+                ],
+                'low_rating_positive_text' => [
+                    'Napakabait at napakahusay magturo ni Ma\'am, paborito ko talaga ang subject na ito!',
+                    'Sobrang dedicated na guro, laging maagap at napakalinaw ng bawat aralin sa klase.',
+                    'Very considerate at napakagaling mag-explain, natuto ako nang husto sa bawat session.',
+                    'Walang masabi, napakagaling magturo at laging handang tumulong sa bawat estudyante.',
                 ],
             ],
         ];
@@ -122,6 +149,7 @@ class EvaluationPhase2Seeder extends Seeder
                 'taglish' => [
                     'Sobrang cooperative kasama sa department committees, laging ready tumulong at mag-share ng learning materials.',
                     'Maayos makisama sa kapwa faculty at laging maaasahan sa mga departmental tasks and activities.',
+                    'Active sa departmental research initiatives at laging handang mag-mentor sa mga bagong instructors.',
                 ],
                 'fil' => [
                     'Maaasahang kasamahan sa kagawaran na laging nagpapamalas ng propesyonalismo at pagkakaisa.',
@@ -135,6 +163,7 @@ class EvaluationPhase2Seeder extends Seeder
                 ],
                 'taglish' => [
                     'Maayos makisama at dependable sa klase, sana lang mas makadalo sa mga departmental gatherings.',
+                    'Competent sa subject delivery bagamat inaasahan ang mas aktibong pakikilahok sa committee tasks.',
                 ],
                 'fil' => [
                     'Maayos ang pagtupad sa tungkulin, inaasahan ang mas aktibong pakikilahok sa mga pagpupulong.',
@@ -146,10 +175,15 @@ class EvaluationPhase2Seeder extends Seeder
                 ],
                 'taglish' => [
                     'Kailangan pa ng mas maagap na pakikipag-ugnayan sa kapwa faculty sa mga departmental requirements.',
+                    'Madalas hindi nagre-reply sa coordination group chats kapag may urgent departmental requirements.',
                 ],
                 'fil' => [
                     'Nangangailangan ng higit na pakikipagtulungan sa mga kapwa guro at mas maagap na pagsumite ng ulat.',
                 ],
+            ],
+            'contradicting' => [
+                'Mabait at magaling makisama pero napakahirap mahagilap kapag may urgent departmental deliverables.',
+                'Magaling na faculty member subalit madalas hindi sumasipot sa mga pangkalahatang pagpupulong ng kagawaran.',
             ],
         ];
 
@@ -163,6 +197,7 @@ class EvaluationPhase2Seeder extends Seeder
                 'taglish' => [
                     'Maagap magpasa ng departmental requirements at maayos ang pamamahala sa klase batay sa feedback ng students.',
                     'Magandang ehemplo sa department, masipag at laging handang tumanggap ng karagdagang responsibilidad.',
+                    'Organized ang submission ng class records at laging nauuna sa encoding ng midterm at final grades.',
                 ],
                 'fil' => [
                     'Nagpapakita ng huwarang dedikasyon sa pagtuturo at tapat na sumusunod sa mga patakaran ng institusyon.',
@@ -176,6 +211,7 @@ class EvaluationPhase2Seeder extends Seeder
                 ],
                 'taglish' => [
                     'Magaling sa subject matter, kailangan lang panatilihin ang maagap na pagpasa ng grade sheets at records.',
+                    'Sapat at maayos ang accomplishment ng syllabus, iminumungkahi ang mas malawak na student activities.',
                 ],
                 'fil' => [
                     'Mahusay sa larangan ng pagtuturo, paalala lamang sa maagap na pagbibigay ng mga talaan ng marka.',
@@ -187,10 +223,15 @@ class EvaluationPhase2Seeder extends Seeder
                 ],
                 'taglish' => [
                     'Kailangang paalalahanan sa pagiging maagap sa klase at sa pagsumite ng mga departmental records.',
+                    'Kinakailangan ng mas masinsinang pagsunod sa itinakdang deadline ng institutional syllabi at grade sheets.',
                 ],
                 'fil' => [
                     'Kinakailangan ng mas mahigpit na pagsunod sa takdang oras ng klase at pagsumite ng mga kailangang dokumento.',
                 ],
+            ],
+            'contradicting' => [
+                'Magaling magturo sa klase ngunit kinakailangan pang paulit-ulit na i-follow up bago makapagsumite ng class grades.',
+                'Mataas ang student evaluation rating subalit madalas maging dahilan ng antala sa pag-finalize ng department records.',
             ],
         ];
 
@@ -199,10 +240,27 @@ class EvaluationPhase2Seeder extends Seeder
                 'I have continuously updated my lecture materials, engaged students in interactive discussions, and adhered faithfully to GRC policies.',
                 'Napanatili ko ang maayos na pamamahala sa klase, maagap na pagpasa ng marka, at aktibong pakikilahok sa mga gawaing pang-kagawaran.',
                 'Strived to provide a supportive and challenging learning environment for my students throughout the academic term.',
+                'Matagumpay kong naisakatuparan ang lahat ng competencies sa syllabus at nakapag-introduce ng bagong digital learning aids.',
             ],
             'neutral' => [
                 'Accomplished the syllabus objectives successfully. I plan to incorporate more digital learning tools in the upcoming term.',
                 'Maayos na naisagawa ang mga aralin, subalit nais ko pang paunlarin ang paggamit ng makabagong pamamaraan sa pagtuturo.',
+                'Naitawid ang syllabus objectives nang maayos, subalit nais ko pang paunlarin ang pacing ng aking laboratory assessments.',
+            ],
+        ];
+
+        $upwardComments = [
+            'positive' => [
+                'Napaka-supportive ng pamunuan sa mga initiatives ng department at madaling lapitan kapag may kailangang konsultasyon.',
+                'Patas at transparent sa pamamahagi ng teaching assignments at laging bukas makinig sa mga mungkahi ng faculty.',
+                'Provides sound academic leadership, clear institutional vision, and empathetic guidance to all departmental subordinates.',
+            ],
+            'neutral' => [
+                'Maayos ang pamumuno at direksyon, inaasahan lamang ang mas maagang abiso para sa mga departmental meetings at memos.',
+                'Naisasagawa ang pangangasiwa nang maayos, iminumungkahi ang mas regular na coordination meetings sa mga guro.',
+            ],
+            'negative' => [
+                'Medyo mahirap mahagilap sa opisina kapag may urgent concerns hinggil sa student disputes at scheduling conflicts.',
             ],
         ];
 
@@ -247,11 +305,22 @@ class EvaluationPhase2Seeder extends Seeder
         // Helper closures
         $pickComment = function (array $bank, string $sentiment) {
             $byLang = $bank[$sentiment] ?? $bank['positive'];
+
+            // If already a flat list of strings (e.g. $upwardComments, $selfComments)
+            if (isset($byLang[0]) && is_string($byLang[0])) {
+                return $byLang[array_rand($byLang)];
+            }
+
+            // If keyed by language (e.g. ['en' => [...], 'taglish' => [...]])
             $langKeys = array_keys($byLang);
             $chosenLang = $langKeys[array_rand($langKeys)];
             $options = $byLang[$chosenLang];
 
-            return $options[array_rand($options)];
+            if (is_array($options)) {
+                return $options[array_rand($options)];
+            }
+
+            return (string) $options;
         };
 
         $generateAnswersAndScore = function (string $evalType, string $sentiment) use ($questionsData, $activeSemester) {
@@ -345,7 +414,17 @@ class EvaluationPhase2Seeder extends Seeder
 
         $this->command->info('1. Seeding Student Evaluations (~75% completed, ~25% pending for demo)...');
 
-        $evalIdCounter = 1;
+        // Delete any existing evaluations for this active semester to allow safe re-seeding
+        $existingEvalIds = DB::table('evaluations')->where('semester_id', $activeSemester->id)->pluck('id');
+        if ($existingEvalIds->isNotEmpty()) {
+            foreach ($existingEvalIds->chunk(500) as $chunkIds) {
+                DB::table('evaluation_sentiments')->whereIn('evaluation_id', $chunkIds)->delete();
+                DB::table('evaluation_answers')->whereIn('evaluation_id', $chunkIds)->delete();
+                DB::table('evaluations')->whereIn('id', $chunkIds)->delete();
+            }
+        }
+
+        $evalIdCounter = (int) DB::table('evaluations')->max('id') + 1;
         $evalInserts = [];
         $answerInserts = [];
         $sentimentInserts = [];
@@ -401,11 +480,43 @@ class EvaluationPhase2Seeder extends Seeder
                     }
 
                     $rand = mt_rand(1, 100);
-                    $sentiment = $rand <= 70 ? 'positive' : ($rand <= 90 ? 'neutral' : 'negative');
+                    // 65% positive, 20% neutral, 10% negative, 5% contradicting
+                    if ($rand <= 65) {
+                        $sentiment = 'positive';
+                    } elseif ($rand <= 85) {
+                        $sentiment = 'neutral';
+                    } elseif ($rand <= 95) {
+                        $sentiment = 'negative';
+                    } else {
+                        $sentiment = 'contradicting';
+                    }
 
-                    $calc = $generateAnswersAndScore('upward_student', $sentiment);
-                    $comment = $pickComment($studentComments, $sentiment);
-                    $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+                    if ($sentiment === 'contradicting') {
+                        $isHighWithNegative = mt_rand(1, 100) <= 50;
+                        if ($isHighWithNegative) {
+                            $calc = $generateAnswersAndScore('upward_student', 'positive');
+                            $options = $studentComments['contradicting']['high_rating_negative_text'];
+                            $comment = $options[array_rand($options)];
+                            $sentimentMeta = [
+                                'vader_score' => -0.65,
+                                'vader_label' => 'negative',
+                                'dt_label' => 'positive',
+                            ];
+                        } else {
+                            $calc = $generateAnswersAndScore('upward_student', 'negative');
+                            $options = $studentComments['contradicting']['low_rating_positive_text'];
+                            $comment = $options[array_rand($options)];
+                            $sentimentMeta = [
+                                'vader_score' => 0.75,
+                                'vader_label' => 'positive',
+                                'dt_label' => 'negative',
+                            ];
+                        }
+                    } else {
+                        $calc = $generateAnswersAndScore('upward_student', $sentiment);
+                        $comment = $pickComment($studentComments, $sentiment);
+                        $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+                    }
 
                     $currentEvalId = $evalIdCounter++;
 
@@ -804,7 +915,7 @@ class EvaluationPhase2Seeder extends Seeder
                     $rand = mt_rand(1, 100);
                     $sentiment = $rand <= 80 ? 'positive' : 'neutral';
                     $calc = $generateAnswersAndScore('upward_employee', $sentiment);
-                    $comment = $pickComment($supervisorComments, $sentiment);
+                    $comment = $pickComment($upwardComments, $sentiment);
                     $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
 
                     $currentEvalId = $evalIdCounter++;

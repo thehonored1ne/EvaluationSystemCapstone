@@ -292,3 +292,20 @@ test('admin can upload benchmark dataset and evaluate model in real-time with ze
     expect(Evaluation::count())->toBe($initialEvaluationCount);
     expect(EvaluationSentiment::count())->toBe($initialSentimentCount);
 });
+
+test('admin can download sample benchmark template even if file does not exist on disk', function () {
+    $this->actingAs($this->adminUser);
+
+    $templatePath = storage_path('app/benchmark_template.csv');
+    if (File::exists($templatePath)) {
+        File::delete($templatePath);
+    }
+
+    $response = Volt::test('admin.manage-ai')
+        ->call('downloadTemplate');
+
+    $response->assertFileDownloaded('benchmark_template.csv');
+
+    // Self-healing check: verifies file was written to disk as fallback
+    expect(File::exists($templatePath))->toBeTrue();
+});

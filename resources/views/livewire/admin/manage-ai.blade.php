@@ -44,17 +44,147 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function downloadTemplate()
     {
         $templatePath = storage_path('app/benchmark_template.csv');
+
+        $rows = [
+            ['comment', 'rating', 'ground_truth'],
+            // --- POSITIVE SAMPLES (1 - 45) ---
+            ['Magaling magturo si Sir at madaling lapitan pag may tanong.', 4.8, 'positive'],
+            ['Very organized lecture slides and provides clear practical exercises.', 4.7, 'positive'],
+            ['Always comes to class on time and provides helpful feedback on projects.', 4.5, 'positive'],
+            ['Sobrang galing mag-explain lalo na kapag mahirap yung programming logic.', 4.9, 'positive'],
+            ['Approachability is 10/10. He really cares about students understanding the lesson.', 4.8, 'positive'],
+            ['Napakahusay magpaliwanag at laging handa sa mga talakayan sa klase.', 4.6, 'positive'],
+            ['Hands-on magturo at laging may live code demonstrations sa bawat meeting.', 4.7, 'positive'],
+            ['Clear syllabus pacing and never rushes lessons when students are struggling.', 4.6, 'positive'],
+            ['Bait magturo at pantay-pantay ang pakikitungo sa lahat ng estudyante.', 4.5, 'positive'],
+            ['Very engaging lectures. Even a 3-hour class feels productive and fun.', 4.7, 'positive'],
+            ['Laging nagbibigay ng reviewer at helpful tips bago mag-exam.', 4.6, 'positive'],
+            ['Patient with all student questions, kahit paulit-ulit na itanong ng iba.', 4.8, 'positive'],
+            ['One of the best instructors in our department this academic year.', 4.9, 'positive'],
+            ['Transparent sa grading criteria at laging maaga mag-encode ng midterm grades.', 4.7, 'positive'],
+            ['Encourages critical thinking and interactive discussions throughout the semester.', 4.6, 'positive'],
+            ['Napakatiyaga mag-assist tuwing laboratory activities, highly recommended!', 4.8, 'positive'],
+            ['Very considerate sa deadlines lalo na kapag nagkasunod-sunod ang academic projects.', 4.5, 'positive'],
+            ['Laging prepared pumasok at ramdam mo yung passion niya sa subject.', 4.8, 'positive'],
+            ['Provides practical industry tips that we can actually use in our careers.', 4.7, 'positive'],
+            ['Maganda ang visual aids at organized ang pagkakagawa ng lecture modules.', 4.6, 'positive'],
+            ['Mabilis mag-reply sa academic inquiries via email or official class group chat.', 4.5, 'positive'],
+            ['Makatwiran magbigay ng marka at maayos ang pamamalakad sa loob ng silid-aralan.', 4.6, 'positive'],
+            ['Super inspiring teacher! Made me enjoy learning database management.', 4.8, 'positive'],
+            ['Detailed and constructive feedback on our research papers and case studies.', 4.7, 'positive'],
+            ['Nagbibigay ng second chances sa seatworks para mas matuto ang estudyante.', 4.5, 'positive'],
+            ['Active listener and treats every student with professional respect.', 4.6, 'positive'],
+            ['Malinaw magsalita, audible ang boses, at energetic mag-facilitate ng group work.', 4.7, 'positive'],
+            ['The hands-on activities truly reinforced what was discussed in the lecture.', 4.6, 'positive'],
+            ['Sobrang bait at maunawain sa sitwasyon ng working students.', 4.8, 'positive'],
+            ['Comprehensive reviewer at hindi lumalabas sa coverage ang mga exams.', 4.7, 'positive'],
+            ['Punctual and always maximizes our classroom learning time effectively.', 4.6, 'positive'],
+            ['Hindi nakakatakot magtanong ng clarifications pagkatapos ng lecture.', 4.7, 'positive'],
+            ['Great classroom atmosphere, lively discussions, and respectful environment.', 4.8, 'positive'],
+            ['Nagbibigay ng bonus points kapag nakikita niyang nagsisikap ang klase.', 4.5, 'positive'],
+            ['Very professional and adheres faithfully to the departmental syllabus.', 4.6, 'positive'],
+            ['Explains complex data structures in very simple and relatable terms.', 4.8, 'positive'],
+            ['Laging nakangiti at positibo ang aura kapag pumapasok sa klase.', 4.7, 'positive'],
+            ['Effective pedagogical methods combined with practical software tools.', 4.6, 'positive'],
+            ['Napakahusay sumagot sa technical questions sa aming capstone project.', 4.9, 'positive'],
+            ['Hindi madamot sa kaalaman, laging nagsha-share ng supplementary tutorials.', 4.8, 'positive'],
+            ['Provides clear rubric guidelines before starting any major assignment.', 4.7, 'positive'],
+            ['Excellent communication skills and engaging storytelling during class discussions.', 4.6, 'positive'],
+            ['Very supportive and encourages students to join programming competitions.', 4.8, 'positive'],
+            ['Maayos at patas ang pamamahagi ng scores sa group presentations.', 4.5, 'positive'],
+            ['Solid magturo si sir, talagang naiintindihan namin ang bawat aralin.', 4.7, 'positive'],
+
+            // --- NEUTRAL SAMPLES (46 - 75) ---
+            ['Fair ang grading system at sumusunod sa syllabus ang pacing.', 3.4, 'neutral'],
+            ['Standard teaching style, strictly follows textbook modules.', 3.2, 'neutral'],
+            ['Covers the required syllabus adequately throughout the semester.', 3.0, 'neutral'],
+            ['Okay naman magturo, medyo mabilis lang minsan ang pag-slide sa PPT.', 3.3, 'neutral'],
+            ['The lectures are informative, but more time for hands-on exercises would help.', 3.4, 'neutral'],
+            ['Nasasakop naman ang syllabus topics pero sana mas maaga mag-upload ng reviewer.', 3.2, 'neutral'],
+            ['Medyo textbook-based ang discussion, pero transparent naman magbigay ng exam.', 3.3, 'neutral'],
+            ['Average classroom experience, fulfills all expected teaching competencies.', 3.1, 'neutral'],
+            ['Hindi naman masama magturo si sir, medyo strict lang talaga sa attendance.', 3.5, 'neutral'],
+            ['Clear expectations on project deadlines, though grading turnaround could be faster.', 3.2, 'neutral'],
+            ['Standard delivery, sumusunod sa modules nang walang labis at walang kulang.', 3.0, 'neutral'],
+            ['Okay lang ang discussions, minsan medyo monotone ang delivery sa mahabang lecture.', 2.9, 'neutral'],
+            ['Covers the basic fundamentals well, but advanced applications were briefly touched upon.', 3.3, 'neutral'],
+            ['Maayos naman ang klase, inaasahan lang ang mas maagang feedback sa quizzes.', 3.1, 'neutral'],
+            ['Mabuti ang pagtuturo subalit sana ay dahan-dahan sa mga complex computational formulas.', 3.2, 'neutral'],
+            ['Exams are moderately challenging and reasonably align with what was discussed.', 3.4, 'neutral'],
+            ['Sapat ang talakayan, nawa ay mabigyan pa ng mas maraming panahon ang practical coding.', 3.0, 'neutral'],
+            ['Clear lecture notes, but class participation is somewhat limited.', 3.2, 'neutral'],
+            ['Medyo sakto lang sa oras pumasok at sumusunod sa schedule ng klase.', 3.1, 'neutral'],
+            ['Good theoretical coverage, although real-world case studies would be beneficial.', 3.3, 'neutral'],
+            ['Okay naman po ang naging takbo ng semestre para sa subject na ito.', 3.0, 'neutral'],
+            ['Adequate instructional quality with room for more collaborative student activities.', 3.2, 'neutral'],
+            ['Medyo strict sa deadlines pero nag-a-advise naman nang maaga kapag may quiz.', 3.4, 'neutral'],
+            ['Normal lang ang pacing, sakto lang para sa mga average students.', 3.1, 'neutral'],
+            ['The course content was delivered as expected according to the outline.', 3.2, 'neutral'],
+            ['Nasagot naman ang mga basic questions sa klase.', 3.0, 'neutral'],
+            ['Fair exam difficulty with sufficient preparation time provided.', 3.3, 'neutral'],
+            ['ok lang', 3.0, 'neutral'],
+            ['none', 3.0, 'neutral'],
+            ['n/a', 3.0, 'neutral'],
+
+            // --- NEGATIVE SAMPLES (76 - 100) ---
+            ['Masyadong mabilis magturo, mahirap makasabay sa slides at hindi nagbibigay ng copy.', 1.8, 'negative'],
+            ['Always late to class and takes weeks to return our quizzes.', 2.0, 'negative'],
+            ['Hindi maayos magpaliwanag at madalas walang pasok nang walang abiso.', 1.5, 'negative'],
+            ['Binabasa lang ang PowerPoint slides nang dire-diretso nang walang explanation.', 1.7, 'negative'],
+            ['Very unapproachable. Gets irritated whenever students ask questions for clarification.', 1.6, 'negative'],
+            ['Masyadong mahirap magpa-exam kumpara sa mga mabababaw na tinalakay sa klase.', 1.9, 'negative'],
+            ['Frequently absent without prior announcement, leaving students waiting outside.', 1.4, 'negative'],
+            ['Unclear grading system. We do not know where our final project marks came from.', 1.8, 'negative'],
+            ['Laging late pumasok tapos minamadali ang lesson para lang umabot sa syllabus.', 1.7, 'negative'],
+            ['No practical exercises provided. Pure theory that does not help in actual lab work.', 1.8, 'negative'],
+            ['Very strict with student tardiness but the professor arrives 20 minutes late consistently.', 1.6, 'negative'],
+            ['Takes almost the entire term to return our midterms, so we cannot review mistakes.', 1.9, 'negative'],
+            ['Napakasungit sa klase at nakakahiya magtanong dahil napapahiya ang estudyante.', 1.5, 'negative'],
+            ['Inconsistent syllabus adherence, causing heavy cramming during the final weeks.', 1.7, 'negative'],
+            ['Rushes through difficult programming topics and assumes everyone is an expert.', 1.8, 'negative'],
+            ['Poor audio quality and refuses to use the classroom microphone in a large hall.', 2.0, 'negative'],
+            ['Hindi nagbibigay ng feedback sa aming assignments, puro score lang ang inilalagay.', 1.9, 'negative'],
+            ['Unreasonable deadlines given late at night with next-day early morning submissions.', 1.6, 'negative'],
+            ['Walang consideration sa medical emergencies or valid student absences.', 1.7, 'negative'],
+            ['Medyo magulo mag-organize ng schedules at biglaan kung magpa-surprise quiz.', 1.8, 'negative'],
+            ['The teaching pace is completely disconnected from student comprehension levels.', 1.7, 'negative'],
+            ['Lacks enthusiasm in teaching and seems disinterested in helping students learn.', 1.5, 'negative'],
+            ['Exams contain multiple questions that were never covered or referenced in modules.', 1.8, 'negative'],
+            ['Napakalabo magpaliwanag ng requirements kaya paulit-ulit na narereject ang project.', 1.7, 'negative'],
+            ['Worst experience this term. Zero constructive feedback and unfair grading.', 1.3, 'negative'],
+        ];
+
+        // Self-heal disk file if missing
         if (! File::exists($templatePath)) {
-            \Flux::toast(
-                heading: 'Template Not Found',
-                text: 'The sample benchmark template could not be found.',
-                variant: 'danger'
-            );
-            return;
+            $dir = dirname($templatePath);
+            if (! File::isDirectory($dir)) {
+                File::makeDirectory($dir, 0755, true);
+            }
+            $fileHandle = fopen($templatePath, 'w');
+            if ($fileHandle) {
+                foreach ($rows as $row) {
+                    fputcsv($fileHandle, $row);
+                }
+                fclose($fileHandle);
+            }
         }
 
-        return response()->download($templatePath, 'benchmark_template.csv', [
-            'Content-Type' => 'text/csv',
+        $callback = function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+            foreach ($rows as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        };
+
+        $filename = 'benchmark_template.csv';
+
+        return response()->streamDownload($callback, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 
@@ -633,17 +763,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col gap-5 w-full">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div class="flex items-center gap-2.5">
-                <div class="size-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <flux:icon name="cpu-chip" class="size-5" />
-                </div>
+
                 <div>
                     <div class="flex items-center gap-2">
-                        <flux:heading size="md" class="font-bold text-zinc-900 dark:text-zinc-100">AI Benchmark & Testing Laboratory</flux:heading>
-                        <flux:badge size="sm" color="indigo" class="text-[10px] font-mono uppercase tracking-wide">Ephemeral / Non-DB</flux:badge>
+                        <flux:heading size="md" class="font-bold text-zinc-900 dark:text-zinc-100">AI PipeLine Benchmarking</flux:heading>
                     </div>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                        Upload custom unseen CSV or Excel test datasets to benchmark classifier performance in real-time without modifying database records.
-                    </p>
                 </div>
             </div>
 

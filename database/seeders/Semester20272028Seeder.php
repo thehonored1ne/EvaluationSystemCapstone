@@ -105,41 +105,150 @@ class Semester20272028Seeder extends Seeder
             }
         }
 
-        // Qualitative Comments Banks
+        // Comprehensive Qualitative Comments Banks (Tagalog, Taglish & Natural Sarcasm/Contradictions)
         $studentComments = [
             'positive' => [
-                'Explains the subject matter clearly and provides relevant industry examples.',
-                'Very approachable and dedicated teacher. Learned practical skills in every session.',
-                'Lectures are organized, clear, and engaging. Great instructional delivery.',
-                'Encourages active discussion and returns quizzes promptly with clear feedback.',
-                'Always on time, patient with student questions, and inspires critical thinking.',
+                'Sobrang galing magturo ni Sir/Ma\'am! Malinaw mag-explain lalo na kapag mahirap yung mga theoretical concepts.',
+                'Super approachable at dedicated na guro. Maraming practical real-world skills ang natutunan namin sa bawat meeting.',
+                'Organized ang mga lecture slides at laging nagbibigay ng extra review exercises bago mag-prelims at midterms.',
+                'Engaging lagi ang klase at laging maagap magbalik ng graded quizzes with constructive feedback.',
+                'Always on time, patient sa mga tanong ng estudyante, at talagang ini-inspire kaming mag-isip nang kritikal.',
+                'Napakabait magturo at pantay-pantay ang pakikitungo sa lahat ng estudyante sa loob ng silid-aralan.',
+                'Madaling lapitan si Ma\'am kapag may hindi naintindihan sa programming lab exercises. Very supportive!',
+                'Malinaw ang syllabus pacing at hindi nagmamadali mag-discuss kapag nakikitang nahihirapan pa ang klase.',
+                'Hands-on magturo at laging may live demonstrations kaya madaling sundan ang technical steps.',
+                'Laging prepared pumasok sa klase at ramdam mo yung mastery at passion niya sa kanyang subject.',
+                'Maganda ang teaching methodology, very interactive at hindi nakakaantok pakinggan kahit 3-hour class.',
+                'Nagbibigay ng second chances sa seatworks at talagang naglalaan ng oras para sa consultation.',
+                'Matiyagang sumasagot sa mga katanungan kahit paulit-ulit na itanong ng mga kaklase ko.',
+                'Very fair mag-compute ng grades at transparent sa scoring rubrics ng final term project.',
+                'Isa sa pinakamahusay na propesor sa department ngayong academic year. Highly recommended!',
             ],
             'neutral' => [
-                'Covers all syllabus topics adequately. More interactive activities would be beneficial.',
-                'Lectures follow the textbook closely. Pacing is generally steady and organized.',
-                'Fair grading standards and reasonable workload throughout the term.',
+                'Covers all syllabus topics adequately. Medyo mas maganda sana kung may dagdag pang hands-on lab exercises.',
+                'Lectures follow the textbook closely. Pacing is generally steady at maayos naman ang klase.',
+                'Fair grading standards at reasonable naman ang ibinibigay na workload throughout the semester.',
+                'Okay naman magturo, medyo mabilis lang minsan ang pag-slide sa PowerPoint kaya kailangan mag-self review.',
+                'Magaling sa subject matter, sana lang maibalik agad ang previous seatworks bago ang exam week.',
+                'Maayos ang class management pero sana mas madaming group activities para mas collaborative.',
+                'Clear naman ang expectations sa project, bagamat medyo sabay-sabay lang ang submission dates.',
+                'Standard teaching delivery. Sumusunod sa curriculum modules nang walang labis at walang kulang.',
+                'Sapat ang talakayan sa klase, nawa ay mabigyan pa ng mas mahabang oras ang praktikal na pagsasanay.',
+                'Hindi naman masama magturo si sir, medyo strict lang talaga sa deadlines at attendance policies.',
+                'Medyo textbook-based ang approach pero transparent at maayos naman magbigay ng exam.',
+                'Nasasakop ang lahat ng topics pero minsan ay monotone ang boses sa buong lecture duration.',
             ],
             'negative' => [
-                'Lectures feel rushed at times and explanations could be clearer on complex concepts.',
-                'Would appreciate quicker return of test results and assignments.',
+                'Lectures feel rushed at times at minsan binabasa lang dire-diretso ang PowerPoint slides nang walang paliwanag.',
+                'Sana mas mapabilis ang pagbabalik ng test papers para malaman namin kung saan kami nagkamali bago mag-finals.',
+                'Madalas late pumasok sa klase tapos mamadaliin ang discussion para lang maabutan ang coverage.',
+                'Masyadong mabilis mag-discuss at hindi masyadong ine-entertain ang clarification questions ng klase.',
+                'Minsan ay hindi malinaw ang grading criteria sa project kaya nakakagulat ang naging final computation.',
+                'Medyo nakakatakot magtanong sa klase dahil minsan ay napapagalitan pa kapag hindi agad naintindihan.',
+                'Walang gaanong practical exercises, puro theoretical slides lang ang ipinapakita araw-araw.',
+                'Kailangan ng mas malinaw na paliwanag sa mga kumplikadong formula kaysa simpleng pagbasa ng notes.',
+                'Medyo magulo mag-announce ng schedule ng quizzes at biglaan kung minsan magbigay ng seatwork.',
+                'Inconsistent adherence sa syllabus schedule kaya nagka-cramming kami pagdating sa dulo ng semestre.',
+            ],
+            'contradicting' => [
+                // High rating (4.5 - 5.0) but negative text (Conflict trigger)
+                'Magaling naman sana magturo si sir pero never pumasok sa tamang oras at laging nanghuhula ng quizzes.',
+                'Okay sana yung subject matter pero sobrang sungit at nakakatakot lapitan kapag may clarifications.',
+                'Maraming alam sa topic pero puro kwento lang sa buhay ang lecture at walang natutunan ang klase.',
+                'Mataas magbigay ng grade sa card pero wala kaming natutunang practical skills buong semestre.',
+                // Low rating (1.0 - 2.5) but positive text (Conflict trigger)
+                'Napakabait at napakahusay magturo ni Ma\'am, paborito ko talaga ang subject na ito!',
+                'Sobrang dedicated na guro, laging maagap at napakalinaw ng bawat aralin sa klase.',
+                'Very considerate at napakagaling mag-explain, natuto ako nang husto sa bawat session.',
+                'Walang masabi, napakagaling magturo at laging handang tumulong sa bawat estudyante.',
             ],
         ];
 
         $peerComments = [
-            'positive' => 'A supportive and reliable departmental colleague who actively shares teaching resources.',
-            'neutral' => 'Consistently fulfills academic duties and attends departmental meetings.',
-            'negative' => 'Could collaborate more proactively on shared curriculum tasks.',
+            'positive' => [
+                'A supportive, highly reliable departmental colleague who actively shares curriculum and instructional resources.',
+                'Sobrang cooperative kasama sa department committees, laging ready tumulong at mag-share ng learning modules.',
+                'Consistently demonstrates professional competence and upholds ethical standards across all faculty activities.',
+                'Maayos makisama sa kapwa guro, laging maaasahan sa departmental tasks at laging bukas sa team collaboration.',
+                'Maaasahang kasamahan sa kagawaran na laging nagpapamalas ng dedikasyon, propesyonalismo at pagkakaisa.',
+                'Active sa departmental research initiatives at laging handang mag-mentor sa mga bagong instructors.',
+            ],
+            'neutral' => [
+                'Consistently fulfills basic academic duties, attend meetings, and maintains pleasant collegial relationships.',
+                'Maayos makisama at dependable sa klase, sana lang mas makadalo at makapag-contribute sa joint committees.',
+                'Competent sa subject delivery bagamat inaasahan ang mas aktibong pakikilahok sa mga departmental outreach programs.',
+                'Naisasagawa ang tungkulin nang maayos, iminumungkahi lamang ang higit na inter-disciplinary project collaboration.',
+            ],
+            'negative' => [
+                'Needs to collaborate more proactively on shared curriculum syllabi and improve attendance in department meetings.',
+                'Madalas hindi nagre-reply sa coordination group chats kapag may urgent departmental requirements na kailangan.',
+                'Kailangan pa ng mas maagap na pakikipag-ugnayan sa kapwa faculty hinggil sa standardization ng departmental exams.',
+            ],
+            'contradicting' => [
+                'Mabait at magaling makisama pero napakahirap mahagilap kapag may urgent departmental deliverables.',
+                'Magaling na faculty member subalit madalas hindi sumasipot sa mga pangkalahatang pagpupulong ng kagawaran.',
+            ],
         ];
 
         $supervisorComments = [
-            'positive' => 'Demonstrates professional competence, clear curriculum mastery, and diligence.',
-            'neutral' => 'Meets expected performance benchmarks in instructional responsibilities.',
-            'negative' => 'Needs to focus on more timely submission of academic requirements.',
+            'positive' => [
+                'Demonstrates professional competence, clear curriculum mastery, syllabus punctuality, and diligence.',
+                'Maagap magpasa ng Table of Specifications (TOS) at syllabus, at huwaran sa maayos na classroom management.',
+                'Exemplifies institutional core values, takes initiative in academic programs, and maintains high student satisfaction.',
+                'Matiyaga, maaasahan, at laging bukas sa paghawak ng mga karagdagang special assignments ng departamento.',
+                'Nagpapakita ng huwarang dedikasyon sa pagtuturo at tapat na sumusunod sa mga administrative deadlines ng kolehiyo.',
+                'Organized ang submission ng class records at laging nauuna sa encoding ng midterm at final grades.',
+            ],
+            'neutral' => [
+                'Meets expected performance benchmarks in instructional responsibilities. Encouraged to maintain punctual grade submissions.',
+                'Magaling sa classroom instruction, paalala lamang na panatilihin ang on-time encoding ng class grades.',
+                'Sapat at maayos ang accomplishment ng syllabus, iminumungkahi ang mas malawak na student active learning tools.',
+                'Naisasakatuparan ang mga pangunahing gampanin, paalala lamang sa mas maagap na pagsumite ng departmental reports.',
+            ],
+            'negative' => [
+                'Needs to focus on more timely submission of academic requirements, TOS compliance, and classroom punctuality.',
+                'Kailangang paalalahanan sa pagiging maagap sa pagpasok sa klase at sa pag-encode ng midterm at final grades.',
+                'Kinakailangan ng mas masinsinang pagsunod sa itinakdang deadline ng institutional syllabi at grade sheets.',
+            ],
+            'contradicting' => [
+                'Magaling magturo sa klase ngunit kinakailangan pang paulit-ulit na i-follow up bago makapagsumite ng class grades.',
+                'Mataas ang student evaluation rating subalit madalas maging dahilan ng antala sa pag-finalize ng department records.',
+            ],
         ];
 
         $selfComments = [
-            'positive' => 'Continuously committed to enhancing instructional delivery and student engagement.',
-            'neutral' => 'Maintained satisfactory performance across all assigned teaching duties.',
+            'positive' => [
+                'Continuously committed to enhancing instructional delivery, practical hands-on exercises, and student engagement.',
+                'Napanatili ko ang maayos na pamamahala sa klase, maagap na pagpasa ng marka, at aktibong pakikilahok sa kagawaran.',
+                'Strived to provide a supportive, inclusive, and challenging learning environment for all my students throughout the term.',
+                'Matagumpay kong naisakatuparan ang lahat ng competencies sa syllabus at nakapag-introduce ng bagong digital learning aids.',
+            ],
+            'neutral' => [
+                'Maintained satisfactory performance across assigned teaching duties. I plan to incorporate more digital tools next term.',
+                'Naitawid ang syllabus objectives nang maayos, subalit nais ko pang paunlarin ang pacing ng aking laboratory assessments.',
+                'Maayos na naisagawa ang mga aralin, hangad kong mas mapabilis pa ang aking checking turnaround sa mga seatworks.',
+            ],
+            'contradicting' => [
+                'Naging maayos ang aking pagtuturo ngayong semestre bagamat batid kong marami pa akong naantalang class requirements.',
+            ],
+        ];
+
+        $upwardComments = [
+            'positive' => [
+                'Napaka-supportive ng pamunuan sa mga initiatives ng department at madaling lapitan kapag may kailangang konsultasyon.',
+                'Patas at transparent sa pamamahagi ng teaching assignments at laging bukas makinig sa mga mungkahi ng faculty.',
+                'Provides sound academic leadership, clear institutional vision, and empathetic guidance to all departmental subordinates.',
+            ],
+            'neutral' => [
+                'Maayos ang pamumuno at direksyon, inaasahan lamang ang mas maagang abiso para sa mga departmental meetings at memos.',
+                'Naisasagawa ang pangangasiwa nang maayos, iminumungkahi ang mas regular na coordination meetings sa mga guro.',
+            ],
+            'negative' => [
+                'Medyo mahirap mahagilap sa opisina kapag may urgent concerns hinggil sa student disputes at scheduling conflicts.',
+            ],
+            'contradicting' => [
+                'Mabait at marangal na pinuno ngunit madalas magkulang sa maagap na pag-aksyon sa mga hinaing ng mga kaguruan.',
+            ],
         ];
 
         $now = now()->toDateTimeString();
@@ -379,6 +488,15 @@ class Semester20272028Seeder extends Seeder
         $this->command->info('Created '.count($classInserts).' classes and enrolled all '.count($enrollmentInserts).' students across 2nd Semester curriculum schedules.');
 
         // 7. Seed Multi-Role Evaluations
+        $existingHistoricalEvalIds = DB::table('evaluations')->where('semester_id', $sem->id)->pluck('id');
+        if ($existingHistoricalEvalIds->isNotEmpty()) {
+            foreach ($existingHistoricalEvalIds->chunk(500) as $chunkIds) {
+                DB::table('evaluation_sentiments')->whereIn('evaluation_id', $chunkIds)->delete();
+                DB::table('evaluation_answers')->whereIn('evaluation_id', $chunkIds)->delete();
+                DB::table('evaluations')->whereIn('id', $chunkIds)->delete();
+            }
+        }
+
         $evalIdCounter = (int) DB::table('evaluations')->max('id') + 1;
         $evalInserts = [];
         $answerInserts = [];
@@ -422,12 +540,45 @@ class Semester20272028Seeder extends Seeder
                 }
 
                 $rand = mt_rand(1, 100);
-                // Sentiment distribution: 64% positive, 24% neutral, 12% negative
-                $sentiment = $rand <= 64 ? 'positive' : ($rand <= 88 ? 'neutral' : 'negative');
-                $calc = $generateAnswersAndScore('upward_student', $sentiment);
-                $commentPool = $studentComments[$sentiment];
-                $comment = $commentPool[array_rand($commentPool)];
-                $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+                // Sentiment distribution: 62% positive, 22% neutral, 11% negative, 5% contradicting
+                if ($rand <= 62) {
+                    $sentiment = 'positive';
+                } elseif ($rand <= 84) {
+                    $sentiment = 'neutral';
+                } elseif ($rand <= 95) {
+                    $sentiment = 'negative';
+                } else {
+                    $sentiment = 'contradicting';
+                }
+
+                if ($sentiment === 'contradicting') {
+                    // Contradiction: 50% high rating with negative text, 50% low rating with positive text
+                    $isHighRatingWithNegative = mt_rand(1, 100) <= 50;
+                    if ($isHighRatingWithNegative) {
+                        $calc = $generateAnswersAndScore('upward_student', 'positive');
+                        // Pick from first 4 (negative text)
+                        $comment = $studentComments['contradicting'][mt_rand(0, 3)];
+                        $sentimentMeta = [
+                            'vader_score' => -0.65,
+                            'vader_label' => 'negative',
+                            'dt_label' => 'positive', // Discrepancy triggers is_conflicted
+                        ];
+                    } else {
+                        $calc = $generateAnswersAndScore('upward_student', 'negative');
+                        // Pick from last 4 (positive text)
+                        $comment = $studentComments['contradicting'][mt_rand(4, 7)];
+                        $sentimentMeta = [
+                            'vader_score' => 0.75,
+                            'vader_label' => 'positive',
+                            'dt_label' => 'negative', // Discrepancy triggers is_conflicted
+                        ];
+                    }
+                } else {
+                    $calc = $generateAnswersAndScore('upward_student', $sentiment);
+                    $commentPool = $studentComments[$sentiment];
+                    $comment = $commentPool[array_rand($commentPool)];
+                    $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
+                }
 
                 $currentEvalId = $evalIdCounter++;
 
@@ -483,8 +634,12 @@ class Semester20272028Seeder extends Seeder
             $facultyToEval = $isPhCompleted ? $deptFaculty->count() : (int) ceil($deptFaculty->count() * 0.6);
 
             foreach ($deptFaculty->take($facultyToEval) as $fUser) {
-                $calc = $generateAnswersAndScore('program_head', 'positive');
-                $sentimentMeta = $determineSentimentData('positive', $calc['rating_average']);
+                $rand = mt_rand(1, 100);
+                $sentiment = $rand <= 75 ? 'positive' : ($rand <= 92 ? 'neutral' : 'negative');
+                $calc = $generateAnswersAndScore('program_head', $sentiment);
+                $commentPool = $supervisorComments[$sentiment];
+                $comment = $commentPool[array_rand($commentPool)];
+                $sentimentMeta = $determineSentimentData($sentiment, $calc['rating_average']);
                 $currentEvalId = $evalIdCounter++;
 
                 $evalInserts[] = [
@@ -498,7 +653,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => 'Demonstrates instructional quality and curriculum alignment.',
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -512,6 +667,7 @@ class Semester20272028Seeder extends Seeder
             if ($isPhCompleted) {
                 // PH Self
                 $calc = $generateAnswersAndScore('self', 'positive');
+                $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
                 $currentEvalId = $evalIdCounter++;
                 $evalInserts[] = [
                     'id' => $currentEvalId,
@@ -524,7 +680,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $selfComments['positive'],
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -536,6 +692,7 @@ class Semester20272028Seeder extends Seeder
                 // PH Upward to Dean
                 if ($deanUser) {
                     $calc = $generateAnswersAndScore('upward_employee', 'positive');
+                    $comment = $upwardComments['positive'][array_rand($upwardComments['positive'])];
                     $currentEvalId = $evalIdCounter++;
                     $evalInserts[] = [
                         'id' => $currentEvalId,
@@ -548,7 +705,7 @@ class Semester20272028Seeder extends Seeder
                         'raw_score' => $calc['raw_score'],
                         'max_score' => $calc['max_score'],
                         'weighted_score' => $calc['weighted_score'],
-                        'comments' => $supervisorComments['positive'],
+                        'comments' => $comment,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -570,6 +727,7 @@ class Semester20272028Seeder extends Seeder
             if ($isFacCompleted) {
                 // Self
                 $calc = $generateAnswersAndScore('self', 'positive');
+                $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
                 $currentEvalId = $evalIdCounter++;
                 $evalInserts[] = [
                     'id' => $currentEvalId,
@@ -582,7 +740,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $selfComments['positive'],
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -597,7 +755,12 @@ class Semester20272028Seeder extends Seeder
             $peerCount = $isFacCompleted ? $peers->count() : (int) ceil($peers->count() * 0.6);
 
             foreach ($peers->take($peerCount) as $peerUser) {
-                $calc = $generateAnswersAndScore('peer', 'positive');
+                $pRand = mt_rand(1, 100);
+                $pSent = $pRand <= 75 ? 'positive' : ($pRand <= 92 ? 'neutral' : 'negative');
+                $calc = $generateAnswersAndScore('peer', $pSent);
+                $commentPool = $peerComments[$pSent];
+                $comment = $commentPool[array_rand($commentPool)];
+                $sentimentMeta = $determineSentimentData($pSent, $calc['rating_average']);
                 $currentEvalId = $evalIdCounter++;
                 $evalInserts[] = [
                     'id' => $currentEvalId,
@@ -610,21 +773,26 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $peerComments['positive'],
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
                 foreach ($calc['answers'] as $qId => $rating) {
                     $answerInserts[] = ['evaluation_id' => $currentEvalId, 'question_id' => $qId, 'rating' => $rating, 'created_at' => $now, 'updated_at' => $now];
                 }
-                $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => 0.55, 'vader_label' => 'positive', 'dt_label' => 'positive', 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
+                $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => $sentimentMeta['vader_score'], 'vader_label' => $sentimentMeta['vader_label'], 'dt_label' => $sentimentMeta['dt_label'], 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
             }
 
             // Upward to PH
             if ($isFacCompleted || ($fIdx % 2 === 0)) {
                 $targetPH = $programHeadUsers->where('employee.department_id', $fDeptId)->first();
                 if ($targetPH) {
-                    $calc = $generateAnswersAndScore('upward_employee', 'positive');
+                    $uRand = mt_rand(1, 100);
+                    $uSent = $uRand <= 78 ? 'positive' : ($uRand <= 93 ? 'neutral' : 'negative');
+                    $calc = $generateAnswersAndScore('upward_employee', $uSent);
+                    $commentPool = $upwardComments[$uSent];
+                    $comment = $commentPool[array_rand($commentPool)];
+                    $sentimentMeta = $determineSentimentData($uSent, $calc['rating_average']);
                     $currentEvalId = $evalIdCounter++;
                     $evalInserts[] = [
                         'id' => $currentEvalId,
@@ -637,14 +805,14 @@ class Semester20272028Seeder extends Seeder
                         'raw_score' => $calc['raw_score'],
                         'max_score' => $calc['max_score'],
                         'weighted_score' => $calc['weighted_score'],
-                        'comments' => $supervisorComments['positive'],
+                        'comments' => $comment,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
                     foreach ($calc['answers'] as $qId => $rating) {
                         $answerInserts[] = ['evaluation_id' => $currentEvalId, 'question_id' => $qId, 'rating' => $rating, 'created_at' => $now, 'updated_at' => $now];
                     }
-                    $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => 0.65, 'vader_label' => 'positive', 'dt_label' => 'positive', 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
+                    $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => $sentimentMeta['vader_score'], 'vader_label' => $sentimentMeta['vader_label'], 'dt_label' => $sentimentMeta['dt_label'], 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
                 }
             }
 
@@ -661,7 +829,12 @@ class Semester20272028Seeder extends Seeder
             $deptStaff = $staffUsers->where('employee.department_id', $dhDeptId);
 
             foreach ($deptStaff as $sUser) {
-                $calc = $generateAnswersAndScore('department_head', 'positive');
+                $sRand = mt_rand(1, 100);
+                $sSent = $sRand <= 80 ? 'positive' : ($sRand <= 92 ? 'neutral' : 'negative');
+                $calc = $generateAnswersAndScore('department_head', $sSent);
+                $commentPool = $supervisorComments[$sSent];
+                $comment = $commentPool[array_rand($commentPool)];
+                $sentimentMeta = $determineSentimentData($sSent, $calc['rating_average']);
                 $currentEvalId = $evalIdCounter++;
                 $evalInserts[] = [
                     'id' => $currentEvalId,
@@ -674,18 +847,19 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => 'Produces organized, dependable administrative outputs.',
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
                 foreach ($calc['answers'] as $qId => $rating) {
                     $answerInserts[] = ['evaluation_id' => $currentEvalId, 'question_id' => $qId, 'rating' => $rating, 'created_at' => $now, 'updated_at' => $now];
                 }
-                $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => 0.62, 'vader_label' => 'positive', 'dt_label' => 'positive', 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
+                $sentimentInserts[] = ['evaluation_id' => $currentEvalId, 'vader_score' => $sentimentMeta['vader_score'], 'vader_label' => $sentimentMeta['vader_label'], 'dt_label' => $sentimentMeta['dt_label'], 'manual_label' => null, 'created_at' => $now, 'updated_at' => $now];
             }
 
             // DH Self
             $calc = $generateAnswersAndScore('self', 'positive');
+            $comment = $selfComments['positive'][array_rand($selfComments['positive'])];
             $currentEvalId = $evalIdCounter++;
             $evalInserts[] = [
                 'id' => $currentEvalId,
@@ -698,7 +872,7 @@ class Semester20272028Seeder extends Seeder
                 'raw_score' => $calc['raw_score'],
                 'max_score' => $calc['max_score'],
                 'weighted_score' => $calc['weighted_score'],
-                'comments' => $selfComments['positive'],
+                'comments' => $comment,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -710,6 +884,7 @@ class Semester20272028Seeder extends Seeder
             // DH Upward to Dean
             if ($deanUser) {
                 $calc = $generateAnswersAndScore('upward_employee', 'positive');
+                $comment = $upwardComments['positive'][array_rand($upwardComments['positive'])];
                 $currentEvalId = $evalIdCounter++;
                 $evalInserts[] = [
                     'id' => $currentEvalId,
@@ -722,7 +897,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $supervisorComments['positive'],
+                    'comments' => $comment,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -755,7 +930,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $selfComments['positive'],
+                    'comments' => $selfComments['positive'][array_rand($selfComments['positive'])],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -782,7 +957,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $peerComments['positive'],
+                    'comments' => $peerComments['positive'][array_rand($peerComments['positive'])],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -807,7 +982,7 @@ class Semester20272028Seeder extends Seeder
                     'raw_score' => $calc['raw_score'],
                     'max_score' => $calc['max_score'],
                     'weighted_score' => $calc['weighted_score'],
-                    'comments' => $supervisorComments['positive'],
+                    'comments' => $supervisorComments['positive'][array_rand($supervisorComments['positive'])],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
