@@ -85,7 +85,7 @@ sudo systemctl start flask-ai
 The project includes an all-in-one Docker deployment stack for Render's Web Service tier backed by a persistent TiDB Cloud MySQL database:
 
 ### 1. Docker Multi-Service Container (`Dockerfile` & `supervisord.conf`)
-* **PHP-FPM (PHP 8.3)**: Handles dynamic Laravel requests.
+* **PHP-FPM (PHP 8.4)**: Handles dynamic Laravel requests.
 * **Nginx**: High-performance web server listening on Render dynamic `$PORT`.
 * **Gunicorn Python AI**: Serves Flask ML API on `127.0.0.1:5001`.
 * **Laravel Queue Worker**: Processes background sentiment analysis and asynchronous evaluation jobs.

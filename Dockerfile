@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-bookworm
+FROM php:8.4-fpm-bookworm
 
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
