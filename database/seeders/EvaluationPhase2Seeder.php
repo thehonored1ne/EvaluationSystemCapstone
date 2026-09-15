@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AcademicClass;
+use App\Models\AcademicYear;
 use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;

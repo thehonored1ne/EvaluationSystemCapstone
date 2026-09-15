@@ -69,6 +69,18 @@ php artisan ai:train
 
 ---
 
+### Error: `Class "Database\Seeders\AcademicYear" not found` during `db:seed`
+* **Cause**: In `EvaluationPhase2Seeder`, `AcademicYear` was invoked without `use App\Models\AcademicYear;` leading PHP to resolve it to the seeder namespace.
+* **Solution**: Ensure all referenced Eloquent models (`AcademicYear`, `Semester`, `AcademicClass`, etc.) are imported at the top of the seeder.
+
+---
+
+### Error: `Table 'cache' doesn't exist (select * from cache where key in (...illuminate:queue:restart))`
+* **Cause**: Running `migrate:fresh` while an active worker (or another deployment container) is polling the cache table. The worker crashes when tables are dropped and automatically recovers once `create_cache_table` migration runs.
+* **Solution**: Normal transient log during zero-downtime redeploys if `migrate:fresh` is triggered on a shared DB. Use `php artisan migrate` in production rather than `migrate:fresh` to avoid dropping live tables.
+
+---
+
 ## 3. Frontend & Asset Compilation
 
 ### Error: `Vite manifest not found`
