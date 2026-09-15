@@ -41,31 +41,39 @@ class DatabaseSeeder extends Seeder
         }
 
         // 2. Academic Year & Semester
-        $ay = AcademicYear::create([
-            'name' => '2026-2027',
-            'is_active' => true,
-        ]);
+        $ay = AcademicYear::firstOrCreate(
+            ['name' => '2026-2027'],
+            ['is_active' => true]
+        );
 
-        $sem = Semester::create([
-            'academic_year_id' => $ay->id,
-            'name' => '1st Semester',
-            'is_active' => true,
-            'is_evaluation_open' => true,
-            'evaluation_starts_at' => now()->subDays(5),
-            'evaluation_ends_at' => now()->addDays(25),
-            'overall_max_points' => 200.00,
-            'student_weight' => 40.00,
-            'dean_weight' => 20.00,
-            'ph_dh_weight' => 20.00,
-            'peer_weight' => 15.00,
-            'self_weight' => 5.00,
-            'superior_weight' => 20.00,
-            'upward_student_max_points' => 80.00,
-            'peer_max_points' => 30.00,
-            'self_max_points' => 10.00,
-            'dean_max_points' => 40.00,
-            'program_head_max_points' => 40.00,
-        ]);
+        $sem = Semester::firstOrCreate(
+            [
+                'academic_year_id' => $ay->id,
+                'name' => '1st Semester',
+            ],
+            [
+                'is_active' => true,
+                'is_evaluation_open' => true,
+                'evaluation_starts_at' => now()->subDays(5),
+                'evaluation_ends_at' => now()->addDays(25),
+                'overall_max_points' => 200.00,
+                'student_weight' => 40.00,
+                'dean_weight' => 20.00,
+                'ph_dh_weight' => 20.00,
+                'peer_weight' => 15.00,
+                'self_weight' => 5.00,
+                'superior_weight' => 20.00,
+                'upward_student_max_points' => 80.00,
+                'peer_max_points' => 30.00,
+                'self_max_points' => 10.00,
+                'dean_max_points' => 40.00,
+                'program_head_max_points' => 40.00,
+            ]
+        );
+
+        // Ensure ONLY this semester is active to prevent active term duplication
+        Semester::where('id', '!=', $sem->id)->update(['is_active' => false]);
+        AcademicYear::where('id', '!=', $ay->id)->update(['is_active' => false]);
 
         // 3. Departments (4 Academic + 11 Administrative)
         $academicDeptDefs = [

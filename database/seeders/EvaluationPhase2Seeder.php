@@ -19,12 +19,17 @@ class EvaluationPhase2Seeder extends Seeder
      */
     public function run(): void
     {
-        $activeSemester = Semester::where('is_active', true)->first();
+        $activeSemester = Semester::where('is_active', true)->latest('id')->first();
         if (! $activeSemester) {
             $this->command->error('No active semester found! Aborting Phase 2.');
 
             return;
         }
+
+        // Guarantee single active term constraint
+        Semester::where('id', '!=', $activeSemester->id)->update(['is_active' => false]);
+        AcademicYear::where('id', '!=', $activeSemester->academic_year_id)->update(['is_active' => false]);
+        AcademicYear::where('id', $activeSemester->academic_year_id)->update(['is_active' => true]);
 
         // Cache all evaluation criteria and questions by type
         $criteriaByType = EvaluationCriterion::with('questions')->get()->groupBy('evaluation_type');
