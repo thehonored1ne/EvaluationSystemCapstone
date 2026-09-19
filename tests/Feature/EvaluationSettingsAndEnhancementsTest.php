@@ -298,3 +298,53 @@ test('evaluation results table sorts alphabetically A-Z by last name by default'
             'Turing, Alan',
         ]);
 });
+
+test('evaluation settings renders Non-Teaching Staff Performance tab and saves staff weights and targets', function () {
+    $this->actingAs($this->adminUser);
+
+    // Create criteria for staff evaluation categories
+    $cHead = EvaluationCriterion::create(['evaluation_type' => 'department_head', 'name' => 'Part 1: Job Knowledge', 'max_points' => 50, 'order' => 1]);
+    $cPeer = EvaluationCriterion::create(['evaluation_type' => 'peer', 'name' => 'Part 1: Peer Staff', 'max_points' => 30, 'order' => 1]);
+    $cSelf = EvaluationCriterion::create(['evaluation_type' => 'self', 'name' => 'Part 1: Self Appraisal', 'max_points' => 20, 'order' => 1]);
+
+    Livewire::actingAs($this->adminUser)
+        ->test('admin.evaluation-settings')
+        ->assertSee('Non-Teaching Staff Performance')
+        ->set('weightsReportTab', 'staff_performance')
+        ->assertSee('Department Head Appraisal')
+        ->assertSee('Peer Staff Appraisal')
+        ->assertSee('Staff Self-Appraisal')
+        ->set('staffOverallMaxTarget', '100')
+        ->set('staffMaxWeightPercent', '100')
+        ->set('staffHeadWeightTarget', '50')
+        ->set('staffPeerWeightTarget', '30')
+        ->set('staffSelfWeightTarget', '20')
+        ->set('criteriaPoints.'.$cHead->id, 50)
+        ->set('criteriaPoints.'.$cPeer->id, 30)
+        ->set('criteriaPoints.'.$cSelf->id, 20)
+        ->call('savePoints')
+        ->assertHasNoErrors();
+
+    $this->semester->refresh();
+    expect((float) $this->semester->staff_head_weight)->toEqual(50.0)
+        ->and((float) $this->semester->staff_peer_weight)->toEqual(30.0)
+        ->and((float) $this->semester->staff_self_weight)->toEqual(20.0)
+        ->and((float) $this->semester->staff_overall_max_points)->toEqual(100.0)
+        ->and((float) $this->semester->department_head_max_points)->toEqual(50.0);
+});
+
+test('evaluation settings resets staff weights to default standard preset', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::actingAs($this->adminUser)
+        ->test('admin.evaluation-settings')
+        ->set('weightsReportTab', 'staff_performance')
+        ->set('staffHeadWeightTarget', '40')
+        ->set('staffPeerWeightTarget', '40')
+        ->set('staffSelfWeightTarget', '20')
+        ->call('resetToStaffDefaultWeights')
+        ->assertSet('staffHeadWeightTarget', '50')
+        ->assertSet('staffPeerWeightTarget', '30')
+        ->assertSet('staffSelfWeightTarget', '20')
+        ->assertSet('staffOverallMaxTarget', '100');
+});

@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import precision_recall_fscore_support
 
 # Download NLTK VADER Lexicon if not present
 import nltk
@@ -336,8 +337,24 @@ def train():
             # Calculate accuracy
             accuracy = float(np.mean(predictions == y_test))
             
-            # Build Confusion Matrix & collect misclassified samples
+            # Calculate macro precision, recall, f1-score
             classes = ["positive", "neutral", "negative"]
+            macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(
+                y_test, predictions, labels=classes, average='macro', zero_division=0
+            )
+            p_per_class, r_per_class, f1_per_class, support_per_class = precision_recall_fscore_support(
+                y_test, predictions, labels=classes, average=None, zero_division=0
+            )
+            class_metrics = {}
+            for idx, c in enumerate(classes):
+                class_metrics[c] = {
+                    "precision": float(p_per_class[idx]),
+                    "recall": float(r_per_class[idx]),
+                    "f1": float(f1_per_class[idx]),
+                    "support": int(support_per_class[idx])
+                }
+            
+            # Build Confusion Matrix & collect misclassified samples
             confusion = {c_actual: {c_pred: 0 for c_pred in classes} for c_actual in classes}
             for act, pred, orig_idx in zip(y_test, predictions, idx_test):
                 if act in classes and pred in classes:
@@ -351,6 +368,12 @@ def train():
                     })
         else:
             accuracy = 1.0
+            macro_p = 1.0
+            macro_r = 1.0
+            macro_f1 = 1.0
+            class_metrics = {
+                c: {"precision": 1.0, "recall": 1.0, "f1": 1.0, "support": 0} for c in ["positive", "neutral", "negative"]
+            }
             confusion = {
                 "positive": {"positive": 0, "neutral": 0, "negative": 0},
                 "neutral": {"positive": 0, "neutral": 0, "negative": 0},
@@ -372,6 +395,10 @@ def train():
             "seed_samples": len(seed_samples),
             "metrics": {
                 "accuracy": accuracy,
+                "precision": float(macro_p),
+                "recall": float(macro_r),
+                "f1_score": float(macro_f1),
+                "class_metrics": class_metrics,
                 "confusion_matrix": confusion,
                 "misclassified_samples": misclassified_samples
             }

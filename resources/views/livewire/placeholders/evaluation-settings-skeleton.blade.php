@@ -42,6 +42,7 @@
         <!-- Tab Navigation Switcher Skeleton -->
         <div class="flex border-b border-zinc-200 dark:border-zinc-800 gap-4 pb-0">
             <div class="h-8 w-44 bg-zinc-200 dark:bg-zinc-800 rounded-t shimmer"></div>
+            <div class="h-8 w-44 bg-zinc-100 dark:bg-zinc-800/50 rounded-t shimmer"></div>
             <div class="h-8 w-48 bg-zinc-100 dark:bg-zinc-800/50 rounded-t shimmer"></div>
         </div>
 

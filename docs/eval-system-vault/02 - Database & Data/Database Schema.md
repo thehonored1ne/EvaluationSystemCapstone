@@ -78,9 +78,13 @@ Student profiles enrolled in the system.
 - `name` (VARCHAR) - *e.g., "1st Semester"*
 - `is_active` (TINYINT, Default: 0)
 - `is_evaluation_open` (TINYINT, Default: 0)
-- `student_max_points` (DECIMAL, Default: 90)
-- `peer_max_points` (DECIMAL, Default: 50)
-- `self_max_points` (DECIMAL, Default: 10)
+- `overall_max_points` (DECIMAL, Default: 200.00)
+- `student_weight` / `dean_weight` / `ph_dh_weight` / `peer_weight` / `self_weight` / `superior_weight` (DECIMAL)
+- `upward_student_max_points` / `dean_max_points` / `program_head_max_points` / `department_head_max_points` / `downward_max_points` / `peer_max_points` / `self_max_points` / `staff_max_points` (DECIMAL)
+- `staff_overall_max_points` (DECIMAL, Default: 100.00)
+- `staff_head_weight` (DECIMAL, Default: 50.00)
+- `staff_peer_weight` (DECIMAL, Default: 30.00)
+- `staff_self_weight` (DECIMAL, Default: 20.00)
 - `evaluation_starts_at` (DATETIME, Nullable)
 - `evaluation_ends_at` (DATETIME, Nullable)
 - `created_at` / `updated_at` (DATETIME, Nullable)
@@ -178,7 +182,34 @@ AI sentiment analysis results associated with evaluation comments.
 - `vader_score` (DECIMAL) - *Polarity score from -1.0 to 1.0*
 - `vader_label` (VARCHAR) - *VADER rule-based label (positive, neutral, negative)*
 - `dt_label` (VARCHAR) - *Decision Tree classifier predicted label (positive, neutral, negative)*
+### `evaluation_exemptions`
+Audit log of peer evaluation exemptions ("Unable to Observe / Skip").
+- `id` (INT, PK, Auto Increment)
+- `evaluator_id` (INT, FK -> `users.id`, Cascade Delete)
+- `evaluatee_id` (INT, FK -> `users.id`, Cascade Delete)
+- `semester_id` (INT, FK -> `semesters.id`, Cascade Delete)
+- `evaluation_type` (VARCHAR, Default: 'peer')
+- `reason` (VARCHAR) - *e.g., 'schedule_conflict', 'different_specialization', 'new_faculty', 'other'*
+- `notes` (TEXT, Nullable)
 - `created_at` / `updated_at` (DATETIME, Nullable)
+- *Unique Constraint*: `(evaluator_id, evaluatee_id, semester_id, evaluation_type)`
+
+### `evaluation_summaries`
+Pre-calculated composite scores per employee per semester for instant reporting and dynamic normalization tracking.
+- `id` (INT, PK, Auto Increment)
+- `evaluatee_id` (INT, FK -> `employees.id`, Cascade Delete)
+- `semester_id` (INT, FK -> `semesters.id`, Cascade Delete)
+- `student_score` (DECIMAL, Nullable)
+- `dean_score` (DECIMAL, Nullable)
+- `ph_dh_score` (DECIMAL, Nullable)
+- `peer_score` (DECIMAL, Nullable)
+- `self_score` (DECIMAL, Nullable)
+- `superior_score` (DECIMAL, Nullable)
+- `overall_rating` (DECIMAL, Default: 0.00)
+- `total_submissions` (INT, Default: 0)
+- `is_peer_exempted` (TINYINT, Default: 0) - *Flag indicating dynamic weight normalization was applied*
+- `created_at` / `updated_at` (DATETIME, Nullable)
+- *Unique Constraint*: `(evaluatee_id, semester_id)`
 
 ---
 

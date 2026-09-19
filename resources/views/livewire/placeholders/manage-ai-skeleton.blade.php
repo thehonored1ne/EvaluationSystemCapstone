@@ -7,11 +7,27 @@
         <div class="h-10 bg-zinc-200 dark:bg-zinc-800 rounded-xl w-40 shimmer shrink-0"></div>
     </div>
 
-    <!-- Top 4 Executive KPI Cards Skeleton -->
+    <!-- Tier 1: Operational Activity KPI Cards Skeleton (3 Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+        @for($i = 0; $i < 3; $i++)
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
+                <div class="h-3 w-28 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
+                <div class="space-y-1.5">
+                    <div class="h-8 w-20 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
+                    <div class="h-3 w-36 bg-zinc-100 dark:bg-zinc-800/60 rounded shimmer"></div>
+                </div>
+            </div>
+        @endfor
+    </div>
+
+    <!-- Tier 2: Model Performance & Health Metrics Skeleton (4 Cards) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         @for($i = 0; $i < 4; $i++)
             <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
-                <div class="h-3 w-28 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
+                <div class="flex items-center justify-between">
+                    <div class="h-3 w-24 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
+                    <div class="size-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 shimmer"></div>
+                </div>
                 <div class="space-y-1.5">
                     <div class="h-8 w-20 bg-zinc-200 dark:bg-zinc-800 rounded shimmer"></div>
                     <div class="h-3 w-36 bg-zinc-100 dark:bg-zinc-800/60 rounded shimmer"></div>

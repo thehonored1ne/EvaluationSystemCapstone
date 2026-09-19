@@ -88,6 +88,15 @@ class SendEvaluationDeadlineReminders extends Command
             $evalSet[$er->evaluator_id.'_'.$er->evaluatee_id.'_'.($er->class_id ?? '').'_'.$er->evaluation_type] = true;
         }
 
+        $exemptionRows = DB::table('evaluation_exemptions')
+            ->where('semester_id', $sem->id)
+            ->select('evaluator_id', 'evaluatee_id', 'evaluation_type')
+            ->get();
+
+        foreach ($exemptionRows as $ex) {
+            $evalSet[$ex->evaluator_id.'_'.$ex->evaluatee_id.'__'.$ex->evaluation_type] = true;
+        }
+
         // 2. Preload student classes with teacher user mapping via lightweight DB queries (avoids AsPivot memory explosion)
         $teacherUserMap = DB::table('classes')
             ->join('users', 'users.employee_id', '=', 'classes.teacher_id')

@@ -679,6 +679,13 @@ new #[Layout('components.layouts.app')] class extends Component
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
 
+        // Preload exemptions per evaluator
+        $exemptionCountMap = DB::table('evaluation_exemptions')
+            ->where('semester_id', $semId)
+            ->selectRaw('evaluator_id, count(distinct evaluatee_id) as ex_count')
+            ->groupBy('evaluator_id')
+            ->pluck('ex_count', 'evaluator_id');
+
         $query = DB::table('employees')
             ->where('employees.role', 'faculty')
             ->where('employees.status', 'active')
@@ -700,14 +707,16 @@ new #[Layout('components.layouts.app')] class extends Component
             $query->where('employees.department_id', $this->selectedDepartmentId);
         }
 
-        return $this->cachedProfessorTracking = $query->get()->map(function ($emp) use ($deptFacultyCountMap, $deptPhCountMap, $evalCountMap) {
+        return $this->cachedProfessorTracking = $query->get()->map(function ($emp) use ($deptFacultyCountMap, $deptPhCountMap, $evalCountMap, $exemptionCountMap) {
             $userId = $emp->user_id;
             $deptFacCount = (int) ($deptFacultyCountMap[$emp->department_id] ?? 0);
             $deptPhCount = (int) ($deptPhCountMap[$emp->department_id] ?? 0);
             $peerTarget = max(0, $deptFacCount - 1);
             $targetCount = 1 + $peerTarget + $deptPhCount; // 1 (Self) + Dept Faculty Peers + Dept Program Head(s)
 
-            $completed = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
+            $submitted = $userId ? (int) ($evalCountMap[$userId] ?? 0) : 0;
+            $exempted = $userId ? (int) ($exemptionCountMap[$userId] ?? 0) : 0;
+            $completed = $submitted + $exempted;
             $percentage = $targetCount > 0 ? min(100, (int) round(($completed / $targetCount) * 100)) : 0;
             $status = ($percentage === 100) ? 'completed' : ($completed > 0 ? 'in_progress' : 'pending');
 
@@ -723,6 +732,7 @@ new #[Layout('components.layouts.app')] class extends Component
                 'department_code' => $emp->department_code ?? '—',
                 'target_count' => $targetCount,
                 'completed_count' => $completed,
+                'exemptions_count' => $exempted,
                 'percentage' => $percentage,
                 'status' => $status,
             ];
@@ -1615,13 +1625,18 @@ new #[Layout('components.layouts.app')] class extends Component
                                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $prof->department }}</span>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="flex items-baseline gap-1.5">
+                                        <div class="flex items-baseline gap-1.5 flex-wrap">
                                             <span class="font-bold font-mono text-sm {{ $prof->percentage === 100 ? 'text-emerald-600 dark:text-emerald-400' : ($prof->percentage > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500') }}">
                                                 {{ $prof->percentage }}%
                                             </span>
                                             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
                                                 ({{ $prof->completed_count }}/{{ $prof->target_count }})
                                             </span>
+                                            @if(($prof->exemptions_count ?? 0) > 0)
+                                                <span class="text-[10px] font-semibold text-amber-600 dark:text-amber-400" title="{{ $prof->exemptions_count }} peer(s) exempted with no basis to observe">
+                                                    ({{ $prof->exemptions_count }} skipped)
+                                                </span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">

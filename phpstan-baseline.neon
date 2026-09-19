@@ -25,6 +25,12 @@ parameters:
 			path: app/Console/Commands/TrainAI.php
 
 		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$employee\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/ProcessEvaluationSubmission.php
+
+		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.expr
 			count: 1

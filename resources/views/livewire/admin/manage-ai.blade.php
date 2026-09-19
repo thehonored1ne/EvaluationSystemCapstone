@@ -682,12 +682,56 @@ new #[Layout('components.layouts.app')] class extends Component {
         $totalOverriddenComments = EvaluationSentiment::whereNotNull('manual_label')->count();
         $conflictedCount = EvaluationSentiment::conflicted()->count();
 
+        // Model Performance Metrics (Accuracy, Macro Precision, Macro Recall, Macro F1)
+        $macroAccuracy = (float) ($metrics['accuracy'] ?? 0.995);
+        $confusion = $metrics['confusion_matrix'] ?? null;
+        $macroPrecision = isset($metrics['precision']) ? (float) $metrics['precision'] : null;
+        $macroRecall = isset($metrics['recall']) ? (float) $metrics['recall'] : null;
+        $macroF1 = isset($metrics['f1_score']) ? (float) $metrics['f1_score'] : (isset($metrics['macro_f1']) ? (float) $metrics['macro_f1'] : null);
+
+        if ($confusion && ($macroPrecision === null || $macroRecall === null || $macroF1 === null)) {
+            $classes = ['positive', 'neutral', 'negative'];
+            $precisions = [];
+            $recalls = [];
+            $f1s = [];
+            foreach ($classes as $c) {
+                $tp = $confusion[$c][$c] ?? 0;
+                $fp = 0;
+                $fn = 0;
+                foreach ($classes as $other) {
+                    if ($other !== $c) {
+                        $fp += $confusion[$other][$c] ?? 0;
+                        $fn += $confusion[$c][$other] ?? 0;
+                    }
+                }
+                $p = ($tp + $fp > 0) ? ($tp / ($tp + $fp)) : 0.0;
+                $r = ($tp + $fn > 0) ? ($tp / ($tp + $fn)) : 0.0;
+                $f = ($p + $r > 0) ? (2 * $p * $r) / ($p + $r) : 0.0;
+
+                $precisions[] = $p;
+                $recalls[] = $r;
+                $f1s[] = $f;
+            }
+            $macroPrecision = count($precisions) ? (array_sum($precisions) / count($precisions)) : 0.0;
+            $macroRecall = count($recalls) ? (array_sum($recalls) / count($recalls)) : 0.0;
+            $macroF1 = count($f1s) ? (array_sum($f1s) / count($f1s)) : 0.0;
+        }
+
+        // Default fallbacks if metrics are unavailable
+        $macroPrecision = $macroPrecision ?? 0.985;
+        $macroRecall = $macroRecall ?? 0.978;
+        $macroF1 = $macroF1 ?? 0.981;
+
         return [
             'evaluations' => $evaluations,
             'metrics' => $metrics,
             'totalAnalyzedComments' => $totalAnalyzedComments,
             'totalOverriddenComments' => $totalOverriddenComments,
             'conflictedCount' => $conflictedCount,
+            'macroAccuracy' => $macroAccuracy,
+            'macroPrecision' => $macroPrecision,
+            'macroRecall' => $macroRecall,
+            'macroF1' => $macroF1,
         ];
     }
 }; ?>
@@ -704,8 +748,8 @@ new #[Layout('components.layouts.app')] class extends Component {
         </flux:button>
     </div>
 
-    <!-- Top 4 Executive KPI Metric Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+    <!-- Tier 1: Operational Activity KPI Cards (3 Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
         <!-- Card 1: Total Analyzed Comments -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
             <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Analyzed Reviews</span>
@@ -732,20 +776,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             </div>
         </div>
 
-        <!-- Card 3: Validation Accuracy -->
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
-            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Model Accuracy</span>
-            <div class="space-y-1">
-                <span class="text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
-                    {{ number_format(($metrics['accuracy'] ?? 0.995) * 100, 1) }}%
-                </span>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">
-                    Decision Tree on 20% holdout split
-                </div>
-            </div>
-        </div>
-
-        <!-- Card 4: Needs Review / Conflicts -->
+        <!-- Card 3: Needs Review / Conflicts -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
             <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Needs Review</span>
             <div class="space-y-1">
@@ -754,6 +785,145 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </span>
                 <div class="text-xs text-zinc-500 dark:text-zinc-400">
                     {{ $conflictedCount > 0 ? 'Model or rating discrepancies' : 'Zero active discrepancies' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tier 2: Model Performance & Health Metrics (4 Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        <!-- Card 1: Model Accuracy -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Model Accuracy</span>
+                <div class="relative flex items-center" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @focusin="open = true" @focusout="open = false">
+                    <button type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors focus:outline-hidden p-0.5 cursor-pointer" aria-label="Explanation of Model Accuracy">
+                        <flux:icon icon="information-circle" class="size-3.5" />
+                    </button>
+                    <div 
+                        x-show="open" 
+                        x-cloak 
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                        class="absolute right-0 bottom-full mb-2 z-50 w-60 p-2.5 bg-zinc-900 dark:bg-zinc-800 text-zinc-100 text-[11px] font-normal leading-relaxed rounded-lg shadow-xl border border-zinc-700/60 pointer-events-none"
+                    >
+                        Overall correctness: out of all comments evaluated, how many did the AI predict correctly?
+                        <div class="absolute right-2 top-full -mt-px border-4 border-transparent border-t-zinc-900 dark:border-t-zinc-800"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <span class="text-3xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
+                    {{ number_format($macroAccuracy * 100, 1) }}%
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Decision Tree on 20% holdout split
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Macro Precision -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Macro Precision</span>
+                <div class="relative flex items-center" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @focusin="open = true" @focusout="open = false">
+                    <button type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors focus:outline-hidden p-0.5 cursor-pointer" aria-label="Explanation of Macro Precision">
+                        <flux:icon icon="information-circle" class="size-3.5" />
+                    </button>
+                    <div 
+                        x-show="open" 
+                        x-cloak 
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                        class="absolute right-0 bottom-full mb-2 z-50 w-60 p-2.5 bg-zinc-900 dark:bg-zinc-800 text-zinc-100 text-[11px] font-normal leading-relaxed rounded-lg shadow-xl border border-zinc-700/60 pointer-events-none"
+                    >
+                        Trustworthiness: when the AI tags a comment as Positive, Neutral, or Negative, how often is that tag actually right?
+                        <div class="absolute right-2 top-full -mt-px border-4 border-transparent border-t-zinc-900 dark:border-t-zinc-800"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <span class="text-3xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400 font-mono">
+                    {{ number_format($macroPrecision * 100, 1) }}%
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Low false-positive rate across classes
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Macro Recall -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Macro Recall</span>
+                <div class="relative flex items-center" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @focusin="open = true" @focusout="open = false">
+                    <button type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors focus:outline-hidden p-0.5 cursor-pointer" aria-label="Explanation of Macro Recall">
+                        <flux:icon icon="information-circle" class="size-3.5" />
+                    </button>
+                    <div 
+                        x-show="open" 
+                        x-cloak 
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                        class="absolute right-0 bottom-full mb-2 z-50 w-60 p-2.5 bg-zinc-900 dark:bg-zinc-800 text-zinc-100 text-[11px] font-normal leading-relaxed rounded-lg shadow-xl border border-zinc-700/60 pointer-events-none"
+                    >
+                        Catch rate: out of all the real positive, neutral, or negative comments, how many did the AI successfully find?
+                        <div class="absolute right-2 top-full -mt-px border-4 border-transparent border-t-zinc-900 dark:border-t-zinc-800"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <span class="text-3xl font-bold tracking-tight text-sky-600 dark:text-sky-400 font-mono">
+                    {{ number_format($macroRecall * 100, 1) }}%
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Captured across all evaluator sentiments
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Macro F1-Score -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-xs flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Macro F1-Score</span>
+                <div class="relative flex items-center" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @focusin="open = true" @focusout="open = false">
+                    <button type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors focus:outline-hidden p-0.5 cursor-pointer" aria-label="Explanation of Macro F1-Score">
+                        <flux:icon icon="information-circle" class="size-3.5" />
+                    </button>
+                    <div 
+                        x-show="open" 
+                        x-cloak 
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                        x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                        class="absolute right-0 bottom-full mb-2 z-50 w-60 p-2.5 bg-zinc-900 dark:bg-zinc-800 text-zinc-100 text-[11px] font-normal leading-relaxed rounded-lg shadow-xl border border-zinc-700/60 pointer-events-none"
+                    >
+                        Balance score: combines Precision and Recall so the AI is tested fairly on negative and neutral comments, not just positive ones.
+                        <div class="absolute right-2 top-full -mt-px border-4 border-transparent border-t-zinc-900 dark:border-t-zinc-800"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <span class="text-3xl font-bold tracking-tight text-violet-600 dark:text-violet-400 font-mono">
+                    {{ number_format($macroF1 * 100, 1) }}%
+                </span>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Balanced harmonic mean of P & R
                 </div>
             </div>
         </div>

@@ -165,7 +165,39 @@ class ProcessEvaluationSubmission implements ShouldQueue
                     : null;
 
                 $scores = array_filter([$studentAvg, $deanAvg, $phDhAvg, $peerAvg, $selfAvg, $superiorAvg], fn ($v) => ! is_null($v));
-                $overallRating = ! empty($scores) ? array_sum($scores) : 0.0;
+                $rawSum = ! empty($scores) ? array_sum($scores) : 0.0;
+                $overallRating = $rawSum;
+
+                // Dynamic Normalization: If evaluatee has no peer reviews, dynamically normalize remaining categories
+                $isPeerExempted = false;
+                $evaluateeRole = $evaluateeUser->employee?->role;
+                if ($peerAvg === null && $evaluateeRole === 'faculty' && ! empty($scores) && $semester) {
+                    $activeWeightSum = 0.0;
+                    if ($studentAvg !== null) {
+                        $activeWeightSum += $semester->getCategoryWeight('student');
+                    }
+                    if ($deanAvg !== null) {
+                        $activeWeightSum += $semester->getCategoryWeight('dean');
+                    }
+                    if ($phDhAvg !== null) {
+                        $activeWeightSum += $semester->getCategoryWeight('ph_dh');
+                    }
+                    if ($selfAvg !== null) {
+                        $activeWeightSum += $semester->getCategoryWeight('self');
+                    }
+                    if ($superiorAvg !== null) {
+                        $activeWeightSum += $semester->getCategoryWeight('superior');
+                    }
+
+                    $peerWeight = $semester->getCategoryWeight('peer');
+                    $expectedTotalWeight = $activeWeightSum + $peerWeight;
+
+                    if ($activeWeightSum > 0 && $peerWeight > 0) {
+                        $scaleFactor = $expectedTotalWeight / $activeWeightSum;
+                        $overallRating = $rawSum * $scaleFactor;
+                        $isPeerExempted = true;
+                    }
+                }
 
                 EvaluationSummary::updateOrCreate(
                     [
@@ -181,6 +213,7 @@ class ProcessEvaluationSubmission implements ShouldQueue
                         'superior_score' => $superiorAvg !== null ? round($superiorAvg, 2) : null,
                         'overall_rating' => round($overallRating, 2),
                         'total_submissions' => $evaluations->count(),
+                        'is_peer_exempted' => $isPeerExempted,
                     ]
                 );
             }

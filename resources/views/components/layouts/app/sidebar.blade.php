@@ -878,15 +878,15 @@
                             </flux:tooltip>
                         @endif
 
-                        @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                        @if($user->hasAnyRole(['admin', 'dean']))
                             <flux:tooltip content="Rankings" position="right">
                                 <flux:navlist.item icon="trophy" :href="route('rankings')" :current="request()->routeIs('rankings')" aria-label="Rankings" wire:navigate>Rankings</flux:navlist.item>
                             </flux:tooltip>
                         @endif
                     </flux:navlist.group>
 
-                    <!-- Analytics & Reports (Admin, Dean, Program Head) -->
-                    @if($user->hasAnyRole(['admin', 'dean', 'program head']))
+                    <!-- Analytics & Reports (Admin, Dean, Program Head, Department Head) -->
+                    @if($user->hasAnyRole(['admin', 'dean', 'program head', 'department head']))
                         <flux:navlist.group heading="Reports & Tools" class="grid">
                             @if($user->hasRole('admin') && ($user->show_ai_pipeline ?? true))
                                 <flux:tooltip content="AI Pipeline" position="right">

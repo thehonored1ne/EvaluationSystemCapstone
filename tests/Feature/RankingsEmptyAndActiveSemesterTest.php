@@ -242,3 +242,55 @@ test('certificate modal can be triggered for top performing faculty', function (
         ->assertSee('Institutional Rank #1')
         ->assertSee('Global Reciprocal Colleges');
 });
+
+test('program head is forbidden from accessing rankings page', function () {
+    Role::firstOrCreate(['name' => 'program head']);
+
+    $progEmp = Employee::create([
+        'employee_number' => 'PH-999',
+        'first_name' => 'Program',
+        'last_name' => 'Head',
+        'role' => 'program head',
+        'status' => 'active',
+        'department_id' => $this->ccs->id,
+    ]);
+
+    $progUser = User::create([
+        'name' => 'Program Head User',
+        'email' => 'proghead@example.com',
+        'employee_id' => $progEmp->id,
+        'password' => 'password',
+    ]);
+    $progUser->assignRole('program head');
+
+    $this->actingAs($progUser)
+        ->get('/rankings')
+        ->assertForbidden();
+});
+
+test('dean and admin can access rankings page', function () {
+    $deanEmp = Employee::create([
+        'employee_number' => 'DN-999',
+        'first_name' => 'College',
+        'last_name' => 'Dean',
+        'role' => 'dean',
+        'status' => 'active',
+        'department_id' => $this->ccs->id,
+    ]);
+
+    $deanUser = User::create([
+        'name' => 'Dean User',
+        'email' => 'dean@example.com',
+        'employee_id' => $deanEmp->id,
+        'password' => 'password',
+    ]);
+    $deanUser->assignRole('dean');
+
+    $this->actingAs($deanUser)
+        ->get('/rankings')
+        ->assertOk();
+
+    $this->actingAs($this->adminUser)
+        ->get('/rankings')
+        ->assertOk();
+});

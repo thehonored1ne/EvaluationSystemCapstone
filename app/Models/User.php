@@ -263,6 +263,14 @@ class User extends Authenticatable // implements MustVerifyEmail
                 $completedMap[$ev->evaluatee_id.'_'.$ev->evaluation_type] = true;
             }
 
+            $exemptions = EvaluationExemption::where('semester_id', $sem->id)
+                ->where('evaluator_id', $this->id)
+                ->select(['evaluatee_id', 'evaluation_type'])
+                ->get();
+            foreach ($exemptions as $ex) {
+                $completedMap[$ex->evaluatee_id.'_'.$ex->evaluation_type] = true;
+            }
+
             if ($this->hasRole('faculty')) {
                 // Check self evaluation
                 $selfEvaluated = isset($completedMap[$this->id.'_self']);
@@ -648,6 +656,14 @@ class User extends Authenticatable // implements MustVerifyEmail
             $completedMap = [];
             foreach ($completedEvals as $ev) {
                 $completedMap[$ev->evaluatee_id.'_'.$ev->evaluation_type] = true;
+            }
+
+            $exemptions = EvaluationExemption::where('semester_id', $sem->id)
+                ->where('evaluator_id', $this->id)
+                ->select(['evaluatee_id', 'evaluation_type'])
+                ->get();
+            foreach ($exemptions as $ex) {
+                $completedMap[$ex->evaluatee_id.'_'.$ex->evaluation_type] = true;
             }
 
             if ($this->hasRole('faculty')) {

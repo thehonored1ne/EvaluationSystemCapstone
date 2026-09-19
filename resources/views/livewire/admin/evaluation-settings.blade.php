@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -71,6 +71,13 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $staffMaxTarget = '10';
     public string $upwardEmployeeMaxTarget = '30';
 
+    // Staff Performance dynamic weights
+    public string $staffOverallMaxTarget = '100';
+    public string $staffMaxWeightPercent = '100';
+    public string $staffHeadWeightTarget = '50';
+    public string $staffPeerWeightTarget = '30';
+    public string $staffSelfWeightTarget = '20';
+
     // Search and filters for Academic Periods
     public string $searchYear = '';
     public string $semesterFilter = '';
@@ -123,6 +130,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->peerMaxTarget = (string)(float)($activeSem->peer_max_points ?? 30);
             $this->selfMaxTarget = (string)(float)($activeSem->self_max_points ?? 10);
             $this->staffMaxTarget = (string)(float)($activeSem->staff_max_points ?? 10);
+
+            $this->staffOverallMaxTarget = (string)(float)($activeSem->staff_overall_max_points ?? 100);
+            $this->staffHeadWeightTarget = (string)(float)($activeSem->staff_head_weight ?? 50);
+            $this->staffPeerWeightTarget = (string)(float)($activeSem->staff_peer_weight ?? 30);
+            $this->staffSelfWeightTarget = (string)(float)($activeSem->staff_self_weight ?? 20);
         }
     }
 
@@ -144,6 +156,17 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->selfMaxTarget = '10';
 
         session()->flash('status', 'Weights and point targets restored to standard GRC preset (40% / 20% / 20% / 15% / 5%).');
+    }
+
+    public function resetToStaffDefaultWeights(): void
+    {
+        $this->staffOverallMaxTarget = '100';
+        $this->staffMaxWeightPercent = '100';
+        $this->staffHeadWeightTarget = '50';
+        $this->staffPeerWeightTarget = '30';
+        $this->staffSelfWeightTarget = '20';
+
+        session()->flash('status', 'Staff appraisal weights and point targets restored to standard preset (50% / 30% / 20%).');
     }
 
     public function getAcademicYearsProperty()
@@ -536,6 +559,51 @@ new #[Layout('components.layouts.app')] class extends Component {
                     'self_max_points' => $selfTarget,
                 ]);
             }
+        } elseif ($this->weightsReportTab === 'staff_performance') {
+            // Non-Teaching Staff Performance Appraisal: Department Head, Peer Staff, Self
+            $wStaffHead = (float)$this->staffHeadWeightTarget;
+            $wStaffPeer = (float)$this->staffPeerWeightTarget;
+            $wStaffSelf = (float)$this->staffSelfWeightTarget;
+            $staffOverall = is_numeric($this->staffOverallMaxTarget) && (float)$this->staffOverallMaxTarget > 0 ? (float)$this->staffOverallMaxTarget : 100.0;
+            $maxStaffWeight = is_numeric($this->staffMaxWeightPercent) && (float)$this->staffMaxWeightPercent > 0 ? (float)$this->staffMaxWeightPercent : 100.0;
+
+            $staffWeights = $wStaffHead + $wStaffPeer + $wStaffSelf;
+            if (abs($staffWeights - $maxStaffWeight) > 0.05) {
+                $this->addError('total_staff_weights', "Staff Performance percentage weights must equal exactly {$maxStaffWeight}% (Current sum: {$staffWeights}%).");
+                return;
+            }
+
+            $tStaffHead = round(($wStaffHead / $maxStaffWeight) * $staffOverall, 2);
+            $tStaffPeer = round(($wStaffPeer / $maxStaffWeight) * $staffOverall, 2);
+            $tStaffSelf = round(($wStaffSelf / $maxStaffWeight) * $staffOverall, 2);
+
+            if (abs(($totals['combined_department_head'] ?? 0.0) - $tStaffHead) > 0.05 && EvaluationCriterion::whereIn('evaluation_type', ['department_head', 'downward'])->count() > 0) {
+                $this->addError('points_staff_head', "Department Head Evaluation total criteria points must equal exactly {$tStaffHead} pts (Current: {$totals['combined_department_head']}).");
+                return;
+            }
+
+            if (abs(($totals['peer'] ?? 0.0) - $tStaffPeer) > 0.05 && EvaluationCriterion::where('evaluation_type', 'peer')->count() > 0) {
+                $this->addError('points_staff_peer', "Peer Evaluation total criteria points must equal exactly {$tStaffPeer} pts (Current: {$totals['peer']}).");
+                return;
+            }
+
+            if (abs(($totals['self'] ?? 0.0) - $tStaffSelf) > 0.05 && EvaluationCriterion::where('evaluation_type', 'self')->count() > 0) {
+                $this->addError('points_staff_self', "Self Evaluation total criteria points must equal exactly {$tStaffSelf} pts (Current: {$totals['self']}).");
+                return;
+            }
+
+            $activeSem = Semester::where('is_active', true)->first();
+            if ($activeSem) {
+                $activeSem->update([
+                    'staff_overall_max_points' => $staffOverall,
+                    'staff_head_weight' => $wStaffHead,
+                    'staff_peer_weight' => $wStaffPeer,
+                    'staff_self_weight' => $wStaffSelf,
+                    'department_head_max_points' => $tStaffHead,
+                    'peer_max_points' => $tStaffPeer,
+                    'self_max_points' => $tStaffSelf,
+                ]);
+            }
         } else {
             // Global All Categories
             $activeSem = Semester::where('is_active', true)->first();
@@ -736,6 +804,25 @@ new #[Layout('components.layouts.app')] class extends Component {
         $isSuperiorBalanced = abs(($totals['combined_superior'] ?? 0.0) - $tSuperior) < 0.05 || EvaluationCriterion::whereIn('evaluation_type', ['superior', 'upward_employee'])->count() === 0;
 
         $allBalanced = $isTeBalanced && $isStudentBalanced && $isDeanBalanced && $isPhBalanced && $isPeerBalanced && $isSelfBalanced;
+
+        // Staff Performance Appraisal balance
+        $wStaffHead = is_numeric($this->staffHeadWeightTarget) ? (float)$this->staffHeadWeightTarget : 50.0;
+        $wStaffPeer = is_numeric($this->staffPeerWeightTarget) ? (float)$this->staffPeerWeightTarget : 30.0;
+        $wStaffSelf = is_numeric($this->staffSelfWeightTarget) ? (float)$this->staffSelfWeightTarget : 20.0;
+        $staffOverall = is_numeric($this->staffOverallMaxTarget) && (float)$this->staffOverallMaxTarget > 0 ? (float)$this->staffOverallMaxTarget : 100.0;
+        $maxStaffWeight = is_numeric($this->staffMaxWeightPercent) && (float)$this->staffMaxWeightPercent > 0 ? (float)$this->staffMaxWeightPercent : 100.0;
+
+        $staffWeights = $wStaffHead + $wStaffPeer + $wStaffSelf;
+        $isStaffWeightsBalanced = abs($staffWeights - $maxStaffWeight) < 0.05;
+
+        $tStaffHead = round(($wStaffHead / $maxStaffWeight) * $staffOverall, 2);
+        $tStaffPeer = round(($wStaffPeer / $maxStaffWeight) * $staffOverall, 2);
+        $tStaffSelf = round(($wStaffSelf / $maxStaffWeight) * $staffOverall, 2);
+
+        $isStaffHeadBalanced = abs(($totals['combined_department_head'] ?? 0.0) - $tStaffHead) < 0.05 || EvaluationCriterion::whereIn('evaluation_type', ['department_head', 'downward'])->count() === 0;
+        $isStaffPeerBalanced = abs(($totals['peer'] ?? 0.0) - $tStaffPeer) < 0.05 || EvaluationCriterion::where('evaluation_type', 'peer')->count() === 0;
+        $isStaffSelfBalanced = abs(($totals['self'] ?? 0.0) - $tStaffSelf) < 0.05 || EvaluationCriterion::where('evaluation_type', 'self')->count() === 0;
+        $allStaffBalanced = $isStaffWeightsBalanced && $isStaffHeadBalanced && $isStaffPeerBalanced && $isStaffSelfBalanced;
     @endphp
 
     <!-- SECTION 3: UNIFIED Evaluation Weights & Questionnaire Parts Setup -->
@@ -745,19 +832,26 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
                 <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    
                     Evaluation Weights & Questionnaire Parts Allocation
                 </h2>
-
             </div>
 
             <div class="flex flex-wrap items-center gap-2 sm:gap-3 self-start sm:self-auto">
-                <flux:badge variant="{{ $isTeBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold shrink-0">
-                    Weights: {{ $teWeights }}% / {{ $maxWeight }}%
-                </flux:badge>
-                <flux:badge variant="{{ $allBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold shrink-0">
-                    {{ $allBalanced ? 'Report Formula Balanced' : 'Action Required' }}
-                </flux:badge>
+                @if($weightsReportTab === 'staff_performance')
+                    <flux:badge variant="{{ $isStaffWeightsBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold shrink-0">
+                        Weights: {{ $staffWeights }}% / {{ $maxStaffWeight }}%
+                    </flux:badge>
+                    <flux:badge variant="{{ $allStaffBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold shrink-0">
+                        {{ $allStaffBalanced ? 'Staff Formula Balanced' : 'Action Required' }}
+                    </flux:badge>
+                @elseif($weightsReportTab === 'teaching_effectiveness')
+                    <flux:badge variant="{{ $isTeBalanced ? 'info' : 'danger' }}" size="sm" class="font-bold shrink-0">
+                        Weights: {{ $teWeights }}% / {{ $maxWeight }}%
+                    </flux:badge>
+                    <flux:badge variant="{{ $allBalanced ? 'success' : 'warning' }}" size="sm" class="font-bold shrink-0">
+                        {{ $allBalanced ? 'Report Formula Balanced' : 'Action Required' }}
+                    </flux:badge>
+                @endif
             </div>
         </div>
 
@@ -770,6 +864,14 @@ new #[Layout('components.layouts.app')] class extends Component {
             >
                 <flux:icon icon="academic-cap" class="size-4 shrink-0" />
                 Individual Teaching Effectiveness
+            </button>
+            <button 
+                type="button"
+                wire:click="$set('weightsReportTab', 'staff_performance')" 
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $weightsReportTab === 'staff_performance' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            >
+                <flux:icon icon="briefcase" class="size-4 shrink-0" />
+                Non-Teaching Staff Performance
             </button>
             <button 
                 type="button"
@@ -1206,7 +1308,284 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             @endif
 
-            <!-- TAB 2: All Categories & Extended Roles (Global Master) -->
+            <!-- TAB 2: Non-Teaching Staff Performance Appraisal -->
+            @if($weightsReportTab === 'staff_performance')
+                
+                <!-- Top Controls: Overall Scale, Target Sum %, & Reset Preset -->
+                <div class="bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-4 sm:p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <!-- Left: Quick Reset Preset -->
+                    <div class="flex items-center gap-2">
+                        <flux:button 
+                            type="button" 
+                            wire:click="resetToStaffDefaultWeights" 
+                            variant="subtle" 
+                            size="sm" 
+                            icon="arrow-path" 
+                            class="font-semibold text-xs border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-[#9b0000] dark:hover:text-[#e07a7a] shadow-2xs"
+                        >
+                            Reset to Staff Standard (50-30-20)
+                        </flux:button>
+                    </div>
+
+                    <!-- Right: Overall Scale, Target Sum %, Current Sum -->
+                    <div class="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-4 w-full md:w-auto shrink-0">
+                        <div class="col-span-1 sm:w-28 md:w-32">
+                            <label class="block text-[11px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Overall Scale</label>
+                            <div class="flex items-center gap-1.5">
+                                <flux:input type="number" wire:model.live="staffOverallMaxTarget" min="1" class="font-bold text-sm w-full" />
+                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold shrink-0">pts</span>
+                            </div>
+                        </div>
+
+                        <div class="col-span-1 sm:w-28 md:w-32">
+                            <label class="block text-[11px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-1">Target Sum %</label>
+                            <div class="flex items-center gap-1.5">
+                                <flux:input type="number" wire:model.live="staffMaxWeightPercent" min="1" max="100" class="font-bold text-sm w-full" />
+                                <span class="text-xs text-zinc-700 dark:text-zinc-200 font-bold shrink-0">%</span>
+                            </div>
+                        </div>
+
+                        <div class="col-span-2 sm:col-span-1 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 text-center min-w-[110px] shadow-2xs flex sm:flex-col items-center justify-between sm:justify-center">
+                            <span class="text-[10px] uppercase font-bold text-zinc-500 dark:text-zinc-400 block tracking-wider mb-0.5">Current Sum</span>
+                            <span class="text-xl font-mono font-extrabold {{ $isStaffWeightsBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">{{ $staffWeights }}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                @error('total_staff_weights')
+                    <div class="p-3 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 rounded-xl border border-rose-200 dark:border-rose-800 text-xs font-bold">
+                        {{ $message }}
+                    </div>
+                @enderror
+
+                <!-- 3 Unified Staff Category Cards -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+                    
+                    <!-- 1. Department Head Evaluation Card -->
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">1. Department Head Appraisal</h3>
+                                    <flux:badge variant="{{ $isStaffHeadBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
+                                        {{ $totals['combined_department_head'] ?? 0 }} / {{ $tStaffHead }} pts
+                                    </flux:badge>
+                                </div>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Department Head evaluates Administrative Staff</p>
+                            </div>
+                            
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="staffHeadWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Criteria Parts -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-xs font-bold text-zinc-600 dark:text-zinc-300 px-1">
+                                <span>Questionnaire Parts</span>
+                                <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('department_head')">Add Part</flux:button>
+                            </div>
+
+                            @forelse($this->criteria->whereIn('evaluation_type', ['department_head', 'downward']) as $criterion)
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                        <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
+                                            <flux:input 
+                                                type="number" 
+                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                                min="0" 
+                                                class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
+                                            />
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
+                                        </div>
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="text-xs text-zinc-400 italic py-1">No Department Head criteria parts created yet.</p>
+                            @endforelse
+                        </div>
+                        @error('points_staff_head')
+                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- 2. Peer Staff Evaluation Card -->
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">2. Peer Staff Appraisal</h3>
+                                    <flux:badge variant="{{ $isStaffPeerBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
+                                        {{ $totals['peer'] ?? 0 }} / {{ $tStaffPeer }} pts
+                                    </flux:badge>
+                                </div>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Non-Teaching Staff evaluates Department Colleagues</p>
+                            </div>
+                            
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="staffPeerWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Criteria Parts -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-xs font-bold text-zinc-600 dark:text-zinc-300 px-1">
+                                <span>Questionnaire Parts</span>
+                                <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('peer')">Add Part</flux:button>
+                            </div>
+
+                            @foreach($this->criteria->where('evaluation_type', 'peer') as $criterion)
+                                <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                        <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <div class="w-20 sm:w-24 flex items-center gap-1.5">
+                                            <flux:input 
+                                                type="number" 
+                                                wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                                min="0" 
+                                                class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
+                                            />
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
+                                        </div>
+                                        <flux:dropdown align="end">
+                                            <flux:button 
+                                                size="xs" 
+                                                variant="ghost" 
+                                                icon="ellipsis-vertical" 
+                                                class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            />
+                                            <flux:menu>
+                                                <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                    Edit Part
+                                                </flux:menu.item>
+                                                <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                    Delete Part
+                                                </flux:menu.item>
+                                            </flux:menu>
+                                        </flux:dropdown>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('points_staff_peer')
+                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- 3. Self-Appraisal Card -->
+                    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs space-y-4 lg:col-span-2">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3 gap-2.5 sm:gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">3. Staff Self-Appraisal</h3>
+                                    <flux:badge variant="{{ $isStaffSelfBalanced ? 'success' : 'danger' }}" size="sm" class="font-bold shrink-0">
+                                        {{ $totals['self'] ?? 0 }} / {{ $tStaffSelf }} pts
+                                    </flux:badge>
+                                </div>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Non-Teaching Staff Member evaluates Own Performance</p>
+                            </div>
+                            
+                            <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-200/60 dark:border-zinc-700/60">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300 sm:hidden">Target Weight:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 sm:w-24">
+                                        <flux:input type="number" wire:model.live="staffSelfWeightTarget" min="0" max="100" class="text-right font-bold text-xs" />
+                                    </div>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Criteria Parts -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-xs font-bold text-zinc-600 dark:text-zinc-300 px-1">
+                                <span>Questionnaire Parts</span>
+                                <flux:button size="xs" variant="outline" icon="plus" wire:click="openCriterionModal('self')">Add Part</flux:button>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                @foreach($this->criteria->where('evaluation_type', 'self') as $criterion)
+                                    <div class="flex items-center justify-between gap-2 sm:gap-3 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-2xs">
+                                        <div class="flex-1 min-w-0 pr-2">
+                                            <span class="text-[10px] text-zinc-400 font-mono font-bold block">Part #{{ $criterion->order }}</span>
+                                            <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate block">{{ $criterion->name }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <div class="w-20 sm:w-24 flex items-center gap-1.5">
+                                                <flux:input 
+                                                    type="number" 
+                                                    wire:model.live.debounce.300ms="criteriaPoints.{{ $criterion->id }}" 
+                                                    min="0" 
+                                                    class="text-right font-bold text-xs bg-white dark:bg-zinc-900"
+                                                />
+                                                <span class="text-xs text-zinc-600 dark:text-zinc-300 font-bold shrink-0">pts</span>
+                                            </div>
+                                            <flux:dropdown align="end">
+                                                <flux:button 
+                                                    size="xs" 
+                                                    variant="ghost" 
+                                                    icon="ellipsis-vertical" 
+                                                    class="shrink-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                                />
+                                                <flux:menu>
+                                                    <flux:menu.item icon="pencil-square" wire:click="openEditCriterionModal({{ $criterion->id }})">
+                                                        Edit Part
+                                                    </flux:menu.item>
+                                                    <flux:menu.item icon="trash" variant="danger" wire:click="confirmDeleteCriterion({{ $criterion->id }})">
+                                                        Delete Part
+                                                    </flux:menu.item>
+                                                </flux:menu>
+                                            </flux:dropdown>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @error('points_staff_self')
+                            <p class="text-xs text-rose-500 font-semibold">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                </div>
+
+            @endif
+
+            <!-- TAB 3: All Categories & Extended Roles (Global Master) -->
             @if($weightsReportTab === 'global_targets')
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-start">
                     
@@ -1358,9 +1737,19 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-6">
                 <div class="space-y-0.5">
                     <span class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider block">Scoring Balance Status</span>
-                    <span class="text-xs sm:text-sm font-extrabold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
-                        {{ $allBalanced ? '✓ All 5 criteria categories are balanced with target score points' : '⚠️ Please balance individual part points to equal category target points before opening' }}
-                    </span>
+                    @if($weightsReportTab === 'staff_performance')
+                        <span class="text-xs sm:text-sm font-extrabold block {{ $allStaffBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $allStaffBalanced ? '✓ All 3 staff appraisal categories are balanced with target score points' : '⚠️ Please balance individual staff part points to equal category target points before opening' }}
+                        </span>
+                    @elseif($weightsReportTab === 'teaching_effectiveness')
+                        <span class="text-xs sm:text-sm font-extrabold block {{ $allBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $allBalanced ? '✓ All 5 criteria categories are balanced with target score points' : '⚠️ Please balance individual part points to equal category target points before opening' }}
+                        </span>
+                    @else
+                        <span class="text-xs sm:text-sm font-extrabold block text-emerald-600 dark:text-emerald-400">
+                            ✓ Master target and questionnaire part definitions active
+                        </span>
+                    @endif
                 </div>
 
                 <div class="flex items-center gap-3 shrink-0">

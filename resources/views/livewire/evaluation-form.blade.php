@@ -4,6 +4,7 @@ use Livewire\Volt\Component;
 use App\Models\User;
 use App\Models\AcademicClass;
 use App\Models\EvaluationCriterion;
+use App\Models\EvaluationExemption;
 use App\Models\Semester;
 use App\Jobs\ProcessEvaluationSubmission;
 use Illuminate\Support\Facades\RateLimiter;
@@ -158,6 +159,65 @@ new class extends Component {
         
         session()->flash('success', 'Evaluation submitted successfully to the background processing queue.');
         $this->resetForm();
+    }
+
+    public bool $showExemptionModal = false;
+    public string $exemptionReason = '';
+    public string $exemptionNotes = '';
+
+    public function openExemptionModal(): void
+    {
+        $this->exemptionReason = '';
+        $this->exemptionNotes = '';
+        $this->showExemptionModal = true;
+    }
+
+    public function submitExemption(): void
+    {
+        if ($this->evaluationType !== 'peer') {
+            return;
+        }
+
+        $activeSem = Semester::where('is_active', true)->first();
+        if (!$activeSem || !$activeSem->isEvaluationWindowActive()) {
+            session()->flash('error', 'Evaluations are currently closed.');
+            return;
+        }
+
+        $this->validate([
+            'exemptionReason' => 'required|string|in:schedule_conflict,different_specialization,new_faculty,other',
+            'exemptionNotes' => 'nullable|string|max:500' . ($this->exemptionReason === 'other' ? '|required|min:5' : ''),
+        ], [
+            'exemptionReason.required' => 'Please select an institutional reason.',
+            'exemptionNotes.required' => 'Please provide specific remarks for this reason.',
+        ]);
+
+        EvaluationExemption::updateOrCreate(
+            [
+                'evaluator_id' => auth()->id(),
+                'evaluatee_id' => $this->evaluatee->id,
+                'semester_id' => $activeSem->id,
+                'evaluation_type' => 'peer',
+            ],
+            [
+                'reason' => $this->exemptionReason,
+                'notes' => $this->exemptionNotes ?: null,
+            ]
+        );
+
+        activity('evaluation_exemption')
+            ->performedOn($this->evaluatee)
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'semester_id' => $activeSem->id,
+                'reason' => $this->exemptionReason,
+                'notes' => $this->exemptionNotes,
+            ])
+            ->log('Peer evaluation exemption recorded: Unable to observe');
+
+        $this->showExemptionModal = false;
+        $this->dispatch('evaluation-submitted');
+        session()->flash('success', 'Evaluation exemption recorded: "No Basis to Observe" logged in audit trail.');
     }
 }; ?>
 
@@ -347,10 +407,10 @@ new class extends Component {
     }" 
     @keydown.window="handleKeydown($event)"
     @evaluation-submitted.window="clearDraft()"
-    class="w-full max-w-4xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden"
+    class="w-full max-w-6xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden"
 >
     <!-- Simple Header: Name & Progress -->
-    <div class="px-3.5 sm:px-6 py-3.5 sm:py-4 bg-[#9b0000] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
+    <div class="px-3 sm:px-5 py-3 sm:py-3.5 bg-[#9b0000] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
         <div>
             <h2 class="text-base sm:text-lg md:text-xl font-bold">
                 @if($evaluationType === 'self')
@@ -366,10 +426,24 @@ new class extends Component {
             @endif
         </div>
 
-        <div class="flex items-center self-start sm:self-auto gap-2 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-full border border-white/20 shrink-0">
-            <span x-text="`${answeredCount}/${totalQuestions} Answered`"></span>
-            <span class="opacity-60">•</span>
-            <span x-text="`${progressPercent}%`" class="text-amber-300"></span>
+        <div class="flex items-center self-start sm:self-auto gap-2">
+            @if($evaluationType === 'peer')
+                <button 
+                    type="button" 
+                    wire:click="openExemptionModal"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all cursor-pointer shrink-0 shadow-2xs"
+                    title="Exempt evaluation if no opportunity to observe peer"
+                >
+                    <flux:icon icon="hand-raised" class="size-3.5 text-amber-300" />
+                    <span>No Basis to Observe</span>
+                </button>
+            @endif
+
+            <div class="flex items-center gap-2 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-full border border-white/20 shrink-0">
+                <span x-text="`${answeredCount}/${totalQuestions} Answered`"></span>
+                <span class="opacity-60">•</span>
+                <span x-text="`${progressPercent}%`" class="text-amber-300"></span>
+            </div>
         </div>
     </div>
 
@@ -387,7 +461,7 @@ new class extends Component {
         x-cloak
         role="status"
         aria-live="polite"
-        class="bg-amber-500 dark:bg-amber-600 text-amber-950 dark:text-amber-50 px-3.5 sm:px-6 py-2.5 text-xs font-semibold flex items-center justify-between gap-3 border-b border-amber-600/30 print:hidden"
+        class="bg-amber-500 dark:bg-amber-600 text-amber-950 dark:text-amber-50 px-3 sm:px-5 py-2.5 text-xs font-semibold flex items-center justify-between gap-3 border-b border-amber-600/30 print:hidden"
     >
         <div class="flex items-center gap-2 min-w-0">
             <flux:icon icon="wifi" class="size-4 shrink-0 text-amber-950 dark:text-amber-50 opacity-90" />
@@ -398,7 +472,7 @@ new class extends Component {
 
     <!-- Alert Messages -->
     @if(session()->has('success'))
-        <div class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3">
+        <div class="mx-3 sm:mx-5 mt-3 sm:mt-5 p-3 sm:p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="check-circle" class="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div class="text-xs sm:text-sm font-semibold">{{ session('success') }}</div>
         </div>
@@ -407,21 +481,21 @@ new class extends Component {
     @if($retryAfter > 0)
         <div x-data="{ seconds: @entangle('retryAfter') }" 
              x-init="const interval = setInterval(() => { if (seconds > 0) { seconds--; } else { clearInterval(interval); $wire.set('retryAfter', 0); } }, 1000)"
-             class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+             class="mx-3 sm:mx-5 mt-3 sm:mt-5 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="clock" class="size-5 text-rose-600 dark:text-rose-400 animate-pulse shrink-0" />
             <div class="text-xs sm:text-sm font-semibold">
                 Too many submission attempts. Please wait <span x-text="seconds" class="font-bold"></span> seconds before submitting again.
             </div>
         </div>
     @elseif(session()->has('error'))
-        <div class="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
+        <div class="mx-3 sm:mx-5 mt-3 sm:mt-5 p-3 sm:p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 rounded-xl flex items-center gap-3">
             <flux:icon icon="x-circle" class="size-5 text-rose-600 dark:text-rose-400 shrink-0" />
             <div class="text-xs sm:text-sm font-semibold">{{ session('error') }}</div>
         </div>
     @endif
 
     <!-- Question Number Pills Grid Navigator -->
-    <div class="px-2.5 sm:px-6 py-2.5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40">
+    <div class="px-2.5 sm:px-5 py-2 sm:py-2.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40">
         <div class="flex items-center gap-1.5 overflow-x-auto scroll-smooth sm:flex-wrap sm:max-h-24 sm:overflow-y-auto pb-1 sm:pb-0">
             @foreach($flatQuestions as $idx => $q)
                 <button
@@ -463,7 +537,7 @@ new class extends Component {
     </div>
 
     <!-- Main Content Area -->
-    <div class="p-3.5 sm:p-6 md:p-8">
+    <div class="p-3 sm:p-5 md:p-6">
 
         <!-- Active Question Card Step (Wrapped in single root div for Alpine template compatibility) -->
         <template x-if="!isReviewStep && totalQuestions > 0">
@@ -768,4 +842,51 @@ new class extends Component {
             </form>
         </template>
     </div>
+
+    @if($evaluationType === 'peer')
+        <flux:modal wire:model="showExemptionModal" class="md:w-[480px]">
+            <form wire:submit="submitExemption" class="space-y-4">
+                <div>
+                    <flux:heading size="lg">No Basis to Observe</flux:heading>
+                    <flux:subheading>
+                        Exempt yourself from evaluating this peer professor if you did not have sufficient opportunity to observe or collaborate this semester.
+                    </flux:subheading>
+                </div>
+
+                <flux:field>
+                    <flux:label>Institutional Reason <span class="text-red-500">*</span></flux:label>
+                    <flux:select wire:model.live="exemptionReason" placeholder="Select a reason…">
+                        <flux:select.option value="schedule_conflict">Different schedule / no direct interaction</flux:select.option>
+                        <flux:select.option value="different_specialization">Different specialization / separate department branch</flux:select.option>
+                        <flux:select.option value="new_faculty">New faculty member / insufficient observation window</flux:select.option>
+                        <flux:select.option value="other">Other reason (requires explanation below)</flux:select.option>
+                    </flux:select>
+                    <flux:error name="exemptionReason" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>Remarks / Notes {{ $exemptionReason === 'other' ? '(Required)' : '(Optional)' }}</flux:label>
+                    <flux:textarea 
+                        wire:model="exemptionNotes" 
+                        placeholder="Provide details for Dean and HR audit review…" 
+                        rows="3"
+                    />
+                    <flux:error name="exemptionNotes" />
+                </flux:field>
+
+                <div class="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-900 dark:text-amber-200">
+                    <span class="font-bold">Accreditation Audit Note:</span> This exemption creates a formal audit log for the Dean and HR. Dynamic weight normalization ensures the evaluatee is not penalized.
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <flux:button variant="ghost" type="button" wire:click="$set('showExemptionModal', false)">
+                        Cancel
+                    </flux:button>
+                    <flux:button variant="danger" type="submit" wire:loading.attr="disabled">
+                        Confirm Exemption
+                    </flux:button>
+                </div>
+            </form>
+        </flux:modal>
+    @endif
 </div>

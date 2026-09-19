@@ -309,3 +309,16 @@ test('admin can download sample benchmark template even if file does not exist o
     // Self-healing check: verifies file was written to disk as fallback
     expect(File::exists($templatePath))->toBeTrue();
 });
+
+test('manage-ai component renders operational and ML performance cards including precision, recall, and f1', function () {
+    $this->actingAs($this->adminUser);
+
+    Volt::test('admin.manage-ai')
+        ->assertSee('Analyzed Reviews')
+        ->assertSee('Human Overrides')
+        ->assertSee('Needs Review')
+        ->assertSee('Model Accuracy')
+        ->assertSee('Macro Precision')
+        ->assertSee('Macro Recall')
+        ->assertSee('Macro F1-Score');
+});

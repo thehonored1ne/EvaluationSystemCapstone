@@ -21,6 +21,7 @@ class EvaluationSummary extends Model
         'superior_score',
         'overall_rating',
         'total_submissions',
+        'is_peer_exempted',
     ];
 
     protected function casts(): array
@@ -34,6 +35,7 @@ class EvaluationSummary extends Model
             'superior_score' => 'float',
             'overall_rating' => 'float',
             'total_submissions' => 'integer',
+            'is_peer_exempted' => 'boolean',
         ];
     }
 

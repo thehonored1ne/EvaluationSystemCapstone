@@ -129,6 +129,17 @@ class Evaluation extends Model
                 $map[$key] = 'completed';
             }
 
+            // 1b. Batch query for all exemptions by this evaluator in this semester
+            $exemptions = EvaluationExemption::where('evaluator_id', $evaluatorId)
+                ->where('semester_id', $semesterId)
+                ->select(['evaluatee_id', 'evaluation_type'])
+                ->get();
+
+            foreach ($exemptions as $exemption) {
+                $key = "{$exemption->evaluatee_id}_null_{$exemption->evaluation_type}";
+                $map[$key] = 'exempted';
+            }
+
             self::$statusCache[$cacheKey] = $map;
         }
 
@@ -169,6 +180,40 @@ class Evaluation extends Model
         }
 
         return 'pending';
+    }
+
+    /**
+     * Determine if an evaluator has any submission currently processing in the queue.
+     */
+    public static function hasProcessing(int $evaluatorId, ?int $semesterId = null): bool
+    {
+        try {
+            $activeJobs = DB::table('jobs')
+                ->where('queue', 'default')
+                ->where('payload', 'like', '%ProcessEvaluationSubmission%')
+                ->pluck('payload');
+
+            foreach ($activeJobs as $payloadStr) {
+                $payloadData = json_decode($payloadStr, true);
+                $command = $payloadData['data']['command'] ?? null;
+                if ($command) {
+                    $unserialized = unserialize($command, ['allowed_classes' => [ProcessEvaluationSubmission::class]]);
+                    if ($unserialized instanceof ProcessEvaluationSubmission) {
+                        if ($unserialized->evaluatorId === $evaluatorId) {
+                            if ($semesterId === null || $unserialized->semesterId === $semesterId) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::debug('Failed to inspect database queue jobs in Evaluation::hasProcessing', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return false;
     }
 
     /**

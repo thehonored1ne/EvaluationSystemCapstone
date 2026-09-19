@@ -12,6 +12,7 @@ use App\Models\EvaluationSummary;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 new #[Layout('components.layouts.app')] class extends Component {
     public function placeholder()
@@ -23,6 +24,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $searchTeacher = '';
     public string $selectedDepartment = '';
     public string $activeTab = 'individual';
+    public string $reportTrack = 'faculty'; // 'faculty' | 'staff'
     public bool $isPrintingAll = false;
     public int $batchPreviewIndex = 0;
     public bool $batchShowAllOnScreen = false;
@@ -99,12 +101,81 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function updatedActiveTab()
     {
+        $user = auth()->user();
+        if ($this->activeTab === 'individual' && ! ($user?->hasAnyRole(['admin', 'dean', 'program head']))) {
+            $this->activeTab = $user?->hasRole('department head') ? 'staff' : 'individual';
+        } elseif ($this->activeTab === 'summary' && ! ($user?->hasAnyRole(['admin', 'dean']))) {
+            $this->activeTab = $user?->hasRole('department head') ? 'staff' : 'individual';
+        } elseif ($this->activeTab === 'staff' && ! ($user?->hasAnyRole(['admin', 'department head']))) {
+            $this->activeTab = 'individual';
+        }
+
+        $this->reportTrack = ($this->activeTab === 'staff') ? 'staff' : 'faculty';
+        $this->selectedTeacherId = null;
+        $this->selectedDepartment = '';
+        if ($user && ! $user->hasRole('admin') && $user->employee?->department_id) {
+            if ($user->hasRole('department head') || $user->hasRole('program head')) {
+                $this->selectedDepartment = (string) $user->employee->department_id;
+            }
+        }
+        $this->searchTeacher = '';
         $this->isPrintingAll = false;
         $this->batchPreviewIndex = 0;
+        $this->cachedDepartments = null;
+        $this->cachedTeachers = null;
+        $this->cachedAllReports = null;
+    }
+
+    public function updatedReportTrack()
+    {
+        $this->activeTab = ($this->reportTrack === 'staff') ? 'staff' : 'individual';
+        $this->selectedTeacherId = null;
+        $this->selectedDepartment = '';
+        $this->searchTeacher = '';
+        $this->isPrintingAll = false;
+        $this->batchPreviewIndex = 0;
+        $this->cachedDepartments = null;
+        $this->cachedTeachers = null;
+        $this->cachedAllReports = null;
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $user = auth()->user();
+
+        if ($tab === 'individual' && ! ($user?->hasAnyRole(['admin', 'dean', 'program head']))) {
+            return;
+        }
+
+        if ($tab === 'summary' && ! ($user?->hasAnyRole(['admin', 'dean']))) {
+            return;
+        }
+
+        if ($tab === 'staff' && ! ($user?->hasAnyRole(['admin', 'department head']))) {
+            return;
+        }
+
+        $this->activeTab = $tab;
+        $this->updatedActiveTab();
     }
 
     public function mount()
     {
+        $user = auth()->user();
+        if ($user && $user->hasRole('department head') && ! $user->hasRole('admin')) {
+            $this->activeTab = 'staff';
+            $this->reportTrack = 'staff';
+            if ($user->employee?->department_id) {
+                $this->selectedDepartment = (string) $user->employee->department_id;
+            }
+        } elseif ($user && $user->hasRole('program head') && ! $user->hasRole('admin')) {
+            $this->activeTab = 'individual';
+            $this->reportTrack = 'faculty';
+            if ($user->employee?->department_id) {
+                $this->selectedDepartment = (string) $user->employee->department_id;
+            }
+        }
+
         $activeSem = Semester::getActive();
         if ($activeSem) {
             $this->selectedSemesterId = $activeSem->id;
@@ -130,9 +201,22 @@ new #[Layout('components.layouts.app')] class extends Component {
             return $this->cachedDepartments;
         }
 
-        return $this->cachedDepartments = Department::getCachedList()
-            ->filter(fn ($d) => is_null($d->type) || $d->type === 'academic')
-            ->values();
+        $user = auth()->user();
+        $departments = Department::getCachedList()
+            ->filter(fn ($d) => $this->reportTrack === 'staff'
+                ? $d->type === 'administrative'
+                : (is_null($d->type) || $d->type === 'academic')
+            );
+
+        if ($user && ! $user->hasRole('admin')) {
+            if ($user->hasRole('department head') && $user->employee?->department_id) {
+                $departments = $departments->where('id', $user->employee->department_id);
+            } elseif ($user->hasRole('program head') && $user->employee?->department_id) {
+                $departments = $departments->where('id', $user->employee->department_id);
+            }
+        }
+
+        return $this->cachedDepartments = $departments->values();
     }
 
     private ?Collection $cachedTeachers = null;
@@ -144,18 +228,53 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $user = auth()->user();
-        $query = Employee::whereIn('role', ['faculty', 'program head', 'dean'])
-            ->whereHas('department', fn($dq) => $dq->whereNull('type')->orWhere('type', 'academic'))
-            ->with(['department', 'user'])
-            ->orderBy('first_name');
+        if ($this->reportTrack === 'staff') {
+            $query = Employee::where('role', 'staff')
+                ->whereHas('department', fn($dq) => $dq->where('type', 'administrative'))
+                ->with(['department.departmentHead', 'user'])
+                ->orderBy('first_name');
 
-        if ($user->hasRole('program head')) {
-            if ($user->employee?->department_id) {
+            if ($user->hasRole('department head') && $user->employee?->department_id) {
                 $query->where('department_id', $user->employee->department_id);
             }
-        } elseif ($user->hasRole('dean')) {
-            if ($user->employee?->department_id) {
-                $query->where('department_id', $user->employee->department_id);
+        } else {
+            if ($user && $user->hasRole('dean') && ! $user->hasRole('admin')) {
+                $query = Employee::where(function ($q) use ($user) {
+                    $q->where(function ($sub) {
+                        $sub->where('role', 'faculty')
+                            ->whereHas('department', fn ($dq) => $dq->whereNull('type')->orWhere('type', 'academic'));
+                    });
+                    if ($user->employee_id) {
+                        $q->orWhere('id', $user->employee_id);
+                    } else {
+                        $q->orWhere('role', 'dean');
+                    }
+                })
+                    ->with(['department', 'user'])
+                    ->orderBy('first_name');
+
+                if ($user->employee?->department_id) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('department_id', $user->employee->department_id);
+                        if ($user->employee_id) {
+                            $q->orWhere('id', $user->employee_id);
+                        }
+                    });
+                }
+            } elseif ($user && $user->hasRole('program head') && ! $user->hasRole('admin')) {
+                $query = Employee::where('role', 'faculty')
+                    ->whereHas('department', fn ($dq) => $dq->whereNull('type')->orWhere('type', 'academic'))
+                    ->with(['department', 'user'])
+                    ->orderBy('first_name');
+
+                if ($user->employee?->department_id) {
+                    $query->where('department_id', $user->employee->department_id);
+                }
+            } else {
+                $query = Employee::where('role', 'faculty')
+                    ->whereHas('department', fn ($dq) => $dq->whereNull('type')->orWhere('type', 'academic'))
+                    ->with(['department', 'user'])
+                    ->orderBy('first_name');
             }
         }
 
@@ -219,10 +338,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getPreviousSemester(int $semesterId): ?Semester
     {
         if (!array_key_exists($semesterId, $this->prevSemesterMap)) {
-            $this->prevSemesterMap[$semesterId] = Semester::with('academicYear')
-                ->where('id', '<', $semesterId)
-                ->orderBy('id', 'desc')
-                ->first();
+            $currentSem = $this->semesters->firstWhere('id', $semesterId)
+                ?? Semester::with('academicYear')->find($semesterId);
+
+            $this->prevSemesterMap[$semesterId] = $currentSem?->getPreviousSemester(false);
         }
 
         return $this->prevSemesterMap[$semesterId];
@@ -233,27 +352,31 @@ new #[Layout('components.layouts.app')] class extends Component {
         if (!$this->selectedTeacherId || !$this->selectedSemesterId) return null;
 
         $teacher = $this->teachers->firstWhere('id', $this->selectedTeacherId)
-            ?? Employee::with(['user', 'department'])->find($this->selectedTeacherId);
+            ?? Employee::with(['user', 'department.departmentHead'])->find($this->selectedTeacherId);
         if (!$teacher) return null;
 
         $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
             ?? Semester::with('academicYear')->find($this->selectedSemesterId);
         if (!$semester) return null;
 
+        if ($this->reportTrack === 'staff' || $teacher->role === 'staff') {
+            return $this->getReportDataForStaff($teacher, $semester);
+        }
+
         return $this->getReportDataForTeacher($teacher, $semester);
     }
 
     private ?Collection $cachedAllReports = null;
 
-    public function getAllReportsDataProperty()
+    public function buildAllReportsData(?int $semesterId = null): Collection
     {
-        if (!$this->isPrintingAll || !$this->selectedSemesterId) return collect();
-        if ($this->cachedAllReports !== null) return $this->cachedAllReports;
+        $semId = $semesterId ?? $this->selectedSemesterId;
+        if (!$semId) return collect();
 
         ini_set('memory_limit', '512M');
 
-        $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
-            ?? Semester::with('academicYear')->find($this->selectedSemesterId);
+        $semester = $this->semesters->firstWhere('id', $semId)
+            ?? Semester::with('academicYear')->find($semId);
         if (!$semester) return collect();
 
         $teachers = $this->teachers;
@@ -343,25 +466,566 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $reports = [];
         foreach ($teachers as $teacher) {
-            $data = $this->getReportDataForTeacher(
-                $teacher,
-                $semester,
-                $allCriteria,
-                $deanEmp,
-                $programHeadsByDept,
-                $critAveragesMap,
-                $sectionStatsMap,
-                $totalSubmissionsMap,
-                $prevSemester,
-                $prevStatsMap,
-                $sentimentAgg
-            );
+            if ($this->reportTrack === 'staff' || $teacher->role === 'staff') {
+                $data = $this->getReportDataForStaff(
+                    $teacher,
+                    $semester,
+                    $allCriteria,
+                    $critAveragesMap,
+                    $sectionStatsMap,
+                    $totalSubmissionsMap,
+                    $prevSemester,
+                    $prevStatsMap,
+                    $sentimentAgg
+                );
+            } else {
+                $data = $this->getReportDataForTeacher(
+                    $teacher,
+                    $semester,
+                    $allCriteria,
+                    $deanEmp,
+                    $programHeadsByDept,
+                    $critAveragesMap,
+                    $sectionStatsMap,
+                    $totalSubmissionsMap,
+                    $prevSemester,
+                    $prevStatsMap,
+                    $sentimentAgg
+                );
+            }
             if ($data) {
                 $reports[] = $data;
             }
         }
 
-        return $this->cachedAllReports = collect($reports);
+        return collect($reports);
+    }
+
+    public function getAllReportsDataProperty()
+    {
+        if (!$this->isPrintingAll || !$this->selectedSemesterId) return collect();
+        if ($this->cachedAllReports !== null) return $this->cachedAllReports;
+
+        return $this->cachedAllReports = $this->buildAllReportsData();
+    }
+
+    public function exportExcel()
+    {
+        if (!$this->selectedSemesterId) {
+            return null;
+        }
+
+        $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
+            ?? Semester::with('academicYear')->find($this->selectedSemesterId);
+        if (!$semester) {
+            return null;
+        }
+
+        $allReports = $this->cachedAllReports ?? $this->buildAllReportsData();
+        if ($allReports->isEmpty()) {
+            return null;
+        }
+
+        // 1. Calculate global rank for evaluated faculty (ordered descending by total achieved points)
+        $evaluated = $allReports->filter(fn ($r) => (int) $r->total_submissions > 0)
+            ->sortByDesc('total_achieved_points')
+            ->values();
+
+        $rankMap = [];
+        foreach ($evaluated as $idx => $r) {
+            $userId = $r->teacher->user?->id;
+            if ($userId) {
+                $rankMap[$userId] = $idx + 1;
+            }
+        }
+
+        // 2. Sort all faculty alphabetically A-Z by Professor Name (full name: e.g. "Dion L. Areglo")
+        $sortedReports = $allReports->sortBy(function ($r) {
+            return strtolower(trim($r->teacher->full_name ?? ''));
+        })->values();
+
+        // 3. Preload evaluation duty completion tracking data per evaluator
+        $teacherUserIds = $allReports->pluck('teacher.user.id')->filter()->all();
+        $teacherDeptIds = $allReports->pluck('teacher.department_id')->filter()->unique()->all();
+
+        $deptFacultyCountMap = DB::table('employees')
+            ->where('role', 'faculty')
+            ->where('status', 'active')
+            ->whereIn('department_id', $teacherDeptIds)
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
+        $deptPhCountMap = DB::table('employees')
+            ->where('role', 'program head')
+            ->where('status', 'active')
+            ->whereIn('department_id', $teacherDeptIds)
+            ->selectRaw('department_id, count(*) as count')
+            ->groupBy('department_id')
+            ->pluck('count', 'department_id');
+
+        $totalActivePhCount = DB::table('employees')
+            ->where('role', 'program head')
+            ->where('status', 'active')
+            ->count();
+
+        $totalActiveFacultyCount = DB::table('employees')
+            ->where('role', 'faculty')
+            ->where('status', 'active')
+            ->count();
+
+        $evaluatorSubmittedCountMap = DB::table('evaluations')
+            ->where('semester_id', $semester->id)
+            ->whereIn('evaluator_id', $teacherUserIds)
+            ->whereIn('evaluation_type', ['self', 'peer', 'upward_employee', 'superior', 'program_head', 'dean', 'downward'])
+            ->selectRaw('evaluator_id, count(distinct evaluatee_id) as eval_count')
+            ->groupBy('evaluator_id')
+            ->pluck('eval_count', 'evaluator_id');
+
+        $termSlug = Str::slug(($semester->academicYear?->name ?? 'term') . '_' . $semester->name);
+        $prefix = $this->reportTrack === 'staff' ? 'staff_performance_summary' : 'faculty_evaluation_summary';
+        $filename = "{$prefix}_{$termSlug}_" . now()->format('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $callback = function () use (
+            $sortedReports,
+            $rankMap,
+            $evaluatorSubmittedCountMap,
+            $deptFacultyCountMap,
+            $deptPhCountMap,
+            $totalActivePhCount,
+            $totalActiveFacultyCount
+        ) {
+            $output = fopen('php://output', 'w');
+            // Write UTF-8 BOM for Microsoft Excel
+            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            // Header row (10 columns)
+            $nameHeader = $this->reportTrack === 'staff' ? 'Staff Member Name' : 'Professor Name';
+            $unitHeader = $this->reportTrack === 'staff' ? 'Administrative Department' : 'Department';
+            $ratingHeader = $this->reportTrack === 'staff' ? 'Overall Rating (100% Base)' : 'Overall Rating';
+            $sentimentHeader = $this->reportTrack === 'staff' ? 'Dominant Feedback Tone' : 'Dominant Sentiment';
+            $strengthsHeader = $this->reportTrack === 'staff' ? 'Top Strengths' : 'Top Commendations';
+            $growthHeader = $this->reportTrack === 'staff' ? 'Development Areas' : 'Growth Areas';
+
+            fputcsv($output, [
+                $nameHeader,
+                $unitHeader,
+                $ratingHeader,
+                'Descriptive Rating',
+                'Ranking',
+                $sentimentHeader,
+                $strengthsHeader,
+                $growthHeader,
+                'Performance Trend',
+                'Status',
+            ]);
+
+            $shortCommendationMap = [
+                'Clear & Thorough Subject Explanations' => 'Clear Explanations',
+                'Approachable, Patient & Supportive Demeanor' => 'Approachable & Supportive',
+                'Interactive & Engaging Classroom Activities' => 'Interactive Activities',
+                'Command of Subject Matter & Expertise' => 'Subject Mastery',
+                'Punctual & Effective Class Time Management' => 'Class Punctuality',
+                'Consistent instructional delivery' => 'Instructional Delivery',
+                'Professional teacher-student engagement' => 'Professional Engagement',
+                'Prompt & Courteous Client Assistance' => 'Prompt Assistance',
+                'Accurate & Efficient Transaction Processing' => 'Efficient Processing',
+                'Service-Oriented & Respectful Demeanor' => 'Respectful Demeanor',
+                'Punctual & Consistent Office Attendance' => 'Consistent Attendance',
+            ];
+
+            foreach ($sortedReports as $report) {
+                $userId = $report->teacher->user?->id;
+                $rank = isset($rankMap[$userId]) ? (string) $rankMap[$userId] : 'N/A';
+
+                // Shorten commendations to top 2 concise keywords
+                $cleanCommendations = [];
+                foreach (array_slice($report->ai_sentiment->positive_drivers ?? [], 0, 2) as $d) {
+                    $cleanCommendations[] = $shortCommendationMap[$d] ?? (strlen($d) > 28 ? substr($d, 0, 28) . '…' : $d);
+                }
+                $commendations = !empty($cleanCommendations) ? implode('; ', $cleanCommendations) : 'N/A';
+
+                // Shorten growth areas to core category (before colon)
+                $cleanGrowthAreas = [];
+                foreach (array_slice($report->ai_sentiment->constructive_themes ?? [], 0, 2) as $t) {
+                    if (str_contains($t, ':')) {
+                        $cleanGrowthAreas[] = trim(explode(':', $t)[0]);
+                    } else {
+                        $cleanGrowthAreas[] = 'Continuous Refinement';
+                    }
+                }
+                $growthAreas = !empty($cleanGrowthAreas) ? implode('; ', $cleanGrowthAreas) : 'N/A';
+
+                $trend = match ($report->performance_trend) {
+                    'improving' => 'Improving',
+                    'stationary' => 'Stationary',
+                    'deteriorating' => 'Deteriorating',
+                    default => 'Baseline',
+                };
+
+                // Completion status based on required evaluator forms (100% submission)
+                $role = strtolower($report->teacher->role ?? 'faculty');
+                $deptId = $report->teacher->department_id;
+                $submittedCount = (int) ($evaluatorSubmittedCountMap[$userId] ?? 0);
+
+                if ($role === 'faculty') {
+                    $deptFac = (int) ($deptFacultyCountMap[$deptId] ?? 0);
+                    $deptPh = (int) ($deptPhCountMap[$deptId] ?? 0);
+                    $target = 1 + max(0, $deptFac - 1) + $deptPh; // Self + Peers + PH
+                } elseif ($role === 'program head') {
+                    $deptFac = (int) ($deptFacultyCountMap[$deptId] ?? 0);
+                    $target = 1 + $deptFac + 1; // Self + dept faculty + Dean
+                } elseif ($role === 'dean') {
+                    $target = 1 + $totalActiveFacultyCount + $totalActivePhCount; // Self + all Faculty + all Program Heads
+                } elseif ($role === 'staff') {
+                    $target = 1;
+                } else {
+                    $target = 1;
+                }
+
+                $status = ($submittedCount >= $target && $target > 0) ? 'Completed' : 'Incomplete';
+
+                $dept = $report->teacher->department?->code
+                    ?? ($report->teacher->department?->name ?? 'N/A');
+
+                fputcsv($output, [
+                    $report->teacher->full_name,
+                    $dept,
+                    number_format($report->total_achieved_points, 2),
+                    $report->descriptive_rating,
+                    $rank,
+                    $report->ai_sentiment->dominant_label ?? 'N/A',
+                    $commendations,
+                    $growthAreas,
+                    $trend,
+                    $status,
+                ]);
+            }
+
+            fclose($output);
+        };
+
+        return response()->streamDownload($callback, $filename, $headers);
+    }
+
+    public function getReportDataForStaff(
+        Employee $staff,
+        Semester $semester,
+        ?Collection $allCriteria = null,
+        ?array $preloadedCritAveragesMap = null,
+        ?array $preloadedSectionStatsMap = null,
+        ?array $preloadedTotalSubmissionsMap = null,
+        ?Semester $preloadedPrevSemester = null,
+        ?Collection $preloadedPrevStatsMap = null,
+        ?Collection $preloadedSentimentAggMap = null
+    ) {
+        $userId = $staff->user?->id;
+        if (!$userId) return null;
+
+        $allCriteria = $allCriteria ?? $this->getAllCriteria();
+
+        // 100-Point Scale: Department Head (50 pts / 50%), Peer Staff (30 pts / 30%), Self (20 pts / 20%)
+        $deptHeadMax = 50.0;
+        $peerMax = 30.0;
+        $selfMax = 20.0;
+        $totalScale = 100.0;
+
+        // Fetch criteria averages for this staff member
+        if ($preloadedCritAveragesMap !== null) {
+            $userCritMap = $preloadedCritAveragesMap[$userId] ?? [];
+        } else {
+            $userCritMap = DB::table('evaluation_answers')
+                ->join('evaluation_questions', 'evaluation_questions.id', '=', 'evaluation_answers.question_id')
+                ->join('evaluations', 'evaluations.id', '=', 'evaluation_answers.evaluation_id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->selectRaw('evaluation_questions.criterion_id, avg(evaluation_answers.rating) as avg_rating')
+                ->groupBy('evaluation_questions.criterion_id')
+                ->pluck('avg_rating', 'criterion_id')
+                ->map(fn ($v) => (float) $v)
+                ->all();
+        }
+
+        // Fetch section evaluation statistics for this staff member
+        if ($preloadedSectionStatsMap !== null) {
+            $userSectionRows = $preloadedSectionStatsMap[$userId] ?? [];
+        } else {
+            $userSectionRows = DB::table('evaluations')
+                ->leftJoin('users', 'users.id', '=', 'evaluations.evaluator_id')
+                ->leftJoin('employees', 'employees.id', '=', 'users.employee_id')
+                ->leftJoin('model_has_roles', function ($join) {
+                    $join->on('model_has_roles.model_id', '=', 'users.id')
+                        ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
+                })
+                ->leftJoin('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->selectRaw("
+                    evaluations.evaluation_type,
+                    coalesce(employees.role, roles.name, '') as evaluator_role,
+                    count(*) as eval_count,
+                    avg(evaluations.rating_average) as avg_rating
+                ")
+                ->groupBy('evaluations.evaluation_type', 'evaluator_role')
+                ->get()
+                ->all();
+        }
+
+        if ($preloadedTotalSubmissionsMap !== null) {
+            $totalSubmissions = $preloadedTotalSubmissionsMap[$userId] ?? 0;
+        } else {
+            $totalSubmissions = array_sum(array_map(fn ($r) => (int) $r->eval_count, $userSectionRows));
+        }
+
+        $calculateStaffSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($userSectionRows, $userCritMap, $allCriteria) {
+            $matchedRows = array_filter($userSectionRows, function ($r) use ($evalTypes, $evaluatorRoles) {
+                if (!in_array($r->evaluation_type, $evalTypes)) return false;
+                if (!empty($evaluatorRoles) && !in_array($r->evaluator_role, $evaluatorRoles)) return false;
+                return true;
+            });
+
+            $evalCount = 0;
+            $totalRatingSum = 0.0;
+            foreach ($matchedRows as $mr) {
+                $evalCount += (int) $mr->eval_count;
+                $totalRatingSum += ((float) $mr->avg_rating * (int) $mr->eval_count);
+            }
+            $avg5Scale = $evalCount > 0 ? round($totalRatingSum / $evalCount, 2) : 0.00;
+
+            $criteria = $allCriteria->filter(fn ($c) => in_array($c->evaluation_type, $evalTypes))->values();
+
+            $parts = [];
+            $sectionEarnedPoints = 0.0;
+
+            if ($criteria->isNotEmpty()) {
+                foreach ($criteria as $idx => $crit) {
+                    $rawAvg = isset($userCritMap[$crit->id]) ? (float) $userCritMap[$crit->id] : null;
+                    if ($rawAvg === null && $evalCount > 0 && $avg5Scale > 0) {
+                        $rawAvg = $avg5Scale;
+                    }
+
+                    $score = $rawAvg ? round(((float) $rawAvg / 5.0) * (float) $crit->max_points, 2) : 0.00;
+                    $parts[] = (object) [
+                        'roman' => $this->toRoman($idx + 1),
+                        'name' => preg_replace('/^Part\\s*\\d+\\s*:\\s*/i', '', $crit->name),
+                        'score' => $score,
+                        'max_points' => (float) $crit->max_points,
+                        'raw_avg' => $rawAvg ? round($rawAvg, 2) : null,
+                    ];
+                    $sectionEarnedPoints += $score;
+                }
+            } else {
+                $sectionEarnedPoints = $avg5Scale > 0 ? round(($avg5Scale / 5.0) * $sectionMaxPoints, 2) : 0.0;
+                $parts[] = (object) [
+                    'roman' => 'I',
+                    'name' => 'General Competence & Duties',
+                    'score' => $sectionEarnedPoints,
+                    'max_points' => $sectionMaxPoints,
+                    'raw_avg' => $avg5Scale > 0 ? $avg5Scale : null,
+                ];
+            }
+
+            return (object) [
+                'count' => $evalCount,
+                'pct' => round(($sectionMaxPoints / 100.0) * 100),
+                'max_points' => $sectionMaxPoints,
+                'subtotal' => round($sectionEarnedPoints, 2),
+                'parts' => $parts,
+                'average_5_scale' => $avg5Scale,
+            ];
+        };
+
+        // 1. Department Head Evaluation (Head -> Staff)
+        $deptHeadSection = $calculateStaffSection(['department_head', 'downward'], ['department head'], $deptHeadMax);
+
+        // 2. Peer Staff Evaluation (Staff -> Staff)
+        $peerSection = $calculateStaffSection(['peer'], ['staff'], $peerMax);
+
+        // 3. Self-Appraisal (Staff -> Self)
+        $selfSection = $calculateStaffSection(['self'], [], $selfMax);
+
+        // Dynamic Normalization: If evaluatee has 0 peer evaluations, scale remaining active categories to preserve 100.0 pt scale
+        $isPeerExempted = false;
+        $normalizationScale = 1.0;
+        $activeNonPeerMax = $deptHeadMax + $selfMax; // 70.0
+
+        if ($peerSection->count === 0 && $activeNonPeerMax > 0 && $totalSubmissions > 0) {
+            $isPeerExempted = true;
+            $normalizationScale = $totalScale / $activeNonPeerMax; // 100 / 70 = 1.42857
+
+            $deptHeadSection->subtotal = round($deptHeadSection->subtotal * $normalizationScale, 2);
+            $deptHeadSection->max_points = round($deptHeadSection->max_points * $normalizationScale, 2);
+            $deptHeadSection->pct = round(($deptHeadSection->max_points / $totalScale) * 100);
+
+            $selfSection->subtotal = round($selfSection->subtotal * $normalizationScale, 2);
+            $selfSection->max_points = round($selfSection->max_points * $normalizationScale, 2);
+            $selfSection->pct = round(($selfSection->max_points / $totalScale) * 100);
+
+            $peerSection->is_exempted = true;
+        } else {
+            $peerSection->is_exempted = false;
+        }
+
+        $totalAchievedPoints = round(
+            $deptHeadSection->subtotal +
+            ($isPeerExempted ? 0.0 : $peerSection->subtotal) +
+            $selfSection->subtotal,
+            2
+        );
+
+        // Descriptive Rating on 100-pt Scale
+        if ($totalAchievedPoints >= 95.00) {
+            $descriptiveRating = 'Excellent (E)';
+            $ratingCode = 'E';
+        } elseif ($totalAchievedPoints >= 85.00) {
+            $descriptiveRating = 'Very Satisfactory (VS)';
+            $ratingCode = 'VS';
+        } elseif ($totalAchievedPoints >= 75.00) {
+            $descriptiveRating = 'Satisfactory (S)';
+            $ratingCode = 'S';
+        } elseif ($totalAchievedPoints >= 65.00) {
+            $descriptiveRating = 'Need Improvement (NI)';
+            $ratingCode = 'NI';
+        } else {
+            $descriptiveRating = 'Poor (P)';
+            $ratingCode = 'P';
+        }
+
+        // Semester-over-Semester Growth for Staff
+        $prevSemester = $preloadedPrevSemester ?? $this->getPreviousSemester($semester->id);
+        $prevOverallAvg = null;
+        $scoreGrowth = null;
+        $scoreGrowthPercent = null;
+        $performanceTrend = null;
+
+        if ($prevSemester) {
+            if ($preloadedPrevStatsMap !== null) {
+                $prevStat = $preloadedPrevStatsMap->get($userId);
+            } else {
+                $prevStat = DB::table('evaluations')
+                    ->where('semester_id', $prevSemester->id)
+                    ->where('evaluatee_id', $userId)
+                    ->selectRaw('avg(rating_average) as prev_avg, count(*) as prev_count')
+                    ->first();
+            }
+
+            if ($prevStat && (int) $prevStat->prev_count > 0) {
+                $prevRawAvg = (float) $prevStat->prev_avg;
+                $prevOverallAvg = round(($prevRawAvg / 5.0) * $totalScale, 2);
+                if ($prevOverallAvg > 0) {
+                    $scoreGrowth = round($totalAchievedPoints - $prevOverallAvg, 2);
+                    $scoreGrowthPercent = round(($scoreGrowth / $prevOverallAvg) * 100, 1);
+
+                    if ($scoreGrowth > 0.50) {
+                        $performanceTrend = 'improving';
+                    } elseif ($scoreGrowth < -0.50) {
+                        $performanceTrend = 'deteriorating';
+                    } else {
+                        $performanceTrend = 'stationary';
+                    }
+                }
+            }
+        }
+
+        // Sentiment & Comments Analysis
+        if ($preloadedSentimentAggMap !== null) {
+            $sentimentRow = $preloadedSentimentAggMap->get($userId);
+        } else {
+            $sentimentRow = DB::table('evaluations')
+                ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
+                ->where('evaluations.semester_id', $semester->id)
+                ->where('evaluations.evaluatee_id', $userId)
+                ->whereNotNull('evaluations.comments')
+                ->where('evaluations.comments', '!=', '')
+                ->selectRaw("
+                    count(*) as total_comments,
+                    sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'positive' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score > 0.05) then 1 else 0 end) as pos_count,
+                    sum(case when coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) = 'negative' or (coalesce(evaluation_sentiments.manual_label, evaluation_sentiments.vader_label) is null and evaluation_sentiments.vader_score < -0.05) then 1 else 0 end) as neg_count,
+                    group_concat(evaluations.comments, ' ') as all_comments
+                ")
+                ->first();
+        }
+
+        $totalComments = (int) ($sentimentRow?->total_comments ?? 0);
+        $posCount = (int) ($sentimentRow?->pos_count ?? 0);
+        $negCount = (int) ($sentimentRow?->neg_count ?? 0);
+        $neuCount = max(0, $totalComments - $posCount - $negCount);
+
+        $posPercent = $totalComments > 0 ? round(($posCount / $totalComments) * 100) : 0;
+        $negPercent = $totalComments > 0 ? round(($negCount / $totalComments) * 100) : 0;
+
+        if ($totalComments === 0) {
+            $dominantSentiment = 'Neutral / No Comments Recorded';
+        } elseif ($posPercent >= 65) {
+            $dominantSentiment = 'Strongly Positive & Favorable';
+        } elseif ($posPercent > $negPercent) {
+            $dominantSentiment = 'Mostly Positive';
+        } elseif ($negPercent >= 35) {
+            $dominantSentiment = 'Notable Constructive Suggestions';
+        } else {
+            $dominantSentiment = 'Balanced Feedback';
+        }
+
+        $joinedComments = strtolower($sentimentRow?->all_comments ?? '');
+        $positiveDrivers = [];
+        if (str_contains($joinedComments, 'helpful') || str_contains($joinedComments, 'tulong') || str_contains($joinedComments, 'assist')) $positiveDrivers[] = 'Prompt & Courteous Client Assistance';
+        if (str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'bilis') || str_contains($joinedComments, 'efficient') || str_contains($joinedComments, 'accurate')) $positiveDrivers[] = 'Accurate & Efficient Transaction Processing';
+        if (str_contains($joinedComments, 'polite') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'respect') || str_contains($joinedComments, 'accommodat')) $positiveDrivers[] = 'Service-Oriented & Respectful Demeanor';
+        if (str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'early') || str_contains($joinedComments, 'time') || str_contains($joinedComments, 'maaga')) $positiveDrivers[] = 'Punctual & Consistent Office Attendance';
+        if (empty($positiveDrivers)) $positiveDrivers = ['Consistent execution of departmental responsibilities', 'Dependable teamwork and ethical office conduct'];
+
+        $constructiveThemes = [];
+        if (str_contains($joinedComments, 'queue') || str_contains($joinedComments, 'pila') || str_contains($joinedComments, 'wait') || str_contains($joinedComments, 'tagal')) $constructiveThemes[] = 'Client Queue Management: Explore process optimization during peak enrollment/submission periods';
+        if (str_contains($joinedComments, 'record') || str_contains($joinedComments, 'update') || str_contains($joinedComments, 'file') || str_contains($joinedComments, 'system')) $constructiveThemes[] = 'Digital Record Keeping: Ongoing familiarization with automated institutional software tools';
+        if (empty($constructiveThemes)) $constructiveThemes = ['Sustain current professional standards and explore advanced skills development'];
+
+        // Department Head Name
+        $deptHeadName = $staff->department?->departmentHead?->full_name;
+        if (!$deptHeadName && $staff->department_id) {
+            $headEmp = Employee::where('role', 'department head')
+                ->where('department_id', $staff->department_id)
+                ->where('status', 'active')
+                ->first();
+            $deptHeadName = $headEmp?->full_name;
+        }
+        $deptHeadName = $deptHeadName ?? 'Administrative Department Head';
+
+        return (object) [
+            'report_type' => 'staff',
+            'staff' => $staff,
+            'teacher' => $staff, // alias for template reuse
+            'semester' => $semester,
+            'dept_head_section' => $deptHeadSection,
+            'peer_section' => $peerSection,
+            'self_section' => $selfSection,
+            'is_peer_exempted' => $isPeerExempted,
+            'total_submissions' => $totalSubmissions,
+            'total_achieved_points' => $totalAchievedPoints,
+            'descriptive_rating' => $descriptiveRating,
+            'rating_code' => $ratingCode,
+            'department_head_name' => $deptHeadName,
+            'hr_director_name' => 'HR Director / VP Administration',
+            'prev_overall_avg' => $prevOverallAvg,
+            'score_growth' => $scoreGrowth,
+            'score_growth_percent' => $scoreGrowthPercent,
+            'performance_trend' => $performanceTrend,
+            'ai_sentiment' => (object) [
+                'dominant_label' => $dominantSentiment,
+                'pos_count' => $posCount,
+                'neu_count' => $neuCount,
+                'neg_count' => $negCount,
+                'positive_drivers' => $positiveDrivers,
+                'constructive_themes' => $constructiveThemes,
+            ],
+        ];
     }
 
     public function getReportDataForTeacher(
@@ -521,12 +1185,38 @@ new #[Layout('components.layouts.app')] class extends Component {
         // 5. Self Evaluation (Self -> Self)
         $selfSection = $calculateSection(['self'], [], $selfMax);
 
+        // Dynamic Normalization: If evaluatee has 0 peer evaluations, scale remaining active categories to preserve 200.0 pt scale
+        $isPeerExempted = false;
+        $normalizationScale = 1.0;
+        $activeNonPeerMax = $studentMax + $deanMax + $phMax + $selfMax;
+
+        if ($peerSection->count === 0 && $activeNonPeerMax > 0 && $totalSubmissions > 0) {
+            $isPeerExempted = true;
+            $normalizationScale = $totalScale / $activeNonPeerMax;
+
+            $studentSection->subtotal = round($studentSection->subtotal * $normalizationScale, 2);
+            $studentSection->max_points = round($studentSection->max_points * $normalizationScale, 2);
+
+            $deanSection->subtotal = round($deanSection->subtotal * $normalizationScale, 2);
+            $deanSection->max_points = round($deanSection->max_points * $normalizationScale, 2);
+
+            $phSection->subtotal = round($phSection->subtotal * $normalizationScale, 2);
+            $phSection->max_points = round($phSection->max_points * $normalizationScale, 2);
+
+            $selfSection->subtotal = round($selfSection->subtotal * $normalizationScale, 2);
+            $selfSection->max_points = round($selfSection->max_points * $normalizationScale, 2);
+
+            $peerSection->is_exempted = true;
+        } else {
+            $peerSection->is_exempted = false;
+        }
+
         // Composite Overall Rating on 200-point scale
         $totalAchievedPoints = round(
             $studentSection->subtotal +
             $deanSection->subtotal +
             $phSection->subtotal +
-            $peerSection->subtotal +
+            ($isPeerExempted ? 0.0 : $peerSection->subtotal) +
             $selfSection->subtotal,
             2
         );
@@ -555,6 +1245,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $prevOverallAvg = null;
         $scoreGrowth = null;
         $scoreGrowthPercent = null;
+        $performanceTrend = null;
 
         if ($prevSemester) {
             if ($preloadedPrevStatsMap !== null) {
@@ -573,6 +1264,14 @@ new #[Layout('components.layouts.app')] class extends Component {
                 if ($prevOverallAvg > 0) {
                     $scoreGrowth = round($totalAchievedPoints - $prevOverallAvg, 2);
                     $scoreGrowthPercent = round(($scoreGrowth / $prevOverallAvg) * 100, 1);
+
+                    if ($scoreGrowth > 0.50) {
+                        $performanceTrend = 'improving';
+                    } elseif ($scoreGrowth < -0.50) {
+                        $performanceTrend = 'deteriorating';
+                    } else {
+                        $performanceTrend = 'stationary';
+                    }
                 }
             }
         }
@@ -663,12 +1362,15 @@ new #[Layout('components.layouts.app')] class extends Component {
             'ph_section' => $phSection,
             'peer_section' => $peerSection,
             'self_section' => $selfSection,
+            'is_peer_exempted' => $isPeerExempted,
+            'normalization_scale' => $normalizationScale,
             'total_achieved_points' => $totalAchievedPoints,
             'descriptive_rating' => $descriptiveRating,
             'rating_code' => $ratingCode,
             'prev_semester' => $prevSemester,
             'score_growth' => $scoreGrowth,
             'score_growth_percent' => $scoreGrowthPercent,
+            'performance_trend' => $performanceTrend,
             'overall_average' => round(($totalAchievedPoints / $totalScale) * 5.0, 2),
             'performance_badge' => $descriptiveRating,
             'ai_sentiment' => (object) [
@@ -727,7 +1429,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->get()
             ->keyBy('department_id');
 
-        $deptFacultyCounts = Employee::whereIn('role', ['faculty', 'program head'])
+        $deptFacultyCounts = Employee::where('role', 'faculty')
             ->where('status', 'active')
             ->selectRaw('department_id, count(*) as count')
             ->groupBy('department_id')
@@ -849,7 +1551,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->leftJoin('departments', 'departments.id', '=', 'employees.department_id')
             ->leftJoin('evaluation_sentiments', 'evaluation_sentiments.evaluation_id', '=', 'evaluations.id')
             ->where('evaluations.semester_id', $semester->id)
-            ->whereIn('employees.role', ['faculty', 'program head'])
+            ->where('employees.role', 'faculty')
             ->selectRaw("
                 employees.id as employee_id,
                 employees.first_name,
@@ -989,35 +1691,50 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     <!-- Navigation Tabs -->
     <div class="border-b border-zinc-200 dark:border-zinc-800 flex gap-2 md:gap-4 overflow-x-auto pb-0 print:hidden">
-        <button 
-            type="button"
-            wire:click="$set('activeTab', 'individual')"
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'individual' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
-        >
-            <flux:icon icon="user" class="size-4" />
-            Individual Teaching Effectiveness Report
-        </button>
+        @if(auth()->user()?->hasAnyRole(['admin', 'dean', 'program head']))
+            <button 
+                type="button"
+                wire:click="setActiveTab('individual')"
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'individual' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            >
+                <flux:icon icon="academic-cap" class="size-4" />
+                Individual Teaching Effectiveness Report
+            </button>
+        @endif
 
-        <button 
-            type="button"
-            wire:click="$set('activeTab', 'summary')"
-            class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'summary' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
-        >
-            <flux:icon icon="chart-bar-square" class="size-4" />
-            Evaluation Summary Report
-        </button>
+        @if(auth()->user()?->hasAnyRole(['admin', 'dean']))
+            <button 
+                type="button"
+                wire:click="setActiveTab('summary')"
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'summary' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            >
+                <flux:icon icon="chart-bar-square" class="size-4" />
+                Evaluation Summary Report
+            </button>
+        @endif
+
+        @if(auth()->user()?->hasAnyRole(['admin', 'department head']))
+            <button 
+                type="button"
+                wire:click="setActiveTab('staff')"
+                class="pb-3 text-xs md:text-sm font-semibold transition-all border-b-2 px-2 whitespace-nowrap flex items-center gap-1.5 {{ $activeTab === 'staff' ? 'border-[#9b0000] text-[#9b0000] dark:border-[#e07a7a] dark:text-[#e07a7a] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+            >
+                <flux:icon icon="briefcase" class="size-4" />
+                Non-Teaching Staff Performance Report
+            </button>
+        @endif
     </div>
 
-    <!-- Teacher Selection Bar (Only in Individual tab) -->
-    @if($activeTab === 'individual')
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs print:hidden space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+    <!-- Employee Selection & Filter Toolbar (For Faculty & Staff tabs) -->
+    @if($activeTab === 'individual' || $activeTab === 'staff')
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 sm:p-4 shadow-xs print:hidden space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-center">
                 <!-- 1. Search Filter -->
                 <div>
                     <flux:input 
                         wire:model.live.debounce.300ms="searchTeacher" 
                         icon="magnifying-glass" 
-                        placeholder="Search name or ID..." 
+                        placeholder="{{ $activeTab === 'staff' ? 'Search staff name or ID...' : 'Search faculty name or ID...' }}" 
                         clearable 
                     />
                 </div>
@@ -1025,48 +1742,97 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <!-- 2. Department Filter -->
                 <div>
                     <flux:select wire:model.live="selectedDepartment" placeholder="All Departments" clearable>
-                        <flux:select.option value="">All Departments</flux:select.option>
+                        <flux:select.option value="">All {{ $activeTab === 'staff' ? 'Administrative Units' : 'Academic Departments' }}</flux:select.option>
                         @foreach($this->departments as $dept)
                             <flux:select.option value="{{ $dept->id }}">{{ $dept->name }} ({{ $dept->code }})</flux:select.option>
                         @endforeach
                     </flux:select>
                 </div>
 
-                <!-- 3. Faculty Member Select & Print Button -->
-                <div class="lg:col-span-2 flex items-center gap-2">
-                    <div class="flex-1 min-w-0">
-                        <flux:select wire:model.live="selectedTeacherId" placeholder="Select Faculty Member / Professor" clearable>
-                            <flux:select.option value="">Choose a Faculty Member ({{ $this->teachers->count() }} found)</flux:select.option>
-                            @foreach($this->teachers as $teacher)
-                                <flux:select.option value="{{ $teacher->id }}">
-                                    {{ $teacher->full_name }} ({{ $teacher->department?->code ?? 'N/A' }} • {{ ucfirst($teacher->role) }})
-                                </flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    @if($selectedTeacherId && $selectedSemesterId && !$isPrintingAll)
-                        <flux:button variant="primary" icon="arrow-down-tray" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white shrink-0 font-bold">
-                            Save as PDF
-                        </flux:button>
-                    @endif
-                    @if($selectedSemesterId && $this->teachers->isNotEmpty())
-                        @if(!$isPrintingAll)
-                            <flux:button variant="filled" icon="printer" wire:click="startPrintAll" class="shrink-0 font-bold text-xs" title="Generate batch print view for all {{ $this->teachers->count() }} faculty members">
-                                Print All ({{ $this->teachers->count() }})
-                            </flux:button>
-                        @else
-                            <flux:button variant="subtle" icon="x-mark" wire:click="exitPrintAll" class="shrink-0 font-bold text-xs">
-                                Exit Batch View
-                            </flux:button>
+                <!-- 3. Member Select & Mobile Actions Popover -->
+                <div class="sm:col-span-2 lg:col-span-1">
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 min-w-0">
+                            <flux:select wire:model.live="selectedTeacherId" placeholder="{{ $activeTab === 'staff' ? 'Select Non-Teaching Staff Member' : 'Select Faculty Member / Professor' }}" clearable>
+                                <flux:select.option value="">Choose a {{ $activeTab === 'staff' ? 'Staff Member' : 'Faculty Member' }} ({{ $this->teachers->count() }} found)</flux:select.option>
+                                @foreach($this->teachers as $teacher)
+                                    <flux:select.option value="{{ $teacher->id }}">
+                                        {{ $teacher->full_name }} ({{ $teacher->department?->code ?? 'N/A' }} • {{ ucfirst($teacher->role) }})
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+
+                        <!-- Mobile-only Popover Trigger (visible only on screens < sm:) -->
+                        @if($selectedSemesterId && $this->teachers->isNotEmpty())
+                            <div class="sm:hidden shrink-0">
+                                <flux:dropdown align="end">
+                                    <flux:button 
+                                        variant="filled" 
+                                        icon="ellipsis-vertical" 
+                                        aria-label="Report Actions" 
+                                        title="Print & Export Actions"
+                                        class="shrink-0 cursor-pointer"
+                                    />
+
+                                    <flux:menu class="w-56">
+                                        @if($selectedTeacherId && !$isPrintingAll)
+                                            <flux:menu.item icon="printer" onclick="window.print()" class="text-[#9b0000] dark:text-[#e07a7a] font-semibold">
+                                                Print PDF
+                                            </flux:menu.item>
+                                            <flux:menu.separator />
+                                        @endif
+
+                                        @if(!$isPrintingAll)
+                                            <flux:menu.item icon="document-duplicate" wire:click="startPrintAll">
+                                                Print All ({{ $this->teachers->count() }})
+                                            </flux:menu.item>
+                                        @else
+                                            <flux:menu.item icon="x-mark" wire:click="exitPrintAll">
+                                                Exit Batch View
+                                            </flux:menu.item>
+                                        @endif
+
+                                        <flux:menu.item icon="arrow-down-tray" wire:click="exportExcel">
+                                            Export Excel
+                                        </flux:menu.item>
+                                    </flux:menu>
+                                </flux:dropdown>
+                            </div>
                         @endif
-                    @endif
+                    </div>
                 </div>
             </div>
+
+            <!-- Desktop Action Buttons Row (visible only on screens >= sm:) -->
+            @if($selectedSemesterId && $this->teachers->isNotEmpty())
+                <div class="hidden sm:flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    @if($selectedTeacherId && !$isPrintingAll)
+                        <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold shrink-0">
+                            Print PDF
+                        </flux:button>
+                    @endif
+
+                    @if(!$isPrintingAll)
+                        <flux:button variant="filled" icon="printer" wire:click="startPrintAll" class="font-bold text-xs shrink-0" title="Generate batch print view for all {{ $this->teachers->count() }} {{ $activeTab === 'staff' ? 'staff members' : 'faculty members' }}">
+                            Print All ({{ $this->teachers->count() }})
+                        </flux:button>
+                    @else
+                        <flux:button variant="subtle" icon="x-mark" wire:click="exitPrintAll" class="font-bold text-xs shrink-0">
+                            Exit Batch View
+                        </flux:button>
+                    @endif
+
+                    <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportExcel" class="font-bold text-xs shrink-0" title="Export evaluation summary to Excel for all {{ $this->teachers->count() }} {{ $activeTab === 'staff' ? 'staff members' : 'professors' }}">
+                        Export Excel
+                    </flux:button>
+                </div>
+            @endif
         </div>
     @endif
 
-    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab, startPrintAll, exitPrintAll, nextBatchPreview, previousBatchPreview, toggleBatchShowAll, setBatchPreviewIndex">
-        @if($activeTab === 'individual')
+    <div wire:loading.remove wire:target="selectedTeacherId, selectedSemesterId, activeTab, startPrintAll, exitPrintAll, nextBatchPreview, previousBatchPreview, toggleBatchShowAll, setBatchPreviewIndex, exportExcel">
+        @if($activeTab === 'individual' || $activeTab === 'staff')
             @if($isPrintingAll)
                 @php
                     $allReports = $this->allReportsData;
@@ -1104,7 +1870,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <h3 class="font-bold text-sm md:text-base text-zinc-900 dark:text-zinc-100">
-                                            Batch Print Hub: {{ $totalReports }} Faculty Member{{ $totalReports === 1 ? '' : 's' }}
+                                            Batch Print Hub: {{ $totalReports }} {{ $reportTrack === 'staff' ? 'Staff Member' : 'Faculty Member' }}{{ $totalReports === 1 ? '' : 's' }}
                                         </h3>
                                         <span class="text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-950/70 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700/50">
                                             {{ $totalReports * 2 }} Pages Total
@@ -1205,23 +1971,33 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     class="batch-report-item print:!block"
                                     @if(!$batchShowAllOnScreen && $index !== $batchPreviewIndex) style="display: none;" @endif
                                 >
-                                    @include('livewire.reports.faculty-report-card', ['report' => $report])
+                                    @if(($report->report_type ?? '') === 'staff' || $reportTrack === 'staff')
+                                        @include('livewire.reports.staff-report-card', ['report' => $report])
+                                    @else
+                                        @include('livewire.reports.faculty-report-card', ['report' => $report])
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
-                            <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-                            <p class="font-medium text-zinc-500">No faculty members found for the current department or search filters.</p>
+                        <div class="text-center py-10 sm:py-12 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                            <flux:icon icon="{{ ($activeTab === 'staff' || $reportTrack === 'staff') ? 'briefcase' : 'document-chart-bar' }}" class="size-9 sm:size-10 mx-auto text-zinc-300 dark:text-zinc-600 mb-2.5" />
+                            <p class="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">No {{ ($activeTab === 'staff' || $reportTrack === 'staff') ? 'staff members' : 'faculty members' }} found for the current department or search filters.</p>
                         </div>
                     @endif
                 </div>
             @elseif($selectedTeacherId && $selectedSemesterId && $this->individualReportData)
-                @include('livewire.reports.faculty-report-card', ['report' => $this->individualReportData])
+                @if($activeTab === 'staff' || ($this->individualReportData->report_type ?? '') === 'staff' || $reportTrack === 'staff')
+                    @include('livewire.reports.staff-report-card', ['report' => $this->individualReportData])
+                @else
+                    @include('livewire.reports.faculty-report-card', ['report' => $this->individualReportData])
+                @endif
             @else
-                <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
-                    <flux:icon icon="document-chart-bar" class="size-16 mx-auto text-zinc-300 mb-3" />
-                    <p class="font-medium text-zinc-500">Please select a professor and academic semester to load the official GRC Summary Performance Report, or click "Print All" to view all faculty reports.</p>
+                <div class="text-center py-10 sm:py-12 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                    <flux:icon icon="{{ ($activeTab === 'staff' || $reportTrack === 'staff') ? 'briefcase' : 'document-chart-bar' }}" class="size-9 sm:size-10 mx-auto text-zinc-300 dark:text-zinc-600 mb-2.5" />
+                    <p class="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+                        {{ ($activeTab === 'staff' || $reportTrack === 'staff') ? 'Please select a non-teaching staff member and evaluation period to load the official Staff Performance Appraisal Report, or click "Print All" to view all staff reports.' : 'Please select a professor and academic semester to load the official GRC Summary Performance Report, or click "Print All" to view all faculty reports.' }}
+                    </p>
                 </div>
             @endif
         @endif

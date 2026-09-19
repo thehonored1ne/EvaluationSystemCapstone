@@ -477,3 +477,123 @@ test('setting active semester in evaluation settings closes evaluations on all o
         ->and($this->semester->fresh()->is_active)->toBeFalse()
         ->and($this->semester->fresh()->is_evaluation_open)->toBeFalse();
 });
+
+test('Student dashboard hasProcessing detects queued processing jobs and transitions on checkProcessingStatus', function () {
+    $component = Livewire::actingAs($this->studentUser)
+        ->test('student.dashboard');
+
+    expect($component->get('hasProcessing'))->toBeFalse();
+
+    $evaluatorId = $this->studentUser->id;
+    $evaluateeId = $this->facUser1->id;
+    $semesterId = $this->semester->id;
+    $classId = $this->class->id;
+    $type = 'upward_student';
+
+    $payload = json_encode([
+        'displayName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'data' => [
+            'commandName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+            'command' => serialize(new ProcessEvaluationSubmission(
+                $evaluatorId,
+                $evaluateeId,
+                $semesterId,
+                $classId,
+                $type,
+                []
+            )),
+        ],
+    ]);
+
+    $jobId = DB::table('jobs')->insertGetId([
+        'queue' => 'default',
+        'payload' => $payload,
+        'attempts' => 0,
+        'reserved_at' => null,
+        'available_at' => time(),
+        'created_at' => time(),
+    ]);
+
+    Evaluation::flushStatusCache();
+
+    $component = Livewire::actingAs($this->studentUser)
+        ->test('student.dashboard');
+
+    expect($component->get('hasProcessing'))->toBeTrue();
+
+    // Complete job
+    DB::table('jobs')->where('id', $jobId)->delete();
+    Evaluation::create([
+        'evaluator_id' => $evaluatorId,
+        'evaluatee_id' => $evaluateeId,
+        'semester_id' => $semesterId,
+        'class_id' => $classId,
+        'evaluation_type' => $type,
+        'rating_average' => 4.5,
+    ]);
+
+    $component->call('checkProcessingStatus');
+
+    expect($component->get('hasProcessing'))->toBeFalse();
+});
+
+test('Faculty dashboard hasProcessing detects processing evaluation and updates on checkProcessingStatus', function () {
+    $component = Livewire::actingAs($this->facUser1)
+        ->test('faculty.dashboard');
+
+    expect($component->get('hasProcessing'))->toBeFalse();
+
+    $evaluatorId = $this->facUser1->id;
+    $evaluateeId = $this->facUser2->id;
+    $semesterId = $this->semester->id;
+    $classId = null;
+    $type = 'peer';
+
+    $payload = json_encode([
+        'displayName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'data' => [
+            'commandName' => 'App\\Jobs\\ProcessEvaluationSubmission',
+            'command' => serialize(new ProcessEvaluationSubmission(
+                $evaluatorId,
+                $evaluateeId,
+                $semesterId,
+                $classId,
+                $type,
+                []
+            )),
+        ],
+    ]);
+
+    $jobId = DB::table('jobs')->insertGetId([
+        'queue' => 'default',
+        'payload' => $payload,
+        'attempts' => 0,
+        'reserved_at' => null,
+        'available_at' => time(),
+        'created_at' => time(),
+    ]);
+
+    Evaluation::flushStatusCache();
+
+    $component = Livewire::actingAs($this->facUser1)
+        ->test('faculty.dashboard');
+
+    expect($component->get('hasProcessing'))->toBeTrue();
+
+    // Complete job
+    DB::table('jobs')->where('id', $jobId)->delete();
+    Evaluation::create([
+        'evaluator_id' => $evaluatorId,
+        'evaluatee_id' => $evaluateeId,
+        'semester_id' => $semesterId,
+        'class_id' => $classId,
+        'evaluation_type' => $type,
+        'rating_average' => 4.5,
+    ]);
+
+    $component->call('checkProcessingStatus');
+
+    expect($component->get('hasProcessing'))->toBeFalse();
+});

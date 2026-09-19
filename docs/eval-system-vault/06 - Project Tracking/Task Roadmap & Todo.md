@@ -8,6 +8,52 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] #000000 Peer Evaluation Exemption ("Unable to Observe / Skip") & Automated Dynamic Weight Normalization (Completed: 2026-09-19)
+  - **Construct Validity & "Unable to Observe / Skip" Exemption Mechanism:** Added an institutional exemption option for peer professor evaluations in `evaluation-form.blade.php`. Faculty can click *"No Basis to Observe"* when evaluating colleagues with different schedules or specializations without guessing arbitrary ratings.
+  - **Categorical Audit Logging:** Requires selecting an institutional reason (*Different schedule / no direct interaction*, *Different specialization / separate department branch*, *New faculty member / insufficient observation window*, or *Other* with required explanation). Creates an immutable record in `evaluation_exemptions` and logs to Spatie activitylog.
+  - **Automated Dynamic Weight Normalization:**
+    - In `ProcessEvaluationSubmission.php`, dynamically recalculates and scales remaining active categories (Student, Dean, Program Head, Self, Superior) proportionally so the evaluatee's final composite `overall_rating` is computed fairly out of 100% without penalizing the faculty member.
+    - Persists `is_peer_exempted = true` on `evaluation_summaries` for database-level transparency.
+    - In `reports.blade.php`, dynamically normalizes subtotals and max points when peer reviews are absent ($N_{\text{peer}} = 0$) using scale factor $\frac{200}{M_{\text{active}}}$ to preserve the institutional 200.0 pt scale.
+    - In `faculty-report-card.blade.php`, displays an **Exempted / Normalized** badge and institutional accreditation footnote explaining the preserved scale.
+  - **Completion Tracking & Reminder Synchronization:**
+    - In `Evaluation::getStatus()`, checks `evaluation_exemptions` and returns `'exempted'`.
+    - In `User.php` (`countPendingEvaluations()`, `getEvaluationNotificationsAttribute()`), and `SendEvaluationDeadlineReminders.php`, excludes exempted peers so faculty completion reaches 100% and reminder emails are not sent for skipped peers.
+    - In `manage-evaluations.blade.php`, displays skipped peers count in professor progress and includes exemptions in completed counts.
+  - **Quality Gates:** 100% green tests in `PeerEvaluationExemptionAndNormalizationTest` (5 passed, 13 assertions) and regression tests (15 passed, 96 assertions); 0 Pint lint warnings.
+
+- [X] #00000 AI Pipeline Holdout Validation Metrics: Precision, Recall, and F1-Score (Completed: 2026-09-19)
+  - **Two-Tier Executive & ML Performance Architecture (Option A):** Reorganized top metrics on `manage-ai.blade.php` into two distinct tiers:
+    - **Tier 1 (Operational KPIs - 3 Cards):** *Analyzed Reviews*, *Human Overrides*, and *Needs Review* (conflicts).
+    - **Tier 2 (Model Performance & Health - 4 Cards):** *Model Accuracy*, *Macro Precision*, *Macro Recall*, and *Macro F1-Score* evaluated on the 20% holdout validation split.
+    - **Multi-Evaluator Scope Alignment:** Subtitles strictly reflect all evaluation participants (*"Captured across all evaluator sentiments"*), removing student-only phrasing.
+  - **Python Microservice Training Enhancement:** Updated `/train` in `python/app.py` to calculate `precision_recall_fscore_support` with both `average='macro'` and per-class breakdowns using scikit-learn, persisting them into `storage/app/ai_metrics.json`.
+  - **PHP Real-Time Metric Synthesis Fallback:** In `manage-ai.blade.php`, implemented resilient real-time derivation of Macro Precision, Recall, and F1-Score from the active confusion matrix if not explicitly present in cached JSON, guaranteeing immediate score rendering without requiring immediate retraining.
+  - **Zero-CLS Skeleton Loader:** Synchronized `manage-ai-skeleton.blade.php` 1:1 with Tier 1 (3 cards) and Tier 2 (4 cards) layouts.
+  - **Intuitive Plain-English Metric Popovers:** Integrated `<flux:tooltip>` popover info icons (`information-circle`) opposite the header on each of the 4 ML cards (Accuracy, Macro Precision, Macro Recall, Macro F1-Score) to provide plain-language explanations of correctness, trustworthiness, catch rate, and class balance.
+  - **Quality Gates:** 100% green tests in `AISentimentCorrectionTest` (7 passed, 40 assertions); 0 Pint lint warnings.
+
+- [X] #0000 Excel Export for Faculty Evaluation Summary & Print PDF Enhancements (Completed: 2026-09-19)
+  - **10-Column Executive Schema:** Built `exportExcel()` in `resources/views/livewire/reports.blade.php` streaming CSV with UTF-8 BOM (`\xEF\xBB\xBF`) for native Microsoft Excel compatibility. Columns: `Professor Name`, `Department`, `Overall Rating`, `Descriptive Rating`, `Ranking`, `Dominant Sentiment`, `Top Commendations` (concise top-2 drivers), `Growth Areas` (concise top-2 themes), `Performance Trend`, `Status`.
+  - **Concise Commendation & Growth Category Tags:** Condensed verbose textual sentences into clean keywords (e.g. *Clear Explanations*, *Approachable & Supportive*, *Subject Mastery*, *Pacing* before colon separator, or *Continuous Refinement*) to keep spreadsheet columns clean and readable.
+  - **True Completion Tracking Status:** Aligned status calculation directly with Completion Tracking (`manage-evaluations.blade.php`): checks 100% fulfillment of all required evaluation forms (Self + Peer faculty + Program Head / Dean). Teachers who completed all assigned forms show `Completed`; those with pending forms show `Incomplete`.
+  - **A-Z Alphabetical Ordering:** Automatically sorts all exported faculty rows alphabetically A-Z by Professor Name (`$teacher->full_name`).
+  - **Pre-Calculated Global Ranks:** Accurately ranks all evaluated faculty members (`total_submissions > 0`) descending by `total_achieved_points`, assigning `'N/A'` to unevaluated faculty.
+  - **UI Integration & Print PDF Relabeling:**
+    - Individual report print button relabeled from "Save as PDF" to **"Print PDF"** with printer icon (`icon="printer"`).
+    - Removed redundant "Export Excel" button inside Batch Print Hub, keeping the clean primary button in the main report toolbar.
+  - **Strict Faculty Role Restriction:** Restricted teacher dropdown in [`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php) strictly to professors (`role = 'faculty'`), eliminating non-teaching program heads and deans who lack classroom teaching loads and student evaluations.
+  - **Quality Gates:** 100% green tests in `ReportsSummaryTest` (13 passed, 84 assertions) verifying download response, 10 column headers, A-Z ordering, Completed/Incomplete tracking status, Print PDF button presence, and strict professor-only filtering; 0 Pint lint warnings.
+
+- [X] #000 Employee Performance Trend Auto-Calculation & Page 2 Recommendations Section (Completed: 2026-09-19)
+  - **Auto-Calculated Performance Trend:** In `resources/views/livewire/reports.blade.php`, dynamically calculates faculty performance trend based on semester-over-semester score delta (`$scoreGrowth`): `Improving` ($> +0.50$), `Stationary` ($\pm0.50$), `Deteriorating` ($< -0.50$), or `null` (baseline if first term evaluated).
+  - **Chronological Semester Precedence Bug Fix:** Resolved an issue where `getPreviousSemester()` was using naive database primary key comparison (`where('id', '<', $semesterId)`). Replaced with `$currentSem->getPreviousSemester(false)` using academic calendar chronological keys (`getChronologicalKey()`), preventing inverted term comparisons when older academic years were inserted with higher auto-increment IDs.
+  - **Institutional Form Layout on Page 2:** In `resources/views/livewire/reports/faculty-report-card.blade.php`, added the exact institutional document section at the bottom of Page 2:
+    - *Performance of employee:* Checkmark `✓` auto-rendered on the system-determined trend line (`Improving`, `Stationary`, or `Deteriorating`) with semester points delta tag; clean blanks if baseline.
+    - *Recommendations for employee:* 2-column printed checklist with fill-in blanks (`Extension of Probationary period`, `For Regularization`, `Retention in present position`, `Transfer to another position / department`, `Salary Adjustment (%)`, `Promotion in what position`, `Separation from service`).
+    - Clean design: Omitted redundant wrapper titles and duplicate signatures.
+  - **Quality Gates:** 100% green tests in `ReportsSummaryTest` (10 passed, 61 assertions) covering improving, stationary, deteriorating, and baseline conditions; 0 Pint lint warnings.
+
 - [X] #00 AI Pipeline Robustness, Benchmark Laboratory & Manage AI Dashboard Modernization (Completed: 2026-09-14)
   - **Decision Tree Regularization & Rating Dominance Guard:** Configured `DecisionTreeClassifier(max_depth=8, min_samples_leaf=3)` in `python/app.py` to prevent the numerical rating feature from dominating textual TF-IDF, and added polar text protection preventing 5.0★ ratings from forcing sarcastic/negative comments positive.
   - **Non-Substantive Comment Pre-Check:** Added stopword filtering in Python for filler phrases (*"n/a"*, *"none"*, *"wala"*, *"ok"*) to automatically assign neutral sentiment and 0.0 polarity score regardless of rating.

@@ -208,3 +208,270 @@ test('individual tab supports batch print all for faculty members', function () 
         ->assertSet('isPrintingAll', false)
         ->assertDontSee('Batch Print Hub');
 });
+
+test('individual report renders performance trend and recommendations on page 2', function () {
+    // 1. First semester (baseline): no prior semester exists
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $this->facUserCCS->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 4.50,
+        'comments' => 'Great professor.',
+    ]);
+
+    $this->actingAs($this->adminUser);
+
+    $component = Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $this->semester->id)
+        ->set('selectedTeacherId', $this->facCCS->id)
+        ->assertSee('Performance of employee:')
+        ->assertSee('Improving')
+        ->assertSee('Stationary')
+        ->assertSee('Deteriorating')
+        ->assertSee('Recommendations for employee:')
+        ->assertSee('Extension of Probationary period')
+        ->assertSee('For Regularization')
+        ->assertSee('Retention in present position')
+        ->assertSee('Transfer to another position / department')
+        ->assertSee('Salary Adjustment (%)')
+        ->assertSee('Promotion in what position')
+        ->assertSee('Separation from service');
+
+    // For baseline with no previous semester, performance_trend is null
+    $report = $component->get('individualReportData');
+    expect($report->performance_trend)->toBeNull();
+});
+
+test('individual report correctly detects improving and deteriorating performance trends', function () {
+    // Program Head user
+    $phEmp = Employee::create(['employee_number' => 'PH-01', 'first_name' => 'PH', 'last_name' => 'CCS', 'role' => 'program head', 'status' => 'active', 'department_id' => $this->ccs->id]);
+    $phUser = User::create(['name' => 'PH CCS', 'email' => 'ph@example.com', 'employee_id' => $phEmp->id, 'password' => 'password']);
+    $phUser->assignRole('program head');
+
+    // Current semester with standard 200-scale weights
+    $currentSem = Semester::create([
+        'academic_year_id' => $this->ay->id,
+        'name' => '2nd Semester',
+        'is_active' => true,
+        'is_evaluation_open' => true,
+        'upward_student_max_points' => 80.0,
+        'dean_max_points' => 40.0,
+        'program_head_max_points' => 40.0,
+        'peer_max_points' => 30.0,
+        'self_max_points' => 10.0,
+    ]);
+
+    expect($currentSem->id)->toBeGreaterThan($this->semester->id);
+
+    $evalTypes = [
+        ['type' => 'upward_student', 'evaluator_id' => $this->adminUser->id],
+        ['type' => 'dean', 'evaluator_id' => $this->deanUser->id],
+        ['type' => 'program_head', 'evaluator_id' => $phUser->id],
+        ['type' => 'peer', 'evaluator_id' => $this->facUserCBA->id],
+        ['type' => 'self', 'evaluator_id' => $this->facUserCCS->id],
+    ];
+
+    // 1. Prior semester evaluations for facCCS: ~3.00 rating (lower)
+    foreach ($evalTypes as $item) {
+        Evaluation::create([
+            'semester_id' => $this->semester->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $this->facUserCCS->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 3.00,
+        ]);
+    }
+
+    // 2. Current semester evaluations for facCCS: ~4.80 rating (improving)
+    foreach ($evalTypes as $item) {
+        Evaluation::create([
+            'semester_id' => $currentSem->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $this->facUserCCS->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 4.80,
+        ]);
+    }
+
+    $this->actingAs($this->adminUser);
+
+    $component = Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $currentSem->id)
+        ->set('selectedTeacherId', $this->facCCS->id);
+
+    $report = $component->get('individualReportData');
+    expect($report->performance_trend)->toBe('improving');
+    expect($report->score_growth)->toBeGreaterThan(0.50);
+
+    // 3. Test deteriorating for facCBA: prior high (4.80) vs current low (2.00)
+    $evalTypesCBA = [
+        ['type' => 'upward_student', 'evaluator_id' => $this->adminUser->id],
+        ['type' => 'dean', 'evaluator_id' => $this->deanUser->id],
+        ['type' => 'program_head', 'evaluator_id' => $phUser->id],
+        ['type' => 'peer', 'evaluator_id' => $this->facUserCCS->id],
+        ['type' => 'self', 'evaluator_id' => $this->facUserCBA->id],
+    ];
+
+    foreach ($evalTypesCBA as $item) {
+        Evaluation::create([
+            'semester_id' => $this->semester->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $this->facUserCBA->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 4.80,
+        ]);
+
+        Evaluation::create([
+            'semester_id' => $currentSem->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $this->facUserCBA->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 2.00,
+        ]);
+    }
+
+    $component2 = Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $currentSem->id)
+        ->set('selectedTeacherId', $this->facCBA->id);
+
+    $report2 = $component2->get('individualReportData');
+    expect($report2->performance_trend)->toBe('deteriorating');
+    expect($report2->score_growth)->toBeLessThan(-0.50);
+
+    // 4. Test stationary when scores are identical across semesters
+    $facStationary = Employee::create(['employee_number' => 'F-03', 'first_name' => 'Faculty3', 'last_name' => 'Stationary', 'role' => 'faculty', 'status' => 'active', 'department_id' => $this->ccs->id]);
+    $facUserStationary = User::create(['name' => 'Faculty3 Stationary', 'email' => 'fac3@example.com', 'employee_id' => $facStationary->id, 'password' => 'password']);
+    $facUserStationary->assignRole('faculty');
+
+    foreach ($evalTypes as $item) {
+        Evaluation::create([
+            'semester_id' => $this->semester->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $facUserStationary->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 4.00,
+        ]);
+
+        Evaluation::create([
+            'semester_id' => $currentSem->id,
+            'evaluator_id' => $item['evaluator_id'],
+            'evaluatee_id' => $facUserStationary->id,
+            'evaluation_type' => $item['type'],
+            'rating_average' => 4.00,
+        ]);
+    }
+
+    $component3 = Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $currentSem->id)
+        ->set('selectedTeacherId', $facStationary->id);
+
+    $report3 = $component3->get('individualReportData');
+    expect($report3->performance_trend)->toBe('stationary');
+    expect(abs($report3->score_growth))->toBeLessThanOrEqual(0.50);
+});
+
+test('reports component exports faculty evaluation summary to excel in alphabetical a-z order', function () {
+    $this->actingAs($this->adminUser);
+
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->adminUser->id,
+        'evaluatee_id' => $this->facUserCCS->id,
+        'evaluation_type' => 'upward_student',
+        'rating_average' => 4.60,
+        'comments' => 'Clear explanations and punctual.',
+    ]);
+
+    $response = Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $this->semester->id)
+        ->call('exportExcel');
+
+    $response->assertFileDownloaded();
+
+    // Capture streamed content
+    $streamedResponse = $response->instance()->exportExcel();
+    expect($streamedResponse)->not->toBeNull();
+
+    ob_start();
+    $streamedResponse->sendContent();
+    $csvContent = ob_get_clean();
+
+    // Check exact 10 headers
+    expect($csvContent)->toContain('Professor Name')
+        ->toContain('Department')
+        ->toContain('Overall Rating')
+        ->toContain('Descriptive Rating')
+        ->toContain('Ranking')
+        ->toContain('Dominant Sentiment')
+        ->toContain('Top Commendations')
+        ->toContain('Growth Areas')
+        ->toContain('Performance Trend')
+        ->toContain('Status');
+
+    // Check data rows
+    expect($csvContent)->toContain('Faculty1 CCS')
+        ->toContain('Faculty2 CBA');
+
+    // Faculty1 has 0 submitted forms, target is 1 (self eval) -> Incomplete
+    expect($csvContent)->toContain('Incomplete');
+
+    // Check alphabetical order: Faculty1 CCS appears before Faculty2 CBA
+    $pos1 = strpos($csvContent, 'Faculty1 CCS');
+    $pos2 = strpos($csvContent, 'Faculty2 CBA');
+    expect($pos1)->toBeLessThan($pos2);
+
+    // If Faculty1 submits required self evaluation, status turns to Completed
+    Evaluation::create([
+        'semester_id' => $this->semester->id,
+        'evaluator_id' => $this->facUserCCS->id,
+        'evaluatee_id' => $this->facUserCCS->id,
+        'evaluation_type' => 'self',
+        'rating_average' => 4.50,
+    ]);
+
+    $streamedResponse2 = $response->instance()->exportExcel();
+    ob_start();
+    $streamedResponse2->sendContent();
+    $csvContent2 = ob_get_clean();
+    expect($csvContent2)->toContain('Completed');
+});
+
+test('individual report view displays Print PDF button when teacher selected', function () {
+    $this->actingAs($this->adminUser);
+
+    Livewire::test('reports')
+        ->set('activeTab', 'individual')
+        ->set('selectedSemesterId', $this->semester->id)
+        ->set('selectedTeacherId', $this->facCCS->id)
+        ->assertSee('Print PDF')
+        ->assertDontSee('Save as PDF');
+});
+
+test('reports component filters teachers strictly to faculty members excluding program heads and deans', function () {
+    $this->actingAs($this->adminUser);
+
+    $phEmp = Employee::create([
+        'employee_number' => 'PH-01',
+        'first_name' => 'ProgramHead',
+        'last_name' => 'CCS',
+        'role' => 'program head',
+        'status' => 'active',
+        'department_id' => $this->ccs->id,
+    ]);
+
+    $component = Livewire::test('reports')
+        ->set('activeTab', 'individual');
+
+    $teachers = $component->get('teachers');
+
+    expect($teachers->pluck('id'))->toContain($this->facCCS->id)
+        ->toContain($this->facCBA->id)
+        ->not->toContain($this->deanCCS->id)
+        ->not->toContain($phEmp->id);
+});

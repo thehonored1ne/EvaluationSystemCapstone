@@ -129,19 +129,34 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->showForm = true;
     }
 
+    public function getHasProcessingProperty(): bool
+    {
+        return $this->enrolledClasses->contains(function ($class) {
+            $teacherUserId = $class->teacher?->user?->id;
+            return $teacherUserId && $this->getClassEvaluationStatus($class->id, $teacherUserId) === 'processing';
+        });
+    }
+
+    public function checkProcessingStatus(): void
+    {
+        Evaluation::flushStatusCache();
+    }
+
     #[On('evaluation-submitted')]
     public function handleEvaluationSubmitted()
     {
+        Evaluation::flushStatusCache();
         $this->selectedClassId = null;
         $this->selectedTeacherUser = null;
         $this->showForm = false;
     }
 }; ?>
 
-<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6">
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-1.5 sm:px-3 md:px-4 py-3 sm:py-6"
+    @if($this->hasProcessing) wire:poll.2500ms="checkProcessingStatus" @endif>
     @if(!$showForm)
         <!-- Header -->
-        <div class="flex flex-col md:flex-row md:justify-between items-center text-center md:text-left gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:justify-between items-center text-center md:text-left gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
             <div class="flex flex-col items-center md:items-start">
                 <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Student Evaluation Dashboard</h1>
                 <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
@@ -267,33 +282,35 @@ new #[Layout('components.layouts.app')] class extends Component {
         </div>
     @else
         <div class="grid grid-cols-1 gap-6">
-            <flux:card class="p-4 sm:p-6">
+            <flux:card class="p-3.5 sm:p-5">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                     <div class="text-center sm:text-left">
                         <flux:heading size="lg">My Enrolled Classes & Professors</flux:heading>
                     </div>
                     @if($this->enrolledClasses->isNotEmpty())
-                        <div class="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs shrink-0">
-                                <span class="text-[#9b0000] dark:text-[#e07a7a] font-extrabold mr-1">{{ $this->evaluatedCount }}/{{ $this->enrolledClasses->count() }}</span> evaluated
-                            </span>
-                            <div class="inline-flex items-center p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium shrink-0">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+                            <div class="flex items-center justify-between sm:justify-end">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs shrink-0">
+                                    <span class="text-[#9b0000] dark:text-[#e07a7a] font-extrabold mr-1">{{ $this->evaluatedCount }}/{{ $this->enrolledClasses->count() }}</span> evaluated
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-3 sm:inline-flex items-center p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium w-full sm:w-auto text-center shrink-0">
                                 <button 
                                     type="button" 
                                     wire:click="$set('statusFilter', 'all')"
-                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'all' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    class="px-2.5 py-1.5 sm:py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'all' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
                                     All
                                 </button>
                                 <button 
                                     type="button" 
                                     wire:click="$set('statusFilter', 'pending')"
-                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'pending' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    class="px-2.5 py-1.5 sm:py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'pending' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
                                     Pending
                                 </button>
                                 <button 
                                     type="button" 
                                     wire:click="$set('statusFilter', 'completed')"
-                                    class="px-2.5 py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'completed' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                                    class="px-2.5 py-1.5 sm:py-1 rounded-md transition-all cursor-pointer {{ $statusFilter === 'completed' ? 'bg-[#9b0000] dark:bg-[#a82e2e] text-white font-semibold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
                                     Completed
                                 </button>
                             </div>
@@ -338,22 +355,17 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 $teacherUserId = $class->teacher?->user?->id;
                                 $status = $teacherUserId ? $this->getClassEvaluationStatus($class->id, $teacherUserId) : 'closed';
                             @endphp
-                            <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col gap-3 shadow-2xs">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="flex items-center gap-3">
-                                        <div class="size-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0">
-                                            {{ substr($class->teacher?->first_name ?? 'P', 0, 1) }}{{ substr($class->teacher?->last_name ?? '', 0, 1) }}
+                            <div class="bg-white dark:bg-zinc-900 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col gap-3 shadow-2xs">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-sm text-zinc-800 dark:text-zinc-200 leading-tight truncate">
+                                            {{ $class->teacher?->full_name ?: 'Professor N/A' }}
                                         </div>
-                                        <div>
-                                            <div class="font-bold text-sm text-zinc-800 dark:text-zinc-200 leading-tight">
-                                                {{ $class->teacher?->full_name ?: 'Professor N/A' }}
-                                            </div>
-                                            <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
-                                                {{ $class->subject->code }} - {{ $class->subject->name }}
-                                            </div>
+                                        <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium line-clamp-2">
+                                            {{ $class->subject->code }} - {{ $class->subject->name }}
                                         </div>
                                     </div>
-                                    <div>
+                                    <div class="shrink-0">
                                         @if($status === 'completed')
                                             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                                                 <flux:icon icon="check-circle" class="size-3.5" />

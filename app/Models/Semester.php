@@ -56,6 +56,10 @@ class Semester extends Model
         'peer_max_points',
         'self_max_points',
         'staff_max_points',
+        'staff_overall_max_points',
+        'staff_head_weight',
+        'staff_peer_weight',
+        'staff_self_weight',
         'evaluation_starts_at',
         'evaluation_ends_at',
     ];
@@ -79,6 +83,10 @@ class Semester extends Model
         'peer_max_points' => 'float',
         'self_max_points' => 'float',
         'staff_max_points' => 'float',
+        'staff_overall_max_points' => 'float',
+        'staff_head_weight' => 'float',
+        'staff_peer_weight' => 'float',
+        'staff_self_weight' => 'float',
         'evaluation_starts_at' => 'datetime',
         'evaluation_ends_at' => 'datetime',
     ];
