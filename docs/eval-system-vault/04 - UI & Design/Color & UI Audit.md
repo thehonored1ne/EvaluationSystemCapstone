@@ -15,6 +15,26 @@ This document provides a comprehensive audit of all colors utilized across the *
 
 ---
 
+## 1. Typography System & Font Hierarchy
+
+The system enforces a strict two-font hierarchy balancing institutional reading clarity and technical data precision:
+
+### 1.1 Plus Jakarta Sans (`--font-sans`)
+* **Role**: Primary UI chrome, headings, body text, form controls, and navigation.
+* **Scope**: Section headers, card titles, rubric descriptions, interactive buttons, modal dialogs, and navigation rail/flyout items.
+* **Package**: `@fontsource-variable/plus-jakarta-sans`
+* **CSS Token**: `--font-sans: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;`
+
+### 1.2 JetBrains Mono (`--font-mono`)
+* **Role**: Data precision, technical metadata, and numeric indicators.
+* **Scope**: Numeric ratings (`4.85 / 5.00`), percentage scores (`94.2%`), faculty/student IDs (`FAC-2024-001`), status badges, timestamps, tabular figures, and Chart.js data benchmarks (`80% Target`).
+* **Rule**: Never use for general body paragraphs or standard action labels.
+* **Package**: `@fontsource-variable/jetbrains-mono`
+* **CSS Token**: `--font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;`
+* **Features**: `font-feature-settings: 'tnum' on, 'zero' on;` for tabular numeric stability.
+
+---
+
 ## 2. Core Brand Palette
 
 | Token Name                | Light Mode Value    | Dark Mode Value    | Tailwind Class | Usage / Target                                                                      |

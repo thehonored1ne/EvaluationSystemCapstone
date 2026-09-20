@@ -8,6 +8,13 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] #0000000 Evaluator Form UI/UX Redesign & Layout Refinements (Completed: 2026-09-20)
+  - **Refined Institutional Context Header:** Removed the avatar icon and left accent bar for a clean, unobstructed header. Resolved dark mode background (`bg-zinc-50 dark:bg-zinc-800/60`).
+  - **Distraction-Free Question Presentation:** Removed the criterion category pill badge, `Question X of Y` indicator, and the top dividing border, focusing attention on the question prompt.
+  - **Cleaned 1–5 Rating Button Grid:** Removed secondary description subtext and top-right keyboard tags (`[1]`–`[5]`). Retained score (`JetBrains Mono`) and qualitative rubric label (*Poor*, *Fair*, *Satisfactory*, *Very Satisfactory*, *Outstanding* in `Plus Jakarta Sans`) with centered alignment.
+  - **Mobile & Touch Ergonomics:** Scaled question heading sizes, tightened grid gaps, added `touch-manipulation` and minimum 42px+ touch hit areas on navigation buttons, with fully responsive header elements.
+  - **Quality Gates:** 100% green tests in `EvaluatorPortalFixesTest` (5 passed, 11 assertions), Pint PSR-12 compliant, and Vite build verified.
+
 - [X] #000000 Peer Evaluation Exemption ("Unable to Observe / Skip") & Automated Dynamic Weight Normalization (Completed: 2026-09-19)
   - **Construct Validity & "Unable to Observe / Skip" Exemption Mechanism:** Added an institutional exemption option for peer professor evaluations in `evaluation-form.blade.php`. Faculty can click *"No Basis to Observe"* when evaluating colleagues with different schedules or specializations without guessing arbitrary ratings.
   - **Categorical Audit Logging:** Requires selecting an institutional reason (*Different schedule / no direct interaction*, *Different specialization / separate department branch*, *New faculty member / insufficient observation window*, or *Other* with required explanation). Creates an immutable record in `evaluation_exemptions` and logs to Spatie activitylog.

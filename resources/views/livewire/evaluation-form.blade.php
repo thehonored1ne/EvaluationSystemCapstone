@@ -1,31 +1,37 @@
 <?php
 
-use Livewire\Volt\Component;
-use App\Models\User;
+use App\Jobs\ProcessEvaluationSubmission;
 use App\Models\AcademicClass;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationExemption;
 use App\Models\Semester;
-use App\Jobs\ProcessEvaluationSubmission;
+use App\Models\User;
+use App\Services\ProfanityFilterService;
 use Illuminate\Support\Facades\RateLimiter;
+use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public User $evaluatee;
+
     public ?AcademicClass $class = null;
+
     public string $evaluationType = 'upward_student'; // 'upward_student', 'upward_employee', 'downward', 'peer', 'self'
 
     public array $ratings = []; // [question_id => rating]
+
     public string $comments = '';
+
     public int $retryAfter = 0;
 
     public function updatedComments($value)
     {
-        $filterService = app(\App\Services\ProfanityFilterService::class);
+        $filterService = app(ProfanityFilterService::class);
 
         if ($filterService->hasProfanity($value)) {
             $this->comments = $filterService->clean($value);
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Respectful Feedback Required',
                 text: "Saying a bad word is not a good thing. Let's keep our comments constructive and respectful!",
                 variant: 'danger'
@@ -37,12 +43,12 @@ new class extends Component {
 
     public function filterProfanity(?string $text): string
     {
-        return app(\App\Services\ProfanityFilterService::class)->clean($text);
+        return app(ProfanityFilterService::class)->clean($text);
     }
 
     public function mount()
     {
-        $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
+        $rateLimitKey = 'submit-evaluation:'.auth()->id().':'.request()->ip();
         if (RateLimiter::tooManyAttempts($rateLimitKey, 50)) {
             $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
         }
@@ -53,7 +59,7 @@ new class extends Component {
     {
         $this->ratings = [];
         $this->comments = '';
-        
+
         $types = match ($this->evaluationType) {
             'student', 'upward_student' => ['upward_student', 'student'],
             'dean' => ['dean'],
@@ -100,30 +106,34 @@ new class extends Component {
                     'question_text' => $question->question_text,
                     'criterion_id' => $criterion->id,
                     'criterion_name' => $criterion->name,
-                    'max_points' => (float)$criterion->max_points,
+                    'max_points' => (float) $criterion->max_points,
                 ];
             }
         }
+
         return $questions;
     }
 
     public function submit()
     {
         $activeSem = Semester::where('is_active', true)->first();
-        
-        if (!$activeSem) {
+
+        if (! $activeSem) {
             session()->flash('error', 'There is no active semester. Submissions are disabled.');
+
             return;
         }
 
-        if (!$activeSem->isEvaluationWindowActive()) {
+        if (! $activeSem->isEvaluationWindowActive()) {
             session()->flash('error', 'Evaluations are currently closed.');
+
             return;
         }
 
-        $rateLimitKey = 'submit-evaluation:' . auth()->id() . ':' . request()->ip();
+        $rateLimitKey = 'submit-evaluation:'.auth()->id().':'.request()->ip();
         if (RateLimiter::tooManyAttempts($rateLimitKey, 50)) {
             $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
+
             return;
         }
 
@@ -142,7 +152,7 @@ new class extends Component {
 
         RateLimiter::hit($rateLimitKey, 300);
 
-        $sanitizedRatings = collect($this->ratings)->map(fn($val) => (int)$val)->toArray();
+        $sanitizedRatings = collect($this->ratings)->map(fn ($val) => (int) $val)->toArray();
         $cleanComments = $this->filterProfanity($this->comments);
 
         ProcessEvaluationSubmission::dispatch(
@@ -156,13 +166,15 @@ new class extends Component {
         );
 
         $this->dispatch('evaluation-submitted');
-        
+
         session()->flash('success', 'Evaluation submitted successfully to the background processing queue.');
         $this->resetForm();
     }
 
     public bool $showExemptionModal = false;
+
     public string $exemptionReason = '';
+
     public string $exemptionNotes = '';
 
     public function openExemptionModal(): void
@@ -179,14 +191,15 @@ new class extends Component {
         }
 
         $activeSem = Semester::where('is_active', true)->first();
-        if (!$activeSem || !$activeSem->isEvaluationWindowActive()) {
+        if (! $activeSem || ! $activeSem->isEvaluationWindowActive()) {
             session()->flash('error', 'Evaluations are currently closed.');
+
             return;
         }
 
         $this->validate([
             'exemptionReason' => 'required|string|in:schedule_conflict,different_specialization,new_faculty,other',
-            'exemptionNotes' => 'nullable|string|max:500' . ($this->exemptionReason === 'other' ? '|required|min:5' : ''),
+            'exemptionNotes' => 'nullable|string|max:500'.($this->exemptionReason === 'other' ? '|required|min:5' : ''),
         ], [
             'exemptionReason.required' => 'Please select an institutional reason.',
             'exemptionNotes.required' => 'Please provide specific remarks for this reason.',
@@ -238,6 +251,13 @@ new class extends Component {
         autoAdvanceTimeout: null,
         storageKey: 'draft_eval_{{ auth()->id() }}_{{ $evaluationType }}_{{ $evaluatee->id }}_{{ $class?->id ?? 'noclass' }}',
         isOffline: !navigator.onLine,
+        scaleLabels: {
+            1: 'Poor',
+            2: 'Fair',
+            3: 'Satisfactory',
+            4: 'Very Satisfactory',
+            5: 'Outstanding'
+        },
 
         init() {
             window.addEventListener('online', () => this.isOffline = false);
@@ -409,48 +429,95 @@ new class extends Component {
     @evaluation-submitted.window="clearDraft()"
     class="w-full max-w-6xl mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden"
 >
-    <!-- Simple Header: Name & Progress -->
-    <div class="px-3 sm:px-5 py-3 sm:py-3.5 bg-[#9b0000] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
-        <div>
-            <h2 class="text-base sm:text-lg md:text-xl font-bold">
+    <!-- Institutional Header: Context & Progress -->
+    <div class="px-3 sm:px-6 py-2.5 sm:py-4 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-6">
+        <div class="min-w-0 flex-1">
+            <!-- Top Sub-row: Evaluation Badge + Mobile Inline Progress -->
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-sans">
+                        @if($evaluationType === 'self')
+                            Self Evaluation
+                        @elseif($evaluationType === 'peer')
+                            Peer Evaluation
+                        @elseif($evaluationType === 'upward_student')
+                            Student Evaluation
+                        @elseif($evaluationType === 'upward_employee')
+                            Superior Evaluation
+                        @else
+                            Evaluation
+                        @endif
+                    </span>
+                    @if($class)
+                        <span class="text-zinc-300 dark:text-zinc-600">•</span>
+                        <span class="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 dark:text-zinc-400">
+                            {{ $class->subject->code }} • {{ $class->section }}
+                        </span>
+                    @endif
+                </div>
+
+                <!-- Mobile Progress Pill (Placed compactly on top-right) -->
+                <div class="sm:hidden inline-flex items-center px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-2xs font-mono text-xs font-bold text-zinc-800 dark:text-zinc-200 shrink-0 tabular-nums">
+                    <span x-text="`${answeredCount}/${totalQuestions}`"></span>
+                </div>
+            </div>
+
+            <!-- Evaluatee Name & Details -->
+            <h2 class="text-sm sm:text-base md:text-lg font-bold font-sans text-zinc-900 dark:text-zinc-50 leading-snug truncate mt-1">
                 @if($evaluationType === 'self')
-                    Self Evaluation
+                    {{ auth()->user()->name }}
                 @else
-                    Evaluating: {{ $evaluatee->name }}
+                    {{ $evaluatee->name }}
                 @endif
             </h2>
             @if($class)
-                <p class="text-xs text-red-100 mt-0.5">
-                    {{ $class->subject->code }} - {{ $class->subject->name }} ({{ $class->section }})
+                <p class="text-[10px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate font-sans">
+                    {{ $class->subject->name }}
                 </p>
             @endif
         </div>
 
-        <div class="flex items-center self-start sm:self-auto gap-2">
+        <!-- Desktop Progress Pill + Peer Exemption Button -->
+        <div class="hidden sm:flex items-center justify-end gap-2.5 shrink-0">
             @if($evaluationType === 'peer')
                 <button 
                     type="button" 
                     wire:click="openExemptionModal"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all cursor-pointer shrink-0 shadow-2xs"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer shrink-0 shadow-2xs font-sans"
                     title="Exempt evaluation if no opportunity to observe peer"
                 >
-                    <flux:icon icon="hand-raised" class="size-3.5 text-amber-300" />
+                    <flux:icon icon="hand-raised" class="size-3.5 text-amber-500" />
                     <span>No Basis to Observe</span>
                 </button>
             @endif
 
-            <div class="flex items-center gap-2 text-xs font-bold bg-white/15 px-3 py-1.5 rounded-full border border-white/20 shrink-0">
-                <span x-text="`${answeredCount}/${totalQuestions} Answered`"></span>
-                <span class="opacity-60">•</span>
-                <span x-text="`${progressPercent}%`" class="text-amber-300"></span>
+            <!-- High-Contrast Progress Pill Badge with Tabular Figures -->
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-2xs font-mono text-xs">
+                <span class="text-zinc-600 dark:text-zinc-300 font-semibold" x-text="`${answeredCount}/${totalQuestions} Answered`"></span>
+                <span class="text-zinc-300 dark:text-zinc-600">•</span>
+                <span x-text="`${progressPercent}%`" class="font-bold text-[#9b0000] dark:text-[#e07a7a] tabular-nums"></span>
             </div>
         </div>
+
+        <!-- Mobile Peer Exemption Button (if applicable) -->
+        @if($evaluationType === 'peer')
+            <div class="sm:hidden">
+                <button 
+                    type="button" 
+                    wire:click="openExemptionModal"
+                    class="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer shadow-2xs font-sans"
+                >
+                    <flux:icon icon="hand-raised" class="size-3 text-amber-500" />
+                    <span>No Basis to Observe</span>
+                </button>
+            </div>
+        @endif
     </div>
 
-    <!-- Progress Bar Line -->
+    <!-- Continuous Progress Bar Track -->
     <div class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800">
         <div 
-            class="h-full bg-amber-400 dark:bg-amber-400 transition-all duration-300 ease-out shadow-sm" 
+            class="h-full bg-gradient-to-r from-[#9b0000] via-[#c02b2b] to-amber-500 dark:from-[#e07a7a] dark:to-amber-400 transition-all duration-300 ease-out shadow-xs" 
             :style="`width: ${progressPercent}%`"
         ></div>
     </div>
@@ -495,18 +562,18 @@ new class extends Component {
     @endif
 
     <!-- Question Number Pills Grid Navigator -->
-    <div class="px-2.5 sm:px-5 py-2 sm:py-2.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40">
-        <div class="flex items-center gap-1.5 overflow-x-auto scroll-smooth sm:flex-wrap sm:max-h-24 sm:overflow-y-auto pb-1 sm:pb-0">
+    <div class="px-3 sm:px-6 py-3 sm:py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
+        <div class="flex items-center gap-2 overflow-x-auto scroll-smooth sm:flex-wrap sm:max-h-28 sm:overflow-y-auto py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             @foreach($flatQuestions as $idx => $q)
                 <button
                     type="button"
                     :x-ref="'pill_' + {{ $idx }}"
                     @click="goToQuestion({{ $idx }})"
-                    class="size-7 sm:size-8 min-w-7 sm:min-w-8 rounded-lg text-xs font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border shrink-0"
+                    class="size-8 sm:size-8.5 min-w-8 sm:min-w-8.5 rounded-lg text-xs font-mono font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border shrink-0"
                     :class="{
-                        'bg-[#9b0000] border-[#9b0000] text-white shadow-sm scale-105': !isReviewStep && currentIndex === {{ $idx }},
-                        'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
-                        'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400': (!isReviewStep && currentIndex !== {{ $idx }}) && !ratings[{{ $q['id'] }}],
+                        'bg-[#9b0000] border-[#9b0000] text-white shadow-sm ring-2 ring-[#9b0000]/20 dark:bg-[#e07a7a] dark:border-[#e07a7a] dark:text-zinc-950 scale-105': !isReviewStep && currentIndex === {{ $idx }},
+                        'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
+                        'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500': (!isReviewStep && currentIndex !== {{ $idx }}) && !ratings[{{ $q['id'] }}],
                         'opacity-60': isReviewStep && !ratings[{{ $q['id'] }}]
                     }"
                     title="Question {{ $idx + 1 }}"
@@ -524,10 +591,10 @@ new class extends Component {
             <button
                 type="button"
                 @click="isReviewStep = true"
-                class="h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap"
+                class="h-8 sm:h-8.5 px-3 rounded-lg text-xs font-sans font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap"
                 :class="{
-                    'bg-[#9b0000] border-[#9b0000] text-white shadow-sm': isReviewStep,
-                    'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400': !isReviewStep
+                    'bg-[#9b0000] border-[#9b0000] text-white shadow-sm dark:bg-[#e07a7a] dark:border-[#e07a7a] dark:text-zinc-950': isReviewStep,
+                    'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600': !isReviewStep
                 }"
             >
                 <flux:icon icon="clipboard-document-check" class="size-3.5" />
@@ -537,7 +604,7 @@ new class extends Component {
     </div>
 
     <!-- Main Content Area -->
-    <div class="p-3 sm:p-5 md:p-6">
+    <div class="px-3 py-5 sm:px-6 sm:py-7 md:p-8">
 
         <!-- Active Question Card Step (Wrapped in single root div for Alpine template compatibility) -->
         <template x-if="!isReviewStep && totalQuestions > 0">
@@ -550,58 +617,108 @@ new class extends Component {
                         x-transition:enter-end="opacity-100 scale-100"
                         class="flex flex-col gap-4 sm:gap-6"
                     >
-                        <!-- Question Header Info -->
-                        <div class="flex items-center justify-between gap-2 pb-2.5 sm:pb-4 border-b border-zinc-200 dark:border-zinc-800/80">
-                            <span class="px-2.5 sm:px-3 py-1 rounded-lg bg-red-950/10 dark:bg-red-950/40 text-[#9b0000] dark:text-[#e07a7a] text-[11px] sm:text-xs font-bold border border-red-900/20 truncate max-w-[180px] sm:max-w-none">
-                                {{ $q['criterion_name'] }}
-                            </span>
-                            <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
-                                Question {{ $idx + 1 }} of {{ $totalQuestionsCount }}
-                            </span>
-                        </div>
-
-                        <!-- Question Text -->
-                        <div class="py-3 sm:py-6 min-h-[70px] sm:min-h-[90px] flex items-center justify-center">
-                            <h3 class="text-base sm:text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-100 text-center leading-snug sm:leading-relaxed max-w-2xl px-0.5">
+                        <!-- Hero Question Prompt -->
+                        <div class="py-3 sm:py-8 md:py-10 min-h-[60px] sm:min-h-[100px] flex flex-col items-center justify-center text-center px-1 sm:px-4">
+                            <h3 class="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold sm:font-extrabold font-sans text-zinc-900 dark:text-zinc-50 leading-snug sm:leading-tight max-w-3xl tracking-tight">
                                 {{ $q['question_text'] }}
                             </h3>
                         </div>
 
-                        <!-- Horizontal 1-5 Rating Buttons Container -->
-                        <div class="my-2 sm:my-5 flex flex-col items-center justify-center gap-3 sm:gap-6 w-full">
-                            <!-- 1 to 5 Buttons with Clean Aspect-Square Dimensions -->
-                            <div class="grid grid-cols-5 gap-1.5 sm:gap-3 md:gap-5 w-full max-w-xs sm:max-w-md md:max-w-lg justify-items-center py-1 sm:py-2">
-                                @for($ratingVal = 1; $ratingVal <= 5; $ratingVal++)
-                                    <button
-                                        type="button"
-                                        @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
-                                        class="w-full max-w-[3.5rem] sm:max-w-[4.5rem] md:max-w-[5.5rem] aspect-square rounded-xl sm:rounded-2xl border-2 text-base sm:text-2xl md:text-3xl font-black transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none shrink-0 shadow-sm group"
-                                        :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
-                                            ? 'bg-[#9b0000] border-[#9b0000] text-white shadow-xl shadow-red-950/50 scale-105 sm:scale-110 ring-2 sm:ring-4 ring-red-900/30'
-                                            : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-red-100/80 dark:hover:bg-red-900/50 hover:border-[#9b0000] dark:hover:border-[#e07a7a] hover:text-[#9b0000] dark:hover:text-[#e07a7a]'"
-                                        title="Press {{ $ratingVal }} on keyboard"
-                                    >
-                                        <span class="leading-none">{{ $ratingVal }}</span>
-                                        <span class="hidden sm:inline-block text-[9px] font-mono font-semibold opacity-60 tracking-tight mt-0.5"
-                                              :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400 group-hover:text-[#9b0000] dark:group-hover:text-[#e07a7a]'">
-                                            [{{ $ratingVal }}]
+                        <!-- Integrated 5-Card Rating Grid -->
+                        @php
+                            $scaleOptions = [
+                                1 => ['label' => 'Poor', 'sub' => null],
+                                2 => ['label' => 'Fair', 'sub' => null],
+                                3 => ['label' => 'Satisfactory', 'sub' => null],
+                                4 => ['label' => 'Very', 'sub' => 'Satisfactory'],
+                                5 => ['label' => 'Outstanding', 'sub' => null],
+                            ];
+                        @endphp
+                        <!-- Mobile Vertical Rating Stack (< sm) -->
+                        <div class="sm:hidden flex flex-col gap-1.5 w-full max-w-sm mx-auto my-2">
+                            @for($ratingVal = 5; $ratingVal >= 1; $ratingVal--)
+                                @php $opt = $scaleOptions[$ratingVal]; @endphp
+                                <button
+                                    type="button"
+                                    @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
+                                    class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg min-[360px]:rounded-xl border transition-all duration-150 cursor-pointer select-none text-left min-h-[38px] min-[360px]:min-h-[40px] touch-manipulation"
+                                    :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
+                                        ? 'bg-[#9b0000] border-[#9b0000] text-white dark:bg-[#a82e2e] dark:border-[#e07a7a] shadow-2xs ring-1 ring-red-900/20'
+                                        : 'bg-white dark:bg-zinc-800/90 border-zinc-200 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 hover:border-[#9b0000]/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 shadow-2xs'"
+                                >
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <span 
+                                            class="size-6 min-[360px]:size-6.5 rounded-md flex items-center justify-center font-mono font-bold text-xs shrink-0 border transition-colors"
+                                            :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
+                                                ? 'bg-white/20 border-white/40 text-white'
+                                                : 'bg-zinc-100 dark:bg-zinc-700/60 border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300'"
+                                        >
+                                            {{ $ratingVal }}
                                         </span>
-                                    </button>
-                                @endfor
-                            </div>
+                                        <span class="font-sans font-bold text-xs truncate">
+                                            {{ $opt['label'] }}{{ $opt['sub'] ? ' '.$opt['sub'] : '' }}
+                                        </span>
+                                    </div>
 
-                            <!-- Separate Divider Line & Scale Legend Badges -->
-                            <div class="w-full pt-3 sm:pt-6 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-wrap justify-center items-center gap-1.5 sm:gap-4 md:gap-6 text-[10.5px] sm:text-xs md:text-sm font-semibold text-zinc-600 dark:text-zinc-400">
-                                <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">1</strong> Poor</span>
-                                <span class="opacity-40">•</span>
-                                <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">2</strong> Fair</span>
-                                <span class="opacity-40">•</span>
-                                <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">3</strong> Satisfactory</span>
-                                <span class="opacity-40">•</span>
-                                <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">4</strong> Very Satisfactory</span>
-                                <span class="opacity-40">•</span>
-                                <span class="flex items-center gap-1.5"><strong class="size-4 sm:size-5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-[10px] sm:text-[11px] font-black flex items-center justify-center">5</strong> Outstanding</span>
-                            </div>
+                                    <!-- Selected Indicator Circle -->
+                                    <div 
+                                        class="size-4 min-[360px]:size-4.5 rounded-full flex items-center justify-center shrink-0 transition-all border"
+                                        :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} 
+                                            ? 'bg-white border-white text-[#9b0000] dark:text-[#a82e2e]' 
+                                            : 'border-zinc-300 dark:border-zinc-600 bg-transparent'"
+                                    >
+                                        <template x-if="ratings[{{ $q['id'] }}] == {{ $ratingVal }}">
+                                            <flux:icon icon="check" class="size-2.5 stroke-[3]" />
+                                        </template>
+                                    </div>
+                                </button>
+                            @endfor
+                        </div>
+
+                        <!-- Desktop 5-Card Rating Grid (>= sm) -->
+                        <div class="hidden sm:grid sm:grid-cols-5 gap-3 md:gap-4 w-full max-w-4xl mx-auto my-4 sm:my-6">
+                            @for($ratingVal = 1; $ratingVal <= 5; $ratingVal++)
+                                @php $opt = $scaleOptions[$ratingVal]; @endphp
+                                <button
+                                    type="button"
+                                    @click="selectRating({{ $q['id'] }}, {{ $ratingVal }})"
+                                    class="flex flex-col items-center justify-center p-3.5 md:p-4 rounded-2xl border transition-all duration-200 cursor-pointer select-none group min-h-[96px] md:min-h-[110px] text-center"
+                                    :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }}
+                                        ? 'bg-[#9b0000] border-[#9b0000] text-white dark:bg-[#a82e2e] dark:border-[#e07a7a] shadow-md -translate-y-0.5 ring-4 ring-red-900/20 dark:ring-red-500/20'
+                                        : 'bg-white dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 hover:border-[#9b0000]/60 dark:hover:border-[#e07a7a]/60 hover:bg-red-50/40 dark:hover:bg-red-950/20 hover:-translate-y-0.5 shadow-2xs'"
+                                    title="Select {{ $ratingVal }} ({{ $opt['label'] }}{{ $opt['sub'] ? ' '.$opt['sub'] : '' }}) - Press {{ $ratingVal }} on keyboard"
+                                >
+                                    <!-- Rating Number -->
+                                    <span class="font-mono font-black text-2xl md:text-3xl lg:text-4xl leading-none tabular-nums">
+                                        {{ $ratingVal }}
+                                    </span>
+
+                                    <!-- Rubric Qualitative Label Directly on Card -->
+                                    <div class="w-full flex flex-col items-center justify-center mt-1.5 sm:mt-2">
+                                        @if($opt['sub'])
+                                            <span 
+                                                class="text-xs md:text-sm font-bold leading-tight font-sans text-center"
+                                                :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'"
+                                            >
+                                                {{ $opt['label'] }}
+                                            </span>
+                                            <span 
+                                                class="text-xs md:text-sm font-bold leading-tight font-sans text-center mt-0.5"
+                                                :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'"
+                                            >
+                                                {{ $opt['sub'] }}
+                                            </span>
+                                        @else
+                                            <span 
+                                                class="text-xs md:text-sm font-bold leading-tight font-sans text-center"
+                                                :class="ratings[{{ $q['id'] }}] == {{ $ratingVal }} ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'"
+                                            >
+                                                {{ $opt['label'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </button>
+                            @endfor
                         </div>
 
                         <!-- Card Controls & Keyboard Navigation Legend -->
@@ -613,7 +730,7 @@ new class extends Component {
                                     @click="prevQuestion()" 
                                     ::disabled="currentIndex === 0"
                                     icon="arrow-left"
-                                    class="cursor-pointer"
+                                    class="cursor-pointer font-sans min-h-[42px] sm:min-h-[44px] touch-manipulation"
                                 >
                                     Previous
                                 </flux:button>
@@ -621,23 +738,23 @@ new class extends Component {
                                 <button 
                                     type="button" 
                                     @click="nextQuestion()" 
-                                    class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] text-xs sm:text-sm font-bold shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#b93b3b]"
+                                    class="px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl bg-[#9b0000] hover:bg-[#7a0000] text-white dark:bg-[#a82e2e] dark:hover:bg-[#b93838] dark:text-[#f4f4f5] text-xs sm:text-sm font-bold font-sans shadow-md transition-all duration-150 flex items-center gap-2 cursor-pointer border border-[#9b0000] dark:border-[#b93b3b] min-h-[42px] sm:min-h-[44px] touch-manipulation"
                                 >
                                     <span x-text="currentIndex === totalQuestions - 1 ? 'Review & Submit →' : 'Next Question →'"></span>
                                 </button>
                             </div>
 
                             <!-- Keyboard Shortcuts Helper Badge Bar -->
-                            <div class="hidden sm:flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800">
-                                <span class="inline-flex items-center gap-1">
+                            <div class="hidden sm:flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800 font-sans">
+                                <span class="inline-flex items-center gap-1 font-mono">
                                     <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">1</kbd>–<kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">5</kbd> Rate
                                 </span>
                                 <span class="opacity-40">•</span>
-                                <span class="inline-flex items-center gap-1">
+                                <span class="inline-flex items-center gap-1 font-mono">
                                     <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">←</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">→</kbd> Navigate
                                 </span>
                                 <span class="opacity-40">•</span>
-                                <span class="inline-flex items-center gap-1">
+                                <span class="inline-flex items-center gap-1 font-mono">
                                     <kbd class="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shadow-2xs border border-zinc-300 dark:border-zinc-600">Enter</kbd> Next
                                 </span>
                             </div>
@@ -654,15 +771,10 @@ new class extends Component {
                 class="flex flex-col gap-6"
             >
                 <!-- Review Step Header -->
-                <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
-                    <div>
-                        <h3 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                            Evaluation Summary & Final Review
-                        </h3>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Review your ratings and optionally add feedback comments before submitting.
-                        </p>
-                    </div>
+                <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+                    <h3 class="text-sm sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug">
+                        Evaluation Summary & Final Review
+                    </h3>
 
                     <flux:button 
                         variant="subtle" 
@@ -710,10 +822,10 @@ new class extends Component {
                     @foreach($this->criteria as $criterion)
                         <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col gap-2">
                             <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
-                                <h4 class="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">
+                                <h4 class="font-bold font-sans text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">
                                     {{ $criterion->name }}
                                 </h4>
-                                <span class="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
+                                <span class="text-[10px] sm:text-[11px] font-mono font-bold text-zinc-500 dark:text-zinc-400 shrink-0 tabular-nums">
                                     Max: {{ (float)$criterion->max_points }} pts
                                 </span>
                             </div>
@@ -725,21 +837,21 @@ new class extends Component {
                                     @endphp
                                     <div class="py-2 flex items-center justify-between gap-2.5 text-xs">
                                         <div class="flex items-start gap-1.5 flex-1 min-w-0 pr-1">
-                                            <span class="font-bold text-zinc-400 shrink-0 mt-0.5">{{ $qIndexInFlat !== false ? $qIndexInFlat + 1 : '' }}.</span>
-                                            <span class="font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2 sm:truncate leading-snug">{{ $q->question_text }}</span>
+                                            <span class="font-mono font-bold text-zinc-400 shrink-0 mt-0.5">{{ $qIndexInFlat !== false ? $qIndexInFlat + 1 : '' }}.</span>
+                                            <span class="font-medium font-sans text-zinc-800 dark:text-zinc-200 line-clamp-2 sm:truncate leading-snug">{{ $q->question_text }}</span>
                                         </div>
 
                                         <div class="flex items-center gap-2 shrink-0 self-center">
                                             <template x-if="ratings[{{ $q->id }}]">
-                                                <span class="px-2 py-0.5 rounded-md bg-[#9b0000] text-white font-bold text-[11px] sm:text-xs whitespace-nowrap">
-                                                    Score: <span x-text="ratings[{{ $q->id }}]"></span> / 5
+                                                <span class="px-2 py-0.5 rounded-md bg-[#9b0000] dark:bg-[#a82e2e] text-white font-mono font-bold text-[11px] sm:text-xs whitespace-nowrap tabular-nums shadow-2xs">
+                                                    <span x-text="ratings[{{ $q->id }}]"></span>/5
                                                 </span>
                                             </template>
                                             <template x-if="!ratings[{{ $q->id }}]">
                                                 <button 
                                                     type="button" 
                                                     @click="goToQuestion({{ $qIndexInFlat !== false ? $qIndexInFlat : 0 }})" 
-                                                    class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 font-bold text-[10.5px] sm:text-[11px] hover:underline cursor-pointer whitespace-nowrap"
+                                                    class="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 font-sans font-bold text-[10.5px] sm:text-[11px] hover:underline cursor-pointer whitespace-nowrap"
                                                 >
                                                     Unanswered
                                                 </button>
@@ -754,18 +866,21 @@ new class extends Component {
 
                 <!-- Comments Textarea -->
                 <div class="flex flex-col gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                    <label for="comments" class="text-sm font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1">
-                        Comments & Suggestions <span class="text-rose-500 font-bold">*</span>
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <label for="comments" class="text-sm font-bold font-sans text-zinc-800 dark:text-zinc-200 flex items-center gap-1">
+                            Comments & Suggestions <span class="text-rose-500 font-bold">*</span>
+                        </label>
+                        <span class="text-xs font-mono text-zinc-400 dark:text-zinc-500 tabular-nums" x-text="`${(comments || '').trim().length} chars (min 3)`"></span>
+                    </div>
                     <textarea 
                         id="comments" 
                         wire:model.live.debounce.300ms="comments" 
                         rows="3" 
                         placeholder="Share constructive feedback here (required, min 3 characters)..." 
-                        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#9b0000] focus:ring-1 focus:ring-[#9b0000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200"
+                        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm focus:border-[#9b0000] focus:ring-1 focus:ring-[#9b0000] outline-none text-zinc-800 dark:text-zinc-200 transition-colors duration-200 font-sans"
                     ></textarea>
                     @error('comments')
-                        <div class="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                        <div class="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1 font-sans">
                             <flux:icon icon="exclamation-circle" class="size-4 shrink-0 text-rose-500" />
                             <span>{{ $message }}</span>
                         </div>
@@ -773,18 +888,15 @@ new class extends Component {
                 </div>
 
                 <!-- Terms & Privacy Confirmation Notice -->
-                <div class="p-3.5 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-xl flex items-start gap-2.5 text-xs text-zinc-600 dark:text-zinc-300">
-                    <flux:icon icon="shield-check" class="size-4.5 text-[#9b0000] dark:text-[#e07a7a] shrink-0 mt-0.5" />
-                    <div class="leading-relaxed">
-                        By submitting this evaluation, you confirm that your feedback is constructive, truthful, and adheres to institutional guidelines. All evaluation responses are processed in accordance with the 
-                        <button 
-                            type="button" 
-                            @click="$dispatch('open-terms-modal')" 
-                            class="font-bold underline text-[#9b0000] dark:text-[#e07a7a] hover:opacity-80 transition-opacity cursor-pointer inline-flex items-center gap-0.5"
-                        >
-                            Terms of Use & Privacy Policy
-                        </button>.
-                    </div>
+                <div class="p-3 sm:p-3.5 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    By submitting this evaluation, you confirm that your feedback is constructive, truthful, and adheres to institutional guidelines. All evaluation responses are processed in accordance with the 
+                    <button 
+                        type="button" 
+                        @click="$dispatch('open-terms-modal')" 
+                        class="font-bold underline text-[#9b0000] dark:text-[#e07a7a] hover:opacity-80 transition-opacity cursor-pointer inline-flex items-center gap-0.5"
+                    >
+                        Terms of Use & Privacy Policy
+                    </button>.
                 </div>
 
                 <!-- Review Action Controls -->

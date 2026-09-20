@@ -1,13 +1,18 @@
 @php
     $user = auth()->user();
     $roleRaw = $user ? ($user->getRoleNames()->first() ?? 'User') : 'User';
-    $roleName = ucwords(str_replace(['_', '-'], ' ', $roleRaw));
+    $roleKey = strtolower(str_replace(['_', '-'], ' ', $roleRaw));
+    $roleAliases = [
+        'department head' => 'Dept Head',
+        'program head' => 'Prog Head',
+    ];
+    $roleName = $roleAliases[$roleKey] ?? ucwords($roleKey);
     $activeSemester = \App\Models\Semester::getActive();
     $shortSemName = $activeSemester ? str_replace(['Semester', 'semester'], ['Sem', 'Sem'], $activeSemester->name) : '';
 @endphp
 
 <flux:header class="sticky top-0 z-30 border-b border-red-900/40 dark:border-zinc-800 bg-[#9b0000] dark:bg-[#161619] text-white dark:text-zinc-200 shadow-md dark:shadow-none print:hidden px-3 sm:px-4">
-    <!-- Left Side: Sidebar Toggle & Logged-in User Badge -->
+    <!-- Left Side: Sidebar Toggle & Active Semester Badge -->
     <div class="flex items-center gap-3 sm:gap-4 -ml-1 sm:-ml-1.5">
         <button 
             type="button" 
@@ -35,18 +40,13 @@
             <flux:icon icon="bars-2" class="size-5 block lg:hidden" />
         </button>
 
-        <div class="hidden sm:flex items-center gap-2 text-xs font-medium">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 dark:bg-zinc-800 text-white dark:text-zinc-200 border border-white/20 dark:border-zinc-700 text-xs font-semibold shadow-xs">
-                Logged as {{ $roleName }}
-            </span>
-
-            @if($activeSemester)
+        @if($activeSemester)
+            <div class="hidden sm:flex items-center gap-2 text-xs font-medium">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 dark:bg-zinc-800/60 text-white/90 dark:text-zinc-400 border border-white/15 dark:border-zinc-700/60 text-xs font-medium shadow-xs">
-                    
                     <span>{{ $activeSemester->academicYear?->name }} &bull; {{ $shortSemName }}</span>
                 </span>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
 
     <flux:spacer />
@@ -78,20 +78,25 @@
 
         <!-- Admin Profile Quick Dropdown -->
         <flux:dropdown position="bottom" align="end">
-            <button type="button" aria-label="User Account Menu" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
-                <span class="flex h-7 w-7 items-center justify-center rounded-md bg-white/20 dark:bg-zinc-800 text-white dark:text-zinc-200 text-xs font-bold shadow-sm border border-white/30 dark:border-zinc-700">
+            <button type="button" aria-label="User Account Menu" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left">
+                <span class="flex h-8 w-8 items-center justify-center rounded-md bg-white/20 dark:bg-zinc-800 text-white dark:text-zinc-200 text-xs font-bold shadow-sm border border-white/30 dark:border-zinc-700 shrink-0">
                     {{ auth()->user()->initials() }}
                 </span>
-                <span class="hidden md:inline-block text-xs font-semibold text-white dark:text-zinc-200 max-w-[120px] truncate">
-                    {{ auth()->user()->name }}
-                </span>
-                <flux:icon icon="chevron-down" class="size-3 text-red-200 dark:text-zinc-400" />
+                <div class="hidden sm:flex flex-col min-w-0 text-left leading-tight">
+                    <span class="text-xs font-semibold text-white dark:text-zinc-200 max-w-[130px] lg:max-w-[160px] truncate">
+                        {{ auth()->user()->name }}
+                    </span>
+                    <span class="text-[10px] font-medium text-white/75 dark:text-zinc-400 max-w-[130px] lg:max-w-[160px] truncate">
+                        {{ $roleName }}
+                    </span>
+                </div>
+                <flux:icon icon="chevron-down" class="size-3 text-red-200 dark:text-zinc-400 shrink-0" />
             </button>
 
             <flux:menu class="w-56">
                 <div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
                     <p class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">{{ auth()->user()->name }}</p>
-                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{{ auth()->user()->email }}</p>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{{ $roleName }} &bull; {{ auth()->user()->email }}</p>
                 </div>
                 <flux:menu.item href="/settings/profile" icon="cog" wire:navigate class="text-xs">Account Settings</flux:menu.item>
                 <flux:menu.separator />

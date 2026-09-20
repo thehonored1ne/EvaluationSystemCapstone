@@ -15,7 +15,8 @@ test('admin dashboard renders admin navbar and footer', function () {
     $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
     $response->assertStatus(200);
-    $response->assertSee('Logged as Admin');
+    $response->assertSee($admin->name);
+    $response->assertSee('Admin');
     $response->assertSee('Academic Evaluation System');
     $response->assertSee('Notifications');
     $response->assertSee('Global Reciprocal Colleges');

@@ -268,7 +268,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             grid: { color: gridColor },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' },
+                                font: { weight: '600', size: 11, family: "'JetBrains Mono', monospace" },
                                 callback: (v) => v + '%'
                             }
                         },
@@ -276,7 +276,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             grid: { display: false },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' },
+                                font: { weight: '600', size: 11, family: "'Plus Jakarta Sans', sans-serif" },
                                 callback: function(value) {
                                     const raw = this.getLabelForValue(value);
                                     if (raw === 'Department Heads') return 'Dept. Heads';
@@ -312,7 +312,7 @@ window.dashboardAnalyticsCharts = function(config) {
 
                                 ctx.setLineDash([]);
                                 const badgeText = '80% Target';
-                                ctx.font = 'bold 9.5px Lexend, sans-serif';
+                                ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
                                 const textWidth = ctx.measureText(badgeText).width;
                                 const badgeW = textWidth + 10;
                                 const badgeH = 16;
@@ -343,7 +343,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         if (!isComparing) {
                             const meta = chart.getDatasetMeta(1);
                             if (meta && meta.data) {
-                                ctx.font = 'bold 11px Lexend, sans-serif';
+                                ctx.font = 'bold 11px "JetBrains Mono", monospace';
                                 meta.data.forEach((bar, index) => {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
@@ -368,7 +368,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         } else {
                             const meta0 = chart.getDatasetMeta(0);
                             const meta1 = chart.getDatasetMeta(1);
-                            ctx.font = 'bold 10px Lexend, sans-serif';
+                            ctx.font = 'bold 10px "JetBrains Mono", monospace';
 
                             if (meta0 && meta0.data) {
                                 meta0.data.forEach((bar, index) => {
@@ -574,7 +574,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             grid: { color: gridColor },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: 11, family: 'Lexend, sans-serif' },
+                                font: { weight: '600', size: 11, family: "'JetBrains Mono', monospace" },
                                 callback: (v) => v + '%'
                             }
                         },
@@ -582,7 +582,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             grid: { display: false },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: isAcademic ? 11 : 10.5, family: 'Lexend, sans-serif' }
+                                font: { weight: '600', size: isAcademic ? 11 : 10.5, family: "'Plus Jakarta Sans', sans-serif" }
                             },
                             title: {
                                 display: false
@@ -613,7 +613,7 @@ window.dashboardAnalyticsCharts = function(config) {
                             // Benchmark badge text above line
                             ctx.setLineDash([]);
                             const badgeText = '80% Target';
-                            ctx.font = 'bold 9.5px Lexend, sans-serif';
+                            ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
                             const textWidth = ctx.measureText(badgeText).width;
                             const badgeW = textWidth + 10;
                             const badgeH = 16;
@@ -643,7 +643,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         if (!isComparing) {
                             const meta = chart.getDatasetMeta(1);
                             if (meta && meta.data) {
-                                ctx.font = `bold ${isAcademic ? 11 : 10.5}px Lexend, sans-serif`;
+                                ctx.font = `bold ${isAcademic ? 11 : 10.5}px "JetBrains Mono", monospace`;
                                 meta.data.forEach((bar, index) => {
                                     const val = chart.data.datasets[1]?.data[index];
                                     if (val !== undefined && val !== null) {
@@ -668,7 +668,7 @@ window.dashboardAnalyticsCharts = function(config) {
                         } else {
                             const meta0 = chart.getDatasetMeta(0);
                             const meta1 = chart.getDatasetMeta(1);
-                            const labelFont = isAcademic ? 'bold 10px Lexend, sans-serif' : 'bold 10px Lexend, sans-serif';
+                            const labelFont = isAcademic ? 'bold 10px "JetBrains Mono", monospace' : 'bold 10px "JetBrains Mono", monospace';
                             ctx.font = labelFont;
 
                             if (meta0 && meta0.data) {
@@ -879,8 +879,8 @@ window.submissionVelocityChart = function(config) {
                             padding: 10,
                             boxPadding: 4,
                             usePointStyle: true,
-                            titleFont: { weight: 'bold', size: 12, family: 'Lexend, sans-serif' },
-                            bodyFont: { size: 11, family: 'Lexend, sans-serif' },
+                            titleFont: { weight: 'bold', size: 12, family: "'Plus Jakarta Sans', sans-serif" },
+                            bodyFont: { size: 11, family: "'JetBrains Mono', monospace" },
                             callbacks: {
                                 label: (tooltipCtx) => {
                                     const val = Number(tooltipCtx.raw || 0);
@@ -902,7 +902,7 @@ window.submissionVelocityChart = function(config) {
                             },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: 10.5, family: 'Lexend, sans-serif' },
+                                font: { weight: '600', size: 10.5, family: "'JetBrains Mono', monospace" },
                                 maxRotation: 0,
                                 autoSkip: true,
                                 maxTicksLimit: 8,
@@ -915,7 +915,7 @@ window.submissionVelocityChart = function(config) {
                             },
                             ticks: {
                                 color: textColor,
-                                font: { weight: '600', size: 10.5, family: 'Lexend, sans-serif' },
+                                font: { weight: '600', size: 10.5, family: "'JetBrains Mono', monospace" },
                                 maxTicksLimit: 5,
                                 callback: (v) => {
                                     if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';

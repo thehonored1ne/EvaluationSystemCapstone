@@ -1,19 +1,20 @@
 <?php
 
-use Livewire\Volt\Component;
+use App\Models\Employee;
+use App\Models\Evaluation;
+use App\Models\Semester;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
-use App\Models\Semester;
-use App\Models\Employee;
-use App\Models\User;
-use App\Models\Evaluation;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     public function placeholder()
     {
         return view('livewire.placeholders.evaluator-dashboard-skeleton');
     }
+
     #[Url]
     public string $tab = 'self';
 
@@ -21,20 +22,22 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(): void
     {
-        if (!in_array($this->tab, ['self', 'faculty', 'program-heads'], true)) {
+        if (! in_array($this->tab, ['self', 'faculty', 'program-heads'], true)) {
             $this->tab = 'self';
         }
     }
 
     public function updatedTab($value): void
     {
-        if (!in_array($value, ['self', 'faculty', 'program-heads'], true)) {
+        if (! in_array($value, ['self', 'faculty', 'program-heads'], true)) {
             $this->tab = 'self';
         }
     }
 
     public ?int $selectedEvaluateeUserId = null;
+
     public string $selectedEvaluationType = 'dean'; // 'self', 'dean'
+
     public bool $showForm = false;
 
     public function getActiveSemesterProperty()
@@ -45,6 +48,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsEvaluationOpenProperty()
     {
         $sem = $this->activeSemester;
+
         return $sem ? $sem->isEvaluationWindowActive() : false;
     }
 
@@ -64,7 +68,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         if ($emp && $emp->department_id) {
             $query->where(function ($q) use ($emp) {
                 $q->where('department_id', $emp->department_id)
-                  ->orWhereHas('department', fn($d) => $d->where('type', 'academic'));
+                    ->orWhereHas('department', fn ($d) => $d->where('type', 'academic'));
             });
         }
 
@@ -74,7 +78,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getFilteredFacultyMembersProperty()
     {
         return $this->facultyMembers->filter(function ($fac) {
-            if (!$fac->user) {
+            if (! $fac->user) {
                 return false;
             }
             if ($this->statusFilter === 'all') {
@@ -83,7 +87,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $status = $this->getEvaluationStatus($fac->user->id, 'dean');
             $isDone = in_array($status, ['completed', 'processing']);
 
-            return $this->statusFilter === 'completed' ? $isDone : !$isDone;
+            return $this->statusFilter === 'completed' ? $isDone : ! $isDone;
         });
     }
 
@@ -100,7 +104,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getFilteredProgramHeadsProperty()
     {
         return $this->programHeads->filter(function ($head) {
-            if (!$head->user) {
+            if (! $head->user) {
                 return false;
             }
             if ($this->statusFilter === 'all') {
@@ -109,14 +113,16 @@ new #[Layout('components.layouts.app')] class extends Component {
             $status = $this->getEvaluationStatus($head->user->id, 'dean');
             $isDone = in_array($status, ['completed', 'processing']);
 
-            return $this->statusFilter === 'completed' ? $isDone : !$isDone;
+            return $this->statusFilter === 'completed' ? $isDone : ! $isDone;
         });
     }
 
     public function getEvaluationStatus($evaluateeUserId, $type)
     {
         $sem = $this->activeSemester;
-        if (!$sem) return 'closed';
+        if (! $sem) {
+            return 'closed';
+        }
 
         return Evaluation::getStatus(auth()->id(), $evaluateeUserId, $sem->id, null, $type);
     }
@@ -124,14 +130,18 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getSelfEvaluatedProperty(): bool
     {
         $status = $this->getEvaluationStatus(auth()->id(), 'self');
+
         return in_array($status, ['completed', 'processing']);
     }
 
     public function getEvaluatedFacultyCountProperty(): int
     {
         return $this->facultyMembers->filter(function ($fac) {
-            if (!$fac->user) return false;
+            if (! $fac->user) {
+                return false;
+            }
             $status = $this->getEvaluationStatus($fac->user->id, 'dean');
+
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
@@ -139,22 +149,27 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getEvaluatedProgramHeadsCountProperty(): int
     {
         return $this->programHeads->filter(function ($head) {
-            if (!$head->user) return false;
+            if (! $head->user) {
+                return false;
+            }
             $status = $this->getEvaluationStatus($head->user->id, 'dean');
+
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
 
     public function selectTarget($evaluateeUserId, $type)
     {
-        if (!$this->isEvaluationOpen) {
+        if (! $this->isEvaluationOpen) {
             session()->flash('error', 'Evaluations are currently closed.');
+
             return;
         }
 
         $status = $this->getEvaluationStatus($evaluateeUserId, $type);
         if ($status !== 'pending') {
             session()->flash('error', 'This evaluation is already processing or completed.');
+
             return;
         }
 
@@ -192,31 +207,43 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-1.5 sm:px-3 md:px-4 py-3 sm:py-6"
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-0 sm:px-3 md:px-4 py-3 sm:py-6"
     @if($this->hasProcessing) wire:poll.2500ms="checkProcessingStatus" @endif>
     @if(!$showForm)
         <!-- Header -->
-        <div class="flex flex-col items-center text-center md:flex-row md:justify-between md:items-center md:text-left gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-            <div>
-                <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">College Dean Dashboard</h1>
-                <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
-                    Role: <span class="font-semibold text-zinc-700 dark:text-zinc-300">Dean / Academic Head</span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm mb-4 sm:mb-6 text-center sm:text-left">
+            <div class="flex flex-col items-center sm:items-start min-w-0 flex-1">
+                <h1 class="text-xl sm:text-2xl font-bold font-sans text-zinc-900 dark:text-zinc-50 tracking-tight">
+                    College Dean Dashboard
+                </h1>
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1 mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                        Dean / Academic Head
+                    </span>
                     @if($this->activeSemester)
-                        | Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} - {{ $this->activeSemester->name }}</span>
+                        <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                        <span class="font-medium text-zinc-600 dark:text-zinc-400">
+                            <span class="font-mono">{{ $this->activeSemester->academicYear->name }}</span>
+                            <span>–</span>
+                            <span>{{ $this->activeSemester->name }}</span>
+                        </span>
                     @endif
-                </p>
+                </div>
             </div>
 
-            <div class="flex justify-center md:justify-end">
+            <div class="flex justify-center sm:justify-end shrink-0">
                 @if($this->isEvaluationOpen)
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                        <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Evaluations Open
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60 shadow-2xs whitespace-nowrap font-sans">
+                        <span class="relative flex size-2 shrink-0">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+                        </span>
+                        <span>Evaluations Open</span>
                     </span>
                 @else
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                        <span class="size-2 rounded-full bg-rose-500"></span>
-                        Evaluations Closed
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60 shadow-2xs whitespace-nowrap font-sans">
+                        <span class="size-2 rounded-full bg-rose-500 shrink-0"></span>
+                        <span>Evaluations Closed</span>
                     </span>
                 @endif
             </div>

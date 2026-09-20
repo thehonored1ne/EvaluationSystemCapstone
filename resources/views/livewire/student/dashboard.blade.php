@@ -1,22 +1,27 @@
 <?php
 
-use Livewire\Volt\Component;
+use App\Models\AcademicClass;
+use App\Models\Evaluation;
+use App\Models\Semester;
+use App\Models\User;
+use App\Services\EvaluationReferenceService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
-use App\Models\Semester;
-use App\Models\AcademicClass;
-use App\Models\User;
-use App\Models\Evaluation;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     public function placeholder()
     {
         return view('livewire.placeholders.student-dashboard-skeleton');
     }
 
     public ?int $selectedClassId = null;
+
     public ?User $selectedTeacherUser = null;
+
     public bool $showForm = false;
+
     public string $statusFilter = 'all';
 
     public function getActiveSemesterProperty()
@@ -27,16 +32,21 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsEvaluationOpenProperty()
     {
         $sem = $this->activeSemester;
+
         return $sem ? $sem->isEvaluationWindowActive() : false;
     }
 
     public function getEnrolledClassesProperty()
     {
         $sem = $this->activeSemester;
-        if (!$sem) return collect();
+        if (! $sem) {
+            return collect();
+        }
 
         $student = auth()->user()?->student;
-        if (!$student) return collect();
+        if (! $student) {
+            return collect();
+        }
 
         return AcademicClass::where('semester_id', $sem->id)
             ->whereHas('students', function ($q) use ($student) {
@@ -52,15 +62,18 @@ new #[Layout('components.layouts.app')] class extends Component {
         if ($this->statusFilter === 'completed') {
             return $classes->filter(function ($class) {
                 $teacherUserId = $class->teacher?->user?->id;
+
                 return $teacherUserId && in_array($this->getClassEvaluationStatus($class->id, $teacherUserId), ['completed', 'processing']);
             });
         }
         if ($this->statusFilter === 'pending') {
             return $classes->filter(function ($class) {
                 $teacherUserId = $class->teacher?->user?->id;
-                return $teacherUserId && !in_array($this->getClassEvaluationStatus($class->id, $teacherUserId), ['completed', 'processing']);
+
+                return $teacherUserId && ! in_array($this->getClassEvaluationStatus($class->id, $teacherUserId), ['completed', 'processing']);
             });
         }
+
         return $classes;
     }
 
@@ -73,11 +86,12 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         return $classes->filter(function ($class) {
             $teacherUserId = $class->teacher?->user?->id;
-            if (!$teacherUserId) {
+            if (! $teacherUserId) {
                 return false;
             }
 
             $status = $this->getClassEvaluationStatus($class->id, $teacherUserId);
+
             return in_array($status, ['completed', 'processing']);
         })->count();
     }
@@ -85,42 +99,48 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function getIsAllCompletedProperty(): bool
     {
         $classes = $this->enrolledClasses;
+
         return $classes->isNotEmpty() && $this->evaluatedCount === $classes->count();
     }
 
     public function getReferenceIdProperty(): ?string
     {
-        if (!$this->isAllCompleted || !$this->activeSemester) {
+        if (! $this->isAllCompleted || ! $this->activeSemester) {
             return null;
         }
 
-        return \App\Services\EvaluationReferenceService::generate(auth()->id(), $this->activeSemester->id);
+        return EvaluationReferenceService::generate(auth()->id(), $this->activeSemester->id);
     }
 
     public function getFormattedReferenceIdProperty(): ?string
     {
         $ref = $this->referenceId;
-        return $ref ? \App\Services\EvaluationReferenceService::format($ref) : null;
+
+        return $ref ? EvaluationReferenceService::format($ref) : null;
     }
 
     public function getClassEvaluationStatus($classId, $teacherUserId)
     {
         $sem = $this->activeSemester;
-        if (!$sem) return 'closed';
+        if (! $sem) {
+            return 'closed';
+        }
 
         return Evaluation::getStatus(auth()->id(), $teacherUserId, $sem->id, $classId, 'upward_student');
     }
 
     public function selectClass($classId, $teacherUserId)
     {
-        if (!$this->isEvaluationOpen) {
+        if (! $this->isEvaluationOpen) {
             session()->flash('error', 'Evaluations are currently closed.');
+
             return;
         }
 
         $status = $this->getClassEvaluationStatus($classId, $teacherUserId);
         if ($status !== 'pending') {
             session()->flash('error', 'This evaluation is already processing or completed.');
+
             return;
         }
 
@@ -133,6 +153,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return $this->enrolledClasses->contains(function ($class) {
             $teacherUserId = $class->teacher?->user?->id;
+
             return $teacherUserId && $this->getClassEvaluationStatus($class->id, $teacherUserId) === 'processing';
         });
     }
@@ -152,32 +173,43 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-1.5 sm:px-3 md:px-4 py-3 sm:py-6"
+<div class="flex flex-col gap-6 sm:gap-8 w-full max-w-6xl mx-auto px-0 sm:px-3 md:px-4 py-3 sm:py-6"
     @if($this->hasProcessing) wire:poll.2500ms="checkProcessingStatus" @endif>
     @if(!$showForm)
         <!-- Header -->
-        <div class="flex flex-col md:flex-row md:justify-between items-center text-center md:text-left gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-            <div class="flex flex-col items-center md:items-start">
-                <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Student Evaluation Dashboard</h1>
-                <p class="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm mb-4 sm:mb-6 text-center sm:text-left">
+            <div class="flex flex-col items-center sm:items-start min-w-0 flex-1">
+                <h1 class="text-xl sm:text-2xl font-bold font-sans text-zinc-900 dark:text-zinc-50 tracking-tight">
+                    Student Evaluation Dashboard
+                </h1>
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1 mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                     @if($this->activeSemester)
-                        Active Semester: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $this->activeSemester->academicYear->name }} - {{ $this->activeSemester->name }}</span>
+                        <span class="font-medium text-zinc-600 dark:text-zinc-400">
+                            <span class="font-mono">{{ $this->activeSemester->academicYear->name }}</span>
+                            <span>–</span>
+                            <span>{{ $this->activeSemester->name }}</span>
+                        </span>
                     @else
-                        No active semester configured.
+                        <span class="text-zinc-400 dark:text-zinc-500">
+                            No active semester configured
+                        </span>
                     @endif
-                </p>
+                </div>
             </div>
 
-            <div class="flex justify-center md:justify-end">
+            <div class="flex justify-center sm:justify-end shrink-0">
                 @if($this->isEvaluationOpen)
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                        <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Evaluations Open
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60 shadow-2xs whitespace-nowrap font-sans">
+                        <span class="relative flex size-2 shrink-0">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+                        </span>
+                        <span>Evaluations Open</span>
                     </span>
                 @else
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                        <span class="size-2 rounded-full bg-rose-500"></span>
-                        Evaluations Closed
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60 shadow-2xs whitespace-nowrap font-sans">
+                        <span class="size-2 rounded-full bg-rose-500 shrink-0"></span>
+                        <span>Evaluations Closed</span>
                     </span>
                 @endif
             </div>

@@ -159,11 +159,11 @@ new #[Layout('components.layouts.auth')] class extends Component
 
 <div class="flex flex-col gap-6" x-init="sessionStorage.removeItem('default_password_modal_dismissed')">
     <div class="flex w-full flex-col gap-2 text-center">
-        <h1 class="text-2xl font-black tracking-tight text-[#7a0000]">{{ __('Log in to your account') }}</h1>
+        <h1 class="text-2xl font-black tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">{{ __('Log in to your account') }}</h1>
     </div>
 
     <!-- Session Status -->
-    <x-auth-session-status class="text-center text-[#7a0000] font-semibold text-sm" :status="session('status')" />
+    <x-auth-session-status class="text-center text-white/95 font-semibold text-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]" :status="session('status')" />
 
     <form 
         wire:submit="login" 
@@ -175,8 +175,8 @@ new #[Layout('components.layouts.auth')] class extends Component
     >
         <!-- Identifier -->
         <div class="flex flex-col gap-1.5 text-left">
-            <label for="identifier" class="block text-xs font-bold uppercase tracking-wider text-[#7a0000]">
-                {{ __('Student/Employee ID or Email Address') }}
+            <label for="identifier" class="block text-xs font-bold uppercase tracking-wider text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                {{ __('Student/Employee ID or Email') }}
             </label>
             <div class="relative">
                 <input 
@@ -188,7 +188,7 @@ new #[Layout('components.layouts.auth')] class extends Component
                     autofocus 
                     autocomplete="username" 
                     placeholder="e.g. 2026-01-0001 / name@grc.edu.ph"
-                    class="w-full px-3.5 py-2.5 bg-white text-zinc-900 font-semibold text-sm rounded-xl border {{ $errors->has('identifier') ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-zinc-300 focus:border-[#9b0000] focus:ring-2 focus:ring-[#9b0000]/25' }} focus:outline-hidden transition-all placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+                    class="liquid-glass-input w-full px-3.5 py-2.5 text-zinc-900 font-semibold text-sm rounded-xl focus:outline-hidden transition-all placeholder:text-zinc-600 placeholder:font-normal"
                 />
             </div>
         </div>
@@ -196,11 +196,11 @@ new #[Layout('components.layouts.auth')] class extends Component
         <!-- Password -->
         <div class="flex flex-col gap-1.5 text-left" x-data="{ showPassword: false }">
             <div class="flex items-center justify-between">
-                <label for="password" class="block text-xs font-bold uppercase tracking-wider text-[#7a0000]">
+                <label for="password" class="block text-xs font-bold uppercase tracking-wider text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
                     {{ __('Password') }}
                 </label>
                 @if (Route::has('password.request'))
-                    <a class="text-xs font-semibold text-[#9b0000] hover:text-[#7a0000] hover:underline transition-colors" href="{{ route('password.request') }}" wire:navigate>
+                    <a class="text-xs font-semibold text-white/80 hover:text-white hover:underline transition-colors drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]" href="{{ route('password.request') }}" wire:navigate>
                         {{ __('Forgot your password?') }}
                     </a>
                 @endif
@@ -214,12 +214,12 @@ new #[Layout('components.layouts.auth')] class extends Component
                     required 
                     autocomplete="current-password" 
                     placeholder="Enter your password"
-                    class="w-full px-3.5 py-2.5 pr-10 bg-white text-zinc-900 font-semibold text-sm rounded-xl border {{ $errors->has('identifier') ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-zinc-300 focus:border-[#9b0000] focus:ring-2 focus:ring-[#9b0000]/25' }} focus:outline-hidden transition-all placeholder:text-zinc-400 placeholder:font-normal shadow-2xs"
+                    class="liquid-glass-input w-full px-3.5 py-2.5 pr-10 text-zinc-900 font-semibold text-sm rounded-xl focus:outline-hidden transition-all placeholder:text-zinc-600 placeholder:font-normal"
                 />
                 <button 
                     type="button" 
                     @click="showPassword = !showPassword" 
-                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-[#9b0000] transition-colors focus:outline-hidden cursor-pointer"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-500 hover:text-[#9b0000] transition-colors focus:outline-hidden cursor-pointer"
                     tabindex="-1"
                     title="Toggle password visibility"
                 >
@@ -233,7 +233,7 @@ new #[Layout('components.layouts.auth')] class extends Component
                 </button>
             </div>
             @error('password')
-                <p class="text-xs text-rose-600 font-semibold">{{ $message }}</p>
+                <p class="text-xs text-rose-300 font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">{{ $message }}</p>
             @enderror
         </div>
 
@@ -243,9 +243,9 @@ new #[Layout('components.layouts.auth')] class extends Component
                 wire:model="remember" 
                 id="remember" 
                 type="checkbox" 
-                class="size-4 rounded-md border-zinc-300 text-[#7a0000] focus:ring-[#9b0000] accent-[#7a0000] cursor-pointer"
+                class="size-4 rounded-md border-white/30 text-[#7a0000] focus:ring-white/40 accent-[#9b0000] cursor-pointer"
             />
-            <label for="remember" class="text-xs font-bold text-zinc-700 select-none cursor-pointer">
+            <label for="remember" class="text-xs font-bold text-white/90 select-none cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
                 {{ __('Remember me') }}
             </label>
         </div>
@@ -256,7 +256,7 @@ new #[Layout('components.layouts.auth')] class extends Component
                 :disabled="isSubmitting"
                 :class="isSubmitting ? 'pointer-events-none opacity-60 cursor-not-allowed' : 'cursor-pointer'"
                 wire:offline.attr="disabled"
-                class="w-full py-3 px-4 bg-[#7a0000] hover:bg-[#9b0000] active:bg-[#600000] text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                class="w-full py-3 px-4 bg-[#7a0000] hover:bg-[#9b0000] active:bg-[#600000] text-white font-bold text-sm rounded-xl shadow-[0_4px_14px_rgba(122,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_6px_22px_rgba(122,0,0,0.55)] transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
                 <span x-show="!isSubmitting">{{ __('Log in') }}</span>
                 <span x-show="isSubmitting" x-cloak class="inline-flex items-center gap-2">
@@ -266,7 +266,7 @@ new #[Layout('components.layouts.auth')] class extends Component
             </button>
             <a 
                 href="{{ route('home') }}" 
-                class="w-full py-2.5 px-4 text-[#7a0000] hover:text-[#9b0000] hover:bg-zinc-100/80 font-bold rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-xs" 
+                class="w-full py-2.5 px-4 text-white/80 hover:text-white hover:bg-white/15 font-bold rounded-xl transition-all duration-150 flex items-center justify-center gap-2 text-xs drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]" 
                 wire:navigate
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -733,102 +733,105 @@ new #[Layout('components.layouts.app')] class extends Component
     @endif
 
     <!-- Certificate of Teaching Excellence Modal -->
-    <flux:modal wire:model="showCertificateModal" class="max-w-4xl p-0 overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+    <flux:modal wire:model="showCertificateModal" class="w-[calc(100vw-1rem)] sm:w-full max-w-4xl p-0 overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl sm:rounded-2xl">
         @if($this->certificateData)
             @php $cert = $this->certificateData; @endphp
-            <div class="flex flex-col">
+            <div class="flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                 <!-- Modal Top Action Bar (hidden on print) -->
-                <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 print:hidden">
-                    <div class="flex items-center gap-2">
-                        <flux:icon icon="academic-cap" class="size-5 text-[#9b0000] dark:text-[#e07a7a]" />
-                        <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Certificate of Teaching Excellence Preview</span>
+                <div class="flex items-center justify-between gap-2 pl-3 sm:pl-6 pr-12 sm:pr-14 py-2.5 sm:py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 shrink-0 print:hidden">
+                    <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <flux:icon icon="academic-cap" class="size-4 sm:size-5 text-[#9b0000] dark:text-[#e07a7a] shrink-0" />
+                        <span class="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                            <span class="sm:hidden">Certificate Preview</span>
+                            <span class="hidden sm:inline">Certificate of Teaching Excellence Preview</span>
+                        </span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold text-xs">
-                            Print / Save as PDF
+                    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <flux:button variant="primary" icon="printer" onclick="window.print()" class="!bg-[#9b0000] hover:!bg-[#7a0000] text-white font-bold text-xs !py-1 sm:!py-1.5 !px-2 sm:!px-3">
+                            <span class="hidden sm:inline">Print / Save as PDF</span>
+                            <span class="sm:hidden">Print</span>
                         </flux:button>
-                        <flux:modal.close>
-                            <flux:button variant="ghost" size="sm">Close</flux:button>
-                        </flux:modal.close>
                     </div>
                 </div>
 
                 <!-- Printable Certificate Canvas (Standard A4 / Letter Landscape) -->
-                <div id="certificate-print-canvas" class="p-8 sm:p-12 md:p-14 bg-[#fcfbfa] text-zinc-900 flex flex-col items-center justify-between text-center relative border-[12px] border-double border-[#9b0000] m-4 md:m-6 shadow-sm min-h-[580px] print:m-0 print:border-[10px] print:border-[#9b0000] print:shadow-none print:bg-white">
-                    <!-- Corner Flourish Accents -->
-                    <div class="absolute top-3 left-3 text-[#9b0000] text-xs font-serif opacity-70">❖</div>
-                    <div class="absolute top-3 right-3 text-[#9b0000] text-xs font-serif opacity-70">❖</div>
-                    <div class="absolute bottom-3 left-3 text-[#9b0000] text-xs font-serif opacity-70">❖</div>
-                    <div class="absolute bottom-3 right-3 text-[#9b0000] text-xs font-serif opacity-70">❖</div>
+                <div class="overflow-y-auto flex-1 p-0">
+                    <div id="certificate-print-canvas" class="p-3.5 sm:p-10 md:p-14 bg-[#fcfbfa] text-zinc-900 flex flex-col items-center justify-between text-center relative border-[6px] sm:border-[10px] md:border-[12px] border-double border-[#9b0000] m-2 sm:m-4 md:m-6 shadow-sm min-h-0 sm:min-h-[540px] md:min-h-[580px] print:m-0 print:border-[10px] print:border-[#9b0000] print:shadow-none print:bg-white print:p-12">
+                        <!-- Corner Flourish Accents -->
+                        <div class="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 text-[#9b0000] text-[10px] sm:text-xs font-serif opacity-70">❖</div>
+                        <div class="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 text-[#9b0000] text-[10px] sm:text-xs font-serif opacity-70">❖</div>
+                        <div class="absolute bottom-1.5 left-1.5 sm:bottom-3 sm:left-3 text-[#9b0000] text-[10px] sm:text-xs font-serif opacity-70">❖</div>
+                        <div class="absolute bottom-1.5 right-1.5 sm:bottom-3 sm:right-3 text-[#9b0000] text-[10px] sm:text-xs font-serif opacity-70">❖</div>
 
-                    <!-- Institutional Header -->
-                    <div class="flex flex-col items-center gap-2">
-                        <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Institution Logo" class="h-14 md:h-16 w-auto object-contain" />
-                        <div class="flex flex-col">
-                            <h2 class="font-serif font-black tracking-widest uppercase text-base md:text-lg text-zinc-900">
-                                Global Reciprocal Colleges
-                            </h2>
-                            <p class="text-[10px] md:text-xs text-zinc-500 uppercase tracking-widest font-sans">
-                                Office of Academic Affairs & Faculty Development
+                        <!-- Institutional Header -->
+                        <div class="flex flex-col items-center gap-1.5 sm:gap-2">
+                            <img src="{{ asset('GRC-o-Evaluation-LOGO.webp') }}" alt="Institution Logo" class="h-10 sm:h-14 md:h-16 w-auto object-contain" />
+                            <div class="flex flex-col">
+                                <h2 class="font-serif font-black tracking-widest uppercase text-xs sm:text-base md:text-lg text-zinc-900 leading-tight">
+                                    Global Reciprocal Colleges
+                                </h2>
+                                <p class="text-[8px] sm:text-[10px] md:text-xs text-zinc-500 uppercase tracking-wider sm:tracking-widest font-sans mt-0.5">
+                                    Office of Academic Affairs & Faculty Development
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Certificate Title -->
+                        <div class="my-2 sm:my-4">
+                            <p class="text-[9px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#9b0000] font-bold">Certificate of</p>
+                            <h1 class="text-xl sm:text-3xl md:text-4xl font-serif font-black text-zinc-900 uppercase tracking-wide mt-0.5 sm:mt-1">
+                                Teaching Excellence
+                            </h1>
+                            <p class="text-[10px] sm:text-xs text-zinc-500 italic mt-0.5 sm:mt-1 font-serif">
+                                This formal commendation is proudly presented to
                             </p>
                         </div>
-                    </div>
 
-                    <!-- Certificate Title -->
-                    <div class="my-4">
-                        <p class="text-xs uppercase tracking-[0.3em] text-[#9b0000] font-bold">Certificate of</p>
-                        <h1 class="text-2xl md:text-4xl font-serif font-black text-zinc-900 uppercase tracking-wide mt-1">
-                            Teaching Excellence
-                        </h1>
-                        <p class="text-xs text-zinc-500 italic mt-1 font-serif">
-                            This formal commendation is proudly presented to
-                        </p>
-                    </div>
-
-                    <!-- Recipient Name -->
-                    <div class="my-2 border-b-2 border-zinc-900 pb-1.5 px-8 max-w-xl mx-auto">
-                        <span class="text-2xl md:text-3xl font-serif font-black text-zinc-900 tracking-tight">
-                            {{ $cert->faculty->name }}
-                        </span>
-                    </div>
-                    <p class="text-xs text-zinc-600 font-medium">
-                        {{ $cert->faculty->department?->name ?? 'College Faculty' }} ({{ $cert->faculty->department?->code ?? 'GEN' }})
-                    </p>
-
-                    <!-- Citation Text -->
-                    <div class="max-w-2xl text-xs md:text-sm text-zinc-700 leading-relaxed my-4 font-serif">
-                        In recognition of outstanding instructional performance, exemplary pedagogical dedication, and meritorious evaluation ratings achieved during 
-                        <span class="font-bold text-zinc-900 font-sans">A.Y. {{ $cert->academic_year }} — {{ $cert->semester_name }}</span>.
-                        <div class="mt-2 inline-flex items-center gap-2 bg-zinc-100 px-3 py-1 rounded-md text-xs font-mono font-bold text-zinc-800 border border-zinc-200 print:border print:border-zinc-300">
-                            <span>Rating: {{ number_format($cert->faculty->avg_score, 2) }} / 5.00</span>
-                            @if($cert->faculty->rank)
-                                <span>•</span>
-                                <span>Institutional Rank #{{ $cert->faculty->rank }}</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- Signatures Section -->
-                    <div class="w-full grid grid-cols-2 gap-8 md:gap-16 pt-8 mt-4 border-t border-zinc-200">
-                        <div class="flex flex-col items-center">
-                            <div class="w-48 border-b border-zinc-800 mb-1.5"></div>
-                            <span class="font-bold text-xs uppercase text-zinc-900 tracking-wider">
-                                {{ $cert->faculty->department?->dean?->full_name ?? 'College Dean' }}
+                        <!-- Recipient Name -->
+                        <div class="my-1.5 sm:my-2 border-b-2 border-zinc-900 pb-1 sm:pb-1.5 px-3 sm:px-8 max-w-full sm:max-w-xl mx-auto">
+                            <span class="text-lg sm:text-2xl md:text-3xl font-serif font-black text-zinc-900 tracking-tight break-words">
+                                {{ $cert->faculty->name }}
                             </span>
-                            <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Dean of Academic College</span>
+                        </div>
+                        <p class="text-[10px] sm:text-xs text-zinc-600 font-medium px-2 break-words">
+                            {{ $cert->faculty->department?->name ?? 'College Faculty' }} ({{ $cert->faculty->department?->code ?? 'GEN' }})
+                        </p>
+
+                        <!-- Citation Text -->
+                        <div class="max-w-2xl text-[11px] sm:text-xs md:text-sm text-zinc-700 leading-relaxed my-2 sm:my-4 font-serif px-2">
+                            In recognition of outstanding instructional performance, exemplary pedagogical dedication, and meritorious evaluation ratings achieved during 
+                            <span class="font-bold text-zinc-900 font-sans">A.Y. {{ $cert->academic_year }} — {{ $cert->semester_name }}</span>.
+                            <div class="mt-2 inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-zinc-100 px-2.5 sm:px-3 py-1 rounded-md text-[10px] sm:text-xs font-mono font-bold text-zinc-800 border border-zinc-200 print:border print:border-zinc-300">
+                                <span>Rating: {{ number_format($cert->faculty->avg_score, 2) }} / 5.00</span>
+                                @if($cert->faculty->rank)
+                                    <span class="hidden min-[360px]:inline">&bull;</span>
+                                    <span>Institutional Rank #{{ $cert->faculty->rank }}</span>
+                                @endif
+                            </div>
                         </div>
 
-                        <div class="flex flex-col items-center">
-                            <div class="w-48 border-b border-zinc-800 mb-1.5"></div>
-                            <span class="font-bold text-xs uppercase text-zinc-900 tracking-wider">Office of Academic Affairs</span>
-                            <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Vice President for Academic Affairs</span>
-                        </div>
-                    </div>
+                        <!-- Signatures Section -->
+                        <div class="w-full grid grid-cols-2 gap-3 sm:gap-8 md:gap-16 pt-4 sm:pt-8 mt-3 sm:mt-4 border-t border-zinc-200">
+                            <div class="flex flex-col items-center">
+                                <div class="w-full max-w-[120px] sm:max-w-[192px] border-b border-zinc-800 mb-1 sm:mb-1.5"></div>
+                                <span class="font-bold text-[9px] sm:text-xs uppercase text-zinc-900 tracking-wider text-center break-words leading-tight">
+                                    {{ $cert->faculty->department?->dean?->full_name ?? 'College Dean' }}
+                                </span>
+                                <span class="text-[8px] sm:text-[10px] text-zinc-500 uppercase tracking-wider text-center leading-tight mt-0.5">Dean of Academic College</span>
+                            </div>
 
-                    <!-- Date & Verification Code Footer -->
-                    <div class="w-full flex items-center justify-between text-[9px] text-zinc-400 mt-6 print:text-zinc-500">
-                        <span>Awarded on {{ $cert->date_awarded }}</span>
-                        <span class="font-mono">Doc Ref: GRC-CTE-{{ $cert->faculty->id }}-{{ date('Ymd') }}</span>
+                            <div class="flex flex-col items-center">
+                                <div class="w-full max-w-[120px] sm:max-w-[192px] border-b border-zinc-800 mb-1 sm:mb-1.5"></div>
+                                <span class="font-bold text-[9px] sm:text-xs uppercase text-zinc-900 tracking-wider text-center break-words leading-tight">Office of Academic Affairs</span>
+                                <span class="text-[8px] sm:text-[10px] text-zinc-500 uppercase tracking-wider text-center leading-tight mt-0.5">Vice President for Academic Affairs</span>
+                            </div>
+                        </div>
+
+                        <!-- Date & Verification Code Footer -->
+                        <div class="w-full flex flex-col sm:flex-row items-center justify-between gap-1 text-[8px] sm:text-[9px] text-zinc-400 mt-4 sm:mt-6 print:text-zinc-500">
+                            <span>Awarded on {{ $cert->date_awarded }}</span>
+                            <span class="font-mono">Doc Ref: GRC-CTE-{{ $cert->faculty->id }}-{{ date('Ymd') }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
