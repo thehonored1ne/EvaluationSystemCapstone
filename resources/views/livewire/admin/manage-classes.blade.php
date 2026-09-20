@@ -781,11 +781,33 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <div class="w-full flex flex-col gap-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div class="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between mb-2">
         <div>
-            <flux:heading size="xl" level="1">Manage Classes & Enrollment</flux:heading>
+            <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">Manage Classes & Enrollment</flux:heading>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+
+        <!-- Mobile Actions (< sm) -->
+        <div class="flex items-center gap-2 w-full sm:hidden">
+            <flux:button variant="primary" icon="plus" wire:click="prepareCreate" class="flex-1 justify-center">
+                Add Class
+            </flux:button>
+            <flux:dropdown align="end">
+                <flux:button variant="outline">
+                    Actions
+                </flux:button>
+                <flux:menu>
+                    <flux:menu.item icon="arrow-down-tray" wire:click="exportClasses">
+                        Export CSV
+                    </flux:menu.item>
+                    <flux:menu.item icon="arrow-up-tray" wire:click="$set('showImportModal', true)">
+                        Import Classes
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
+        </div>
+
+        <!-- Desktop Actions (>= sm) -->
+        <div class="hidden sm:flex items-center gap-2">
             <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportClasses">
                 Export CSV
             </flux:button>
@@ -798,59 +820,103 @@ new #[Layout('components.layouts.app')] class extends Component
         </div>
     </div>
     
-    <!-- Search & Advanced Filter Controls Bar (Inline Flex + 2x2/4-across Grid) -->
-    <div class="flex flex-col gap-3 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full">
+    <!-- Search & Advanced Filter Controls Bar -->
+    <div x-data="{ showMobileFilters: false }" class="flex flex-col gap-2.5 sm:gap-3">
+        <div class="flex items-center gap-2 w-full">
             <!-- Search Input Bar -->
-            <div class="flex-1 min-w-[220px]">
+            <div class="flex-1 min-w-0">
                 <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by section, subject or professor..." />
             </div>
 
-            <!-- Filter Dropdowns Grid (2x2 on mobile/tablet, 4-across on desktop) -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 flex-1 items-center">
-                <!-- Semester Filter -->
-                <div>
-                    <flux:select wire:model.live="filterSemester" class="w-full" placeholder="All Semesters">
-                        <option value="">All Semesters</option>
-                        @foreach($semestersList as $sem)
-                            <option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</option>
-                        @endforeach
-                    </flux:select>
-                </div>
-
-                <!-- Department Filter -->
-                <div>
-                    <flux:select wire:model.live="filterDepartment" class="w-full" placeholder="All Departments">
-                        <option value="">All Departments</option>
-                        @foreach($departmentsList as $dept)
-                            <option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</option>
-                        @endforeach
-                    </flux:select>
-                </div>
-
-                <!-- Subject Filter -->
-                <div>
-                    <flux:select wire:model.live="filterSubject" class="w-full" placeholder="All Subjects">
-                        <option value="">All Subjects</option>
-                        @foreach($subjectsList as $subj)
-                            <option value="{{ $subj->id }}">{{ $subj->name }}</option>
-                        @endforeach
-                    </flux:select>
-                </div>
-
-                <!-- Sort By Dropdown -->
-                <div>
-                    <flux:select wire:model.live="sortBy" class="w-full" placeholder="Sort By">
-                        <option value="professor_asc">Sort: Professor (A-Z)</option>
-                        <option value="professor_desc">Sort: Professor (Z-A)</option>
-                        <option value="subject_asc">Sort: Subject Name (A-Z)</option>
-                        <option value="subject_desc">Sort: Subject Name (Z-A)</option>
-                    </flux:select>
-                </div>
+            <!-- Mobile Filters Toggle Button (< sm) -->
+            @php
+                $activeFiltersCount = ($filterSemester ? 1 : 0) + ($filterDepartment ? 1 : 0) + ($filterSubject ? 1 : 0) + ($sortBy ? 1 : 0);
+            @endphp
+            <div class="sm:hidden shrink-0">
+                <flux:button 
+                    variant="outline" 
+                    icon="adjustments-horizontal" 
+                    @click="showMobileFilters = !showMobileFilters"
+                    class="relative cursor-pointer"
+                    x-bind:class="{ 'bg-zinc-100 dark:bg-zinc-800 ring-2 ring-[#9b0000]/20 dark:ring-[#e07a7a]/20': showMobileFilters }"
+                >
+                    <span>Filters</span>
+                    @if($activeFiltersCount > 0)
+                        <span class="inline-flex items-center justify-center size-4 rounded-full bg-[#9b0000] dark:bg-[#e07a7a] text-[10px] font-bold text-white dark:text-zinc-950 ml-1">
+                            {{ $activeFiltersCount }}
+                        </span>
+                    @endif
+                </flux:button>
             </div>
 
-            <!-- Reset Button -->
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0 self-end lg:self-center" />
+            @if($search || $filterSemester || $filterDepartment || $filterSubject || $sortBy)
+                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" class="hidden sm:inline-flex shrink-0" />
+            @endif
+        </div>
+
+        <!-- Filter Dropdowns (Collapsible on Mobile, Expanded Grid on Desktop) -->
+        <div 
+            x-show="showMobileFilters" 
+            x-cloak
+            class="flex flex-col sm:grid sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-3 p-4 sm:p-0 bg-zinc-50 sm:bg-transparent dark:bg-zinc-800/60 sm:dark:bg-transparent rounded-xl border border-zinc-200/80 sm:border-0 dark:border-zinc-700/60 transition-all duration-200 sm:!grid"
+            :class="{ 'hidden': !showMobileFilters }"
+        >
+            <!-- Semester Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="filterSemester" class="w-full" placeholder="All Semesters">
+                    <option value="">All Semesters</option>
+                    @foreach($semestersList as $sem)
+                        <option value="{{ $sem->id }}">{{ $sem->academicYear->name }} - {{ $sem->name }}</option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Department Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="filterDepartment" class="w-full" placeholder="All Departments">
+                    <option value="">All Departments</option>
+                    @foreach($departmentsList as $dept)
+                        <option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Subject Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="filterSubject" class="w-full" placeholder="All Subjects">
+                    <option value="">All Subjects</option>
+                    @foreach($subjectsList as $subj)
+                        <option value="{{ $subj->id }}">{{ $subj->name }}</option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Sort By Dropdown -->
+            <div class="w-full">
+                <flux:select wire:model.live="sortBy" class="w-full" placeholder="Sort By">
+                    <option value="professor_asc">Sort: Professor (A-Z)</option>
+                    <option value="professor_desc">Sort: Professor (Z-A)</option>
+                    <option value="subject_asc">Sort: Subject Name (A-Z)</option>
+                    <option value="subject_desc">Sort: Subject Name (Z-A)</option>
+                </flux:select>
+            </div>
+
+            <!-- Mobile-only Clear Filters Action -->
+            @if($search || $filterSemester || $filterDepartment || $filterSubject || $sortBy)
+                <div class="flex sm:hidden items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-700/60 sm:col-span-2 md:col-span-4">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                        {{ $activeFiltersCount }} filter{{ $activeFiltersCount === 1 ? '' : 's' }} active
+                    </span>
+                    <button 
+                        type="button" 
+                        wire:click="clearFilters" 
+                        class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        <flux:icon icon="arrow-path" class="size-3.5" />
+                        <span>Reset all</span>
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
     

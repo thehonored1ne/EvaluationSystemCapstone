@@ -1,8 +1,9 @@
-﻿<?php
+<?php
 
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public function markAllAsRead()
     {
         if (auth()->check()) {
@@ -10,7 +11,7 @@ new class extends Component {
             $user->update(['notifications_last_viewed_at' => now()]);
             $user->refresh();
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Notifications Read',
                 text: 'All notifications marked as read.',
                 variant: 'success'
@@ -25,7 +26,7 @@ new class extends Component {
             $user->dismissNotification($id);
             $user->refresh();
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Notification Removed',
                 text: 'Notification has been dismissed.',
                 variant: 'success'
@@ -40,7 +41,7 @@ new class extends Component {
             $user->clearAllNotifications();
             $user->refresh();
 
-            \Flux::toast(
+            Flux::toast(
                 heading: 'Notifications Cleared',
                 text: 'All current notifications have been cleared.',
                 variant: 'success'
@@ -74,7 +75,7 @@ new class extends Component {
     }
 }; ?>
 
-<div>
+<div class="flex items-center">
     <flux:dropdown position="bottom" align="end">
         <button type="button" aria-label="Notifications" class="relative inline-flex items-center justify-center p-2 rounded-lg text-white hover:bg-white/10 transition-colors cursor-pointer" title="Notifications">
             <flux:icon icon="bell" class="size-5" />
@@ -85,7 +86,7 @@ new class extends Component {
             @endif
         </button>
 
-        <flux:menu class="w-[calc(100vw-1.5rem)] sm:w-96 max-w-[24rem] p-0 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden shadow-xl rounded-xl">
+        <flux:menu class="notification-dropdown-menu max-sm:!left-3 max-sm:!right-3 max-sm:!mx-auto max-sm:!w-[calc(100vw-1.5rem)] max-sm:!max-w-[24rem] w-[calc(100vw-1.5rem)] sm:w-96 max-w-[24rem] p-0 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden shadow-xl rounded-xl">
             <!-- Dropdown Header -->
             <div class="flex items-center justify-between px-3.5 sm:px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 gap-2">
                 <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">

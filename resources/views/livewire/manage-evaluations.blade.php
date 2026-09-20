@@ -1019,17 +1019,17 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-6 text-left">
     <!-- Header Banner & Action Controls -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full mb-2">
         <div>
-            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Completion Tracking</flux:heading>
+            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight !text-lg sm:!text-xl">Completion Tracking</flux:heading>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 w-full md:w-auto">
             <flux:button 
                 variant="primary" 
                 icon="bell-alert" 
                 wire:click="sendReminderToast" 
-                class="bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000] font-bold shadow-xs cursor-pointer"
+                class="w-full md:w-auto justify-center bg-[#9b0000] hover:bg-[#800000] text-white dark:bg-[#9b0000] dark:hover:bg-[#800000] font-bold shadow-xs cursor-pointer"
             >
                 Send Reminders
             </flux:button>

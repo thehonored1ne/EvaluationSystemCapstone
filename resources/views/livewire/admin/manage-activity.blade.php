@@ -303,10 +303,10 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-6 text-left">
     <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full mb-2">
         <div>
             <div class="flex items-center gap-3 flex-wrap">
-                <flux:heading size="xl" level="1" class="font-extrabold tracking-tight">System Activity & Logs</flux:heading>
+                <flux:heading size="xl" level="1" class="font-extrabold tracking-tight !text-lg sm:!text-xl">System Activity & Logs</flux:heading>
                 <flux:badge variant="neutral" size="sm" class="font-bold">
                     {{ number_format($totalAuditCount) }} Audit Logs &bull; {{ number_format($totalSubmissionsCount) }} Submissions
                 </flux:badge>
@@ -316,8 +316,8 @@ new #[Layout('components.layouts.app')] class extends Component
             </p>
         </div>
 
-        <div class="flex items-center gap-2">
-            <flux:button href="{{ route('admin.dashboard') }}" wire:navigate size="sm" variant="subtle" icon="arrow-left" class="border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <flux:button href="{{ route('admin.dashboard') }}" wire:navigate size="sm" variant="subtle" icon="arrow-left" class="w-full sm:w-auto border border-zinc-200 dark:border-zinc-700">
                 Dashboard
             </flux:button>
         </div>
@@ -356,12 +356,15 @@ new #[Layout('components.layouts.app')] class extends Component
         @if($activeTab === 'audit')
             <!-- AUDIT LOGS TAB CONTENT -->
             <div class="p-4 sm:p-6 flex flex-col gap-5">
+                @php
+                    $activeAuditFiltersCount = ($eventFilter ? 1 : 0) + ($moduleFilter ? 1 : 0) + (($auditDateFrom || $auditDateTo) ? 1 : 0);
+                @endphp
+
                 <!-- Filters Bar -->
-                <div class="flex flex-col gap-3">
-                    <!-- Top Row: Search and Categorical Filters -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <!-- Search Input -->
-                        <div class="lg:col-span-2">
+                <div x-data="{ showMobileAuditFilters: false }" class="flex flex-col gap-3">
+                    <!-- Top Row: Search and Mobile Filter Toggle -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1">
                             <flux:input
                                 type="search"
                                 wire:model.live.debounce.300ms="searchAudit"
@@ -371,67 +374,112 @@ new #[Layout('components.layouts.app')] class extends Component
                             />
                         </div>
 
-                        <!-- Event Filter -->
-                        <div>
-                            <flux:select wire:model.live="eventFilter" placeholder="All Events">
-                                <option value="">All Events</option>
-                                <option value="created">Created</option>
-                                <option value="updated">Updated</option>
-                                <option value="deleted">Deleted</option>
-                                <option value="bulk">Bulk Actions</option>
-                            </flux:select>
-                        </div>
-
-                        <!-- Module Filter -->
-                        <div>
-                            <flux:select wire:model.live="moduleFilter" placeholder="All Modules">
-                                <option value="">All Modules</option>
-                                <option value="User">Users</option>
-                                <option value="Employee">Employees</option>
-                                <option value="Student">Students</option>
-                                <option value="AcademicClass">Classes</option>
-                                <option value="Subject">Subjects</option>
-                                <option value="Department">Departments</option>
-                                <option value="Program">Programs</option>
-                                <option value="EvaluationQuestion">Questions</option>
-                                <option value="EvaluationCriterion">Criteria</option>
-                                <option value="Semester">Semesters</option>
-                            </flux:select>
-                        </div>
-                    </div>
-
-                    <!-- Date & Time Range Window Filter Bar -->
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-zinc-50/80 dark:bg-zinc-800/40 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60 text-xs">
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                            <div class="flex items-center gap-1.5 font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
-                                <flux:icon icon="calendar" class="size-4 text-zinc-500" />
-                                <span>Date & Time Window:</span>
-                            </div>
-                            <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-                                <div class="w-full sm:w-56">
-                                    <flux:input
-                                        type="datetime-local"
-                                        wire:model.live="auditDateFrom"
-                                        placeholder="Start Date & Time"
-                                        class="!text-xs"
-                                    />
-                                </div>
-                                <span class="text-zinc-400 dark:text-zinc-500 font-medium shrink-0">to</span>
-                                <div class="w-full sm:w-56">
-                                    <flux:input
-                                        type="datetime-local"
-                                        wire:model.live="auditDateTo"
-                                        placeholder="End Date & Time"
-                                        class="!text-xs"
-                                    />
-                                </div>
-                            </div>
+                        <!-- Mobile Filter Toggle Button -->
+                        <div class="sm:hidden shrink-0">
+                            <flux:button
+                                x-on:click="showMobileAuditFilters = !showMobileAuditFilters"
+                                variant="subtle"
+                                icon="funnel"
+                                class="relative border border-zinc-200 dark:border-zinc-700 !px-3"
+                                aria-label="Toggle filters"
+                            >
+                                <span>Filters</span>
+                                @if($activeAuditFiltersCount > 0)
+                                    <span class="inline-flex items-center justify-center size-4 text-[10px] font-bold rounded-full bg-primary-600 text-white ml-1">
+                                        {{ $activeAuditFiltersCount }}
+                                    </span>
+                                @endif
+                            </flux:button>
                         </div>
 
                         @if($searchAudit || $eventFilter || $moduleFilter || $auditDateFrom || $auditDateTo)
-                            <flux:button wire:click="resetAuditFilters" size="sm" variant="subtle" icon="x-mark" class="shrink-0">
-                                Clear Filters
-                            </flux:button>
+                            <div class="hidden sm:block shrink-0">
+                                <flux:button wire:click="resetAuditFilters" size="sm" variant="subtle" icon="x-mark">
+                                    Clear Filters
+                                </flux:button>
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Filters Container (Collapsible on Mobile, Flexible Stack on Desktop) -->
+                    <div
+                        x-show="showMobileAuditFilters"
+                        x-cloak
+                        class="flex flex-col gap-3.5 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 sm:p-0 sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:!flex sm:!flex-col sm:!gap-3"
+                    >
+                        <!-- Categorical Filters -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <!-- Event Filter -->
+                            <div>
+                                <flux:select wire:model.live="eventFilter" placeholder="All Events">
+                                    <option value="">All Events</option>
+                                    <option value="created">Created</option>
+                                    <option value="updated">Updated</option>
+                                    <option value="deleted">Deleted</option>
+                                    <option value="bulk">Bulk Actions</option>
+                                </flux:select>
+                            </div>
+
+                            <!-- Module Filter -->
+                            <div>
+                                <flux:select wire:model.live="moduleFilter" placeholder="All Modules">
+                                    <option value="">All Modules</option>
+                                    <option value="User">Users</option>
+                                    <option value="Employee">Employees</option>
+                                    <option value="Student">Students</option>
+                                    <option value="AcademicClass">Classes</option>
+                                    <option value="Subject">Subjects</option>
+                                    <option value="Department">Departments</option>
+                                    <option value="Program">Programs</option>
+                                    <option value="EvaluationQuestion">Questions</option>
+                                    <option value="EvaluationCriterion">Criteria</option>
+                                    <option value="Semester">Semesters</option>
+                                </flux:select>
+                            </div>
+                        </div>
+
+                        <!-- Date & Time Range Window Filter Bar -->
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-zinc-50/80 dark:bg-zinc-800/40 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60 text-xs">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                                <div class="flex items-center gap-1.5 font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
+                                    <flux:icon icon="calendar" class="size-4 text-zinc-500" />
+                                    <span>Date & Time Window:</span>
+                                </div>
+                                <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                                    <div class="w-full sm:w-56">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model.live="auditDateFrom"
+                                            placeholder="Start Date & Time"
+                                            class="!text-xs"
+                                        />
+                                    </div>
+                                    <span class="text-zinc-400 dark:text-zinc-500 font-medium shrink-0">to</span>
+                                    <div class="w-full sm:w-56">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model.live="auditDateTo"
+                                            placeholder="End Date & Time"
+                                            class="!text-xs"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if($searchAudit || $eventFilter || $moduleFilter || $auditDateFrom || $auditDateTo)
+                                <flux:button wire:click="resetAuditFilters" size="sm" variant="subtle" icon="x-mark" class="shrink-0 hidden sm:inline-flex">
+                                    Clear Filters
+                                </flux:button>
+                            @endif
+                        </div>
+
+                        <!-- Mobile Clear Button -->
+                        @if($searchAudit || $eventFilter || $moduleFilter || $auditDateFrom || $auditDateTo)
+                            <div class="sm:hidden pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                <flux:button wire:click="resetAuditFilters" size="sm" variant="subtle" icon="x-mark" class="w-full">
+                                    Clear All Filters
+                                </flux:button>
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -591,12 +639,15 @@ new #[Layout('components.layouts.app')] class extends Component
         @else
             <!-- SUBMISSIONS LEDGER TAB CONTENT -->
             <div class="p-4 sm:p-6 flex flex-col gap-5">
+                @php
+                    $activeSubmissionsFiltersCount = ($semesterFilter ? 1 : 0) + ($evaluatorRoleFilter ? 1 : 0) + ($deptFilter ? 1 : 0) + (($submissionDateFrom || $submissionDateTo) ? 1 : 0);
+                @endphp
+
                 <!-- Filters Bar -->
-                <div class="flex flex-col gap-3">
-                    <!-- Top Row: Search and Categorical Filters -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <!-- Search Input -->
-                        <div class="lg:col-span-2">
+                <div x-data="{ showMobileSubmissionsFilters: false }" class="flex flex-col gap-3">
+                    <!-- Top Row: Search and Mobile Filter Toggle -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1">
                             <flux:input
                                 type="search"
                                 wire:model.live.debounce.300ms="searchSubmissions"
@@ -606,72 +657,117 @@ new #[Layout('components.layouts.app')] class extends Component
                             />
                         </div>
 
-                        <!-- Semester Filter -->
-                        <div>
-                            <flux:select wire:model.live="semesterFilter" placeholder="Select Term">
-                                <option value="">All Semesters</option>
-                                @foreach($semesters as $sem)
-                                    <option value="{{ $sem->id }}">{{ $sem->academicYear?->name }} &bull; {{ $sem->name }}</option>
-                                @endforeach
-                            </flux:select>
+                        <!-- Mobile Filter Toggle Button -->
+                        <div class="sm:hidden shrink-0">
+                            <flux:button
+                                x-on:click="showMobileSubmissionsFilters = !showMobileSubmissionsFilters"
+                                variant="subtle"
+                                icon="funnel"
+                                class="relative border border-zinc-200 dark:border-zinc-700 !px-3"
+                                aria-label="Toggle filters"
+                            >
+                                <span>Filters</span>
+                                @if($activeSubmissionsFiltersCount > 0)
+                                    <span class="inline-flex items-center justify-center size-4 text-[10px] font-bold rounded-full bg-primary-600 text-white ml-1">
+                                        {{ $activeSubmissionsFiltersCount }}
+                                    </span>
+                                @endif
+                            </flux:button>
                         </div>
 
-                        <!-- Evaluator Role Filter -->
-                        <div>
-                            <flux:select wire:model.live="evaluatorRoleFilter" placeholder="Evaluator Role">
-                                <option value="">All Evaluator Roles</option>
-                                <option value="student">Student</option>
-                                <option value="faculty">Faculty</option>
-                                <option value="dean">Dean</option>
-                                <option value="program head">Program Head</option>
-                                <option value="department head">Department Head</option>
-                                <option value="staff">Staff</option>
-                            </flux:select>
-                        </div>
-
-                        <!-- Department Filter -->
-                        <div>
-                            <flux:select wire:model.live="deptFilter" placeholder="Department">
-                                <option value="">All Departments</option>
-                                @foreach($departments as $dept)
-                                    <option value="{{ $dept->id }}">{{ $dept->code }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
+                        @if($searchSubmissions || $semesterFilter || $evaluatorRoleFilter || $deptFilter || $submissionDateFrom || $submissionDateTo)
+                            <div class="hidden sm:block shrink-0">
+                                <flux:button wire:click="resetSubmissionFilters" size="sm" variant="subtle" icon="x-mark">
+                                    Clear Filters
+                                </flux:button>
+                            </div>
+                        @endif
                     </div>
 
-                    <!-- Date & Time Range Window Filter Bar -->
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-zinc-50/80 dark:bg-zinc-800/40 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60 text-xs">
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                            <div class="flex items-center gap-1.5 font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
-                                <flux:icon icon="calendar" class="size-4 text-zinc-500" />
-                                <span>Date & Time Window:</span>
+                    <!-- Filters Container (Collapsible on Mobile, Flexible Stack on Desktop) -->
+                    <div
+                        x-show="showMobileSubmissionsFilters"
+                        x-cloak
+                        class="flex flex-col gap-3.5 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 sm:p-0 sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:!flex sm:!flex-col sm:!gap-3"
+                    >
+                        <!-- Categorical Filters -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <!-- Semester Filter -->
+                            <div>
+                                <flux:select wire:model.live="semesterFilter" placeholder="Select Term">
+                                    <option value="">All Semesters</option>
+                                    @foreach($semesters as $sem)
+                                        <option value="{{ $sem->id }}">{{ $sem->academicYear?->name }} &bull; {{ $sem->name }}</option>
+                                    @endforeach
+                                </flux:select>
                             </div>
-                            <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-                                <div class="w-full sm:w-56">
-                                    <flux:input
-                                        type="datetime-local"
-                                        wire:model.live="submissionDateFrom"
-                                        placeholder="Start Date & Time"
-                                        class="!text-xs"
-                                    />
-                                </div>
-                                <span class="text-zinc-400 dark:text-zinc-500 font-medium shrink-0">to</span>
-                                <div class="w-full sm:w-56">
-                                    <flux:input
-                                        type="datetime-local"
-                                        wire:model.live="submissionDateTo"
-                                        placeholder="End Date & Time"
-                                        class="!text-xs"
-                                    />
-                                </div>
+
+                            <!-- Evaluator Role Filter -->
+                            <div>
+                                <flux:select wire:model.live="evaluatorRoleFilter" placeholder="Evaluator Role">
+                                    <option value="">All Evaluator Roles</option>
+                                    <option value="student">Student</option>
+                                    <option value="faculty">Faculty</option>
+                                    <option value="dean">Dean</option>
+                                    <option value="program head">Program Head</option>
+                                    <option value="department head">Department Head</option>
+                                    <option value="staff">Staff</option>
+                                </flux:select>
+                            </div>
+
+                            <!-- Department Filter -->
+                            <div>
+                                <flux:select wire:model.live="deptFilter" placeholder="Department">
+                                    <option value="">All Departments</option>
+                                    @foreach($departments as $dept)
+                                        <option value="{{ $dept->id }}">{{ $dept->code }}</option>
+                                    @endforeach
+                                </flux:select>
                             </div>
                         </div>
 
-                        @if($searchSubmissions || $evaluatorRoleFilter || $deptFilter || $submissionDateFrom || $submissionDateTo)
-                            <flux:button wire:click="resetSubmissionFilters" size="sm" variant="subtle" icon="x-mark" class="shrink-0">
-                                Clear Filters
-                            </flux:button>
+                        <!-- Date & Time Range Window Filter Bar -->
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-zinc-50/80 dark:bg-zinc-800/40 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60 text-xs">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                                <div class="flex items-center gap-1.5 font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
+                                    <flux:icon icon="calendar" class="size-4 text-zinc-500" />
+                                    <span>Date & Time Window:</span>
+                                </div>
+                                <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                                    <div class="w-full sm:w-56">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model.live="submissionDateFrom"
+                                            placeholder="Start Date & Time"
+                                            class="!text-xs"
+                                        />
+                                    </div>
+                                    <span class="text-zinc-400 dark:text-zinc-500 font-medium shrink-0">to</span>
+                                    <div class="w-full sm:w-56">
+                                        <flux:input
+                                            type="datetime-local"
+                                            wire:model.live="submissionDateTo"
+                                            placeholder="End Date & Time"
+                                            class="!text-xs"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if($searchSubmissions || $semesterFilter || $evaluatorRoleFilter || $deptFilter || $submissionDateFrom || $submissionDateTo)
+                                <flux:button wire:click="resetSubmissionFilters" size="sm" variant="subtle" icon="x-mark" class="shrink-0 hidden sm:inline-flex">
+                                    Clear Filters
+                                </flux:button>
+                            @endif
+                        </div>
+
+                        <!-- Mobile Clear Button -->
+                        @if($searchSubmissions || $semesterFilter || $evaluatorRoleFilter || $deptFilter || $submissionDateFrom || $submissionDateTo)
+                            <div class="sm:hidden pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                <flux:button wire:click="resetSubmissionFilters" size="sm" variant="subtle" icon="x-mark" class="w-full">
+                                    Clear All Filters
+                                </flux:button>
+                            </div>
                         @endif
                     </div>
                 </div>

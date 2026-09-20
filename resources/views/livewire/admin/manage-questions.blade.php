@@ -322,12 +322,12 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-6">
     <!-- Header -->
-    <div class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
+    <div class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4 mb-2">
         <div>
-            <flux:heading size="xl" level="1">Evaluation Questions Setup</flux:heading>
+            <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">Evaluation Questions Setup</flux:heading>
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Configure, organize, and reorder evaluation questions across all institutional evaluation roles.</p>
         </div>
-        <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
+        <flux:button variant="primary" icon="plus" wire:click="openCreateModal" class="w-full md:w-auto justify-center">
             Add Question
         </flux:button>
     </div>

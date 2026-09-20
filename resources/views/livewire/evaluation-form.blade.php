@@ -7,6 +7,7 @@ use App\Models\EvaluationExemption;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\ProfanityFilterService;
+use Flux\Flux;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Volt\Component;
 
@@ -119,12 +120,22 @@ new class extends Component
         $activeSem = Semester::where('is_active', true)->first();
 
         if (! $activeSem) {
+            Flux::toast(
+                heading: 'No Active Semester',
+                text: 'There is no active semester. Submissions are disabled.',
+                variant: 'danger'
+            );
             session()->flash('error', 'There is no active semester. Submissions are disabled.');
 
             return;
         }
 
         if (! $activeSem->isEvaluationWindowActive()) {
+            Flux::toast(
+                heading: 'Evaluations Closed',
+                text: 'Evaluations are currently closed for this semester.',
+                variant: 'danger'
+            );
             session()->flash('error', 'Evaluations are currently closed.');
 
             return;
@@ -133,6 +144,11 @@ new class extends Component
         $rateLimitKey = 'submit-evaluation:'.auth()->id().':'.request()->ip();
         if (RateLimiter::tooManyAttempts($rateLimitKey, 50)) {
             $this->retryAfter = RateLimiter::availableIn($rateLimitKey);
+            Flux::toast(
+                heading: 'Rate Limited',
+                text: 'Too many submission attempts. Please wait before submitting again.',
+                variant: 'warning'
+            );
 
             return;
         }
@@ -167,7 +183,13 @@ new class extends Component
 
         $this->dispatch('evaluation-submitted');
 
-        session()->flash('success', 'Evaluation submitted successfully to the background processing queue.');
+        Flux::toast(
+            heading: 'Evaluation Submitted',
+            text: 'Your evaluation has been submitted successfully.',
+            variant: 'success'
+        );
+
+        session()->flash('success', 'Evaluation submitted successfully.');
         $this->resetForm();
     }
 
@@ -192,6 +214,11 @@ new class extends Component
 
         $activeSem = Semester::where('is_active', true)->first();
         if (! $activeSem || ! $activeSem->isEvaluationWindowActive()) {
+            Flux::toast(
+                heading: 'Evaluations Closed',
+                text: 'Evaluations are currently closed for this semester.',
+                variant: 'danger'
+            );
             session()->flash('error', 'Evaluations are currently closed.');
 
             return;
@@ -230,6 +257,13 @@ new class extends Component
 
         $this->showExemptionModal = false;
         $this->dispatch('evaluation-submitted');
+
+        Flux::toast(
+            heading: 'Exemption Recorded',
+            text: 'Peer evaluation exemption recorded: "No Basis to Observe".',
+            variant: 'success'
+        );
+
         session()->flash('success', 'Evaluation exemption recorded: "No Basis to Observe" logged in audit trail.');
     }
 }; ?>

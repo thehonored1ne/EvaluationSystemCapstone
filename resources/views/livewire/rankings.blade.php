@@ -5,6 +5,7 @@ use App\Models\Employee;
 use App\Models\Semester;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -77,6 +78,7 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     private ?Semester $cachedActiveSemester = null;
+
     private bool $activeSemesterLoaded = false;
 
     public function getActiveSemesterProperty()
@@ -94,7 +96,7 @@ new #[Layout('components.layouts.app')] class extends Component
         return Department::getCachedList()->where('type', 'academic');
     }
 
-    private ?\Illuminate\Support\Collection $cachedBaseFacultyRankings = null;
+    private ?Collection $cachedBaseFacultyRankings = null;
 
     /**
      * All active faculty scored and assigned their true performance rank (1..N by avg_score DESC).
@@ -324,17 +326,17 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-6 text-left">
     <!-- Header Banner -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full mb-2">
         <div>
-            <flux:heading size="xl" level="1" class="text-left">Faculty & Department Rankings</flux:heading>
+            <flux:heading size="xl" level="1" class="text-left !text-lg sm:!text-xl font-bold tracking-tight">Faculty & Department Rankings</flux:heading>
         </div>
 
         @if($this->activeSemester)
-            <div class="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/40 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <flux:icon icon="academic-cap" class="size-4 text-indigo-500" />
-                <span class="text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Active Period:</span>
-                <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                    A.Y. {{ $this->activeSemester->academicYear->name }} — {{ $this->activeSemester->name }}
+            <div class="inline-flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800/40 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 self-start sm:self-auto max-w-full">
+                <flux:icon icon="academic-cap" class="size-4 text-indigo-500 shrink-0" />
+                <span class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider whitespace-nowrap shrink-0">Active Period:</span>
+                <span class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate sm:whitespace-nowrap">
+                    A.Y. {{ $this->activeSemester->academicYear->name }} &bull; {{ $this->activeSemester->name }}
                 </span>
             </div>
         @endif

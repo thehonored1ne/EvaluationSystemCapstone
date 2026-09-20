@@ -738,11 +738,11 @@ new #[Layout('components.layouts.app')] class extends Component {
 
 <div class="w-full flex flex-col gap-6">
     <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
         <div>
-            <flux:heading size="xl" level="1">AI Pipeline & Classifier</flux:heading>
+            <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">AI Pipeline & Classifier</flux:heading>
         </div>
-        <flux:button variant="primary" icon="beaker" wire:click="retrain" wire:loading.attr="disabled">
+        <flux:button variant="primary" icon="beaker" wire:click="retrain" wire:loading.attr="disabled" class="w-full sm:w-auto justify-center">
             <span wire:loading.remove wire:target="retrain">Retrain Classifier</span>
             <span wire:loading wire:target="retrain">Retraining Model...</span>
         </flux:button>

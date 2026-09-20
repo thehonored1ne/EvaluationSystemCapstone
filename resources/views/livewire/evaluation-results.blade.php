@@ -5,6 +5,7 @@ use App\Models\Evaluation;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\ThematicAnalysisService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -66,7 +67,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->resetPage();
     }
 
-    private ?\Illuminate\Support\Collection $cachedSemesters = null;
+    private ?Collection $cachedSemesters = null;
 
     public function getSemestersProperty()
     {
@@ -355,58 +356,104 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="flex flex-col gap-6 sm:gap-8 w-full px-4 sm:px-6 lg:px-8 py-6 text-left">
+<div class="w-full flex flex-col gap-6 text-left">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full mb-2">
         <div>
-            <flux:heading size="xl" level="1">Evaluation Results</flux:heading>
+            <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">Evaluation Results</flux:heading>
         </div>
     </div>
 
+    @php
+        $activeFiltersCount = ($selectedRole ? 1 : 0) + ($selectedDepartmentId ? 1 : 0);
+    @endphp
+
     <!-- Filter & Search Controls Bar -->
-    <div class="flex flex-col gap-4 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-xs">
-        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full">
-            <!-- Search Input -->
-            <div class="flex-1 min-w-[220px]">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, ID number, or email..." class="w-full" />
+    <div x-data="{ showMobileFilters: false }" class="flex flex-col gap-3">
+        <!-- Top Row: Search and Mobile Filter Toggle -->
+        <div class="flex items-center gap-2">
+            <div class="flex-1">
+                <flux:input
+                    wire:model.live.debounce.300ms="search"
+                    icon="magnifying-glass"
+                    placeholder="Search by name, ID number, or email..."
+                    clearable
+                />
             </div>
 
-            <!-- Filters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 items-center">
-                <!-- Semester Filter -->
-                <div>
-                    <flux:select wire:model.live="selectedSemesterId" class="w-full" placeholder="Select Semester">
-                        @foreach($this->semesters as $sem)
-                            <flux:select.option value="{{ $sem->id }}">A.Y. {{ $sem->academicYear?->name }} — {{ $sem->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                </div>
-
-                <!-- Role Filter -->
-                <div>
-                    <flux:select wire:model.live="selectedRole" class="w-full" placeholder="All Roles">
-                        <flux:select.option value="">All Roles</flux:select.option>
-                        <flux:select.option value="dean">Dean</flux:select.option>
-                        <flux:select.option value="program head">Program Head</flux:select.option>
-                        <flux:select.option value="department head">Department Head</flux:select.option>
-                        <flux:select.option value="faculty">Professor / Faculty</flux:select.option>
-                        <flux:select.option value="staff">Staff</flux:select.option>
-                        <flux:select.option value="student">Student</flux:select.option>
-                    </flux:select>
-                </div>
-
-                <!-- Department Filter -->
-                <div>
-                    <flux:select wire:model.live="selectedDepartmentId" class="w-full" placeholder="All Departments">
-                        <flux:select.option value="">All Departments</flux:select.option>
-                        @foreach($this->departments as $dept)
-                            <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                </div>
+            <!-- Mobile Filter Toggle Button -->
+            <div class="sm:hidden shrink-0">
+                <flux:button
+                    x-on:click="showMobileFilters = !showMobileFilters"
+                    variant="subtle"
+                    icon="funnel"
+                    class="relative border border-zinc-200 dark:border-zinc-700 !px-3"
+                    aria-label="Toggle filters"
+                >
+                    <span>Filters</span>
+                    @if($activeFiltersCount > 0)
+                        <span class="inline-flex items-center justify-center size-4 text-[10px] font-bold rounded-full bg-primary-600 text-white ml-1">
+                            {{ $activeFiltersCount }}
+                        </span>
+                    @endif
+                </flux:button>
             </div>
 
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset Filters" class="shrink-0 self-end lg:self-center" />
+            @if($search || $selectedRole || $selectedDepartmentId)
+                <div class="hidden sm:block shrink-0">
+                    <flux:button wire:click="clearFilters" size="sm" variant="subtle" icon="x-mark">
+                        Clear Filters
+                    </flux:button>
+                </div>
+            @endif
+        </div>
+
+        <!-- Filters Container (Collapsible on Mobile, Grid on Desktop) -->
+        <div
+            x-show="showMobileFilters"
+            x-cloak
+            class="flex flex-col gap-3.5 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 sm:p-0 sm:bg-transparent sm:dark:bg-transparent sm:border-0 sm:!grid sm:grid-cols-3 sm:gap-3"
+        >
+            <!-- Semester Filter -->
+            <div>
+                <flux:select wire:model.live="selectedSemesterId" class="w-full" placeholder="Select Semester">
+                    @foreach($this->semesters as $sem)
+                        <flux:select.option value="{{ $sem->id }}">A.Y. {{ $sem->academicYear?->name }} — {{ $sem->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Role Filter -->
+            <div>
+                <flux:select wire:model.live="selectedRole" class="w-full" placeholder="All Roles">
+                    <flux:select.option value="">All Roles</flux:select.option>
+                    <flux:select.option value="dean">Dean</flux:select.option>
+                    <flux:select.option value="program head">Program Head</flux:select.option>
+                    <flux:select.option value="department head">Department Head</flux:select.option>
+                    <flux:select.option value="faculty">Professor / Faculty</flux:select.option>
+                    <flux:select.option value="staff">Staff</flux:select.option>
+                    <flux:select.option value="student">Student</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Department Filter -->
+            <div>
+                <flux:select wire:model.live="selectedDepartmentId" class="w-full" placeholder="All Departments">
+                    <flux:select.option value="">All Departments</flux:select.option>
+                    @foreach($this->departments as $dept)
+                        <flux:select.option value="{{ $dept->id }}">{{ $dept->code }} - {{ $dept->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Mobile Reset Button -->
+            @if($search || $selectedRole || $selectedDepartmentId)
+                <div class="sm:hidden pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                    <flux:button wire:click="clearFilters" size="sm" variant="subtle" icon="x-mark" class="w-full">
+                        Clear All Filters
+                    </flux:button>
+                </div>
+            @endif
         </div>
     </div>
 

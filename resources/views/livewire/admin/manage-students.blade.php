@@ -892,9 +892,10 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="space-y-6">
+<div class="w-full flex flex-col gap-6">
     {{-- SessionStorage Persistence for Bulk Selection --}}
     <div
+        class="hidden"
         x-data="{
             storageKey: 'selected_students_admin_{{ auth()->id() ?? 'guest' }}',
             init() {
@@ -925,11 +926,33 @@ new #[Layout('components.layouts.app')] class extends Component
     ></div>
 
     <!-- Header -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between mb-2">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Students</h1>
+            <h1 class="text-lg sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Manage Students</h1>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+
+        <!-- Mobile Actions (< sm) -->
+        <div class="flex items-center gap-2 w-full sm:hidden">
+            <flux:button variant="primary" icon="plus" wire:click="prepareCreate" class="flex-1 justify-center">
+                Add Student
+            </flux:button>
+            <flux:dropdown align="end">
+                <flux:button variant="outline">
+                    Actions
+                </flux:button>
+                <flux:menu>
+                    <flux:menu.item icon="arrow-down-tray" wire:click="exportStudents">
+                        Export CSV
+                    </flux:menu.item>
+                    <flux:menu.item icon="arrow-up-tray" wire:click="$set('showImportModal', true)">
+                        Import Students
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
+        </div>
+
+        <!-- Desktop Actions (>= sm) -->
+        <div class="hidden sm:flex items-center gap-2">
             <flux:button variant="outline" icon="arrow-down-tray" wire:click="exportStudents">
                 Export CSV
             </flux:button>
@@ -943,76 +966,124 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     
     <!-- Search & Filters Bar -->
-    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <!-- Search -->
-        <div class="flex-1 min-w-0">
-            <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or student ID..." />
-        </div>
-        
-        <!-- Program Filter Dropdown -->
-        <div class="w-full sm:w-48 shrink-0">
-            <flux:select wire:model.live="selectedProgramId" placeholder="All Programs">
-                <flux:select.option value="">All Programs</flux:select.option>
-                <flux:select.option value="none">Unassigned (None)</flux:select.option>
-                @foreach($programs as $prog)
-                    <flux:select.option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-        </div>
+    <div x-data="{ showMobileFilters: false }" class="flex flex-col gap-2.5 sm:gap-3">
+        <div class="flex items-center gap-2 w-full">
+            <!-- Search -->
+            <div class="flex-1 min-w-0">
+                <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by name, email or student ID..." />
+            </div>
 
-        <!-- Year Level Filter Dropdown -->
-        <div class="w-full sm:w-36 shrink-0">
-            <flux:select wire:model.live="selectedYearLevel" placeholder="All Years">
-                <flux:select.option value="">All Years</flux:select.option>
-                <flux:select.option value="1">1st Year</flux:select.option>
-                <flux:select.option value="2">2nd Year</flux:select.option>
-                <flux:select.option value="3">3rd Year</flux:select.option>
-                <flux:select.option value="4">4th Year</flux:select.option>
-            </flux:select>
-        </div>
-
-        <!-- Enrollment Status Filter Dropdown -->
-        <div class="w-full sm:w-40 shrink-0">
-            <flux:select wire:model.live="statusFilter" placeholder="All Student Types">
-                <flux:select.option value="">All Student Types</flux:select.option>
-                <flux:select.option value="regular">Regular</flux:select.option>
-                <flux:select.option value="irregular">Irregular</flux:select.option>
-                <flux:select.option value="loa">Leave of Absence (LOA)</flux:select.option>
-                <flux:select.option value="dropped">Dropped</flux:select.option>
-                <flux:select.option value="graduated">Graduated</flux:select.option>
-                <flux:select.option value="inactive">Inactive</flux:select.option>
-            </flux:select>
-        </div>
-        
-        <!-- Sort Order & Clear Action Group -->
-        <div class="flex items-center gap-2 shrink-0">
-            <flux:dropdown align="end">
-                <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
-                    {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
+            <!-- Mobile Filters Toggle Button (< sm) -->
+            @php
+                $activeFiltersCount = ($selectedProgramId ? 1 : 0) + ($selectedYearLevel ? 1 : 0) + ($statusFilter ? 1 : 0);
+            @endphp
+            <div class="sm:hidden shrink-0">
+                <flux:button 
+                    variant="outline" 
+                    icon="adjustments-horizontal" 
+                    @click="showMobileFilters = !showMobileFilters"
+                    class="relative cursor-pointer"
+                    x-bind:class="{ 'bg-zinc-100 dark:bg-zinc-800 ring-2 ring-[#9b0000]/20 dark:ring-[#e07a7a]/20': showMobileFilters }"
+                >
+                    <span>Filters</span>
+                    @if($activeFiltersCount > 0)
+                        <span class="inline-flex items-center justify-center size-4 rounded-full bg-[#9b0000] dark:bg-[#e07a7a] text-[10px] font-bold text-white dark:text-zinc-950 ml-1">
+                            {{ $activeFiltersCount }}
+                        </span>
+                    @endif
                 </flux:button>
+            </div>
 
-                <flux:menu>
-                    <flux:menu.item icon="bars-arrow-down" wire:click="$set('sortDirection', 'asc')" :current="$sortDirection === 'asc'">
-                        A to Z (A-Z)
-                    </flux:menu.item>
-                    <flux:menu.item icon="bars-arrow-up" wire:click="$set('sortDirection', 'desc')" :current="$sortDirection === 'desc'">
-                        Z to A (Z-A)
-                    </flux:menu.item>
-                </flux:menu>
-            </flux:dropdown>
+            <!-- Sort Order & Clear Action Group (Desktop & Mobile) -->
+            <div class="flex items-center gap-2 shrink-0">
+                <flux:dropdown align="end">
+                    <flux:button variant="outline" icon="funnel" tooltip="Sort Order">
+                        {{ $sortDirection === 'desc' ? 'Z-A' : 'A-Z' }}
+                    </flux:button>
 
+                    <flux:menu>
+                        <flux:menu.item icon="bars-arrow-down" wire:click="$set('sortDirection', 'asc')" :current="$sortDirection === 'asc'">
+                            A to Z (A-Z)
+                        </flux:menu.item>
+                        <flux:menu.item icon="bars-arrow-up" wire:click="$set('sortDirection', 'desc')" :current="$sortDirection === 'desc'">
+                            Z to A (Z-A)
+                        </flux:menu.item>
+                    </flux:menu>
+                </flux:dropdown>
+
+                @if($search || $selectedProgramId || $selectedYearLevel || $statusFilter || $sortDirection !== 'asc')
+                    <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" class="hidden sm:inline-flex" />
+                @endif
+            </div>
+        </div>
+
+        <!-- Filter Dropdowns (Collapsible on Mobile, Expanded Grid on Desktop) -->
+        <div 
+            x-show="showMobileFilters" 
+            x-cloak
+            class="flex flex-col sm:grid sm:grid-cols-3 gap-3.5 sm:gap-3 p-4 sm:p-0 bg-zinc-50 sm:bg-transparent dark:bg-zinc-800/60 sm:dark:bg-transparent rounded-xl border border-zinc-200/80 sm:border-0 dark:border-zinc-700/60 transition-all duration-200 sm:!grid"
+            :class="{ 'hidden': !showMobileFilters }"
+        >
+            <!-- Program Filter Dropdown -->
+            <div class="w-full">
+                <flux:select wire:model.live="selectedProgramId" placeholder="All Programs" class="w-full">
+                    <flux:select.option value="">All Programs</flux:select.option>
+                    <flux:select.option value="none">Unassigned (None)</flux:select.option>
+                    @foreach($programs as $prog)
+                        <flux:select.option value="{{ $prog->id }}">{{ $prog->code }} - {{ $prog->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <!-- Year Level Filter Dropdown -->
+            <div class="w-full">
+                <flux:select wire:model.live="selectedYearLevel" placeholder="All Years" class="w-full">
+                    <flux:select.option value="">All Years</flux:select.option>
+                    <flux:select.option value="1">1st Year</flux:select.option>
+                    <flux:select.option value="2">2nd Year</flux:select.option>
+                    <flux:select.option value="3">3rd Year</flux:select.option>
+                    <flux:select.option value="4">4th Year</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Enrollment Status Filter Dropdown -->
+            <div class="w-full">
+                <flux:select wire:model.live="statusFilter" placeholder="All Student Types" class="w-full">
+                    <flux:select.option value="">All Student Types</flux:select.option>
+                    <flux:select.option value="regular">Regular</flux:select.option>
+                    <flux:select.option value="irregular">Irregular</flux:select.option>
+                    <flux:select.option value="loa">Leave of Absence (LOA)</flux:select.option>
+                    <flux:select.option value="dropped">Dropped</flux:select.option>
+                    <flux:select.option value="graduated">Graduated</flux:select.option>
+                    <flux:select.option value="inactive">Inactive</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Mobile-only Clear Filters Action -->
             @if($search || $selectedProgramId || $selectedYearLevel || $statusFilter || $sortDirection !== 'asc')
-                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" />
+                <div class="flex sm:hidden items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-700/60 sm:col-span-3">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                        {{ $activeFiltersCount }} filter{{ $activeFiltersCount === 1 ? '' : 's' }} active
+                    </span>
+                    <button 
+                        type="button" 
+                        wire:click="clearFilters" 
+                        class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        <flux:icon icon="arrow-path" class="size-3.5" />
+                        <span>Reset all</span>
+                    </button>
+                </div>
             @endif
         </div>
     </div>
     
-    <!-- Bulk Actions Bar -->
+    <!-- Bulk Actions Floating Bar -->
     @if(count($selectedIds) > 0)
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-zinc-900 text-white dark:bg-zinc-800 dark:border dark:border-zinc-700 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
-            <div class="flex items-center justify-between sm:justify-start gap-2.5 shrink-0">
+            <div class="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 shrink-0">
                 <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center justify-center bg-zinc-800 dark:bg-zinc-700 text-zinc-100 font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-zinc-700 dark:border-zinc-600 tabular-nums">
+                    <span class="inline-flex items-center justify-center bg-zinc-800 dark:bg-zinc-700 text-zinc-100 font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-zinc-700 dark:border-zinc-600 tabular-nums whitespace-nowrap">
                         {{ count($selectedIds) }} Selected
                     </span>
                     <flux:button size="xs" variant="ghost" class="!text-zinc-300 hover:!text-white underline underline-offset-4 text-xs font-semibold" wire:click="$set('showReviewSelectionModal', true)">
@@ -1027,7 +1098,46 @@ new #[Layout('components.layouts.app')] class extends Component
                 </div>
             </div>
 
-            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none sm:flex-wrap sm:justify-end -mx-1 px-1 sm:mx-0 sm:px-0">
+            <!-- Mobile Segmented Action Controls (< sm) -->
+            <div class="grid grid-cols-3 gap-2 w-full sm:hidden pt-0.5">
+                <!-- Update Dropdown -->
+                <flux:dropdown align="start" class="w-full">
+                    <flux:button size="xs" variant="outline" class="w-full justify-center !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon-trailing="chevron-down">
+                        Update
+                    </flux:button>
+                    <flux:menu>
+                        <flux:menu.item icon="arrow-path-rounded-square" wire:click="$set('showBulkStatusModal', true)">
+                            Change Student Type
+                        </flux:menu.item>
+                        <flux:menu.item icon="academic-cap" wire:click="$set('showBulkYearModal', true)">
+                            Set Year Level
+                        </flux:menu.item>
+                    </flux:menu>
+                </flux:dropdown>
+
+                <!-- Access Dropdown -->
+                <flux:dropdown align="center" class="w-full">
+                    <flux:button size="xs" variant="outline" class="w-full justify-center !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon-trailing="chevron-down">
+                        Access
+                    </flux:button>
+                    <flux:menu>
+                        <flux:menu.item icon="play-circle" wire:click="bulkSetActive(true)" :disabled="!$hasSelectedInactive">
+                            Enable Access
+                        </flux:menu.item>
+                        <flux:menu.item icon="pause-circle" wire:click="bulkSetActive(false)" :disabled="!$hasSelectedActive">
+                            Disable Access
+                        </flux:menu.item>
+                    </flux:menu>
+                </flux:dropdown>
+
+                <!-- Delete Button -->
+                <flux:button size="xs" variant="danger" class="w-full justify-center" icon="trash" wire:click="confirmBulkDelete">
+                    Delete
+                </flux:button>
+            </div>
+
+            <!-- Desktop Actions Group (>= sm) -->
+            <div class="hidden sm:flex items-center gap-1.5 sm:gap-2 sm:flex-wrap sm:justify-end">
                 <flux:button size="xs" variant="outline" class="shrink-0 !bg-zinc-800 !text-zinc-100 !border-zinc-700 hover:!bg-zinc-700 dark:!bg-zinc-700 dark:hover:!bg-zinc-600" icon="arrow-path-rounded-square" wire:click="$set('showBulkStatusModal', true)">
                     Change Student Type
                 </flux:button>
@@ -1048,7 +1158,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     Delete
                 </flux:button>
 
-                <flux:button size="xs" variant="ghost" class="hidden sm:inline-flex shrink-0 !text-zinc-400 hover:!text-white" wire:click="deselectAll">
+                <flux:button size="xs" variant="ghost" class="shrink-0 !text-zinc-400 hover:!text-white" wire:click="deselectAll">
                     Deselect
                 </flux:button>
             </div>
@@ -1466,15 +1576,17 @@ new #[Layout('components.layouts.app')] class extends Component
     <!-- Review Selected Students Modal -->
     <flux:modal wire:model="showReviewSelectionModal" class="w-[calc(100vw-2rem)] sm:w-full max-w-3xl !p-4 sm:!p-6">
         <div class="space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-10">
-                <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <span>Selected Students</span>
-                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums">
+            <div class="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-zinc-800 pr-8">
+                <div class="flex items-center gap-2 min-w-0">
+                    <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                        Selected Students
+                    </h2>
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 tabular-nums shrink-0">
                         {{ count($selectedIds) }}
                     </span>
-                </h2>
+                </div>
                 @if(count($selectedIds) > 0)
-                    <flux:button size="xs" variant="subtle" icon="trash" class="mr-6" wire:click="deselectAll">
+                    <flux:button size="xs" variant="subtle" icon="trash" class="shrink-0 text-rose-600 dark:text-rose-400 hover:text-rose-700" wire:click="deselectAll">
                         Clear All
                     </flux:button>
                 @endif

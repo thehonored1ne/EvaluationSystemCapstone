@@ -341,11 +341,11 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-8">
     <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left mb-2">
         <div class="flex flex-col items-start text-left">
-            <flux:heading size="xl" level="1" class="text-left">Manage Departments</flux:heading>
+            <flux:heading size="xl" level="1" class="text-left !text-lg sm:!text-xl font-bold tracking-tight">Manage Departments</flux:heading>
         </div>
-        <flux:button variant="primary" wire:click="prepareCreate" icon="plus">Add Department</flux:button>
+        <flux:button variant="primary" wire:click="prepareCreate" icon="plus" class="w-full sm:w-auto justify-center">Add Department</flux:button>
     </div>
 
     <!-- Top Row Essential Statistics Cards -->
@@ -411,19 +411,48 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
 
     <!-- Search & Advanced Filter Controls Bar -->
-    <div class="flex flex-col gap-3 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-        <!-- Search Input Bar -->
-        <div class="flex items-center gap-3 w-full">
-            <div class="flex-1">
+    <div x-data="{ showMobileFilters: false }" class="flex flex-col gap-2.5 sm:gap-3">
+        <div class="flex items-center gap-2 w-full">
+            <!-- Search Input Bar -->
+            <div class="flex-1 min-w-0">
                 <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by department code or name..." />
             </div>
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0" />
+
+            <!-- Mobile Filters Toggle Button (< sm) -->
+            @php
+                $activeFiltersCount = ($typeFilter ? 1 : 0) + ($headFilter ? 1 : 0) + ($sortBy && $sortBy !== 'name_asc' ? 1 : 0);
+            @endphp
+            <div class="sm:hidden shrink-0">
+                <flux:button 
+                    variant="outline" 
+                    icon="adjustments-horizontal" 
+                    @click="showMobileFilters = !showMobileFilters"
+                    class="relative cursor-pointer"
+                    x-bind:class="{ 'bg-zinc-100 dark:bg-zinc-800 ring-2 ring-[#9b0000]/20 dark:ring-[#e07a7a]/20': showMobileFilters }"
+                >
+                    <span>Filters</span>
+                    @if($activeFiltersCount > 0)
+                        <span class="inline-flex items-center justify-center size-4 rounded-full bg-[#9b0000] dark:bg-[#e07a7a] text-[10px] font-bold text-white dark:text-zinc-950 ml-1">
+                            {{ $activeFiltersCount }}
+                        </span>
+                    @endif
+                </flux:button>
+            </div>
+
+            @if($search || $typeFilter || $headFilter || ($sortBy && $sortBy !== 'name_asc'))
+                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" class="hidden sm:inline-flex shrink-0" />
+            @endif
         </div>
 
-        <!-- Filter Dropdowns Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+        <!-- Filter Dropdowns (Collapsible on Mobile, Expanded Grid on Desktop) -->
+        <div 
+            x-show="showMobileFilters" 
+            x-cloak
+            class="flex flex-col sm:grid sm:grid-cols-3 gap-3.5 sm:gap-3 p-4 sm:p-0 bg-zinc-50 sm:bg-transparent dark:bg-zinc-800/60 sm:dark:bg-transparent rounded-xl border border-zinc-200/80 sm:border-0 dark:border-zinc-700/60 transition-all duration-200 sm:!grid"
+            :class="{ 'hidden': !showMobileFilters }"
+        >
             <!-- Department Type Filter -->
-            <div>
+            <div class="w-full">
                 <flux:select wire:model.live="typeFilter" class="w-full" placeholder="All Department Types">
                     <flux:select.option value="">All Department Types</flux:select.option>
                     <flux:select.option value="academic">Academic Departments</flux:select.option>
@@ -432,7 +461,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <!-- Department Leader Assignment Filter -->
-            <div>
+            <div class="w-full">
                 <flux:select wire:model.live="headFilter" class="w-full" placeholder="All Head Status">
                     <flux:select.option value="">All Head Status</flux:select.option>
                     <flux:select.option value="assigned">Assigned Head</flux:select.option>
@@ -441,13 +470,30 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             <!-- Sort By -->
-            <div>
+            <div class="w-full">
                 <flux:select wire:model.live="sortBy" class="w-full">
                     <flux:select.option value="name_asc">Department Name (A to Z)</flux:select.option>
                     <flux:select.option value="name_desc">Department Name (Z to A)</flux:select.option>
                     <flux:select.option value="faculty_desc">Most Members</flux:select.option>
                 </flux:select>
             </div>
+
+            <!-- Mobile-only Clear Filters Action -->
+            @if($search || $typeFilter || $headFilter || ($sortBy && $sortBy !== 'name_asc'))
+                <div class="flex sm:hidden items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-700/60 sm:col-span-3">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                        {{ $activeFiltersCount }} filter{{ $activeFiltersCount === 1 ? '' : 's' }} active
+                    </span>
+                    <button 
+                        type="button" 
+                        wire:click="clearFilters" 
+                        class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        <flux:icon icon="arrow-path" class="size-3.5" />
+                        <span>Reset all</span>
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
 

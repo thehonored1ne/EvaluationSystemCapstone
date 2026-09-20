@@ -652,9 +652,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
 <div class="w-full flex flex-col gap-6 text-left">
     <!-- Header Section -->
-    <div class="flex justify-between items-center w-full">
+    <div class="flex justify-between items-center w-full mb-2">
         <div>
-            <flux:heading size="xl" level="1">Evaluation Settings</flux:heading>
+            <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">Evaluation Settings</flux:heading>
         </div>
     </div>
 

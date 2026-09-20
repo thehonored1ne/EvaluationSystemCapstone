@@ -1422,15 +1422,8 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <div class="w-full">
-    <div class="w-full flex flex-col gap-8">
+    <div class="w-full flex flex-col gap-6 sm:gap-8">
         <!-- Header Section with Academic Term & Live Status Context -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full text-left">
-        <div class="flex flex-col items-start text-left">
-            <div class="flex items-center gap-3 flex-wrap">
-                <flux:heading size="xl" level="1" class="text-left font-extrabold tracking-tight">Admin Dashboard</flux:heading>
-            </div>
-        </div>
-
         @php
             $topStarts = $activeSemester?->evaluation_starts_at;
             $topEnds = $activeSemester?->evaluation_ends_at;
@@ -1441,7 +1434,7 @@ new #[Layout('components.layouts.app')] class extends Component
         @endphp
 
         <div 
-            class="flex items-center gap-2.5 flex-wrap"
+            class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full text-left mb-2"
             x-data="{
                 isOpen: {{ $isOpen ? 'true' : 'false' }},
                 hasSchedule: {{ ($topStarts && $topEnds) ? 'true' : 'false' }},
@@ -1468,107 +1461,114 @@ new #[Layout('components.layouts.app')] class extends Component
                 }
             }"
         >
-            <!-- Live Status & Countdown Context Pill -->
-            <!-- Open State Pill -->
-            <div 
-                x-show="isOpen" 
-                x-cloak
-                style="{{ $isOpen ? '' : 'display: none !important;' }}"
-                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs transition-all duration-150"
-            >
-                <span class="size-2 rounded-full bg-emerald-500 shrink-0" :class="isPending ? 'animate-ping' : 'animate-pulse'"></span>
-                <span>Open</span>
-                <span class="text-emerald-300 dark:text-emerald-700">&bull;</span>
-                <span class="tabular-nums font-semibold">
-                    @if($topEnds && $topEnds->greaterThan($topNow))
-                        {{ $topRemainingDays }}d left
-                    @else
-                        Active
-                    @endif
-                </span>
+            <!-- Row 1: Dashboard Title & Live Status Pill -->
+            <div class="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-3 w-full sm:w-auto flex-wrap">
+                <flux:heading size="xl" level="1" class="text-left !text-lg sm:!text-xl font-bold tracking-tight">Admin Dashboard</flux:heading>
+
+                <!-- Live Status & Countdown Context Pill -->
+                <!-- Open State Pill -->
+                <div 
+                    x-show="isOpen" 
+                    x-cloak
+                    style="{{ $isOpen ? '' : 'display: none !important;' }}"
+                    class="inline-flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs transition-all duration-150 shrink-0"
+                >
+                    <span class="size-2 rounded-full bg-emerald-500 shrink-0" :class="isPending ? 'animate-ping' : 'animate-pulse'"></span>
+                    <span>Open</span>
+                    <span class="text-emerald-300 dark:text-emerald-700">&bull;</span>
+                    <span class="tabular-nums font-semibold">
+                        @if($topEnds && $topEnds->greaterThan($topNow))
+                            {{ $topRemainingDays }}d left
+                        @else
+                            Active
+                        @endif
+                    </span>
+                </div>
+
+                <!-- Closed State Pill (When evaluations are closed) -->
+                @if($topStarts && $topStarts->greaterThan($topNow))
+                    <div 
+                        x-show="!isOpen" 
+                        x-cloak
+                        style="{{ ! $isOpen ? '' : 'display: none !important;' }}"
+                        class="inline-flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-bold shadow-2xs transition-all duration-150 shrink-0"
+                    >
+                        <span class="size-2 rounded-full bg-amber-500 shrink-0"></span>
+                        <span>Closed</span>
+                        <span class="text-amber-300 dark:text-amber-700">&bull;</span>
+                        <span class="tabular-nums font-semibold">Opens in {{ $topOpensDays }}d</span>
+                    </div>
+                @else
+                    <div 
+                        x-show="!isOpen" 
+                        x-cloak
+                        style="{{ ! $isOpen ? '' : 'display: none !important;' }}"
+                        class="inline-flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium shadow-2xs transition-all duration-150 shrink-0"
+                    >
+                        <span class="size-2 rounded-full bg-zinc-400 shrink-0"></span>
+                        <span>Closed</span>
+                        <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                        <span>{{ ($topStarts && $topEnds) ? 'Past schedule' : 'No schedule' }}</span>
+                    </div>
+                @endif
             </div>
 
-            <!-- Closed State Pill (When evaluations are closed) -->
-            @if($topStarts && $topStarts->greaterThan($topNow))
-                <div 
-                    x-show="!isOpen" 
+            <!-- Row 2: Actions Grid (2-columns on mobile, flex row on desktop) -->
+            <div class="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
+                <!-- Close Evaluation Action Button (Shown ONLY when evaluations are Open: Rose / Red) -->
+                <button
+                    type="button"
+                    x-show="isOpen"
+                    x-cloak
+                    style="{{ $isOpen ? '' : 'display: none !important;' }}"
+                    @click="toggle()"
+                    :disabled="isPending"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white !bg-rose-600 hover:!bg-rose-700 active:!bg-rose-800 !border !border-rose-600 dark:!border-rose-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-85 disabled:pointer-events-none disabled:cursor-wait"
+                    title="Click to close evaluation"
+                >
+                    <svg x-show="isPending" x-cloak class="size-3.5 animate-spin shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-show="!isPending" class="shrink-0 flex items-center">
+                        <flux:icon icon="lock-closed" class="size-3.5" />
+                    </span>
+                    <span>Close Evaluation</span>
+                </button>
+
+                <!-- Open Evaluation Action Button (Shown ONLY when evaluations are Closed: Emerald / Green) -->
+                <button
+                    type="button"
+                    x-show="!isOpen"
                     x-cloak
                     style="{{ ! $isOpen ? '' : 'display: none !important;' }}"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-bold shadow-2xs transition-all duration-150"
+                    @click="toggle()"
+                    :disabled="isPending"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white !bg-emerald-600 hover:!bg-emerald-700 active:!bg-emerald-800 !border !border-emerald-600 dark:!border-emerald-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-85 disabled:pointer-events-none disabled:cursor-wait"
+                    title="Click to open evaluation"
                 >
-                    <span class="size-2 rounded-full bg-amber-500 shrink-0"></span>
-                    <span>Closed</span>
-                    <span class="text-amber-300 dark:text-amber-700">&bull;</span>
-                    <span class="tabular-nums font-semibold">Opens in {{ $topOpensDays }}d</span>
-                </div>
-            @else
-                <div 
-                    x-show="!isOpen" 
-                    x-cloak
-                    style="{{ ! $isOpen ? '' : 'display: none !important;' }}"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs font-medium shadow-2xs transition-all duration-150"
+                    <svg x-show="isPending" x-cloak class="size-3.5 animate-spin shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-show="!isPending" class="shrink-0 flex items-center">
+                        <flux:icon icon="lock-open" class="size-3.5" />
+                    </span>
+                    <span>Open Evaluation</span>
+                </button>
+
+                <!-- Edit Schedule Button (Subtle Style) -->
+                <flux:button
+                    wire:click="openScheduleModal"
+                    variant="subtle"
+                    size="sm"
+                    icon="calendar"
+                    class="w-full sm:w-auto justify-center cursor-pointer font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
                 >
-                    <span class="size-2 rounded-full bg-zinc-400 shrink-0"></span>
-                    <span>Closed</span>
-                    <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
-                    <span>{{ ($topStarts && $topEnds) ? 'Past schedule' : 'No schedule' }}</span>
-                </div>
-            @endif
-
-            <!-- Close Evaluation Action Button (Shown ONLY when evaluations are Open: Rose / Red) -->
-            <button
-                type="button"
-                x-show="isOpen"
-                x-cloak
-                style="{{ $isOpen ? '' : 'display: none !important;' }}"
-                @click="toggle()"
-                :disabled="isPending"
-                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white !bg-rose-600 hover:!bg-rose-700 active:!bg-rose-800 !border !border-rose-600 dark:!border-rose-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-85 disabled:pointer-events-none disabled:cursor-wait"
-                title="Click to close evaluation"
-            >
-                <svg x-show="isPending" x-cloak class="size-3.5 animate-spin shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span x-show="!isPending" class="shrink-0 flex items-center">
-                    <flux:icon icon="lock-closed" class="size-3.5" />
-                </span>
-                <span>Close Evaluation</span>
-            </button>
-
-            <!-- Open Evaluation Action Button (Shown ONLY when evaluations are Closed: Emerald / Green) -->
-            <button
-                type="button"
-                x-show="!isOpen"
-                x-cloak
-                style="{{ ! $isOpen ? '' : 'display: none !important;' }}"
-                @click="toggle()"
-                :disabled="isPending"
-                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white !bg-emerald-600 hover:!bg-emerald-700 active:!bg-emerald-800 !border !border-emerald-600 dark:!border-emerald-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-85 disabled:pointer-events-none disabled:cursor-wait"
-                title="Click to open evaluation"
-            >
-                <svg x-show="isPending" x-cloak class="size-3.5 animate-spin shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span x-show="!isPending" class="shrink-0 flex items-center">
-                    <flux:icon icon="lock-open" class="size-3.5" />
-                </span>
-                <span>Open Evaluation</span>
-            </button>
-
-            <!-- Edit Schedule Button (Subtle Style) -->
-            <flux:button
-                wire:click="openScheduleModal"
-                variant="subtle"
-                size="sm"
-                icon="calendar"
-                class="cursor-pointer font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-            >
-                Edit Schedule
-            </flux:button>
+                    Edit Schedule
+                </flux:button>
+            </div>
         </div>
-    </div>
 
     <!-- Top Row: 4 Executive KPI Cards (Consistent Borders & Hierarchy) -->
     <!-- Top Row: 4 Executive KPI Cards (Consistent Height, Spacing & Aligned Baselines) -->

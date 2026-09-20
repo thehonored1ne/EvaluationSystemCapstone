@@ -372,6 +372,24 @@ a[data-variant="primary"]:hover,
 }
 
 /* ==========================================================================
+   Responsive Notification Dropdown Menu Placement
+   Centers the notification popover horizontally on mobile screens (< 640px)
+   with equal 0.75rem margins matching the navbar padding (px-3), eliminating
+   asymmetrical left-shift caused by anchor positioning.
+   ========================================================================== */
+@media (max-width: 639.98px) {
+    ui-menu.notification-dropdown-menu,
+    [data-flux-menu].notification-dropdown-menu {
+        left: 0.75rem !important;
+        right: 0.75rem !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        width: calc(100vw - 1.5rem) !important;
+        max-width: 24rem !important;
+    }
+}
+
+/* ==========================================================================
    Print & PDF Export Media Rules
    Hides navigation, header, sidebar, footer, and resets layout for paper printing
    ========================================================================== */

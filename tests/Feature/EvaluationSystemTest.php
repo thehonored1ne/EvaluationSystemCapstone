@@ -208,3 +208,40 @@ test('staff peer evaluation logic finds other staff in same department', functio
     expect($peers)->toContain($staffEmp2->id);
     expect($peers)->not->toContain($staffEmpOther->id);
 });
+
+test('evaluation form submission triggers toast and dispatches evaluation-submitted', function () {
+    $this->actingAs($this->facUser1);
+
+    Livewire::test('evaluation-form', [
+        'evaluatee' => $this->facUser2,
+        'evaluationType' => 'peer',
+    ])
+        ->set("ratings.{$this->q1->id}", 5)
+        ->set("ratings.{$this->q2->id}", 4)
+        ->set('comments', 'Constructive positive feedback.')
+        ->call('submit')
+        ->assertHasNoErrors()
+        ->assertDispatched('evaluation-submitted')
+        ->assertDispatched('toast-show', function ($event, $params) {
+            return ($params['slots']['heading'] ?? '') === 'Evaluation Submitted'
+                && ($params['dataset']['variant'] ?? '') === 'success';
+        });
+});
+
+test('evaluation form exemption submission triggers toast and dispatches evaluation-submitted', function () {
+    $this->actingAs($this->facUser1);
+
+    Livewire::test('evaluation-form', [
+        'evaluatee' => $this->facUser2,
+        'evaluationType' => 'peer',
+    ])
+        ->set('exemptionReason', 'schedule_conflict')
+        ->set('exemptionNotes', 'Different schedules prevent observation.')
+        ->call('submitExemption')
+        ->assertHasNoErrors()
+        ->assertDispatched('evaluation-submitted')
+        ->assertDispatched('toast-show', function ($event, $params) {
+            return ($params['slots']['heading'] ?? '') === 'Exemption Recorded'
+                && ($params['dataset']['variant'] ?? '') === 'success';
+        });
+});

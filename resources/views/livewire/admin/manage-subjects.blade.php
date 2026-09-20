@@ -496,11 +496,35 @@ new #[Layout('components.layouts.app')] class extends Component
 
 <div class="w-full flex flex-col gap-8">
     <!-- Header Section -->
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full text-left">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full text-left mb-2">
         <div class="flex flex-col items-start text-left">
-            <flux:heading size="xl" level="1" class="text-left">Manage Subjects</flux:heading>
+            <flux:heading size="xl" level="1" class="text-left !text-lg sm:!text-xl font-bold tracking-tight">Manage Subjects</flux:heading>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <!-- Mobile Actions (< sm) -->
+        <div class="flex items-center gap-2 w-full sm:hidden">
+            <flux:button variant="primary" icon="plus" wire:click="prepareCreate" class="flex-1 justify-center" size="sm">
+                Add Subject
+            </flux:button>
+            <flux:dropdown align="end">
+                <flux:button variant="outline" size="sm">
+                    Actions
+                </flux:button>
+                <flux:menu>
+                    <flux:menu.item icon="arrow-down-tray" wire:click="downloadTemplate">
+                        Download Template
+                    </flux:menu.item>
+                    <flux:menu.item icon="arrow-up-tray" wire:click="exportSubjects">
+                        Export Subjects
+                    </flux:menu.item>
+                    <flux:menu.item icon="document-arrow-up" wire:click="$set('showImportModal', true)">
+                        Import Subjects
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
+        </div>
+
+        <!-- Desktop Actions (>= sm) -->
+        <div class="hidden sm:flex flex-wrap items-center gap-2">
             <flux:button variant="outline" wire:click="downloadTemplate" icon="arrow-down-tray" size="sm">
                 Download Template
             </flux:button>
@@ -569,60 +593,104 @@ new #[Layout('components.layouts.app')] class extends Component
     </div>
     
     <!-- Search & Advanced Filter Controls Bar -->
-    <div class="flex flex-col gap-3 bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 w-full">
+    <div x-data="{ showMobileFilters: false }" class="flex flex-col gap-2.5 sm:gap-3">
+        <div class="flex items-center gap-2 w-full">
             <!-- Search Input Bar -->
-            <div class="flex-1 min-w-[220px]">
+            <div class="flex-1 min-w-0">
                 <flux:input class="w-full" wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search by code or subject name..." />
             </div>
 
-            <!-- Filter Dropdowns Grid (2x2 on mobile/tablet, 4-across on desktop) -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 flex-1 items-center">
-                <!-- Year Level Filter -->
-                <div>
-                    <flux:select wire:model.live="yearFilter" class="w-full" placeholder="All Year Levels">
-                        <flux:select.option value="">All Year Levels</flux:select.option>
-                        <flux:select.option value="1">1st Year</flux:select.option>
-                        <flux:select.option value="2">2nd Year</flux:select.option>
-                        <flux:select.option value="3">3rd Year</flux:select.option>
-                        <flux:select.option value="4">4th Year</flux:select.option>
-                    </flux:select>
-                </div>
-
-                <!-- Semester Offered Filter -->
-                <div>
-                    <flux:select wire:model.live="semesterFilter" class="w-full" placeholder="All Semesters">
-                        <flux:select.option value="">All Semesters</flux:select.option>
-                        <flux:select.option value="1st Semester">1st Semester</flux:select.option>
-                        <flux:select.option value="2nd Semester">2nd Semester</flux:select.option>
-                        <flux:select.option value="Summer">Summer</flux:select.option>
-                        <flux:select.option value="Both">Both / Any Semester</flux:select.option>
-                    </flux:select>
-                </div>
-
-                <!-- Usage Filter -->
-                <div>
-                    <flux:select wire:model.live="usageFilter" class="w-full" placeholder="Filter Usage">
-                        <flux:select.option value="">All Usage Status</flux:select.option>
-                        <flux:select.option value="assigned">Assigned to Classes</flux:select.option>
-                        <flux:select.option value="unassigned">Unassigned Subjects</flux:select.option>
-                    </flux:select>
-                </div>
-
-                <!-- Sort By -->
-                <div>
-                    <flux:select wire:model.live="sortBy" class="w-full">
-                        <flux:select.option value="code_asc">Code (A to Z)</flux:select.option>
-                        <flux:select.option value="code_desc">Code (Z to A)</flux:select.option>
-                        <flux:select.option value="name_asc">Name (A to Z)</flux:select.option>
-                        <flux:select.option value="year_asc">Year Level (1st to 4th)</flux:select.option>
-                        <flux:select.option value="classes_desc">Most Classes</flux:select.option>
-                    </flux:select>
-                </div>
+            <!-- Mobile Filters Toggle Button (< sm) -->
+            @php
+                $activeFiltersCount = ($yearFilter ? 1 : 0) + ($semesterFilter ? 1 : 0) + ($usageFilter ? 1 : 0) + ($sortBy && $sortBy !== 'code_asc' ? 1 : 0);
+            @endphp
+            <div class="sm:hidden shrink-0">
+                <flux:button 
+                    variant="outline" 
+                    icon="adjustments-horizontal" 
+                    @click="showMobileFilters = !showMobileFilters"
+                    class="relative cursor-pointer"
+                    x-bind:class="{ 'bg-zinc-100 dark:bg-zinc-800 ring-2 ring-[#9b0000]/20 dark:ring-[#e07a7a]/20': showMobileFilters }"
+                >
+                    <span>Filters</span>
+                    @if($activeFiltersCount > 0)
+                        <span class="inline-flex items-center justify-center size-4 rounded-full bg-[#9b0000] dark:bg-[#e07a7a] text-[10px] font-bold text-white dark:text-zinc-950 ml-1">
+                            {{ $activeFiltersCount }}
+                        </span>
+                    @endif
+                </flux:button>
             </div>
 
-            <!-- Reset Button -->
-            <flux:button variant="ghost" icon="arrow-path" wire:click="clearFilters" tooltip="Reset All Filters" class="shrink-0 self-end lg:self-center" />
+            @if($search || $yearFilter || $semesterFilter || $usageFilter || ($sortBy && $sortBy !== 'code_asc'))
+                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="clearFilters" title="Clear filters" class="hidden sm:inline-flex shrink-0" />
+            @endif
+        </div>
+
+        <!-- Filter Dropdowns (Collapsible on Mobile, Expanded Grid on Desktop) -->
+        <div 
+            x-show="showMobileFilters" 
+            x-cloak
+            class="flex flex-col sm:grid sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-3 p-4 sm:p-0 bg-zinc-50 sm:bg-transparent dark:bg-zinc-800/60 sm:dark:bg-transparent rounded-xl border border-zinc-200/80 sm:border-0 dark:border-zinc-700/60 transition-all duration-200 sm:!grid"
+            :class="{ 'hidden': !showMobileFilters }"
+        >
+            <!-- Year Level Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="yearFilter" class="w-full" placeholder="All Year Levels">
+                    <flux:select.option value="">All Year Levels</flux:select.option>
+                    <flux:select.option value="1">1st Year</flux:select.option>
+                    <flux:select.option value="2">2nd Year</flux:select.option>
+                    <flux:select.option value="3">3rd Year</flux:select.option>
+                    <flux:select.option value="4">4th Year</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Semester Offered Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="semesterFilter" class="w-full" placeholder="All Semesters">
+                    <flux:select.option value="">All Semesters</flux:select.option>
+                    <flux:select.option value="1st Semester">1st Semester</flux:select.option>
+                    <flux:select.option value="2nd Semester">2nd Semester</flux:select.option>
+                    <flux:select.option value="Summer">Summer</flux:select.option>
+                    <flux:select.option value="Both">Both / Any Semester</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Usage Filter -->
+            <div class="w-full">
+                <flux:select wire:model.live="usageFilter" class="w-full" placeholder="Filter Usage">
+                    <flux:select.option value="">All Usage Status</flux:select.option>
+                    <flux:select.option value="assigned">Assigned to Classes</flux:select.option>
+                    <flux:select.option value="unassigned">Unassigned Subjects</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Sort By -->
+            <div class="w-full">
+                <flux:select wire:model.live="sortBy" class="w-full">
+                    <flux:select.option value="code_asc">Code (A to Z)</flux:select.option>
+                    <flux:select.option value="code_desc">Code (Z to A)</flux:select.option>
+                    <flux:select.option value="name_asc">Name (A to Z)</flux:select.option>
+                    <flux:select.option value="year_asc">Year Level (1st to 4th)</flux:select.option>
+                    <flux:select.option value="classes_desc">Most Classes</flux:select.option>
+                </flux:select>
+            </div>
+
+            <!-- Mobile-only Clear Filters Action -->
+            @if($search || $yearFilter || $semesterFilter || $usageFilter || ($sortBy && $sortBy !== 'code_asc'))
+                <div class="flex sm:hidden items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-zinc-700/60 sm:col-span-2 md:col-span-4">
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                        {{ $activeFiltersCount }} filter{{ $activeFiltersCount === 1 ? '' : 's' }} active
+                    </span>
+                    <button 
+                        type="button" 
+                        wire:click="clearFilters" 
+                        class="text-xs font-semibold text-[#9b0000] dark:text-[#e07a7a] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        <flux:icon icon="arrow-path" class="size-3.5" />
+                        <span>Reset all</span>
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
     

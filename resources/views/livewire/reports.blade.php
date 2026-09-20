@@ -1673,9 +1673,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
 <div class="w-full flex flex-col gap-6 text-left">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full print:hidden">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full print:hidden mb-2">
         <div>
-            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight">Evaluation Reports</flux:heading>
+            <flux:heading size="xl" level="1" class="text-left font-black tracking-tight !text-lg sm:!text-xl">Evaluation Reports</flux:heading>
         </div>
 
         <div class="flex items-center gap-3 w-full sm:w-auto">

@@ -72,7 +72,8 @@ test('rankings component shows pending empty state when active semester has no e
 
     Livewire::test('rankings')
         ->assertSee('Rankings')
-        ->assertSee('A.Y. 2027-2028 — 2nd Semester')
+        ->assertSee('A.Y. 2027-2028')
+        ->assertSee('2nd Semester')
         ->assertSee('No evaluations submitted yet')
         ->assertSee('No Evaluations')
         ->assertSee('0 reviews')
