@@ -92,17 +92,17 @@ new #[Layout('components.layouts.app')] class extends Component
     public function getRatingTier(float $rating): array
     {
         $label = match (true) {
-            $rating >= 4.50 => 'Outstanding',
-            $rating >= 3.50 => 'Very Satisfactory',
-            $rating >= 2.50 => 'Satisfactory',
-            $rating >= 1.50 => 'Fair',
+            $rating >= 4.21 => 'Outstanding',
+            $rating >= 3.41 => 'Very Satisfactory',
+            $rating >= 2.61 => 'Satisfactory',
+            $rating >= 1.81 => 'Fair',
             $rating > 0.00 => 'Poor',
             default => 'No Ratings'
         };
 
         $classes = match (true) {
-            $rating >= 3.50 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
-            $rating >= 2.50 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
+            $rating >= 3.41 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+            $rating >= 2.61 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
             $rating > 0.00 => 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800',
             default => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
         };

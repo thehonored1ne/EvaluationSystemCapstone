@@ -325,7 +325,7 @@ new #[Layout('components.layouts.app')] class extends Component
     <div class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4 mb-2">
         <div>
             <flux:heading size="xl" level="1" class="!text-lg sm:!text-xl font-bold tracking-tight">Evaluation Questions Setup</flux:heading>
-            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Configure, organize, and reorder evaluation questions across all institutional evaluation roles.</p>
+            
         </div>
         <flux:button variant="primary" icon="plus" wire:click="openCreateModal" class="w-full md:w-auto justify-center">
             Add Question
@@ -405,31 +405,116 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
         </div>
     @else
-        <div class="space-y-6">
+        <div 
+            wire:key="criteria-container-{{ $activeTab }}-{{ $isSearching ? 'search' : 'default' }}"
+            x-data="{ 
+                expanded: {{ $isSearching ? json_encode($this->criteria->pluck('id')->values()->all()) : '[]' }},
+                toggle(id) { 
+                    if (this.expanded.includes(id)) { 
+                        this.expanded = this.expanded.filter(i => i !== id); 
+                    } else { 
+                        this.expanded.push(id); 
+                    } 
+                },
+                isExpanded(id) { 
+                    return this.expanded.includes(id); 
+                },
+                expandAll() { 
+                    this.expanded = {{ json_encode($this->criteria->pluck('id')->values()->all()) }}; 
+                },
+                collapseAll() { 
+                    this.expanded = []; 
+                }
+            }" 
+            class="space-y-4"
+        >
+            @if($this->criteria->isNotEmpty())
+                <!-- Expand / Collapse All Controls -->
+                <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 px-1">
+                    <span class="font-medium">
+                        {{ $this->criteria->count() }} {{ \Illuminate\Support\Str::plural('Section', $this->criteria->count()) }}
+                    </span>
+                    <div class="flex items-center gap-2 font-medium">
+                        <button 
+                            type="button" 
+                            @click="expandAll()" 
+                            class="text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:underline cursor-pointer"
+                        >
+                            Expand all
+                        </button>
+                        <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                        <button 
+                            type="button" 
+                            @click="collapseAll()" 
+                            class="text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:underline cursor-pointer"
+                        >
+                            Collapse all
+                        </button>
+                    </div>
+                </div>
+            @endif
+
             @forelse($this->criteria as $criterion)
                 @php
                     $questions = $groupedQuestions->get($criterion->id, collect());
                 @endphp
 
-                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs">
-                    <!-- Group Header -->
-                    <div class="flex flex-wrap items-center justify-between bg-zinc-50 dark:bg-zinc-800/40 px-4 py-3.5 border-b border-zinc-200 dark:border-zinc-800 gap-2">
-                        <div class="flex items-center gap-2.5">
-                            <span class="bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold px-2 py-0.5 rounded-md font-mono">
-                                Part {{ $criterion->order }}
-                            </span>
-                            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{{ $criterion->name }}</h2>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <flux:badge variant="neutral" size="sm">
-                                {{ $criterion->total_questions ?? $questions->count() }} {{ \Illuminate\Support\Str::plural('Question', $criterion->total_questions ?? $questions->count()) }}
-                            </flux:badge>
-                            <flux:badge variant="neutral" size="sm">Max Points: {{ $criterion->max_points }} pts</flux:badge>
-                        </div>
-                    </div>
+                <div 
+                    wire:key="criterion-card-{{ $criterion->id }}"
+                    class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs transition-shadow"
+                >
+                    <!-- Group Header (Accordion Toggle) -->
+                    <button 
+                        type="button"
+                        @click="toggle({{ $criterion->id }})"
+                        :aria-expanded="isExpanded({{ $criterion->id }})"
+                        class="w-full flex flex-col sm:flex-row sm:items-center justify-between bg-zinc-50/70 dark:bg-zinc-800/40 p-3.5 sm:px-4 sm:py-3.5 gap-2 sm:gap-4 text-left hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#9b0000] dark:focus-visible:ring-[#e07a7a]"
+                        :class="isExpanded({{ $criterion->id }}) ? 'border-b border-zinc-200 dark:border-zinc-800' : ''"
+                    >
+                        <!-- Top Row on Mobile / Left on Desktop: Part Number & Title -->
+                        <div class="flex items-center justify-between sm:justify-start gap-2.5 min-w-0 w-full sm:w-auto">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="bg-zinc-200/70 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold px-2 py-0.5 rounded-md font-mono shrink-0">
+                                    Part {{ $criterion->order }}
+                                </span>
+                                <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 line-clamp-1 sm:truncate">{{ $criterion->name }}</h2>
+                            </div>
 
-                    <!-- Questions List -->
-                    <div class="divide-y divide-zinc-150 dark:divide-zinc-800">
+                            <!-- Mobile Chevron (top-right aligned) -->
+                            <flux:icon 
+                                icon="chevron-down" 
+                                class="sm:hidden size-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200 shrink-0 ml-1.5" 
+                                ::class="isExpanded({{ $criterion->id }}) ? 'rotate-180 text-zinc-700 dark:text-zinc-300' : ''" 
+                            />
+                        </div>
+
+                        <!-- Bottom Row on Mobile / Right on Desktop: Metadata Pills & Desktop Chevron -->
+                        <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto">
+                            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100/80 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/50">
+                                    {{ $criterion->total_questions ?? $questions->count() }} {{ \Illuminate\Support\Str::plural('Question', $criterion->total_questions ?? $questions->count()) }}
+                                </span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100/80 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/50">
+                                    Max Points: {{ $criterion->max_points }} pts
+                                </span>
+                            </div>
+
+                            <!-- Desktop Chevron -->
+                            <flux:icon 
+                                icon="chevron-down" 
+                                class="hidden sm:block size-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200 shrink-0 ml-1" 
+                                ::class="isExpanded({{ $criterion->id }}) ? 'rotate-180 text-zinc-700 dark:text-zinc-300' : ''" 
+                            />
+                        </div>
+                    </button>
+
+                    <!-- Questions List (Collapsible) -->
+                    <div 
+                        x-show="isExpanded({{ $criterion->id }})" 
+                        x-collapse
+                        style="display: none;"
+                        class="divide-y divide-zinc-150 dark:divide-zinc-800"
+                    >
                         @forelse($questions as $question)
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-3 sm:gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition duration-150">
                                 <div class="flex items-start gap-3 flex-1 min-w-0">

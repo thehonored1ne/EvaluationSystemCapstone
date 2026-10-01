@@ -1,32 +1,39 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\Attributes\Layout;
-use App\Models\Semester;
-use App\Models\Employee;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Evaluation;
 use App\Models\EvaluationCriterion;
-use App\Models\EvaluationAnswer;
-use App\Models\EvaluationSummary;
-use App\Models\User;
+use App\Models\Semester;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     public function placeholder()
     {
         return view('livewire.placeholders.reports-skeleton');
     }
+
     public ?int $selectedTeacherId = null;
+
     public ?int $selectedSemesterId = null;
+
     public string $searchTeacher = '';
+
     public string $selectedDepartment = '';
+
     public string $activeTab = 'individual';
+
     public string $reportTrack = 'faculty'; // 'faculty' | 'staff'
+
     public bool $isPrintingAll = false;
+
     public int $batchPreviewIndex = 0;
+
     public bool $batchShowAllOnScreen = false;
 
     public function startPrintAll()
@@ -61,7 +68,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function setBatchPreviewIndex($index)
     {
-        $idx = (int)$index;
+        $idx = (int) $index;
         $count = $this->allReportsData->count();
         if ($idx >= 0 && $idx < $count) {
             $this->batchPreviewIndex = $idx;
@@ -70,7 +77,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function toggleBatchShowAll()
     {
-        $this->batchShowAllOnScreen = !$this->batchShowAllOnScreen;
+        $this->batchShowAllOnScreen = ! $this->batchShowAllOnScreen;
     }
 
     public function updatedSelectedTeacherId()
@@ -230,7 +237,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $user = auth()->user();
         if ($this->reportTrack === 'staff') {
             $query = Employee::where('role', 'staff')
-                ->whereHas('department', fn($dq) => $dq->where('type', 'administrative'))
+                ->whereHas('department', fn ($dq) => $dq->where('type', 'administrative'))
                 ->with(['department.departmentHead', 'user'])
                 ->orderBy('first_name');
 
@@ -283,11 +290,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         if ($this->searchTeacher) {
-            $search = '%' . trim($this->searchTeacher) . '%';
+            $search = '%'.trim($this->searchTeacher).'%';
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', $search)
-                  ->orWhere('last_name', 'like', $search)
-                  ->orWhere('employee_number', 'like', $search);
+                    ->orWhere('last_name', 'like', $search)
+                    ->orWhere('employee_number', 'like', $search);
             });
         }
 
@@ -306,11 +313,12 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 
     private bool $deanLoaded = false;
+
     private ?Employee $cachedDean = null;
 
     public function getDean(): ?Employee
     {
-        if (!$this->deanLoaded) {
+        if (! $this->deanLoaded) {
             $this->cachedDean = Employee::where('role', 'dean')->where('status', 'active')->first();
             $this->deanLoaded = true;
         }
@@ -337,7 +345,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getPreviousSemester(int $semesterId): ?Semester
     {
-        if (!array_key_exists($semesterId, $this->prevSemesterMap)) {
+        if (! array_key_exists($semesterId, $this->prevSemesterMap)) {
             $currentSem = $this->semesters->firstWhere('id', $semesterId)
                 ?? Semester::with('academicYear')->find($semesterId);
 
@@ -349,15 +357,21 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getIndividualReportDataProperty()
     {
-        if (!$this->selectedTeacherId || !$this->selectedSemesterId) return null;
+        if (! $this->selectedTeacherId || ! $this->selectedSemesterId) {
+            return null;
+        }
 
         $teacher = $this->teachers->firstWhere('id', $this->selectedTeacherId)
             ?? Employee::with(['user', 'department.departmentHead'])->find($this->selectedTeacherId);
-        if (!$teacher) return null;
+        if (! $teacher) {
+            return null;
+        }
 
         $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
             ?? Semester::with('academicYear')->find($this->selectedSemesterId);
-        if (!$semester) return null;
+        if (! $semester) {
+            return null;
+        }
 
         if ($this->reportTrack === 'staff' || $teacher->role === 'staff') {
             return $this->getReportDataForStaff($teacher, $semester);
@@ -371,16 +385,22 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function buildAllReportsData(?int $semesterId = null): Collection
     {
         $semId = $semesterId ?? $this->selectedSemesterId;
-        if (!$semId) return collect();
+        if (! $semId) {
+            return collect();
+        }
 
         ini_set('memory_limit', '512M');
 
         $semester = $this->semesters->firstWhere('id', $semId)
             ?? Semester::with('academicYear')->find($semId);
-        if (!$semester) return collect();
+        if (! $semester) {
+            return collect();
+        }
 
         $teachers = $this->teachers;
-        if ($teachers->isEmpty()) return collect();
+        if ($teachers->isEmpty()) {
+            return collect();
+        }
 
         $allCriteria = $this->getAllCriteria();
         $deanEmp = $this->getDean();
@@ -503,21 +523,25 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getAllReportsDataProperty()
     {
-        if (!$this->isPrintingAll || !$this->selectedSemesterId) return collect();
-        if ($this->cachedAllReports !== null) return $this->cachedAllReports;
+        if (! $this->isPrintingAll || ! $this->selectedSemesterId) {
+            return collect();
+        }
+        if ($this->cachedAllReports !== null) {
+            return $this->cachedAllReports;
+        }
 
         return $this->cachedAllReports = $this->buildAllReportsData();
     }
 
     public function exportExcel()
     {
-        if (!$this->selectedSemesterId) {
+        if (! $this->selectedSemesterId) {
             return null;
         }
 
         $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
             ?? Semester::with('academicYear')->find($this->selectedSemesterId);
-        if (!$semester) {
+        if (! $semester) {
             return null;
         }
 
@@ -582,9 +606,9 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->groupBy('evaluator_id')
             ->pluck('eval_count', 'evaluator_id');
 
-        $termSlug = Str::slug(($semester->academicYear?->name ?? 'term') . '_' . $semester->name);
+        $termSlug = Str::slug(($semester->academicYear?->name ?? 'term').'_'.$semester->name);
         $prefix = $this->reportTrack === 'staff' ? 'staff_performance_summary' : 'faculty_evaluation_summary';
-        $filename = "{$prefix}_{$termSlug}_" . now()->format('Ymd_His') . '.csv';
+        $filename = "{$prefix}_{$termSlug}_".now()->format('Ymd_His').'.csv';
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -649,9 +673,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                 // Shorten commendations to top 2 concise keywords
                 $cleanCommendations = [];
                 foreach (array_slice($report->ai_sentiment->positive_drivers ?? [], 0, 2) as $d) {
-                    $cleanCommendations[] = $shortCommendationMap[$d] ?? (strlen($d) > 28 ? substr($d, 0, 28) . '…' : $d);
+                    $cleanCommendations[] = $shortCommendationMap[$d] ?? (strlen($d) > 28 ? substr($d, 0, 28).'…' : $d);
                 }
-                $commendations = !empty($cleanCommendations) ? implode('; ', $cleanCommendations) : 'N/A';
+                $commendations = ! empty($cleanCommendations) ? implode('; ', $cleanCommendations) : 'N/A';
 
                 // Shorten growth areas to core category (before colon)
                 $cleanGrowthAreas = [];
@@ -662,7 +686,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         $cleanGrowthAreas[] = 'Continuous Refinement';
                     }
                 }
-                $growthAreas = !empty($cleanGrowthAreas) ? implode('; ', $cleanGrowthAreas) : 'N/A';
+                $growthAreas = ! empty($cleanGrowthAreas) ? implode('; ', $cleanGrowthAreas) : 'N/A';
 
                 $trend = match ($report->performance_trend) {
                     'improving' => 'Improving',
@@ -728,7 +752,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         ?Collection $preloadedSentimentAggMap = null
     ) {
         $userId = $staff->user?->id;
-        if (!$userId) return null;
+        if (! $userId) {
+            return null;
+        }
 
         $allCriteria = $allCriteria ?? $this->getAllCriteria();
 
@@ -787,8 +813,13 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $calculateStaffSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($userSectionRows, $userCritMap, $allCriteria) {
             $matchedRows = array_filter($userSectionRows, function ($r) use ($evalTypes, $evaluatorRoles) {
-                if (!in_array($r->evaluation_type, $evalTypes)) return false;
-                if (!empty($evaluatorRoles) && !in_array($r->evaluator_role, $evaluatorRoles)) return false;
+                if (! in_array($r->evaluation_type, $evalTypes)) {
+                    return false;
+                }
+                if (! empty($evaluatorRoles) && ! in_array($r->evaluator_role, $evaluatorRoles)) {
+                    return false;
+                }
+
                 return true;
             });
 
@@ -976,20 +1007,36 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $joinedComments = strtolower($sentimentRow?->all_comments ?? '');
         $positiveDrivers = [];
-        if (str_contains($joinedComments, 'helpful') || str_contains($joinedComments, 'tulong') || str_contains($joinedComments, 'assist')) $positiveDrivers[] = 'Prompt & Courteous Client Assistance';
-        if (str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'bilis') || str_contains($joinedComments, 'efficient') || str_contains($joinedComments, 'accurate')) $positiveDrivers[] = 'Accurate & Efficient Transaction Processing';
-        if (str_contains($joinedComments, 'polite') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'respect') || str_contains($joinedComments, 'accommodat')) $positiveDrivers[] = 'Service-Oriented & Respectful Demeanor';
-        if (str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'early') || str_contains($joinedComments, 'time') || str_contains($joinedComments, 'maaga')) $positiveDrivers[] = 'Punctual & Consistent Office Attendance';
-        if (empty($positiveDrivers)) $positiveDrivers = ['Consistent execution of departmental responsibilities', 'Dependable teamwork and ethical office conduct'];
+        if (str_contains($joinedComments, 'helpful') || str_contains($joinedComments, 'tulong') || str_contains($joinedComments, 'assist')) {
+            $positiveDrivers[] = 'Prompt & Courteous Client Assistance';
+        }
+        if (str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'bilis') || str_contains($joinedComments, 'efficient') || str_contains($joinedComments, 'accurate')) {
+            $positiveDrivers[] = 'Accurate & Efficient Transaction Processing';
+        }
+        if (str_contains($joinedComments, 'polite') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'respect') || str_contains($joinedComments, 'accommodat')) {
+            $positiveDrivers[] = 'Service-Oriented & Respectful Demeanor';
+        }
+        if (str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'early') || str_contains($joinedComments, 'time') || str_contains($joinedComments, 'maaga')) {
+            $positiveDrivers[] = 'Punctual & Consistent Office Attendance';
+        }
+        if (empty($positiveDrivers)) {
+            $positiveDrivers = ['Consistent execution of departmental responsibilities', 'Dependable teamwork and ethical office conduct'];
+        }
 
         $constructiveThemes = [];
-        if (str_contains($joinedComments, 'queue') || str_contains($joinedComments, 'pila') || str_contains($joinedComments, 'wait') || str_contains($joinedComments, 'tagal')) $constructiveThemes[] = 'Client Queue Management: Explore process optimization during peak enrollment/submission periods';
-        if (str_contains($joinedComments, 'record') || str_contains($joinedComments, 'update') || str_contains($joinedComments, 'file') || str_contains($joinedComments, 'system')) $constructiveThemes[] = 'Digital Record Keeping: Ongoing familiarization with automated institutional software tools';
-        if (empty($constructiveThemes)) $constructiveThemes = ['Sustain current professional standards and explore advanced skills development'];
+        if (str_contains($joinedComments, 'queue') || str_contains($joinedComments, 'pila') || str_contains($joinedComments, 'wait') || str_contains($joinedComments, 'tagal')) {
+            $constructiveThemes[] = 'Client Queue Management: Explore process optimization during peak enrollment/submission periods';
+        }
+        if (str_contains($joinedComments, 'record') || str_contains($joinedComments, 'update') || str_contains($joinedComments, 'file') || str_contains($joinedComments, 'system')) {
+            $constructiveThemes[] = 'Digital Record Keeping: Ongoing familiarization with automated institutional software tools';
+        }
+        if (empty($constructiveThemes)) {
+            $constructiveThemes = ['Sustain current professional standards and explore advanced skills development'];
+        }
 
         // Department Head Name
         $deptHeadName = $staff->department?->departmentHead?->full_name;
-        if (!$deptHeadName && $staff->department_id) {
+        if (! $deptHeadName && $staff->department_id) {
             $headEmp = Employee::where('role', 'department head')
                 ->where('department_id', $staff->department_id)
                 ->where('status', 'active')
@@ -1042,7 +1089,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         ?Collection $preloadedSentimentAggMap = null
     ) {
         $userId = $teacher->user?->id;
-        if (!$userId) return null;
+        if (! $userId) {
+            return null;
+        }
 
         // 360 Degree Weights Allocation (Default out of 200 Max Points: Student 80/40%, Dean 40/20%, PH 40/20%, Peer 30/15%, Self 10/5%)
         $studentMax = (float) ($semester->upward_student_max_points ?? 80.0);
@@ -1051,7 +1100,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         $peerMax = (float) ($semester->peer_max_points ?? 30.0);
         $selfMax = (float) ($semester->self_max_points ?? 10.0);
         $totalScale = $studentMax + $deanMax + $phMax + $peerMax + $selfMax;
-        if ($totalScale <= 0) $totalScale = 200.0;
+        if ($totalScale <= 0) {
+            $totalScale = 200.0;
+        }
 
         $studentPct = round(($studentMax / $totalScale) * 100);
         $deanPct = round(($deanMax / $totalScale) * 100);
@@ -1112,8 +1163,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Helper to calculate criteria breakdown & subtotal for a specific evaluation type
         $calculateSection = function (array $evalTypes, array $evaluatorRoles = [], float $sectionMaxPoints = 50.0) use ($userSectionRows, $userCritMap, $allCriteria) {
             $matchedRows = array_filter($userSectionRows, function ($r) use ($evalTypes, $evaluatorRoles) {
-                if (!in_array($r->evaluation_type, $evalTypes)) return false;
-                if (!empty($evaluatorRoles) && !in_array($r->evaluator_role, $evaluatorRoles)) return false;
+                if (! in_array($r->evaluation_type, $evalTypes)) {
+                    return false;
+                }
+                if (! empty($evaluatorRoles) && ! in_array($r->evaluator_role, $evaluatorRoles)) {
+                    return false;
+                }
+
                 return true;
             });
 
@@ -1321,20 +1377,44 @@ new #[Layout('components.layouts.app')] class extends Component {
         $joinedComments = strtolower($sentimentRow?->all_comments ?? '');
 
         $positiveDrivers = [];
-        if (str_contains($joinedComments, 'clear') || str_contains($joinedComments, 'linaw') || str_contains($joinedComments, 'explain')) $positiveDrivers[] = 'Clear & Thorough Subject Explanations';
-        if (str_contains($joinedComments, 'approach') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'patient') || str_contains($joinedComments, 'caring')) $positiveDrivers[] = 'Approachable, Patient & Supportive Demeanor';
-        if (str_contains($joinedComments, 'engage') || str_contains($joinedComments, 'active') || str_contains($joinedComments, 'interactive') || str_contains($joinedComments, 'masaya')) $positiveDrivers[] = 'Interactive & Engaging Classroom Activities';
-        if (str_contains($joinedComments, 'master') || str_contains($joinedComments, 'magaling') || str_contains($joinedComments, 'expert') || str_contains($joinedComments, 'galing')) $positiveDrivers[] = 'Command of Subject Matter & Expertise';
-        if (str_contains($joinedComments, 'time') || str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'maaga') || str_contains($joinedComments, 'on time')) $positiveDrivers[] = 'Punctual & Effective Class Time Management';
-        if (empty($positiveDrivers)) $positiveDrivers = ['Consistent instructional delivery', 'Professional teacher-student engagement'];
+        if (str_contains($joinedComments, 'clear') || str_contains($joinedComments, 'linaw') || str_contains($joinedComments, 'explain')) {
+            $positiveDrivers[] = 'Clear & Thorough Subject Explanations';
+        }
+        if (str_contains($joinedComments, 'approach') || str_contains($joinedComments, 'mabait') || str_contains($joinedComments, 'patient') || str_contains($joinedComments, 'caring')) {
+            $positiveDrivers[] = 'Approachable, Patient & Supportive Demeanor';
+        }
+        if (str_contains($joinedComments, 'engage') || str_contains($joinedComments, 'active') || str_contains($joinedComments, 'interactive') || str_contains($joinedComments, 'masaya')) {
+            $positiveDrivers[] = 'Interactive & Engaging Classroom Activities';
+        }
+        if (str_contains($joinedComments, 'master') || str_contains($joinedComments, 'magaling') || str_contains($joinedComments, 'expert') || str_contains($joinedComments, 'galing')) {
+            $positiveDrivers[] = 'Command of Subject Matter & Expertise';
+        }
+        if (str_contains($joinedComments, 'time') || str_contains($joinedComments, 'punctual') || str_contains($joinedComments, 'maaga') || str_contains($joinedComments, 'on time')) {
+            $positiveDrivers[] = 'Punctual & Effective Class Time Management';
+        }
+        if (empty($positiveDrivers)) {
+            $positiveDrivers = ['Consistent instructional delivery', 'Professional teacher-student engagement'];
+        }
 
         $constructiveThemes = [];
-        if (str_contains($joinedComments, 'pace') || str_contains($joinedComments, 'mabilis') || str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'rush')) $constructiveThemes[] = 'Lecture pacing: students request slowing down during complex technical topics';
-        if (str_contains($joinedComments, 'grade') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'tagal') || str_contains($joinedComments, 'feedback')) $constructiveThemes[] = 'Grading turnaround: student requests for earlier return of quizzes and project feedback';
-        if (str_contains($joinedComments, 'rubric') || str_contains($joinedComments, 'criteria') || str_contains($joinedComments, 'unclear') || str_contains($joinedComments, 'instructions')) $constructiveThemes[] = 'Assessment transparency: provide detailed rubrics prior to major submissions';
-        if (str_contains($joinedComments, 'consult') || str_contains($joinedComments, 'reply') || str_contains($joinedComments, 'message') || str_contains($joinedComments, 'chat')) $constructiveThemes[] = 'Consultation reachability: expand availability during official consultation hours';
-        if (str_contains($joinedComments, 'absent') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'pasok')) $constructiveThemes[] = 'Attendance & Punctuality: maintain consistent physical/virtual class attendance';
-        if (empty($constructiveThemes)) $constructiveThemes = ['Maintain continuous pedagogical refinement and student consultation channels.'];
+        if (str_contains($joinedComments, 'pace') || str_contains($joinedComments, 'mabilis') || str_contains($joinedComments, 'fast') || str_contains($joinedComments, 'rush')) {
+            $constructiveThemes[] = 'Lecture pacing: students request slowing down during complex technical topics';
+        }
+        if (str_contains($joinedComments, 'grade') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'tagal') || str_contains($joinedComments, 'feedback')) {
+            $constructiveThemes[] = 'Grading turnaround: student requests for earlier return of quizzes and project feedback';
+        }
+        if (str_contains($joinedComments, 'rubric') || str_contains($joinedComments, 'criteria') || str_contains($joinedComments, 'unclear') || str_contains($joinedComments, 'instructions')) {
+            $constructiveThemes[] = 'Assessment transparency: provide detailed rubrics prior to major submissions';
+        }
+        if (str_contains($joinedComments, 'consult') || str_contains($joinedComments, 'reply') || str_contains($joinedComments, 'message') || str_contains($joinedComments, 'chat')) {
+            $constructiveThemes[] = 'Consultation reachability: expand availability during official consultation hours';
+        }
+        if (str_contains($joinedComments, 'absent') || str_contains($joinedComments, 'late') || str_contains($joinedComments, 'pasok')) {
+            $constructiveThemes[] = 'Attendance & Punctuality: maintain consistent physical/virtual class attendance';
+        }
+        if (empty($constructiveThemes)) {
+            $constructiveThemes = ['Maintain continuous pedagogical refinement and student consultation channels.'];
+        }
 
         // Retrieve Dean & Program Head names for signatories
         $deptId = $teacher->department_id;
@@ -1391,9 +1471,10 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $map = [
             1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V',
-            6 => 'VI', 7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X'
+            6 => 'VI', 7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X',
         ];
-        return $map[$number] ?? (string)$number;
+
+        return $map[$number] ?? (string) $number;
     }
 
     public function getReportDataProperty()
@@ -1403,7 +1484,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function getSummaryReportDataProperty()
     {
-        if ($this->activeTab !== 'summary' || !$this->selectedSemesterId) return null;
+        if ($this->activeTab !== 'summary' || ! $this->selectedSemesterId) {
+            return null;
+        }
 
         $semester = $this->semesters->firstWhere('id', $this->selectedSemesterId)
             ?? Semester::with('academicYear')->findOrFail($this->selectedSemesterId);
@@ -1464,7 +1547,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 ->pluck('avg_rating', 'department_id');
         }
 
-        $deptQuery = Department::where(fn($q) => $q->whereNull('type')->orWhere('type', 'academic'))->orderBy('name');
+        $deptQuery = Department::where(fn ($q) => $q->whereNull('type')->orWhere('type', 'academic'))->orderBy('name');
         if ($user->hasRole('program head')) {
             $deptQuery->where('id', $user->employee->department_id);
         }
@@ -1494,12 +1577,12 @@ new #[Layout('components.layouts.app')] class extends Component {
             $expectedSubmissions = max($facultyCount * 3, $enrolledEst);
             $completionRate = $expectedSubmissions > 0 ? min(100, round(($evalCount / $expectedSubmissions) * 100)) : ($evalCount > 0 ? 100 : 0);
 
-            $performanceLevel = match(true) {
-                $avgScore >= 4.50 => 'Outstanding',
-                $avgScore >= 4.00 => 'Very Satisfactory',
-                $avgScore >= 3.00 => 'Satisfactory',
-                $avgScore > 0.00  => 'Needs Improvement',
-                default           => 'No Evaluations Yet'
+            $performanceLevel = match (true) {
+                $avgScore >= 4.21 => 'Outstanding',
+                $avgScore >= 3.41 => 'Very Satisfactory',
+                $avgScore >= 2.61 => 'Satisfactory',
+                $avgScore > 0.00 => 'Needs Improvement',
+                default => 'No Evaluations Yet'
             };
 
             return (object) [
@@ -1571,13 +1654,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         $facultyAttentionList = [];
         foreach ($facultyAttentionRows as $row) {
             $fAvg = round((float) $row->avg_rating, 2);
-            $fNegPct = $row->total_count > 0 ? round(((int)$row->neg_count / (int)$row->total_count) * 100) : 0;
-            $comments = !empty($row->all_comments) ? [$row->all_comments] : [];
+            $fNegPct = $row->total_count > 0 ? round(((int) $row->neg_count / (int) $row->total_count) * 100) : 0;
+            $comments = ! empty($row->all_comments) ? [$row->all_comments] : [];
             $reason = $this->generateFacultyAttentionReason($fAvg, $fNegPct, $comments);
 
             $facultyAttentionList[] = (object) [
                 'id' => $row->employee_id,
-                'name' => trim($row->first_name . ' ' . $row->last_name),
+                'name' => trim($row->first_name.' '.$row->last_name),
                 'department' => $row->department_name ?? 'N/A',
                 'department_code' => $row->department_code ?? 'N/A',
                 'submissions' => (int) $row->total_count,
@@ -1621,12 +1704,12 @@ new #[Layout('components.layouts.app')] class extends Component {
         if (count($facultyAttentionList) > 0) {
             $recommendations[] = (object) [
                 'type' => 'danger',
-                'title' => count($facultyAttentionList) . ' Faculty Flagged for 1-on-1 Dean Coaching',
+                'title' => count($facultyAttentionList).' Faculty Flagged for 1-on-1 Dean Coaching',
                 'description' => 'Coordinate with designated Program Heads to review student constructive comments and set 30-day pedagogical action plans.',
             ];
         }
 
-        $lowConfidenceDepts = $departments->filter(fn($d) => $d->low_confidence)->count();
+        $lowConfidenceDepts = $departments->filter(fn ($d) => $d->low_confidence)->count();
         if ($lowConfidenceDepts > 0) {
             $recommendations[] = (object) [
                 'type' => 'info',
@@ -1660,14 +1743,23 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     private function generateFacultyAttentionReason(float $avg, int $negPct, array $comments): string
     {
-        if (!empty($comments)) {
+        if (! empty($comments)) {
             $joined = strtolower(implode(' ', $comments));
-            if (str_contains($joined, 'pace') || str_contains($joined, 'mabilis') || str_contains($joined, 'fast') || str_contains($joined, 'rush')) return 'Recurring student feedback regarding lecture pacing and rapid discussion speed.';
-            if (str_contains($joined, 'grade') || str_contains($joined, 'late') || str_contains($joined, 'feedback') || str_contains($joined, 'tagal')) return 'Frequent comments citing delayed return of graded coursework and feedback.';
-            if (str_contains($joined, 'rubric') || str_contains($joined, 'unclear') || str_contains($joined, 'instruction') || str_contains($joined, 'criteria')) return 'Inquiries regarding assignment rubric transparency and project instructions.';
-            if (str_contains($joined, 'consult') || str_contains($joined, 'reply') || str_contains($joined, 'message')) return 'Student requests for improved availability during scheduled consultation hours.';
+            if (str_contains($joined, 'pace') || str_contains($joined, 'mabilis') || str_contains($joined, 'fast') || str_contains($joined, 'rush')) {
+                return 'Recurring student feedback regarding lecture pacing and rapid discussion speed.';
+            }
+            if (str_contains($joined, 'grade') || str_contains($joined, 'late') || str_contains($joined, 'feedback') || str_contains($joined, 'tagal')) {
+                return 'Frequent comments citing delayed return of graded coursework and feedback.';
+            }
+            if (str_contains($joined, 'rubric') || str_contains($joined, 'unclear') || str_contains($joined, 'instruction') || str_contains($joined, 'criteria')) {
+                return 'Inquiries regarding assignment rubric transparency and project instructions.';
+            }
+            if (str_contains($joined, 'consult') || str_contains($joined, 'reply') || str_contains($joined, 'message')) {
+                return 'Student requests for improved availability during scheduled consultation hours.';
+            }
         }
-        return $avg < 3.00 ? 'Overall evaluation score falls significantly below the 3.50 satisfactory standard.' : 'Notable constructive sentiment spike (' . $negPct . '% critical) across student responses.';
+
+        return $avg < 3.00 ? 'Overall evaluation score falls significantly below the 3.50 satisfactory standard.' : 'Notable constructive sentiment spike ('.$negPct.'% critical) across student responses.';
     }
 }; ?>
 

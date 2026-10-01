@@ -131,13 +131,13 @@ new #[Layout('components.layouts.app')] class extends Component
             if ($evalCount === 0) {
                 $performanceLevel = 'No Evaluations';
                 $badgeColor = 'zinc';
-            } elseif ($avgScore >= 4.50) {
+            } elseif ($avgScore >= 4.21) {
                 $performanceLevel = 'Outstanding';
                 $badgeColor = 'success';
-            } elseif ($avgScore >= 3.50) {
+            } elseif ($avgScore >= 3.41) {
                 $performanceLevel = 'Very Satisfactory';
                 $badgeColor = 'info';
-            } elseif ($avgScore >= 2.50) {
+            } elseif ($avgScore >= 2.61) {
                 $performanceLevel = 'Satisfactory';
                 $badgeColor = 'warning';
             } else {
@@ -267,13 +267,13 @@ new #[Layout('components.layouts.app')] class extends Component
             if ($count === 0) {
                 $performanceLevel = 'No Evaluations';
                 $badgeColor = 'zinc';
-            } elseif ($avgScore >= 4.50) {
+            } elseif ($avgScore >= 4.21) {
                 $performanceLevel = 'Outstanding';
                 $badgeColor = 'success';
-            } elseif ($avgScore >= 3.50) {
+            } elseif ($avgScore >= 3.41) {
                 $performanceLevel = 'Very Satisfactory';
                 $badgeColor = 'info';
-            } elseif ($avgScore >= 2.50) {
+            } elseif ($avgScore >= 2.61) {
                 $performanceLevel = 'Satisfactory';
                 $badgeColor = 'warning';
             } else {
@@ -355,11 +355,11 @@ new #[Layout('components.layouts.app')] class extends Component
         $instAverage = $totalEvaluatedFaculty > 0 ? round($evaluatedFaculty->avg('avg_score'), 2) : 0.0;
 
         $instLevel = 'No Evaluations Yet';
-        if ($instAverage >= 4.50) {
+        if ($instAverage >= 4.21) {
             $instLevel = 'Outstanding Overall';
-        } elseif ($instAverage >= 3.50) {
+        } elseif ($instAverage >= 3.41) {
             $instLevel = 'Very Satisfactory Overall';
-        } elseif ($instAverage >= 2.50) {
+        } elseif ($instAverage >= 2.61) {
             $instLevel = 'Satisfactory Overall';
         } elseif ($instAverage > 0) {
             $instLevel = 'Needs Improvement';

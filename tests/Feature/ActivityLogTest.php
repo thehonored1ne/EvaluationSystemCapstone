@@ -137,8 +137,8 @@ test('admin can access system activity page and view audit logs and submissions 
         ->set('searchAudit', 'College of Business')
         ->assertSee('College of Business')
         // Test datetime range filter
-        ->set('auditDateFrom', '2026-09-01T00:00')
-        ->set('auditDateTo', '2026-09-30T23:59')
+        ->set('auditDateFrom', now()->subDay()->format('Y-m-d\TH:i'))
+        ->set('auditDateTo', now()->addDay()->format('Y-m-d\TH:i'))
         ->assertSee('College of Business');
 });
 

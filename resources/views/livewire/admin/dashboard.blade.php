@@ -624,17 +624,17 @@ new #[Layout('components.layouts.app')] class extends Component
                 }
 
                 $ratingLabel = match (true) {
-                    $institutionalAverage >= 4.50 => 'Outstanding',
-                    $institutionalAverage >= 3.50 => 'Very Satisfactory',
-                    $institutionalAverage >= 2.50 => 'Satisfactory',
-                    $institutionalAverage >= 1.50 => 'Fair',
+                    $institutionalAverage >= 4.21 => 'Outstanding',
+                    $institutionalAverage >= 3.41 => 'Very Satisfactory',
+                    $institutionalAverage >= 2.61 => 'Satisfactory',
+                    $institutionalAverage >= 1.81 => 'Fair',
                     $institutionalAverage > 0.00 => 'Poor',
                     default => 'No Ratings'
                 };
 
                 $ratingBadgeClasses = match (true) {
-                    $institutionalAverage >= 3.50 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
-                    $institutionalAverage >= 2.50 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
+                    $institutionalAverage >= 3.41 => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+                    $institutionalAverage >= 2.61 => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800',
                     $institutionalAverage > 0.00 => 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800',
                     default => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
                 };
@@ -1597,7 +1597,7 @@ new #[Layout('components.layouts.app')] class extends Component
                         </span>
                         <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
                     @endif
-                    <span class="text-zinc-500 dark:text-zinc-400 font-medium">Target: 3.50+</span>
+                    <span class="text-zinc-500 dark:text-zinc-400 font-medium">Target: 3.41+</span>
                 </div>
             </div>
             <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-auto pt-3.5 block font-normal leading-relaxed min-h-[36px]">

@@ -15,6 +15,37 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-10-01]
+
+- **Qualitative Rating Tier Alignment with Standard 5-Point Likert Scale**:
+  - Aligned qualitative tier thresholds across all system views ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php), [`evaluation-results.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-results.blade.php), [`rankings.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/rankings.blade.php), [`reports.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/reports.blade.php)) to the standard academic 5-point Likert equal-interval scale (interval width = 0.80):
+    - **Outstanding**: `4.21 – 5.00`
+    - **Very Satisfactory**: `3.41 – 4.20`
+    - **Satisfactory**: `2.61 – 3.40`
+    - **Fair / Needs Improvement**: `1.81 – 2.60`
+    - **Poor**: `1.00 – 1.80` (or `> 0.00`)
+    - **No Ratings**: `0.00` / null
+  - Updated Admin Dashboard overall institutional rating KPI badge colors, label tiers, and target benchmark indicator (`Target: 3.41+`).
+  - Standardized department summaries, faculty leaderboards, and evaluation results modal ratings to identical thresholds.
+
+- **Evaluation Questions Setup Accordion UI Redesign** ([`manage-questions.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-questions.blade.php)):
+  - Converted flat, continuous questions list into interactive, client-side Alpine accordions grouped by criteria part.
+  - Set default state to collapsed across all viewports to eliminate visual overwhelm and excessive scrolling on mobile.
+  - Implemented a responsive 2-row mobile hierarchy: Row 1 displays Part number and full section title alongside the right-aligned chevron toggle, while Row 2 holds secondary metadata badges.
+  - Softened metadata pill backgrounds to subtle zinc chips (`bg-zinc-100/80 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/50`) to maintain a clean, non-competing visual hierarchy.
+  - Added smart auto-expand when filtering with search keywords so matched questions remain instantly visible.
+  - Provided accessible focus rings and an "Expand all / Collapse all" quick toolbar.
+
+- **Global Admin & System Footer Mobile Ergonomics** ([`footer.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/admin/footer.blade.php)):
+  - Restructured mobile footer layout into a clean 2-line lockup, removing dangling separator bullets (`•`) when text wraps on narrow viewports.
+  - Scaled mobile typography down to `text-[11px]` (heading) and `text-[10px]` (secondary status metadata), expanding back to `text-xs` on desktop.
+  - Softened font weight and contrast to keep the auxiliary footer unobtrusive.
+  - Reduced mobile top margin (`mt-8` vs `mt-12`) and vertical padding (`py-3.5` vs `py-5`), minimizing wasted vertical space on mobile devices.
+  - Enforced `whitespace-nowrap` on metadata chips and links to prevent mid-phrase wrapping.
+
+- **Activity Log Test Date Hardening** ([`ActivityLogTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/ActivityLogTest.php)):
+  - Replaced hardcoded September 2026 date bounds in the datetime range filter test assertion with dynamic relative date boundaries (`now()->subDay()` to `now()->addDay()`), preventing calendar boundary failures as the date progresses.
+
 ## [2026-09-20]
 
 - **Admin Dashboard Mobile Header Layout & Action Controls Optimization** ([`dashboard.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/dashboard.blade.php)):
