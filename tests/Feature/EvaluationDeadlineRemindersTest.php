@@ -4,6 +4,7 @@ use App\Models\AcademicClass;
 use App\Models\AcademicYear;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Evaluation;
 use App\Models\Program;
 use App\Models\Semester;
 use App\Models\Student;
@@ -110,6 +111,36 @@ test('user model dynamic notifications surface deadline approaching alert', func
     $firstDeadline = reset($deadlineNotifs);
     expect($firstDeadline->title)->toBe('Evaluation Deadline Approaching')
         ->and($firstDeadline->type)->toBe('warning');
+});
+
+test('user model dynamic notifications suppress deadline alert and surface completion notification when evaluations are completed', function () {
+    // Student completes their single pending evaluation
+    Evaluation::create([
+        'semester_id' => $this->sem->id,
+        'evaluator_id' => $this->studentUser->id,
+        'evaluatee_id' => $this->facultyUser->id,
+        'class_id' => $this->class->id,
+        'evaluation_type' => 'upward_student',
+        'raw_score' => 50,
+        'max_score' => 50,
+        'rating_average' => 5.0,
+        'weighted_score' => 5.0,
+    ]);
+
+    expect($this->studentUser->countPendingEvaluations($this->sem))->toBe(0);
+
+    $notifs = $this->studentUser->getNotifications();
+    $deadlineNotifs = array_filter($notifs, fn ($n) => str_contains($n->id, 'deadline'));
+    $completedNotifs = array_filter($notifs, fn ($n) => str_contains($n->id, 'completed'));
+
+    // Deadline warning must be suppressed
+    expect($deadlineNotifs)->toBeEmpty();
+
+    // Evaluations Completed notification must be present
+    expect($completedNotifs)->not->toBeEmpty();
+    $completed = reset($completedNotifs);
+    expect($completed->title)->toBe('Evaluations Completed')
+        ->and($completed->type)->toBe('success');
 });
 
 test('admin send reminders action in completion tracking triggers broadcast', function () {

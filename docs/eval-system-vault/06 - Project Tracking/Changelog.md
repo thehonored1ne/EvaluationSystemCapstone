@@ -15,6 +15,19 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-10-06]
+
+- **Evaluator Completion State Notification Alignment & Deadline Alert Suppression** ([`User.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php), [`notifications.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/notifications.blade.php)):
+  - **Suppressed Deadline Urgency Warnings for Completed Evaluators:** In `User::getNotifications()`, scoped approaching deadline warnings (`sem_{sem_id}_deadline_{tier}`) so they are only delivered to users who are non-evaluating administrators or evaluators with pending evaluations (`$pendingEvaluations > 0`). Completed evaluators no longer receive confusing urgency warnings ("Urgent: Closing in X hours").
+  - **Surfaced Positive Completion Status:** Introduced `sem_{sem_id}_completed` (`type: 'success'`) notification acknowledging that an evaluator has submitted all required evaluations for the active semester, with emerald checkmark styling and distinct border badges in the navbar notification center and notifications view.
+  - **Test Suite Verification:** Added comprehensive test coverage in [`EvaluationDeadlineRemindersTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/EvaluationDeadlineRemindersTest.php) validating deadline alert suppression and completion notification display.
+
+- **Mobile Viewport Optimization for Authentication & Login Screen** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php), [`simple.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/auth/simple.blade.php)):
+  - **Auth Card & Screen Padding Reduction:** Scaled down viewport padding on mobile (`p-3.5 sm:p-6 md:p-10`) and reduced the liquid glass card padding (`p-4.5 sm:p-8`) and max width (`max-w-sm sm:max-w-md`), ensuring the login form feels natural and proportionate on compact devices without edge collision.
+  - **Compact Logo Scaling:** Reduced the institutional logo height on mobile screens from `h-24` (96px) to `h-16 sm:h-24 md:h-28` (64px on mobile), saving 32px of critical vertical screen space so the form inputs remain prominently above the fold even when virtual keyboards activate.
+  - **Input Padding & iOS Auto-Zoom Mitigation:** Refined input padding to `px-3 py-2 sm:px-3.5 sm:py-2.5` while setting mobile font size to `text-base sm:text-sm` (16px on mobile) to eliminate iOS Safari automatic input zooming.
+  - **Button & Spacing Optimization:** Tightened form container gaps (`gap-3.5 sm:gap-5` and `gap-4 sm:gap-6`), trimmed submit button padding (`py-2.5 sm:py-3`), reduced secondary link vertical spacing (`py-2 sm:py-2.5`), and removed an obsolete empty spacer `div`.
+
 ## [2026-10-01]
 
 - **Qualitative Rating Tier Alignment with Standard 5-Point Likert Scale**:

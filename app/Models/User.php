@@ -166,41 +166,64 @@ class User extends Authenticatable // implements MustVerifyEmail
         // Check if evaluations are open
         $isEvaluationOpen = $sem->isEvaluationWindowActive();
 
+        // Determine evaluator status and completion state
+        $isStudent = $this->hasRole('student') && (bool) $this->student_id;
+        $isEmployeeEvaluator = $this->employee && in_array($this->employee->role, ['faculty', 'program head', 'dean', 'staff', 'department head']);
+        $isEvaluator = $isStudent || $isEmployeeEvaluator;
+
+        $pendingEvaluations = $isEvaluator ? $this->countPendingEvaluations($sem) : 0;
+        $hasCompletedOrExempt = $isEvaluator && (
+            Evaluation::where('semester_id', $sem->id)->where('evaluator_id', $this->id)->exists()
+            || EvaluationExemption::where('semester_id', $sem->id)->where('evaluator_id', $this->id)->exists()
+        );
+        $isFullyCompleted = $isEvaluator && $hasCompletedOrExempt && $pendingEvaluations === 0;
+
         // 1. General announcement about the semester evaluations
         if ($isEvaluationOpen) {
             $deadlineInfo = '';
             if ($sem->evaluation_ends_at) {
                 $deadlineInfo = ' until '.$sem->evaluation_ends_at->format('F d, Y h:i A');
             }
-            $notifications[] = (object) [
-                'id' => 'sem_'.$sem->id.'_open',
-                'type' => 'info',
-                'title' => 'Evaluations are Open',
-                'description' => "The evaluation period for {$ayName} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
-                'created_at' => $notificationTime,
-            ];
 
-            // 1.1 Deadline approaching urgency notification (if within 72 hours)
-            if ($sem->evaluation_ends_at) {
-                $hoursLeft = (int) $now->diffInHours($sem->evaluation_ends_at, false);
-                if ($hoursLeft >= 0 && $hoursLeft <= 72) {
-                    $urgencyTier = match (true) {
-                        $hoursLeft <= 6 => '6h',
-                        $hoursLeft <= 24 => '24h',
-                        default => '3d',
-                    };
-                    $urgencyLabel = match ($urgencyTier) {
-                        '6h' => 'Urgent: Closing in '.max(1, $hoursLeft).' hour(s)',
-                        '24h' => 'Important: Closing in '.max(1, $hoursLeft).' hours',
-                        default => 'Closing Soon in '.ceil($hoursLeft / 24).' days',
-                    };
-                    $notifications[] = (object) [
-                        'id' => 'sem_'.$sem->id.'_deadline_'.$urgencyTier,
-                        'type' => 'warning',
-                        'title' => 'Evaluation Deadline Approaching',
-                        'description' => "Evaluations for {$ayName} - {$sem->name} will close on {$sem->evaluation_ends_at->format('F d, Y h:i A')} ({$urgencyLabel}).",
-                        'created_at' => $notificationTime,
-                    ];
+            if ($isFullyCompleted) {
+                $notifications[] = (object) [
+                    'id' => 'sem_'.$sem->id.'_completed',
+                    'type' => 'success',
+                    'title' => 'Evaluations Completed',
+                    'description' => "You have submitted all required evaluations for {$ayName} - {$sem->name}. Thank you for your feedback!",
+                    'created_at' => $notificationTime,
+                ];
+            } else {
+                $notifications[] = (object) [
+                    'id' => 'sem_'.$sem->id.'_open',
+                    'type' => 'info',
+                    'title' => 'Evaluations are Open',
+                    'description' => "The evaluation period for {$ayName} - {$sem->name} is now open{$deadlineInfo}. Please submit your feedback.",
+                    'created_at' => $notificationTime,
+                ];
+
+                // 1.1 Deadline approaching urgency notification (if within 72 hours and user still has pending evaluations)
+                if ($sem->evaluation_ends_at && (! $isEvaluator || $pendingEvaluations > 0)) {
+                    $hoursLeft = (int) $now->diffInHours($sem->evaluation_ends_at, false);
+                    if ($hoursLeft >= 0 && $hoursLeft <= 72) {
+                        $urgencyTier = match (true) {
+                            $hoursLeft <= 6 => '6h',
+                            $hoursLeft <= 24 => '24h',
+                            default => '3d',
+                        };
+                        $urgencyLabel = match ($urgencyTier) {
+                            '6h' => 'Urgent: Closing in '.max(1, $hoursLeft).' hour(s)',
+                            '24h' => 'Important: Closing in '.max(1, $hoursLeft).' hours',
+                            default => 'Closing Soon in '.ceil($hoursLeft / 24).' days',
+                        };
+                        $notifications[] = (object) [
+                            'id' => 'sem_'.$sem->id.'_deadline_'.$urgencyTier,
+                            'type' => 'warning',
+                            'title' => 'Evaluation Deadline Approaching',
+                            'description' => "Evaluations for {$ayName} - {$sem->name} will close on {$sem->evaluation_ends_at->format('F d, Y h:i A')} ({$urgencyLabel}).",
+                            'created_at' => $notificationTime,
+                        ];
+                    }
                 }
             }
         } else {

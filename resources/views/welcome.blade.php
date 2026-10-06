@@ -9,7 +9,7 @@
     @livewireStyles
     @fluxAppearance
 </head>
-<body x-data class="relative min-h-screen flex flex-col items-center justify-center font-sans antialiased overflow-x-hidden overflow-y-auto px-4 py-8 pb-32 sm:pb-24" style="background-image: url('{{ asset('welcome-bg.webp') }}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+<body x-data class="relative min-h-screen flex flex-col items-center justify-center font-sans antialiased overflow-x-hidden overflow-y-auto px-4 py-8 pb-32 sm:pb-24" style="background-image: url('{{ asset('welcome-bg-12.webp') }}'); background-size: cover; background-position: center; background-repeat: no-repeat;">
     
     <!-- Background overlay to darken bg by 20% -->
     <div class="absolute inset-0 bg-black/20 pointer-events-none"></div>

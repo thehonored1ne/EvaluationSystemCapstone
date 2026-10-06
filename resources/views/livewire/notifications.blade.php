@@ -1,9 +1,10 @@
 <?php
 
-use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     public function mount()
     {
         if (auth()->check()) {
@@ -37,13 +38,15 @@ new #[Layout('components.layouts.app')] class extends Component {
         @else
             @foreach($notifs as $notif)
                 <div class="flex items-start gap-4 p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md
-                    @if($notif->type === 'reminder') border-l-4 border-l-amber-500 @elseif($notif->type === 'info') border-l-4 border-l-indigo-500 @else border-l-4 border-l-rose-500 @endif">
+                    @if($notif->type === 'reminder') border-l-4 border-l-amber-500 @elseif($notif->type === 'info') border-l-4 border-l-indigo-500 @elseif($notif->type === 'success') border-l-4 border-l-emerald-500 @else border-l-4 border-l-rose-500 @endif">
                     
                     <div class="shrink-0 mt-0.5">
                         @if($notif->type === 'reminder')
                             <flux:icon icon="clock" class="size-6 text-amber-500" />
                         @elseif($notif->type === 'info')
                             <flux:icon icon="information-circle" class="size-6 text-indigo-500" />
+                        @elseif($notif->type === 'success')
+                            <flux:icon icon="check-circle" class="size-6 text-emerald-500" />
                         @else
                             <flux:icon icon="exclamation-circle" class="size-6 text-rose-500" />
                         @endif
