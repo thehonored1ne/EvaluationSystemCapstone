@@ -19,7 +19,7 @@ The `users` table links to either employee or student profiles. The Livewire log
 - **Employee Number**: (e.g. `FAC-001`, `STF-001`, `ADMIN-001`)
 - **Admin Aliases**: (e.g. `admin`, `admin@grc.edu.ph`)
 
-The query performs automatic whitespace trimming and case-insensitive matching (`LOWER(TRIM(?))`). Credentials are authenticated using Laravel Auth with `throttle:auth` rate-limiting. Spatie role middleware directs authenticated users to their corresponding dashboard (Admin, Dean, Program Head, Faculty, Department Head, Staff, Student).
+The query performs automatic whitespace trimming and case-insensitive matching (`LOWER(TRIM(?))`). The login handler initializes `$user = null;` to safely chain identifier resolution across email (`filter_var`), student number (`Student::whereRaw`), employee number (`Employee::whereRaw`), and admin aliases (`admin`, etc.). When an identifier is not found, a constant-time `Hash::check` against a standard Bcrypt dummy hash (`config('auth.dummy_hash')`) mitigates user enumeration timing attacks without throwing hash validation errors. Credentials are authenticated using Laravel Auth with `throttle:auth` rate-limiting. Spatie role middleware directs authenticated users to their corresponding dashboard (Admin, Dean, Program Head, Faculty, Department Head, Staff, Student).
 
 # Test Credentials Overview (Password for all: `password`)
 - **System Administrator**: `dion.areglo1234@gmail.com` / `ADMIN-001` / `admin`

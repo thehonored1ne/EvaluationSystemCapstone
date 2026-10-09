@@ -15,6 +15,18 @@ All notable changes to the **Evaluation System** project will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2026-10-09]
+
+- **Multi-Identifier Login Bug Fix & Timing-Attack Bcrypt Hash Normalization** ([`login.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/auth/login.blade.php), [`auth.php`](file:///c:/Users/USER/Herd/evaluationsystem/config/auth.php)):
+  - **Initialized `$user` Prior to Multi-Identifier Chain:** Fixed fatal `ErrorException: Undefined variable $user` when logging in via student ID or employee ID by explicitly initializing `$user = null;` before the lookup chain.
+  - **Normalized Constant-Time Bcrypt Dummy Hash:** Updated `dummy_hash` fallback in `config/auth.php` and `login.blade.php` to a valid 60-character Bcrypt hash (`$2y$10$...`) to prevent `BcryptHasher` format validation exceptions when non-existent accounts attempt authentication.
+  - **Feature Test Verification:** Added automated test coverage in [`AuthenticationTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/Auth/AuthenticationTest.php) verifying successful authentication with student numbers, employee numbers, and graceful validation handling for non-existent identifiers.
+
+- **Evaluation Form "Reset All" Feedback Toast Notification** ([`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)):
+  - **Added `resetAll()` Method with Flux Toast:** Added dedicated `resetAll()` component method invoking `resetForm()` and triggering `Flux::toast(heading: 'Form Cleared', text: 'All responses, comments, and drafts have been reset.', variant: 'info')`.
+  - **Wizard & Draft State Synchronization:** Updated the "Reset All" button click handler to clear local storage drafts, rewind active question index (`currentIndex = 0`), exit review step (`isReviewStep = false`), and call `$wire.resetAll()`.
+  - **Test Coverage:** Added test assertion in [`EvaluatorPortalFixesTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/EvaluatorPortalFixesTest.php) verifying `resetAll` clears ratings and comments.
+
 ## [2026-10-06]
 
 - **Evaluator Completion State Notification Alignment & Deadline Alert Suppression** ([`User.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/User.php), [`notifications.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/notifications.blade.php)):

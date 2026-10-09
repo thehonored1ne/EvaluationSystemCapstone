@@ -81,6 +81,17 @@ new class extends Component
         }
     }
 
+    public function resetAll(): void
+    {
+        $this->resetForm();
+
+        Flux::toast(
+            heading: 'Form Cleared',
+            text: 'All responses, comments, and drafts have been reset.',
+            variant: 'info'
+        );
+    }
+
     public function getCriteriaProperty()
     {
         $types = match ($this->evaluationType) {
@@ -949,7 +960,7 @@ new class extends Component
                         <flux:button 
                             variant="ghost" 
                             type="button" 
-                            @click="clearDraft(); $wire.resetForm()" 
+                            @click="clearDraft(); currentIndex = 0; isReviewStep = false; $wire.resetAll()" 
                             :disabled="$retryAfter > 0"
                             class="cursor-pointer text-xs shrink-0"
                         >

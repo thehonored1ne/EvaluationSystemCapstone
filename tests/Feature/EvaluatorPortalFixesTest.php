@@ -149,3 +149,26 @@ test('completion tracking is accessible only by admin and forbidden for dean and
         ->get('/manage-evaluations')
         ->assertStatus(403);
 });
+
+test('evaluation form resetAll clears ratings and comments', function () {
+    $this->actingAs($this->deanUser);
+
+    $component = Livewire::test('evaluation-form', [
+        'evaluatee' => $this->facUser,
+        'evaluationType' => 'dean',
+    ]);
+
+    $questions = $component->get('questions');
+    $firstQId = $questions[0]['id'];
+
+    $component->set("ratings.{$firstQId}", '5');
+    $component->set('comments', 'Constructive feedback');
+
+    expect($component->get("ratings.{$firstQId}"))->toBe('5');
+    expect($component->get('comments'))->toBe('Constructive feedback');
+
+    $component->call('resetAll');
+
+    expect($component->get("ratings.{$firstQId}"))->toBe('');
+    expect($component->get('comments'))->toBe('');
+});

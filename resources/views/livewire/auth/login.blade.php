@@ -35,6 +35,7 @@ new #[Layout('components.layouts.auth')] class extends Component
             $this->ensureIsNotRateLimited();
 
             $ident = trim($this->identifier);
+            $user = null;
 
             // 1. Try finding by email (case-insensitive)
             if (filter_var($ident, FILTER_VALIDATE_EMAIL)) {
@@ -63,7 +64,7 @@ new #[Layout('components.layouts.auth')] class extends Component
             }
 
             // Mitigate timing attacks / user enumeration via constant-time hash check
-            $dummyHash = config('auth.dummy_hash', '$2y$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012');
+            $dummyHash = config('auth.dummy_hash', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
             $passwordMatches = Hash::check($this->password, $user ? $user->password : $dummyHash);
 
             // 5. Verify password and authenticate

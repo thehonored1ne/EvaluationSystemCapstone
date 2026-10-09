@@ -125,6 +125,6 @@ return [
     |
     */
 
-    'dummy_hash' => env('AUTH_DUMMY_HASH', '$2y$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012'),
+    'dummy_hash' => env('AUTH_DUMMY_HASH', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'),
 
 ];
