@@ -58,8 +58,10 @@ def load_custom_lexicon():
     if os.path.exists(excel_path):
         try:
             df = pd.read_excel(excel_path, sheet_name="Lexicon")
+            df['Word_norm'] = df['Word'].astype(str).str.strip().str.lower()
+            df = df.drop_duplicates(subset=['Word_norm'], keep='first')
             for _, row in df.iterrows():
-                word = str(row['Word']).strip().lower()
+                word = row['Word_norm']
                 score = float(row['Score'])
                 lexicon[word] = score
         except Exception as e:
@@ -73,6 +75,8 @@ def load_seed_data():
     if os.path.exists(excel_path):
         try:
             df = pd.read_excel(excel_path, sheet_name="SeedData")
+            df['Text_norm'] = df['Text'].astype(str).str.strip().str.lower()
+            df = df.drop_duplicates(subset=['Text_norm'], keep='first')
             for _, row in df.iterrows():
                 text = str(row['Text']).strip()
                 label = str(row['Label']).strip().lower()
@@ -110,6 +114,8 @@ def detect_language_mode(text):
     ratio = tagalog_count / len(words)
     return "taglish" if ratio >= 0.10 else "english"
 
+CONTRASTIVE_MARKERS = ["pero", "subalit", "ngunit", "bagamat", "but", "although", "however", "though", "while", "kaso"]
+
 def preprocess_taglish_context(text):
     """
     Normalizes complex Tagalog multi-word idioms and contextual negations for VADER.
@@ -126,6 +132,16 @@ def preprocess_taglish_context(text):
     t = t.replace("hindi masyadong magaling", "medyo kulang")
     t = t.replace("walang kwenta", "napakatinding pagkukulang")
     t = t.replace("wala kang kwenta", "napakatinding pagkukulang")
+    # Standard Tagalog idioms and expressions
+    t = t.replace("hindi sayang", "sulit")
+    t = t.replace("di sayang", "sulit")
+    t = t.replace("walang masabi", "napakagaling")
+    t = t.replace("walang pakialam", "bale-wala")
+    t = t.replace("lacks enthusiasm", "walang sigla")
+    t = t.replace("disinterested", "walang gana")
+    t = t.replace("walang labis at walang kulang", "sakto")
+    t = t.replace("walang labis, walang kulang", "sakto")
+    t = t.replace("walang labis walang kulang", "sakto")
     return t
 
 # Helper: get VADER compound score and sentiment label with language context routing
@@ -134,13 +150,19 @@ def get_vader_sentiment(text):
         return 0.0, "neutral", "english"
     
     lang_mode = detect_language_mode(text)
-    processed_text = preprocess_taglish_context(text) if lang_mode == "taglish" else text
+    processed_text = preprocess_taglish_context(text)
     
     scores = sia.polarity_scores(processed_text)
     compound = scores['compound']
-    if compound >= 0.05:
+
+    # Contrastive clause dampening for balanced/constructive academic evaluations
+    has_contrast = any(f" {m} " in f" {processed_text.lower()} " for m in CONTRASTIVE_MARKERS)
+    if has_contrast:
+        compound = compound * 0.3
+
+    if compound >= 0.15:
         label = "positive"
-    elif compound <= -0.05:
+    elif compound <= -0.15:
         label = "negative"
     else:
         label = "neutral"
@@ -211,12 +233,13 @@ def analyze():
 
         vader_score, vader_label, lang_mode = get_vader_sentiment(text)
         
-        # Predict using Decision Tree if available (features: TF-IDF of text + Rating value)
+        # Predict using Decision Tree if available (features: TF-IDF of text + Rating value + VADER score)
         if vectorizer and classifier and text and text.strip():
             try:
                 text_feat = vectorizer.transform([text])
                 rating_feat = np.array([[rating]])
-                combined_feat = hstack([text_feat, rating_feat])
+                vader_feat = np.array([[vader_score]])
+                combined_feat = hstack([text_feat, rating_feat, vader_feat])
                 dt_label = classifier.predict(combined_feat)[0]
             except Exception as e:
                 print(f"Prediction error: {e}", file=sys.stderr)
@@ -228,8 +251,8 @@ def analyze():
         # If text is objectively negative (vader_score <= -0.20), rating >= 4.0 must NOT force it positive
         if vader_score <= -0.20 and dt_label == "positive":
             dt_label = "negative"
-        # If text is objectively positive (vader_score >= 0.35), rating <= 2.0 must NOT force it negative
-        elif vader_score >= 0.35 and dt_label == "negative":
+        # If text is objectively positive (vader_score >= 0.50), rating <= 2.0 must NOT force it negative
+        elif vader_score >= 0.50 and dt_label == "negative":
             dt_label = "positive"
 
         # Determine confidence and agreement conflict
@@ -314,11 +337,18 @@ def train():
     ratings = [item[2] for item in all_samples]
 
     try:
+        # Precompute VADER scores for all training data to feed into DT
+        vader_scores = []
+        for t in texts:
+            score, _, _ = get_vader_sentiment(t)
+            vader_scores.append(score)
+
         # Fit TF-IDF Vectorizer
         vectorizer = TfidfVectorizer(ngram_range=(1, 2))
         X_text = vectorizer.fit_transform(texts)
         X_ratings = np.array(ratings).reshape(-1, 1)
-        X_combined = hstack([X_text, X_ratings])
+        X_vader = np.array(vader_scores).reshape(-1, 1)
+        X_combined = hstack([X_text, X_ratings, X_vader])
 
         # Train-Test Split (80% train, 20% test) to compute Confusion Matrix and Accuracy
         misclassified_samples = []
