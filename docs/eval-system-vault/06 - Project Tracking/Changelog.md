@@ -13,7 +13,38 @@ last_updated: 2026-08-28
 
 All notable changes to the **Evaluation System** project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+## [2026-10-12]
+
+- **Dynamic Profanity Moderation Architecture & Admin Moderation Library** ([`ProfanityFilterService.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Services/ProfanityFilterService.php), [`Profanity.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Models/Profanity.php), [`manage-profanity.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-profanity.blade.php), [`create_profanities_table.php`](file:///c:/Users/USER/Herd/evaluationsystem/database/migrations/2026_10_12_000001_create_profanities_table.php)):
+  - **Dynamic Moderation Migration:** Moved hardcoded profanity array from `ProfanityFilterService` to dynamic `profanities` database table with pre-seeded baseline of 170+ English and Tagalog vulgar terms, slurs, and multi-word phrases.
+  - **Zero-Latency In-Memory Caching:** Implemented `Profanity::getActiveWords()` using `Cache::rememberForever('profanity_words_active')` ordered by `LENGTH(word) DESC` to prioritize multi-word phrases over single-word substrings. Integrated automatic cache busting via Eloquent model lifecycle hooks (`saved`, `deleted`).
+  - **Fallback Safety Layer:** Refactored `ProfanityFilterService::getActiveCurseWords()` to maintain a baseline fallback list in case of unmigrated or empty database states, ensuring zero regression in existing test suites and offline environments.
+  - **Dedicated Admin Page (`/admin/profanity`):** Built Livewire Volt component featuring:
+    - 4 Stat Metric Cards: Total Words, Active Filters, Tagalog Terms, and English & Custom Words.
+    - Interactive Real-time Sandbox Widget: Allows administrators to test sample student comments with live regex evaluation, match badges, and sanitized preview.
+    - Full search with 300ms debounce, category filtering (`All`, `Tagalog`, `English`, `Custom`), structure type filtering (`All Types`, `Single Words`, `Phrases Only`), status filtering (`Active`, `Inactive`), and sorting modes.
+    - Single Word Creation modal and Bulk Import modal (supporting comma, semicolon, and newline delimited entries with automatic duplicate prevention).
+    - Inline status activation toggle switches, edit modal, and guarded delete confirmation modal (`x-confirmation-modal`).
+  - **Navigation & Routing:** Added route `/admin/profanity` in [`routes/web.php`](file:///c:/Users/USER/Herd/evaluationsystem/routes/web.php) protected by `role:admin` and linked in [`sidebar.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/components/layouts/app/sidebar.blade.php) under "Reports & Tools".
+  - **Test Suite Verification:** Added comprehensive Pest Feature tests in [`AdminProfanityManagementTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminProfanityManagementTest.php) and verified Unit tests in [`ProfanityFilterTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Unit/ProfanityFilterTest.php) (18 tests passed, 58 assertions).
+
+- **Evaluation Form Question Navigator Permanent Number Display** ([`evaluation-form.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/evaluation-form.blade.php)):
+  - **Permanent Question Numbers:** Replaced checkmark icons (`✓`) with permanent question numbers (`1`, `2`, `3`... `N`) on answered question navigator pills per panelist recommendation.
+  - **Color-Coded Status Feedback:** Maintained clear state differentiation: answered questions transition to an emerald green tint (`bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400`), the current question remains highlighted in crimson (`bg-[#9b0000] text-white`), and unanswered questions retain neutral gray styling.
+  - **Review Step Persistence:** Answered questions preserve emerald coloring while reviewing answers on the final review step.
+
+- **AI Sentiment Label Standardization & Full-Word Normalization** ([`manage-ai.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-ai.blade.php), [`BenchmarkAI.php`](file:///c:/Users/USER/Herd/evaluationsystem/app/Console/Commands/BenchmarkAI.php)):
+  - **Full-Word Sentiment Labels:** Replaced abbreviated sentiment acronyms (`POS`, `NEU`, `NEG`) with full words (`Positive`, `Neutral`, `Negative`) per capstone panel recommendation.
+  - **Matrix & Performance Alignment:** Updated Benchmark Per-Class Performance Table, Benchmark Confusion Matrix, and Training Confusion Matrix column headers and row indicators to display "Positive", "Neutral", and "Negative".
+  - **Feedback Table Badge Standardization:** Updated Text Polarity (VADER) and AI Model Prediction badges in the evaluation feedback list to render full labels (`Positive`, `Neutral`, `Negative`) in clean title case.
+  - **CLI Command Output:** Updated `ai:benchmark` CLI confusion matrix table rows and columns to display `Positive (Actual)` / `Positive (Pred)`, `Neutral`, and `Negative`.
+
+- **Classes CSV Export HTTP 500 & Memory Exhaustion Fix** ([`manage-classes.blade.php`](file:///c:/Users/USER/Herd/evaluationsystem/resources/views/livewire/admin/manage-classes.blade.php)):
+  - **Memory Exhaustion Resolution:** Resolved `Allowed memory size of 134217728 bytes exhausted` caused by eagerly loading 51,252 `Student` Eloquent models alongside 1,643 classes in a single `->get()` collection (consuming 210+ MB against PHP's 128 MB limit).
+  - **Chunked Pivot Streaming:** Refactored `exportClasses()` to process classes in chunks of 100 and query enrolled student numbers directly through a lightweight `class_student` pivot join, slashing memory footprint from 210.5 MB down to 3.1 MB (98.5% reduction).
+  - **Livewire Stream Download Protocol:** Swapped `response()->stream()` with `response()->streamDownload()` in both `exportClasses()` and `downloadTemplate()`, guaranteeing proper HTTP file download disposition in Livewire component responses.
+  - **Premature Output Buffer Flush Removal:** Eliminated `ob_flush()` and `flush()` calls from the chunk loop. Livewire 3 encapsulates stream downloads inside an internal output buffer to base64-encode files into JSON response payloads (`effects.download`); premature buffer flushing emitted raw CSV strings into the HTTP stream, causing client-side JSON parsing errors and modal popups.
+  - **Test Verification:** Added automated feature test verifying zero-error class export and template downloads in [`AdminManagementTest.php`](file:///c:/Users/USER/Herd/evaluationsystem/tests/Feature/AdminManagementTest.php).
 
 ## [2026-10-09]
 

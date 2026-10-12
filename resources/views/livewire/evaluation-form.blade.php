@@ -617,18 +617,13 @@ new class extends Component
                     class="size-8 sm:size-8.5 min-w-8 sm:min-w-8.5 rounded-lg text-xs font-mono font-bold transition-all duration-150 flex items-center justify-center cursor-pointer border shrink-0"
                     :class="{
                         'bg-[#9b0000] border-[#9b0000] text-white shadow-sm ring-2 ring-[#9b0000]/20 dark:bg-[#e07a7a] dark:border-[#e07a7a] dark:text-zinc-950 scale-105': !isReviewStep && currentIndex === {{ $idx }},
-                        'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20': (!isReviewStep && currentIndex !== {{ $idx }}) && ratings[{{ $q['id'] }}],
-                        'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500': (!isReviewStep && currentIndex !== {{ $idx }}) && !ratings[{{ $q['id'] }}],
+                        'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20': ratings[{{ $q['id'] }}] && (isReviewStep || currentIndex !== {{ $idx }}),
+                        'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500': !ratings[{{ $q['id'] }}] && (isReviewStep || currentIndex !== {{ $idx }}),
                         'opacity-60': isReviewStep && !ratings[{{ $q['id'] }}]
                     }"
                     title="Question {{ $idx + 1 }}"
                 >
-                    <template x-if="ratings[{{ $q['id'] }}] && currentIndex !== {{ $idx }}">
-                        <flux:icon icon="check" class="size-3.5 stroke-[3]" />
-                    </template>
-                    <template x-if="!ratings[{{ $q['id'] }}] || currentIndex === {{ $idx }}">
-                        <span>{{ $idx + 1 }}</span>
-                    </template>
+                    <span>{{ $idx + 1 }}</span>
                 </button>
             @endforeach
 

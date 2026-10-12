@@ -8,6 +8,35 @@ last_updated: 2026-08-28
 > [!INFO] Navigation
 > **Related Notes:** [[Dashboard]] • [[Suggestions & Backlog]] • [[Changelog]]
 
+- [X] #0000000000000 Evaluation Form Question Navigator Permanent Number Display (Completed: 2026-10-12)
+  - **Permanent Number Display:** Replaced checkmark icons (`✓`) with permanent question numbers (`1`, `2`, `3`... `N`) on answered question navigator pills per panelist recommendation.
+  - **Color-Coded Status Feedback:** Answered questions transition to emerald green (`bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400`), active questions stay crimson (`bg-[#9b0000] text-white`), and unanswered questions remain neutral gray outline.
+  - **Review Step Persistence:** Answered questions retain emerald coloring during the final review step.
+
+- [X] #000000000000 AI Sentiment Label Full-Word Standardization (Completed: 2026-10-12)
+  - **Full-Word Normalization:** Replaced all abbreviated `POS`, `NEU`, `NEG` labels with their full English equivalents `Positive`, `Neutral`, and `Negative` across the admin AI management panel per panelist feedback.
+  - **Matrix & Breakdown Consistency:** Updated Benchmark Per-Class Performance metrics table, Benchmark Confusion Matrix, and Training Confusion Matrix tables to use full-word headers and row labels.
+  - **Badge & Indicator Polish:** Normalized Text Polarity (VADER) and AI Model Prediction badges in `manage-ai.blade.php` to clean title case `Positive`, `Neutral`, and `Negative` badges.
+  - **CLI Command Output:** Updated `ai:benchmark` CLI confusion matrix table rows and columns to display `Positive (Actual)` / `Positive (Pred)`, `Neutral`, and `Negative`.
+
+- [X] #00000000000 Classes CSV Export Memory Optimization & Stream Download Protocol (Completed: 2026-10-12)
+  - **Memory Ceiling Elimination:** Eliminated HTTP 500 error (`Allowed memory size of 134217728 bytes exhausted`) triggered by loading all 1,643 classes and 51,252 `Student` Eloquent models at once (210.5 MB).
+  - **Chunked Pivot Processing:** Re-engineered `exportClasses()` in `manage-classes.blade.php` to paginate in 100-class chunks and fetch enrolled student numbers via direct `class_student` pivot query, reducing peak memory usage to 3.1 MB (98.5% drop).
+  - **Livewire Stream Download Protocol:** Upgraded `exportClasses()` and `downloadTemplate()` to return `response()->streamDownload()` with explicit attachment headers, removing premature `ob_flush()` calls that broke Livewire's internal file download response JSON formatting.
+  - **Test Verification:** Verified via Pest in `AdminManagementTest.php` with 0 Pint lint warnings.
+
+- [X] #0000000000 Dynamic Admin Profanity Filter Management & Interactive Live Moderation Sandbox (Completed: 2026-10-12)
+  - **Dynamic Moderation Architecture:** Migrated hardcoded array in `ProfanityFilterService` to a dynamic database table (`profanities`) with pre-seeded baseline of 170+ English and Tagalog vulgar terms, slurs, and multi-word phrases.
+  - **Zero-Latency In-Memory Caching:** Implemented `Profanity::getActiveWords()` utilizing `Cache::rememberForever('profanity_words_active')` ordered by `LENGTH(word) DESC` to prevent sub-string truncation on compound phrases. Integrated automatic cache busting via Eloquent lifecycle model events (`saved`, `deleted`).
+  - **Dedicated Admin Management Page (`/admin/profanity`):** Built responsive Livewire Volt component (`manage-profanity.blade.php`) styled with Flux UI tokens:
+    - 4 Top Stat KPI Cards (Total Words, Active Filters, Tagalog Terms, English & Custom Words).
+    - Interactive Real-Time Filter Sandbox with instant regex match highlighting, detected term pill badges, and sanitized preview.
+    - Search with 300ms debounce, category filtering (`All`, `Tagalog`, `English`, `Custom`), status filtering (`Active`, `Inactive`), and multiple sorting modes.
+    - Single Word and Bulk Import (comma, semicolon, or newline delimited) modals with automated duplicate checking.
+    - Inline status activation toggle switches, edit modal, and guarded delete confirmation modal (`x-confirmation-modal`).
+  - **Navigation & RBAC:** Registered `/admin/profanity` protected by `role:admin` in `routes/web.php` and added navigation entry with `shield-exclamation` icon in `sidebar.blade.php`.
+  - **Quality Gates:** 100% green tests across Unit and Feature suites (18 passed, 58 assertions in Pest); Pint PSR-12 compliant.
+
 - [X] #000000000 Admin Pages Mobile UI/UX Standardization, Typography Scaling & Spacing Alignment (Completed: 2026-09-20)
   - **Rankings Active Period Card Mobile Ergonomics:** Fixed the active period badge on `rankings.blade.php` to use `inline-flex self-start sm:self-auto` with `whitespace-nowrap` on the "Active Period:" micro-label and bullet separator (`&bull;`), preventing awkward multi-line wrapping and screen stretching on mobile devices.
   - **Evaluation Results Top Margin Removal & Filter Grouping:** Removed excessive root padding (`px-4 sm:px-6 lg:px-8 py-6`) on `evaluation-results.blade.php`, standardizing it to `w-full flex flex-col gap-6 text-left` to eliminate artificial top margin above the header. Grouped the Semester, Role, and Department filters into an Alpine-driven collapsible mobile drawer (`x-show="showMobileFilters"`) with a single top search bar, active filter count badge, and mobile reset action.

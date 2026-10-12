@@ -56,7 +56,10 @@ Allows administrators to configure evaluation instruments, rating criteria, ques
 Facilitates evaluation forms for students, peers, deans, staff, and program heads with automated background processing.
 * **Key Features**:
   * **Single-Question Interactive Wizard UX**: Focused 1-question-per-step wizard (`evaluation-form.blade.php`) featuring a real-time progress header (`X/11 Answered • X%`), interactive question navigator pills grid with completion checkmarks, 300ms smooth auto-advance upon selecting a rating, enlarged high-contrast horizontal rating buttons (`1`–`5`) with theme-tuned hover states, a stylized rating scale legend, and a final **Summary & Review** step with criterion score matrix, skipped question alerts, and live profanity-filtered comments.
-  * **Real-time Profanity Filtering**: Live debounced sanitation removing curse words from comments with constructive toast warnings.
+  * **Real-time Dynamic Profanity Filtering & Moderation Library**:
+    * Dynamic, database-driven dictionary (`profanities` table) with high-performance caching (`Profanity::getActiveWords()`).
+    * Dedicated administrative management interface (`/admin/profanity`) featuring single-word entry, bulk import, status toggling, and an interactive real-time sandbox for instant sanitization testing.
+    * Live debounced sanitation removing curse words from comments with constructive toast warnings and evasive-resistant leetspeak regex patterns.
   * **Asynchronous Background Processing Queue**: Dispatches `ProcessEvaluationSubmission` queue job to calculate numerical scores, calculate idempotency averages, and trigger AI sentiment analysis.
 
 ---

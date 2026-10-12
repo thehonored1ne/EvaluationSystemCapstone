@@ -893,6 +893,12 @@
                                     <flux:navlist.item icon="beaker" :href="route('admin.ai')" :current="request()->routeIs('admin.ai')" aria-label="AI Pipeline" wire:navigate>AI Pipeline</flux:navlist.item>
                                 </flux:tooltip>
                             @endif
+
+                            @if($user->hasRole('admin'))
+                                <flux:tooltip content="Profanity Filter" position="right">
+                                    <flux:navlist.item icon="shield-exclamation" :href="route('admin.profanity')" :current="request()->routeIs('admin.profanity')" aria-label="Profanity Filter" wire:navigate>Profanity Filter</flux:navlist.item>
+                                </flux:tooltip>
+                            @endif
                             
                             <flux:tooltip content="Reports" position="right">
                                 <flux:navlist.item icon="document-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" aria-label="Reports" wire:navigate>Reports</flux:navlist.item>

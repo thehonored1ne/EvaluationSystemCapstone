@@ -82,6 +82,10 @@ Route::middleware(['auth', 'verified', 'throttle:global'])->group(function () {
         ->middleware('role:admin')
         ->name('admin.programs');
 
+    Volt::route('/admin/profanity', 'admin.manage-profanity')
+        ->middleware('role:admin')
+        ->name('admin.profanity');
+
     Volt::route('/admin/ai', 'admin.manage-ai')
         ->middleware('role:admin')
         ->name('admin.ai');

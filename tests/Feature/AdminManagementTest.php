@@ -1129,3 +1129,34 @@ test('admin can open department member roster modal and view employees', functio
         ->assertSee('Asimov, Isaac')
         ->assertSee('ROBO-007');
 });
+
+test('admin can export classes to csv without memory exhaustion or errors', function () {
+    $this->actingAs($this->adminUser);
+
+    $subject = Subject::create(['code' => 'CS101', 'name' => 'Intro to CS']);
+
+    $class = AcademicClass::create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $this->facultyEmp->id,
+        'semester_id' => $this->semester->id,
+        'section' => 'BSIT-1A',
+        'room' => 'Room 101',
+    ]);
+    $class->students()->attach($this->student->id);
+
+    $response = Volt::test('admin.manage-classes')
+        ->call('exportClasses');
+
+    $response->assertHasNoErrors();
+    $response->assertFileDownloaded();
+});
+
+test('admin can download classes template csv', function () {
+    $this->actingAs($this->adminUser);
+
+    $response = Volt::test('admin.manage-classes')
+        ->call('downloadTemplate');
+
+    $response->assertHasNoErrors();
+    $response->assertFileDownloaded('classes_and_roster_template.csv');
+});

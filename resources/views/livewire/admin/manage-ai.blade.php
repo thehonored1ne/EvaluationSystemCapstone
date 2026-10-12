@@ -1063,10 +1063,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                        @foreach(['positive' => 'POS', 'neutral' => 'NEU', 'negative' => 'NEG'] as $key => $lbl)
+                                        @foreach(['positive' => 'Positive', 'neutral' => 'Neutral', 'negative' => 'Negative'] as $key => $lbl)
                                             @php $cm = $benchmarkResults['class_metrics'][$key] ?? ['precision' => 0, 'recall' => 0, 'f1' => 0, 'support' => 0]; @endphp
                                             <tr>
-                                                <td class="py-2 px-2 font-bold uppercase text-zinc-700 dark:text-zinc-300">{{ $lbl }}</td>
+                                                <td class="py-2 px-2 font-bold text-zinc-700 dark:text-zinc-300">{{ $lbl }}</td>
                                                 <td class="py-2 px-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($cm['precision'], 1) }}%</td>
                                                 <td class="py-2 px-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($cm['recall'], 1) }}%</td>
                                                 <td class="py-2 px-2 text-right font-bold {{ $cm['f1'] >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">{{ number_format($cm['f1'], 1) }}%</td>
@@ -1091,15 +1091,15 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <thead>
                                         <tr class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 text-[10px] uppercase">
                                             <th class="p-2 border-b border-r border-zinc-200 dark:border-zinc-700 text-left font-bold">Act \ Pred</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 font-semibold">POS</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-amber-600 dark:text-amber-400 font-semibold">NEU</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-rose-600 dark:text-rose-400 font-semibold">NEG</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 font-semibold">Positive</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-amber-600 dark:text-amber-400 font-semibold">Neutral</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-rose-600 dark:text-rose-400 font-semibold">Negative</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                                        @foreach(['positive' => 'POS', 'neutral' => 'NEU', 'negative' => 'NEG'] as $actKey => $actLabel)
+                                        @foreach(['positive' => 'Positive', 'neutral' => 'Neutral', 'negative' => 'Negative'] as $actKey => $actLabel)
                                             <tr>
-                                                <td class="p-2 font-semibold text-left bg-zinc-50 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 text-[10px] uppercase">{{ $actLabel }}</td>
+                                                <td class="p-2 font-semibold text-left bg-zinc-50 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 text-[10px]">{{ $actLabel }}</td>
                                                 @foreach(['positive', 'neutral', 'negative'] as $predKey)
                                                     @php
                                                         $count = $benchmarkResults['confusion_matrix'][$actKey][$predKey] ?? 0;
@@ -1269,15 +1269,15 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <thead>
                                         <tr class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 text-[10px] uppercase">
                                             <th class="p-2 border-b border-r border-zinc-200 dark:border-zinc-700 text-left font-bold">Act \ Pred</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 font-semibold">POS</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-amber-600 dark:text-amber-400 font-semibold">NEU</th>
-                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-rose-600 dark:text-rose-400 font-semibold">NEG</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 font-semibold">Positive</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-amber-600 dark:text-amber-400 font-semibold">Neutral</th>
+                                            <th class="p-2 border-b border-zinc-200 dark:border-zinc-700 text-rose-600 dark:text-rose-400 font-semibold">Negative</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900">
-                                        @foreach(['positive' => 'POS', 'neutral' => 'NEU', 'negative' => 'NEG'] as $actKey => $actLabel)
+                                        @foreach(['positive' => 'Positive', 'neutral' => 'Neutral', 'negative' => 'Negative'] as $actKey => $actLabel)
                                             <tr>
-                                                <td class="p-2 font-semibold text-left bg-zinc-50 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 text-[10px] uppercase">{{ $actLabel }}</td>
+                                                <td class="p-2 font-semibold text-left bg-zinc-50 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 text-[10px]">{{ $actLabel }}</td>
                                                 @foreach(['positive', 'neutral', 'negative'] as $predKey)
                                                     @php
                                                         $count = $metrics['confusion_matrix'][$actKey][$predKey] ?? 0;
@@ -1430,11 +1430,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <td class="px-3 py-3 text-center whitespace-nowrap">
                                         <div class="inline-flex flex-col items-center gap-0.5">
                                             @if($vaderLabel === 'positive')
-                                                <flux:badge size="sm" color="emerald" inset="top" class="text-[9px] uppercase font-bold">POS</flux:badge>
+                                                <flux:badge size="sm" color="emerald" inset="top" class="text-[9px] font-bold">Positive</flux:badge>
                                             @elseif($vaderLabel === 'negative')
-                                                <flux:badge size="sm" color="rose" inset="top" class="text-[9px] uppercase font-bold">NEG</flux:badge>
+                                                <flux:badge size="sm" color="rose" inset="top" class="text-[9px] font-bold">Negative</flux:badge>
                                             @else
-                                                <flux:badge size="sm" color="zinc" inset="top" class="text-[9px] uppercase font-bold">NEU</flux:badge>
+                                                <flux:badge size="sm" color="zinc" inset="top" class="text-[9px] font-bold">Neutral</flux:badge>
                                             @endif
                                             <span class="font-mono text-[10px] text-zinc-400">
                                                 @if($vaderScore > 0.05)
@@ -1451,11 +1451,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <!-- AI Model Label Indicator -->
                                     <td class="px-3 py-3 text-center whitespace-nowrap">
                                         @if($dtLabel === 'positive')
-                                            <flux:badge size="sm" color="emerald" inset="top" class="text-[9px] uppercase font-bold">POS</flux:badge>
+                                            <flux:badge size="sm" color="emerald" inset="top" class="text-[9px] font-bold">Positive</flux:badge>
                                         @elseif($dtLabel === 'negative')
-                                            <flux:badge size="sm" color="rose" inset="top" class="text-[9px] uppercase font-bold">NEG</flux:badge>
+                                            <flux:badge size="sm" color="rose" inset="top" class="text-[9px] font-bold">Negative</flux:badge>
                                         @else
-                                            <flux:badge size="sm" color="zinc" inset="top" class="text-[9px] uppercase font-bold">NEU</flux:badge>
+                                            <flux:badge size="sm" color="zinc" inset="top" class="text-[9px] font-bold">Neutral</flux:badge>
                                         @endif
                                     </td>
 

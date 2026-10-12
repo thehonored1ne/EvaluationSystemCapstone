@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Profanity;
+
 class ProfanityFilterService
 {
     /**
@@ -21,9 +23,9 @@ class ProfanityFilterService
     ];
 
     /**
-     * Comprehensive list of profane, vulgar, and abusive terms.
+     * Baseline fallback list of profane, vulgar, and abusive terms.
      */
-    protected array $curseWords = [
+    protected array $fallbackCurseWords = [
         // Multi-word phrases first (English & Tagalog)
         'motherfucker', 'motherfucking', 'son of a bitch', 'bloody hell',
         'putang ina mo', 'putangina mo', 'putang ina', 'putangina', 'putanginamo',
@@ -69,11 +71,37 @@ class ProfanityFilterService
     ];
 
     /**
+     * Backward-compatible property reference.
+     */
+    protected array $curseWords = [];
+
+    /**
      * Words that overlap with common, clean words and therefore require strict word boundaries.
      */
     protected array $strictBoundaryWords = [
         'ass', 'hell', 'crap', 'aso', 'arte', 'supot', 'tanga', 'leche', 'cock', 'dam', 'damn', 'scum', 'perv',
     ];
+
+    /**
+     * Retrieve the active profane words list from the database/cache, falling back to baseline defaults.
+     *
+     * @return array<int, string>
+     */
+    public function getActiveCurseWords(): array
+    {
+        try {
+            if (class_exists(Profanity::class)) {
+                $words = Profanity::getActiveWords();
+                if (! empty($words)) {
+                    return $words;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Database not ready or in early migration state
+        }
+
+        return ! empty($this->curseWords) ? $this->curseWords : $this->fallbackCurseWords;
+    }
 
     /**
      * Clean and normalize incoming text by stripping profanity, including leetspeak and spaced evasions.
@@ -85,8 +113,9 @@ class ProfanityFilterService
         }
 
         $cleaned = $text;
+        $words = $this->getActiveCurseWords();
 
-        foreach ($this->curseWords as $word) {
+        foreach ($words as $word) {
             $pattern = $this->buildRegexPattern($word);
             $cleaned = (string) preg_replace($pattern, '', $cleaned);
         }
@@ -110,7 +139,9 @@ class ProfanityFilterService
             return false;
         }
 
-        foreach ($this->curseWords as $word) {
+        $words = $this->getActiveCurseWords();
+
+        foreach ($words as $word) {
             $pattern = $this->buildRegexPattern($word);
             if (preg_match($pattern, $text)) {
                 return true;
@@ -123,12 +154,16 @@ class ProfanityFilterService
     /**
      * Build an evasive-resistant regex pattern for a profane word or phrase.
      */
-    protected function buildRegexPattern(string $phrase): string
+    public function buildRegexPattern(string $phrase): string
     {
-        $words = explode(' ', strtolower($phrase));
+        $words = explode(' ', strtolower(trim($phrase)));
         $patternParts = [];
 
         foreach ($words as $word) {
+            if ($word === '') {
+                continue;
+            }
+
             $charPatterns = [];
             $chars = str_split($word);
 
@@ -141,6 +176,10 @@ class ProfanityFilterService
             // Allow optional spacing, dots, dashes, underscores, asterisks between letters
             $wordPattern = implode('[\s_\.\-\*]*', $charPatterns);
             $patternParts[] = $wordPattern;
+        }
+
+        if (empty($patternParts)) {
+            return '//';
         }
 
         // Join multiple words allowing variable whitespace

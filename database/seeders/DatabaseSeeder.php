@@ -1211,5 +1211,8 @@ class DatabaseSeeder extends Seeder
 
         // Call Historical Sem Seeder (Prior Comparison Sem: 2025-2026 2nd Sem)
         $this->call(Semester20272028Seeder::class);
+
+        // Seed dynamic profanities baseline
+        $this->call(ProfanitySeeder::class);
     }
 }

@@ -239,6 +239,16 @@ Pre-calculated composite scores per employee per semester for instant reporting 
 - `cache` / `cache_locks`: Application cache store (Cache Store: `database`).
 - `password_reset_tokens`: Default security tokens.
 
+### `profanities`
+Dynamic database repository for prohibited, vulgar, and abusive terms.
+- `id` (BIGINT, PK, Auto Increment)
+- `word` (VARCHAR(191), Unique) — *Normalized lowercase phrase or word*
+- `category` (VARCHAR(50), Indexed, Default: 'custom') — *Language tag: `tagalog`, `english`, `custom`*
+- `is_active` (TINYINT/BOOLEAN, Indexed, Default: 1) — *Active moderation state*
+- `created_by` (BIGINT, FK -> `users.id`, Nullable, Set Null)
+- `created_at` / `updated_at` (DATETIME, Nullable)
+- *Caching*: In-memory cache key `profanity_words_active` stores active words ordered by length descending (`LENGTH(word) DESC`) to ensure multi-word phrases match before single-word substrings. Automatically flushed via Eloquent model lifecycle hooks (`saved`, `deleted`).
+
 ---
 
 ## 6. Performance Composite Indexes

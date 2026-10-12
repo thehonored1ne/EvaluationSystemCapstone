@@ -230,11 +230,11 @@ class BenchmarkAI extends Command
         $this->line('----------------------------------------------------------------');
 
         $matrixRows = [
-            ['POS (Actual)', $confusion['positive']['positive'], $confusion['positive']['neutral'], $confusion['positive']['negative']],
-            ['NEU (Actual)', $confusion['neutral']['positive'], $confusion['neutral']['neutral'], $confusion['neutral']['negative']],
-            ['NEG (Actual)', $confusion['negative']['positive'], $confusion['negative']['neutral'], $confusion['negative']['negative']],
+            ['Positive (Actual)', $confusion['positive']['positive'], $confusion['positive']['neutral'], $confusion['positive']['negative']],
+            ['Neutral (Actual)', $confusion['neutral']['positive'], $confusion['neutral']['neutral'], $confusion['neutral']['negative']],
+            ['Negative (Actual)', $confusion['negative']['positive'], $confusion['negative']['neutral'], $confusion['negative']['negative']],
         ];
-        $this->table(['Actual \ Pred', 'POS (Pred)', 'NEU (Pred)', 'NEG (Pred)'], $matrixRows);
+        $this->table(['Actual \ Pred', 'Positive (Pred)', 'Neutral (Pred)', 'Negative (Pred)'], $matrixRows);
 
         // Print Misclassifications
         if (! empty($misclassified)) {

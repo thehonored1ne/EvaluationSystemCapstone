@@ -445,29 +445,26 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function downloadTemplate()
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="classes_and_roster_template.csv"',
-        ];
-
+        $filename = 'classes_and_roster_template.csv';
         $columns = ['subject_code', 'teacher_employee_number', 'section', 'schedule', 'room', 'student_numbers_comma_separated'];
 
-        $callback = function () use ($columns) {
+        return response()->streamDownload(function () use ($columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
             // Sample rows
             fputcsv($file, ['CC101', 'FAC-001', 'BSIT-1A', 'MWF 08:00 AM - 09:30 AM', 'CL-1', '2026-01-0001, 2026-01-0002, 2026-01-0003']);
             fputcsv($file, ['ACT101', 'FAC-002', 'BSA-1A', 'TTH 10:00 AM - 11:30 AM', 'Room 302', '2026-02-0001, 2026-02-0002']);
             fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     public function exportClasses()
     {
         $query = AcademicClass::query()
-            ->with(['subject', 'teacher.department', 'semester.academicYear', 'students'])
+            ->with(['subject', 'teacher.department', 'semester.academicYear'])
             ->withCount('students');
 
         if ($this->filterSemester) {
@@ -508,37 +505,59 @@ new #[Layout('components.layouts.app')] class extends Component
                 ->orderBy('employees.first_name', 'asc');
         }
 
-        $classes = $query->get();
+        $filename = 'classes_export_'.now()->format('Ymd_His').'.csv';
 
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="classes_export_'.now()->format('Ymd_His').'.csv"',
-        ];
-
-        $callback = function () use ($classes) {
+        return response()->streamDownload(function () use ($query) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['Section', 'Subject Code', 'Subject Name', 'Professor ID', 'Professor Name', 'Department', 'Schedule', 'Room', 'Academic Period', 'Enrolled Count', 'Enrolled Student IDs']);
+            fputcsv($file, [
+                'Section',
+                'Subject Code',
+                'Subject Name',
+                'Professor ID',
+                'Professor Name',
+                'Department',
+                'Schedule',
+                'Room',
+                'Academic Period',
+                'Enrolled Count',
+                'Enrolled Student IDs',
+            ]);
 
-            foreach ($classes as $c) {
-                $studentIds = $c->students->pluck('student_number')->filter()->implode(', ');
-                fputcsv($file, [
-                    $c->section,
-                    $c->subject->code ?? '',
-                    $c->subject->name ?? '',
-                    $c->teacher->employee_number ?? '',
-                    $c->teacher->formatted_name ?? $c->teacher->full_name ?? '',
-                    $c->teacher->department->code ?? '',
-                    $c->schedule ?? '',
-                    $c->room ?? '',
-                    ($c->semester->academicYear->name ?? '').' - '.($c->semester->name ?? ''),
-                    $c->students_count,
-                    $studentIds,
-                ]);
-            }
+            $query->chunk(100, function ($classes) use ($file) {
+                $classIds = $classes->pluck('id')->all();
+
+                $enrolledNumbersByClass = DB::table('class_student')
+                    ->join('students', 'students.id', '=', 'class_student.student_id')
+                    ->whereIn('class_student.class_id', $classIds)
+                    ->select('class_student.class_id', 'students.student_number')
+                    ->get()
+                    ->groupBy('class_id')
+                    ->map(fn ($rows) => $rows->pluck('student_number')->filter()->implode(', '));
+
+                foreach ($classes as $c) {
+                    $studentIds = $enrolledNumbersByClass->get($c->id, '');
+
+                    fputcsv($file, [
+                        $c->section,
+                        $c->subject->code ?? '',
+                        $c->subject->name ?? '',
+                        $c->teacher->employee_number ?? '',
+                        $c->teacher->formatted_name ?? $c->teacher->full_name ?? '',
+                        $c->teacher->department->code ?? '',
+                        $c->schedule ?? '',
+                        $c->room ?? '',
+                        ($c->semester->academicYear->name ?? '').' - '.($c->semester->name ?? ''),
+                        $c->students_count,
+                        $studentIds,
+                    ]);
+                }
+            });
+
             fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     public function importClasses()
