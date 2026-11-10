@@ -6,6 +6,7 @@ A role-based academic evaluation platform with an integrated sentiment analysis 
 
 ## Table of Contents
 
+- [Group Members & Roles](#group-members--roles)
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Tech Stack](#tech-stack)
@@ -20,7 +21,9 @@ A role-based academic evaluation platform with an integrated sentiment analysis 
 - [License](#license)
 
 ---
+
 ## Group Members & Roles
+
 - **Hazel Ann Convicto** - Documentation/Project Manager
 - **Dion Areglo** - Lead Developer/Backend Developer
 - **Florenz Deonila** - Frontend/UiUx QA Tester
@@ -62,27 +65,26 @@ The sentiment pipeline processes English, Tagalog, and Taglish text to categoriz
 
 | Layer | Technology |
 | :--- | :--- |
-| **Backend** | Laravel 12 (PHP 8.2+) |
+| **Backend** | Laravel 12 (PHP 8.4+) |
 | **Frontend** | Livewire 3, Livewire Volt, Alpine.js, Tailwind CSS |
-| **Sentiment Service** | Python 3.11+, Flask, Scikit-Learn, NLTK |
-| **Database** | MySQL / SQLite |
+| **Sentiment Service** | Python 3.10+, Flask, Scikit-Learn, NLTK |
+| **Database** | SQLite (default) / MySQL |
+| **Local Server** | Laravel Herd |
 | **Testing** | Pest PHP, PHPStan, Laravel Pint |
 
 ---
 
 ## System Requirements
 
-- **PHP**: 8.2 or higher (with `pdo`, `mbstring`, `openssl`, `curl` extensions enabled)
-- **Composer**: 2.x
-- **Node.js**: 20.x or higher and npm
+- **[Laravel Herd](https://herd.laravel.com/)** (Windows or macOS): provides PHP, Composer 2.x, Node.js 20.x, and the local web server
+- **PHP 8.4 or higher**: select it in Herd (see Installation, step 3)
 - **Python**: 3.10 to 3.13 and pip
-- **Database**: MySQL 8.0+ or SQLite 3
-- **[Laravel Herd](https://herd.laravel.com/)** (Windows or macOS): provides PHP 8.2+, Composer 2.x, Node.js 20.x, and the local web server
+- **Database**: SQLite 3 (default) or MySQL 8.0+
+- **Internet access on first run**: the sentiment service downloads the NLTK VADER lexicon automatically
 
 ---
 
 ## Installation
-
 
 ### 1. Install Laravel Herd
 
@@ -90,17 +92,28 @@ Download and install Herd from https://herd.laravel.com/. Open Herd once after i
 
 ### 2. Clone the Project into Herd's Directory
 
-Clone the repository inside your Herd folder (by default `C:\Users\<you>\Herd` on Windows or `~/Herd` on macOS) so Herd serves it automatically:
+Clone the repository inside your Herd folder (by default `C:\Users\<you>\Herd` on Windows or `~/Herd` on macOS). Name the folder `evaluationsystem` so the local domain matches the one in `.env.example`:
 
 ```bash
 cd ~/Herd
-git clone https://github.com/thehonored1ne/EvaluationSystemCapstone.git
-cd EvaluationSystemCapstone
+git clone https://github.com/thehonored1ne/EvaluationSystemCapstone.git evaluationsystem
+cd evaluationsystem
 ```
 
-> If you cloned it somewhere else, open the project folder in a terminal and run `herd link` instead.
+> If you cloned it somewhere else, open the project folder in a terminal and run `herd link evaluationsystem` instead.
 
-### 3. Backend Setup
+### 3. Set PHP 8.4 and Enable HTTPS
+
+This project requires PHP 8.4 or higher. In the project folder, run:
+
+```bash
+herd isolate 8.4
+herd secure
+```
+
+(You can also do both from the site's settings in the Herd app.)
+
+### 4. Backend Setup
 
 ```bash
 composer install
@@ -108,30 +121,40 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Then set the app URL in `.env` to match Herd's local domain:
+> On Windows Command Prompt, use `copy .env.example .env` instead of `cp`. PowerShell and Git Bash accept `cp`.
 
-```env
-APP_URL=http://evaluationsystemcapstone.test
-```
+`.env.example` is already configured for local use:
 
-### 4. Database Migration and Seeding
+- `APP_URL` is set to `https://evaluationsystem.test`. If your folder has a different name, change it to `https://<your-folder-name>.test`.
+- `AI_API_KEY` is a shared secret between Laravel and the Python sentiment service. No external account is needed. Any non-empty value works, as long as both services read the same `.env` (they do by default).
+- `MAIL_MAILER=log`, so emails are written to `storage/logs/laravel.log` instead of being sent. To send real emails, set the `MAIL_*` values in your own `.env`.
 
-SQLite works out of the box with no extra setup:
+### 5. Database Migration and Seeding
+
+Create the SQLite database file, then migrate and seed:
 
 ```bash
+# macOS / Linux / Git Bash:
+touch database/database.sqlite
+
+# Windows (PowerShell):
+New-Item database/database.sqlite -ItemType File
+
 php artisan migrate --seed
 ```
 
+> Seeding creates thousands of demo records (including 3,200 students), so it may take a few minutes.
+
 > Using MySQL instead? Herd's free version does not include it. Install MySQL separately (for example via DBngin), then update the `DB_*` values in `.env` before migrating.
 
-### 5. Frontend Dependencies
+### 6. Frontend Dependencies
 
 ```bash
 npm install
 npm run build
 ```
 
-### 6. Sentiment Service Setup
+### 7. Sentiment Service Setup
 
 ```bash
 cd python
@@ -144,29 +167,29 @@ python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+cd ..
 ```
 
 ---
 
 ## Running the Application
 
-With Herd running, the Laravel app is already served at **http://evaluationsystemcapstone.test**. You do not need `php artisan serve`.
+With Herd running, the Laravel app is already served at **https://evaluationsystem.test**. You do not need `php artisan serve`.
 
-Start the remaining services:
-
-| Service | Command | Default URL |
-| :--- | :--- | :--- |
-| **Laravel App** | Served by Herd | `http://evaluationsystemcapstone.test` |
-| **Vite Dev Server** | `npm run dev` | `http://127.0.0.1:5173` |
-| **Sentiment API** | `python python/app.py` | `http://127.0.0.1:5001` |
-
-### Manual Service Execution
+Open a separate terminal for each of the following services, from the project root:
 
 | Service | Command | Default URL |
 | :--- | :--- | :--- |
-| **Laravel Server** | `php artisan serve` | `http://127.0.0.1:8000` |
+| **Laravel App** | Served by Herd | `https://evaluationsystem.test` |
+| **Queue Worker** | `php artisan queue:listen --tries=1` | n/a |
 | **Vite Dev Server** | `npm run dev` | `http://127.0.0.1:5173` |
 | **Sentiment API** | `python python/app.py` | `http://127.0.0.1:5001` |
+
+> **The queue worker is required.** Evaluation submissions and sentiment analysis are processed as queued jobs, so submitted evaluations will not be processed while it is not running.
+
+> In a new terminal, activate the Python virtual environment first: `.\python\venv\Scripts\activate` (Windows PowerShell) or `source python/venv/bin/activate` (macOS / Linux).
+
+> Optional: run `php artisan schedule:work` to enable the scheduled jobs (hourly deadline reminders and daily model retraining).
 
 ---
 
@@ -174,21 +197,21 @@ Start the remaining services:
 
 All demo accounts use the default password: `password`
 
-| Role | Email | Description |
+| Role | ID | Description |
 | :--- | :--- | :--- |
-| **System Administrator** | `admin@grc.edu.ph` | Full institutional access, criteria management, user administration |
-| **College Dean** | `dean@grc.edu.ph` | College-wide evaluation summaries, rankings, and reports |
-| **Program Head** | `ph.ccs@grc.edu.ph` | Program faculty evaluations, peer reviews, and analytics |
-| **Department Head** | `dh.it@grc.edu.ph` | Department staff evaluations and administrative reviews |
-| **Faculty Professor** | `jerome.macinas@grc.edu.ph` | Self-evaluation and personal evaluation results |
-| **Student** | `student1@grc.edu.ph` | Evaluation submission for enrolled faculty |
-| **Staff Member** | `staff1@grc.edu.ph` | Staff evaluations and peer reviews |
+| **System Administrator** | `ADMIN-001` | Full institutional access, criteria management, user administration |
+| **College Dean** | `DEAN-001` | College-wide evaluation summaries, rankings, and reports |
+| **Program Head** | `PH-004` | Program faculty evaluations, peer reviews, and analytics |
+| **Department Head** | `DH-2026-002` | Department staff evaluations and administrative reviews |
+| **Faculty Professor** | `FAC-039` | Self-evaluation and personal evaluation results |
+| **Student** | `2026-CCS-0452` | Evaluation submission for enrolled faculty |
+| **Staff Member** | `STF-056` | Staff evaluations and peer reviews |
 
 ---
 
 ## Sentiment Analysis Service
 
-The Python service exposes REST API endpoints for sentiment inference and model training:
+The Python service exposes REST API endpoints for sentiment inference and model training. `/analyze` and `/train` require the `X-API-KEY` header to match `AI_API_KEY` in `.env`.
 
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
@@ -236,6 +259,15 @@ Comprehensive project documentation is maintained in the Obsidian Vault:
 
 ---
 
+## Contacts
+
+If you have any problem with the installation process. Please Contact our Lead Developer Dion Areglo.
+
+- **Facebook** - https://web.facebook.com/dion.areglo.1
+- **Email** - dion.areglo1234@gmail.com
+
+---
+
 ## License
 
-This project is open-source software licensed under the [MIT License](LICENSE).
+This project is open-source software licensed under the MIT License.
