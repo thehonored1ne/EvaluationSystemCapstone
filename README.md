@@ -1,4 +1,4 @@
-# 360 Degree Evaluation System with NLP Integration (Capstone Project)
+# A 360-Degree Evaluation System for Faculty and Staff Using VADER Sentiment Analysis and Decision Tree Classification (Capstone Project)
 
 A role-based academic evaluation platform with an integrated sentiment analysis service to evaluate faculty performance, process 360-degree institutional appraisals, and classify qualitative feedback in English and Tagalog/Taglish.
 
