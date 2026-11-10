@@ -1,4 +1,4 @@
-# Academic Evaluation System
+# 360 Degree Evaluation System with NLP Integration (Capstone Project)
 
 A role-based academic evaluation platform with an integrated sentiment analysis service to evaluate faculty performance, process 360-degree institutional appraisals, and classify qualitative feedback in English and Tagalog/Taglish.
 
@@ -20,10 +20,18 @@ A role-based academic evaluation platform with an integrated sentiment analysis 
 - [License](#license)
 
 ---
+## Group Members & Roles
+- **Hazel Ann Convicto** - Documentation/Project Manager
+- **Dion Areglo** - Lead Developer/Backend Developer
+- **Florenz Deonila** - Frontend/UiUx QA Tester
+- **Christine Capina** - Documentation/QA Tester
+- **Mark Benjie Arabe** - Documentation/Machine Learning Engineer
+
+---
 
 ## Overview
 
-The Academic Evaluation System is a full-stack institutional evaluation platform designed for higher education institutions. Built with Laravel, Livewire, and a Python sentiment analysis service, the system combines quantitative evaluation ratings with natural language sentiment classification on student and peer feedback.
+The 360 Degree Evaluation System is a full-stack institutional evaluation platform designed for higher education institutions. Built with Laravel, Livewire, and a Python sentiment analysis service, the system combines quantitative evaluation ratings with natural language sentiment classification on student, dean, heads, professors, and staff feedback.
 
 The sentiment pipeline processes English, Tagalog, and Taglish text to categorize qualitative comments into positive, neutral, or negative classifications.
 
@@ -69,36 +77,61 @@ The sentiment pipeline processes English, Tagalog, and Taglish text to categoriz
 - **Node.js**: 20.x or higher and npm
 - **Python**: 3.10 to 3.13 and pip
 - **Database**: MySQL 8.0+ or SQLite 3
+- **[Laravel Herd](https://herd.laravel.com/)** (Windows or macOS): provides PHP 8.2+, Composer 2.x, Node.js 20.x, and the local web server
 
 ---
 
 ## Installation
 
-### 1. Backend Setup
+
+### 1. Install Laravel Herd
+
+Download and install Herd from https://herd.laravel.com/. Open Herd once after installing so it finishes setting up PHP and the web server.
+
+### 2. Clone the Project into Herd's Directory
+
+Clone the repository inside your Herd folder (by default `C:\Users\<you>\Herd` on Windows or `~/Herd` on macOS) so Herd serves it automatically:
 
 ```bash
+cd ~/Herd
 git clone https://github.com/thehonored1ne/EvaluationSystemCapstone.git
 cd EvaluationSystemCapstone
+```
 
+> If you cloned it somewhere else, open the project folder in a terminal and run `herd link` instead.
+
+### 3. Backend Setup
+
+```bash
 composer install
 cp .env.example .env
 php artisan key:generate
 ```
 
-### 2. Database Migration and Seeding
+Then set the app URL in `.env` to match Herd's local domain:
+
+```env
+APP_URL=http://evaluationsystemcapstone.test
+```
+
+### 4. Database Migration and Seeding
+
+SQLite works out of the box with no extra setup:
 
 ```bash
 php artisan migrate --seed
 ```
 
-### 3. Frontend Dependencies
+> Using MySQL instead? Herd's free version does not include it. Install MySQL separately (for example via DBngin), then update the `DB_*` values in `.env` before migrating.
+
+### 5. Frontend Dependencies
 
 ```bash
 npm install
 npm run build
 ```
 
-### 4. Sentiment Service Setup
+### 6. Sentiment Service Setup
 
 ```bash
 cd python
@@ -117,13 +150,15 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-### Concurrent Development (Recommended)
+With Herd running, the Laravel app is already served at **http://evaluationsystemcapstone.test**. You do not need `php artisan serve`.
 
-Run all services concurrently using the Composer script:
+Start the remaining services:
 
-```bash
-composer run dev
-```
+| Service | Command | Default URL |
+| :--- | :--- | :--- |
+| **Laravel App** | Served by Herd | `http://evaluationsystemcapstone.test` |
+| **Vite Dev Server** | `npm run dev` | `http://127.0.0.1:5173` |
+| **Sentiment API** | `python python/app.py` | `http://127.0.0.1:5001` |
 
 ### Manual Service Execution
 
