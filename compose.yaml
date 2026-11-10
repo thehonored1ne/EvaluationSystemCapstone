@@ -1,0 +1,89 @@
+# Local Linux runtime for the Evaluation System.
+#
+#   docker compose up -d --build      # first run: build image, migrate, seed
+#   docker compose up -d             # later: just start
+#   docker compose down              # stop (data is kept in named volumes)
+#   docker compose down -v           # stop and wipe the database
+#
+# The project README targets Laravel Herd on Windows/macOS. This file is an
+# alternative for Linux workstations and is not part of the supported
+# setup path documented there. It is also unrelated to the Render deployment,
+# which builds the Dockerfile directly.
+#
+# The single `app` image already runs Nginx, PHP-FPM, the Python AI service
+# (127.0.0.1:5001), the queue worker and the scheduler under Supervisor.
+# So this is intentionally a one-service stack: SQLite, no MySQL, no Redis.
+
+name: evaluationsystem
+
+services:
+  app:
+    build:
+      context: .
+    image: evaluationsystem:local
+    container_name: evaluationsystem
+
+    # Host port 8000 -> container port 80. Host :80 is already taken on this
+    # machine by rootlessport (Lerd), so we do not map it.
+    ports:
+      - "8000:80"
+
+    # Self-contained on purpose: a fresh clone has no .env (it is gitignored),
+    # so every value the app needs is declared here. That makes
+    # `git clone && docker compose up -d --build` work with no manual steps.
+    environment:
+      APP_NAME: "Evaluation System"
+      APP_ENV: local
+      APP_DEBUG: "true"
+
+      # Local development only. Production (Render) must set its own APP_KEY.
+      APP_KEY: "base64:OA/NYRlh6+Ve5qnaOzG9HkVsW7AijQKMqModu6TvnSI="
+      APP_URL: http://localhost:8000
+
+      PORT: "80"
+      # The queue worker and scheduler run as root while PHP-FPM runs as
+      # www-data. Writing to storage/logs/laravel.log from both causes
+      # permission errors, so logs go to stderr (visible in docker logs).
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+
+      DB_CONNECTION: sqlite
+      DB_DATABASE: database/database.sqlite
+      SESSION_DRIVER: database
+      SESSION_LIFETIME: "120"
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      BROADCAST_CONNECTION: log
+      MAIL_MAILER: log
+
+      AI_API_URL: http://127.0.0.1:5001
+      AI_API_KEY: local-dev-ai-key
+
+      AUTO_MIGRATE: "true"
+      AUTO_SEED: initial
+      DEBUGBAR_ENABLED: "false"
+
+    volumes:
+      # SQLite file + marker live in a named volume so they survive rebuilds.
+      - app-database:/var/www/html/database
+      # Migrations/seeders stay sourced from the host, otherwise the named
+      # volume would freeze them at image-build time and new migrations would
+      # never run.
+      - ./database/migrations:/var/www/html/database/migrations:ro
+      - ./database/seeders:/var/www/html/database/seeders:ro
+      # Uploads, compiled views and cache.
+      - app-storage:/var/www/html/storage
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # Generous: the first start also runs migrations and the full seed.
+      start_period: 300s
+
+volumes:
+  app-database:
+  app-storage:

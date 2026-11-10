@@ -13,3 +13,19 @@ storage/framework/views/*
 python/venv
 __pycache__
 *.pyc
+
+# Never bake local data or generated assets into the image.
+# database/database.sqlite can contain real student records.
+database/*.sqlite*
+storage/debugbar
+storage/pail
+public/build
+public/hot
+
+# Local-only artifacts
+compose.yaml
+.lerd.yaml
+.php-version
+.node-version
+pest_check.log
+debug.html
