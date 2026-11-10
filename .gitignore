@@ -23,3 +23,10 @@ yarn-error.log
 /.vscode
 /.zed
 /.gemini
+.env.before_lerd
+python/__pycache__/
+*.pyc
+python/venv/
+.lerd.yaml
+.php-version
+.node-version

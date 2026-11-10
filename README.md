@@ -203,7 +203,7 @@ All demo accounts use the default password: `password`
 | **System Administrator** | `ADMIN-001` | Full institutional access, criteria management, user administration |
 | **College Dean** | `DEAN-001` | College-wide evaluation summaries, rankings, and reports |
 | **Program Head** | `PH-004` | Program faculty evaluations, peer reviews, and analytics |
-| **Department Head** | `DH-2026-002` | Department staff evaluations and administrative reviews |
+| **Department Head** | `DH-001` | Department staff evaluations and administrative reviews |
 | **Faculty Professor** | `FAC-039` | Self-evaluation and personal evaluation results |
 | **Student** | `2026-CCS-0452` | Evaluation submission for enrolled faculty |
 | **Staff Member** | `STF-056` | Staff evaluations and peer reviews |
@@ -236,16 +236,16 @@ The Python service exposes REST API endpoints for sentiment inference and model 
 
 ```bash
 # Run test suite
-./vendor/bin/pest
+php artisan test
 
 # Run static analysis
-./vendor/bin/phpstan analyse
+php vendor/bin/phpstan analyse
 
 # Check code styling
-./vendor/bin/pint --test
+php vendor/bin/pint --test
 
 # Fix code styling
-./vendor/bin/pint
+php vendor/bin/pint
 ```
 
 ---

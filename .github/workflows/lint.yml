@@ -2,21 +2,22 @@ name: linter
 
 on:
   push:
-    branches:
-      - develop
-      - main
+    branches: [main, dev]
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: [main, dev]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     runs-on: ubuntu-latest
-    environment: Testing
+    timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,21 +25,10 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-
-      - name: Add Flux Credentials Loaded From ENV
-        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+          tools: composer:v2
 
       - name: Install Dependencies
-        run: |
-          composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-          npm install
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
-      - name: Run Pint
-        run: vendor/bin/pint
-
-      # - name: Commit Changes
-      #   uses: stefanzweifel/git-auto-commit-action@v5
-      #   with:
-      #     commit_message: fix code style
-      #     commit_options: '--no-verify'
-      #     file_pattern: '!.github/workflows/* **/*'
+      - name: Check Code Style
+        run: vendor/bin/pint --test

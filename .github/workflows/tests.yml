@@ -2,29 +2,31 @@ name: tests
 
 on:
   push:
-    branches:
-      - develop
-      - main
+    branches: [main, dev]
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    environment: Testing
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.4
+          php-version: '8.4'
           tools: composer:v2
-          coverage: xdebug
+          coverage: none
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,20 +34,17 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Node Dependencies
-        run: npm i
-
-      - name: Create SQLite Database
-        run: touch database/database.sqlite
-
-      - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
       - name: Copy Environment File
         run: cp .env.example .env
 
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: Generate Application Key
         run: php artisan key:generate
+
+      - name: Install Node Dependencies
+        run: npm ci
 
       - name: Build Assets
         run: npm run build
