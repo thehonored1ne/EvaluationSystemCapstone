@@ -18,17 +18,18 @@ A role-based academic evaluation platform with an integrated sentiment analysis 
 - [Artisan Commands](#artisan-commands)
 - [Testing and Code Quality](#testing-and-code-quality)
 - [Documentation](#documentation)
+- [Contacts](#contacts)
 - [License](#license)
 
 ---
 
 ## Group Members & Roles
 
-- **Hazel Ann Convicto** - Documentation/Project Manager
-- **Dion Areglo** - Lead Developer/Backend Developer
-- **Florenz Deonila** - Frontend/UiUx QA Tester
-- **Christine Capina** - Documentation/QA Tester
-- **Mark Benjie Arabe** - Documentation/Machine Learning Engineer
+- **Hazel Ann S. Convicto** - Documentation/Project Manager
+- **Dion L. Areglo** - Lead Developer/Backend Developer
+- **Florenz L. Deonila** - Frontend/UiUx QA Tester
+- **Christine D. Capina** - Documentation/QA Tester
+- **Mark Benjie M. Arabe** - Documentation/Machine Learning Engineer
 
 ---
 
